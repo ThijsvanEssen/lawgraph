@@ -19,7 +19,9 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 
 Text offsets of references, of the structure of the article (``ArticleXml.parts``: aanhef,
 leden, onderdelen), of its tables (``ArticleXml.tables``) and of its headings
-(``ArticleXml.headings``) refer to ``ArticleXml.text`` (same string).
+(``ArticleXml.headings``) and the markers of its footnotes (``ArticleXml.footnote_marks``)
+refer to ``ArticleXml.text`` (same string). A footnote the XML writes where its marker
+stands (``<noot>``) is no text of the article but one of ``ArticleXml.footnotes``.
 """
 
 from __future__ import annotations
@@ -33,11 +35,13 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, SOURCE_BWB
 from lawgraph.core.annex_xml import (
+    NOTE,
     annex_node_key,
     extract_description,
     extract_entries,
     extract_kop,
     extract_name,
+    words_without_notes,
 )
 from lawgraph.core.eu_citations import implemented_acts
 from lawgraph.core.identifiers import (
@@ -191,10 +195,13 @@ class Reference:
     # The ``bwb-ng-variabel-deel`` of a link to an annex (``/Bijlage_1``), whose ``doc`` is
     # empty
     part: str | None = None
+    # The footnote it stands in (its place in ``footnotes``): ``start`` and ``end`` are then
+    # offsets into the text of that footnote; None for a reference of the text itself
+    footnote: int | None = None
 
     def to_dict(self, annex: str | None = None) -> dict[str, Any]:
         """JSON-able form stored in ``props.references``; *annex* the key of the annex it
-        names. ``celex`` and ``annex`` only when it has one."""
+        names. ``celex``, ``annex`` and ``footnote`` only when it has one."""
         extra = {"celex": self.celex, "annex": annex}
         return {
             "kind": self.kind,
@@ -206,6 +213,7 @@ class Reference:
             "end": self.end,
             **self.qualifier.to_dict(),
             **{name: value for name, value in extra.items() if value},
+            **({"footnote": self.footnote} if self.footnote is not None else {}),
         }
 
 
@@ -280,6 +288,40 @@ class Heading:
     def to_dict(self) -> dict[str, int]:
         """JSON-able form stored in ``props.headings``."""
         return {"start": self.start, "end": self.end}
+
+
+@dataclass(frozen=True)
+class FootnoteMark:
+    """Where the marker of a footnote stood in the text of an article (``<sup>1</sup>``
+    after "Richtlijn (EU) 2019/944"): ``text[:at]`` the words before it. The marker is no
+    character of the text. The footnote itself is a paragraph of the text that opens with
+    its number ("1 Richtlijn (EU) 2019/944 van het Europees Parlement …"), or, for a
+    ``<noot>``, the one of ``footnotes`` at ``footnote``."""
+
+    at: int
+    number: str  # "1"; a marker printed ``1)`` is footnote 1
+    footnote: int | None = None  # of a ``<noot>``: its place in ``footnotes``
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-able form stored in ``props.footnote_marks``."""
+        if self.footnote is None:
+            return {"at": self.at, "number": self.number}
+        return {"at": self.at, "number": self.number, "footnote": self.footnote}
+
+
+@dataclass(frozen=True)
+class Footnote:
+    """A footnote the XML writes where its marker stands (``<noot>``): its number as its
+    ``<noot.nr>`` prints it, without brackets (``1)`` is 1; empty without one), and its text
+    (its ``<noot.al>``, a paragraph a line), with the links in it as offsets into ``text``."""
+
+    number: str
+    text: str
+    references: tuple[Reference, ...] = ()
+
+    def to_dict(self) -> dict[str, str]:
+        """JSON-able form stored in ``props.footnotes``."""
+        return {"number": self.number, "text": self.text}
 
 
 @dataclass(frozen=True)
@@ -362,6 +404,9 @@ class ArticleXml:
     heading: str | None = None
     tables: tuple[TextTable, ...] = ()
     headings: tuple[Heading, ...] = ()
+    footnote_marks: tuple[FootnoteMark, ...] = ()
+    # its ``<noot>`` footnotes in document order, those of its heading first
+    footnotes: tuple[Footnote, ...] = ()
 
     @property
     def is_repealed(self) -> bool:
@@ -387,6 +432,8 @@ class AnnexXml:
     parts: tuple[ArticlePart, ...] = ()
     tables: tuple[TextTable, ...] = ()
     headings: tuple[Heading, ...] = ()
+    footnote_marks: tuple[FootnoteMark, ...] = ()
+    footnotes: tuple[Footnote, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -576,6 +623,12 @@ class TextBuilder:
         self.structure: list[ArticlePart] = []
         self.tables: list[TextTable] = []
         self.headings: list[Heading] = []
+        # the numbers of the footnotes of the article (``_footnote_numbers``): a ``<sup>``
+        # of one of them in a paragraph is its marker, a mark, not text
+        self.footnotes: frozenset[str] = frozenset()
+        self.marks: list[FootnoteMark] = []
+        # its ``<noot>`` footnotes, in document order
+        self.notes: list[Footnote] = []
         self._open: list[_OpenPart] = []
         self._siblings: dict[tuple[str, str], list[str]] = {}
 
@@ -586,7 +639,7 @@ class TextBuilder:
     def inline(self, element: ET.Element, *, one_line: bool = False) -> None:
         """Append the (stripped) inline text of *element*, tracking its references;
         *one_line*: its line breaks and tabs as spaces (the text of a table cell)."""
-        raw = _flatten(element)
+        raw = _flatten(element, self.footnotes)
         text = raw.text.strip()
         if one_line:
             text = text.translate(_ONE_LINE)  # one character for one: the offsets hold
@@ -597,6 +650,18 @@ class TextBuilder:
             if start < 0 or end > len(text):
                 continue  # reference fell into stripped whitespace
             self.refs.append(replace(ref, start=base + start, end=base + end))
+        # a marker in the whitespace around the text stands at its edge ("Dalfsen <noot>")
+        self.marks.extend(
+            replace(
+                mark,
+                at=base + min(max(mark.at - lead, 0), len(text)),
+                footnote=None
+                if mark.footnote is None
+                else len(self.notes) + mark.footnote,
+            )
+            for mark in raw.marks
+        )
+        self.notes.extend(raw.notes)
         self.add(text)
 
     def value(self) -> str:
@@ -652,6 +717,65 @@ _ONE_LINE = str.maketrans("\n\t\r", "   ")
 class _Flat:
     text: str
     refs: list[Reference]
+    marks: list[FootnoteMark] = field(default_factory=list)
+    notes: list[Footnote] = field(default_factory=list)
+
+
+def _footnote_number(marker: ET.Element | None) -> str:
+    """The number of a footnote as its ``<sup>`` or ``<noot.nr>`` prints it, without
+    brackets: ``1)`` and ``1.`` are 1."""
+    return text_of(marker).strip("(). ")
+
+
+def _note_lines(noot: ET.Element) -> Iterator[list[ET.Element]]:
+    """The lines of a ``<noot>``: each ``<noot.al>``, and each item of a list in it
+    (``<noot.li>``) its marker and its paragraphs."""
+    for child in noot:
+        name = local_name(child.tag)
+        if name == "noot.al":
+            yield [child]
+        elif name == "noot.lijst":
+            for li in iter_named(child, "noot.li"):
+                marker = child_named(li, "li.nr")
+                yield [
+                    *([marker] if marker is not None else []),
+                    *children_named(li, "noot.al"),
+                ]
+
+
+def _note(noot: ET.Element) -> Footnote:
+    """The footnote of a ``<noot>``: its number and its lines, the pieces of a line
+    separated by a space."""
+    builder = TextBuilder()
+    for line in _note_lines(noot):
+        if builder.length:
+            builder.add("\n")
+        for index, piece in enumerate(line):
+            if index:
+                builder.add(" ")
+            builder.inline(piece)
+    return Footnote(
+        _footnote_number(child_named(noot, "noot.nr")),
+        builder.value(),
+        tuple(builder.refs),
+    )
+
+
+def _opens_with(paragraph: ET.Element) -> ET.Element | None:
+    """The element *paragraph* opens with, when no text stands before it."""
+    first = next(iter(paragraph), None)
+    return None if (paragraph.text or "").strip() else first
+
+
+def _footnote_numbers(element: ET.Element) -> frozenset[str]:
+    """The numbers of the footnotes under *element*: each a paragraph that opens with its
+    number in a ``<sup>`` ("<al><sup>1</sup> Richtlijn (EU) 2019/944 …</al>")."""
+    return frozenset(
+        _footnote_number(first)
+        for paragraph in iter_named(element, "al")
+        if (first := _opens_with(paragraph)) is not None
+        and local_name(first.tag) == "sup"
+    )
 
 
 # The ``bwb-ng-variabel-deel`` of an annex: ``/Bijlage``, ``/Bijlage_2``, ``/BijlageA``
@@ -677,25 +801,38 @@ def _unlaid(text: str) -> str:
     return _LAYOUT.sub(" ", text)
 
 
-def _flatten(element: ET.Element) -> _Flat:
+def _flatten(element: ET.Element, footnotes: frozenset[str] = frozenset()) -> _Flat:
     """Concatenate all text of *element*, a line break of its layout a space; note reference
-    offsets (unstripped)."""
+    offsets (unstripped). A ``<sup>`` of one of *footnotes* is the marker of that footnote,
+    noted as a mark and no text, unless a paragraph opens with it (the footnote itself). A
+    ``<noot>`` is a mark and a footnote of its own (``_note``), no text."""
     out: list[str] = []
     refs: list[Reference] = []
+    marks: list[FootnoteMark] = []
+    notes: list[Footnote] = []
     length = 0
 
-    def walk(node: ET.Element) -> None:
+    def walk(node: ET.Element, opens: bool = False) -> None:
         nonlocal length
         name = local_name(node.tag)
         if name == "meta-data":
+            return
+        if name == "sup" and not opens and _footnote_number(node) in footnotes:
+            marks.append(FootnoteMark(length, _footnote_number(node)))
+            return
+        if name == NOTE:
+            note = _note(node)
+            marks.append(FootnoteMark(length, note.number, footnote=len(notes)))
+            notes.append(note)
             return
         start = length
         if node.text:
             text = _unlaid(node.text)
             out.append(text)
             length += len(text)
+        first = _opens_with(node) if name == "al" else None
         for child in node:
-            walk(child)
+            walk(child, child is first)
             if child.tail:
                 tail = _unlaid(child.tail)
                 out.append(tail)
@@ -723,7 +860,7 @@ def _flatten(element: ET.Element) -> _Flat:
             )
 
     walk(element)
-    return _Flat("".join(out), refs)
+    return _Flat("".join(out), refs, marks, notes)
 
 
 def _article_number(article: ET.Element) -> str | None:
@@ -749,10 +886,10 @@ def article_number(article: ET.Element) -> str | None:
 
 
 def _article_title(article: ET.Element) -> str | None:
-    """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed."""
+    """The ``<titel>`` of the ``<kop>`` of an article ("Definities"), whitespace collapsed,
+    without its footnote (a ``<noot>``, one of the article's ``footnotes``)."""
     kop = child_named(article, "kop")
-    title = collapse_ws(text_of(child_named(kop, "titel")))
-    return title or None
+    return words_without_notes(child_named(kop, "titel")) or None
 
 
 def _article_heading(article: ET.Element) -> str | None:
@@ -1011,10 +1148,19 @@ def _holds_article(element: ET.Element) -> bool:
 
 def _add_division_heading(builder: TextBuilder, division: ET.Element) -> None:
     """Add the heading of a division on a line of its own: the label, number and title of
-    its ``<kop>`` ("1.1 Structuurelement A")."""
+    its ``<kop>`` ("1.1 Structuurelement A"); a footnote of its title (``<noot>``) a mark at
+    the end of the heading."""
     kop = child_named(division, "kop")
+    title = child_named(kop, "titel")
     heading = " ".join(
-        filter(None, (words_of(child_named(kop, n)) for n in ("label", "nr", "titel")))
+        filter(
+            None,
+            (
+                words_of(child_named(kop, "label")),
+                words_of(child_named(kop, "nr")),
+                words_without_notes(title),
+            ),
+        )
     )
     if not heading:
         return
@@ -1022,6 +1168,11 @@ def _add_division_heading(builder: TextBuilder, division: ET.Element) -> None:
         builder.add("\n")
     builder.headings.append(Heading(builder.length, builder.length + len(heading)))
     builder.add(heading)
+    for note in _flatten(title).notes if title is not None else ():
+        builder.marks.append(
+            FootnoteMark(builder.length, note.number, footnote=len(builder.notes))
+        )
+        builder.notes.append(note)
 
 
 def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> None:
@@ -1086,16 +1237,30 @@ class _Paragraph:
 
 def _article_text(
     article: ET.Element,
-) -> tuple[str, list[Reference], list[ArticlePart], list[TextTable], list[Heading]]:
+) -> tuple[
+    str,
+    list[Reference],
+    list[ArticlePart],
+    list[TextTable],
+    list[Heading],
+    list[FootnoteMark],
+    list[Footnote],
+]:
     """Article text in document order: leden as ``1. text``, other paragraphs and
     list items on their own lines. A paragraph next to the leden (for example
     "Dit artikel is nog niet in werking getreden") is part of the article.
 
     Also the offsets of the leden, onderdelen and aanhef in that text, and of the references,
-    the tables and the headings.
+    the tables, the headings and the markers of its footnotes (``_footnote_numbers``), and
+    its ``<noot>`` footnotes, those of the title of its ``<kop>`` (which have no marker in
+    the text) first.
     An article without leden but with a list has the paragraphs before it as its aanhef; a
     paragraph that is only a term ("adviseren:") holds the list after it."""
     builder = TextBuilder()
+    builder.footnotes = _footnote_numbers(article)
+    title = child_named(child_named(article, "kop"), "titel")
+    if title is not None:
+        builder.notes.extend(_flatten(title).notes)
     children = [c for c in article if local_name(c.tag) not in ("kop", "meta-data")]
     first_list = next(
         (i for i, c in enumerate(children) if local_name(c.tag) == "lijst"), None
@@ -1149,12 +1314,16 @@ def _article_text(
         for ref in builder.refs
         if ref.start >= lead and ref.end - lead <= len(text)
     ]
+    marks = [
+        replace(mark, at=min(max(mark.at - lead, 0), len(text)))
+        for mark in builder.marks
+    ]
     shifted = (_shift_part(part, raw, lead, len(text)) for part in builder.structure)
     parts = sorted(
         (part for part in shifted if part is not None),
         key=lambda part: (part.start, -part.end),
     )
-    return text, refs, parts, tables, headings
+    return text, refs, parts, tables, headings, marks, builder.notes
 
 
 def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
@@ -1166,7 +1335,7 @@ def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
         if label in seen:
             continue
         seen.add(label)
-        text, refs, parts, tables, headings = _article_text(element)
+        text, refs, parts, tables, headings, marks, notes = _article_text(element)
         annexes.append(
             AnnexXml(
                 label=label,
@@ -1180,6 +1349,8 @@ def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
                 parts=tuple(parts),
                 tables=tuple(tables),
                 headings=tuple(headings),
+                footnote_marks=tuple(marks),
+                footnotes=tuple(notes),
             )
         )
     return tuple(annexes)
@@ -1221,7 +1392,7 @@ def _crumb(division: ET.Element, name: str) -> Crumb:
                 (text_of(child_named(kop, "label")), text_of(child_named(kop, "nr"))),
             )
         )
-    title = collapse_ws(text_of(child_named(kop, "titel")))
+    title = words_without_notes(child_named(kop, "titel"))
     return Crumb(type=name, label=label or None, title=title or None)
 
 
@@ -1286,7 +1457,7 @@ def article_heads(
 def _parse_article(
     article: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
 ) -> ArticleXml:
-    text, refs, parts, tables, headings = _article_text(article)
+    text, refs, parts, tables, headings, marks, notes = _article_text(article)
     origin, commencement = _brondata(article)
     number = _article_number(article)
     if annex and number:
@@ -1309,6 +1480,8 @@ def _parse_article(
         heading=_article_title(article),
         tables=tuple(tables),
         headings=tuple(headings),
+        footnote_marks=tuple(marks),
+        footnotes=tuple(notes),
     )
 
 
@@ -1505,15 +1678,28 @@ def annex_keys(toestand: ToestandXml, bwb_id: str) -> dict[str, str]:
 
 
 def _references(
-    references: Iterable[Reference], annexes: Mapping[str, str] | None
+    references: Iterable[Reference],
+    footnotes: Iterable[Footnote],
+    annexes: Mapping[str, str] | None,
 ) -> list[dict[str, Any]]:
-    """The references to store of a text: those that name a regulation or an EU act, one to
-    an annex with the key of its node (*annexes*, ``annex_keys``)."""
+    """The references to store of a text and its *footnotes* (each with its ``footnote``):
+    those that name a regulation or an EU act, one to an annex with the key of its node
+    (*annexes*, ``annex_keys``)."""
+    in_notes = (
+        replace(reference, footnote=index)
+        for index, note in enumerate(footnotes)
+        for reference in note.references
+    )
     return [
         r.to_dict((annexes or {}).get(r.part or ""))
-        for r in references
+        for r in (*references, *in_notes)
         if r.bwb_id or r.celex
     ]
+
+
+def _footnotes(footnotes: Iterable[Footnote]) -> list[dict[str, str]] | None:
+    """The ``<noot>`` footnotes to store (``props.footnotes``); None without one."""
+    return [note.to_dict() for note in footnotes] or None
 
 
 def annex_props(
@@ -1541,7 +1727,9 @@ def annex_props(
         "parts": [part.to_dict() for part in annex.parts] or None,
         "tables": [table.to_dict() for table in annex.tables] or None,
         "headings": [heading.to_dict() for heading in annex.headings] or None,
-        "references": _references(annex.references, annexes) or None,
+        "footnote_marks": [mark.to_dict() for mark in annex.footnote_marks] or None,
+        "footnotes": _footnotes(annex.footnotes),
+        "references": _references(annex.references, annex.footnotes, annexes) or None,
         "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
         "instrument_citation_title": citation_title,
     }
@@ -1558,7 +1746,7 @@ def article_props(
     """Props of the (current) Article node; *position* is its place in the toestand,
     *annexes* the keys of its annexes (``annex_keys``). A reference names a regulation or
     an EU act; one to an annex the key of its node."""
-    references = _references(article.references, annexes)
+    references = _references(article.references, article.footnotes, annexes)
     return _drop_none(
         {
             "bwb_id": bwb_id,
@@ -1579,6 +1767,9 @@ def article_props(
             "parts": [part.to_dict() for part in article.parts],
             "tables": [table.to_dict() for table in article.tables] or None,
             "headings": [heading.to_dict() for heading in article.headings] or None,
+            "footnote_marks": [mark.to_dict() for mark in article.footnote_marks]
+            or None,
+            "footnotes": _footnotes(article.footnotes),
             "references": references,
             "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
         }
@@ -1601,6 +1792,9 @@ def article_version_props(
             "parts": [part.to_dict() for part in article.parts],
             "tables": [table.to_dict() for table in article.tables] or None,
             "headings": [heading.to_dict() for heading in article.headings] or None,
+            "footnote_marks": [mark.to_dict() for mark in article.footnote_marks]
+            or None,
+            "footnotes": _footnotes(article.footnotes),
             "instrument_citation_title": citation_title,
             "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,

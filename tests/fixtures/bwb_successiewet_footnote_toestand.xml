@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0002226/2026-01-01/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0002226" inwerkingtreding="2026-01-01"><bwb-inputbestand /><bwb-wijzigingen /><wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="3003863" versie-id="16982992" id="C23567891" label-id="2955294" inwerkingtredingsdatum="2009-12-17">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="3003893" versie-id="4651242" id="C34347491" label-id="2954254" inwerking="1956-08-01" bron="Stb.1956-362" effect="nieuwe-regeling" ondertekening_bron="1956-06-28" publicatie_bron="1956-07-06" publicatie_iwt="1956-07-06" status="goed">Wet van 28 juni 1956, inzake de heffing van de rechten van successie, van schenking en van overgang <meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie><inwerkingtreding.datum isodatum="1956-08-01">01-08-1956</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="3003903" versie-id="4651252" id="C34347381" label-id="2954264" inwerking="1956-08-01" bron="Stb.1956-362" effect="nieuwe-regeling" ondertekening_bron="1956-06-28" publicatie_bron="1956-07-06" publicatie_iwt="1956-07-06">Successiewet 1956<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie><inwerkingtreding.datum isodatum="1956-08-01">01-08-1956</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+  <wet-besluit>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="3003913" versie-id="4651262" id="C34347921" label-id="2954274" inwerking="1956-08-01" bron="Stb.1956-362" effect="nieuwe-regeling" ondertekening_bron="1956-06-28" publicatie_bron="1956-07-06" publicatie_iwt="1956-07-06" status="goed">
+  <wij>Wij JULIANA, bij de gratie Gods, Koningin der Nederlanden, Prinses van Oranje-Nassau, enz., enz., enz. </wij>
+  <considerans>
+    <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten: </considerans.al>
+    <considerans.al>Alzo Wij in overweging genomen hebben, dat het wenselijk is gebleken de wettelijke regeling betreffende de heffing van de rechten van successie, van overgang en van schenking, welke thans voorkomt in de wet van 13 Mei 1859, <nadruk type="cur">Staatsblad</nadruk> no. 36 (Successiewet), zoals die wet nader is gewijzigd en aangevuld, aan een technische herziening te onderwerpen en in verband daarmede de geldende wet door een andere te vervangen; </considerans.al>
+  </considerans>
+  <afkondiging>
+    <al>Zo is het, dat Wij, de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze: </al>
+  </afkondiging>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie><inwerkingtreding.datum isodatum="1956-08-01">01-08-1956</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></aanhef>
+    <wettekst>
+      <hoofdstuk bwb-ng-variabel-deel="/HoofdstukIII" stam-id="3004313" versie-id="27218422" id="C38463151" label-id="2954674" inwerking="2021-01-01" label="Hoofdstuk III" bron="Stb.2020-472" effect="wijziging" ondertekening_bron="2020-11-11" publicatie_bron="2020-11-25" publicatie_iwt="2020-11-25" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">III</nr>
+    <titel status="officieel">Tarief; berekening van de belasting; vrijstellingen </titel>
+  </kop><artikel bwb-ng-variabel-deel="/HoofdstukIII/Artikel24" stam-id="3004183" versie-id="31271742" id="C44713271" label-id="2954544" inwerking="2026-01-01" label="Artikel 24" bron="Stcrt.2025-40487" effect="wijziging" ondertekening_bron="2025-12-24" publicatie_bron="2025-12-24" publicatie_iwt="2025-12-24" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">24</nr>
+  </kop>
+  <lid bwb-ng-variabel-deel="/HoofdstukIII/Artikel24/Lid1" label-id="2954544L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De belasting wordt geheven naar het volgende tarief. In dit tarief is in de derde en vierde kolom voor de daarin genoemde verkrijgers het heffingspercentage opgenomen over het gedeelte van de belaste verkrijging, gelegen tussen de daarnaast in de eerste en tweede kolom genoemde bedragen.</al>
+    <table colsep="0" frame="topbot" pgwide="1" rowsep="0" tabstyle="xml2">
+      <tgroup align="left" char="" charoff="50" cols="4" tgroupstyle="xml2">
+        <colspec colname="col1" colnum="1" colwidth="25*" />
+        <colspec colname="col2" colnum="2" colwidth="28*" />
+        <colspec colname="col3" colnum="3" colwidth="31.5*" />
+        <colspec colname="col4" colnum="4" colwidth="28*" />
+        <thead valign="bottom">
+          <row rowsep="1">
+            <entry align="right" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>Gedeelte van de belaste verkrijging tussen</al>
+            </entry>
+            <entry align="right" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>en</al>
+            </entry>
+            <entry align="right" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>I. indien verkregen door partner of afstammelingen in de rechte lijn<sup>1)</sup></al>
+            </entry>
+            <entry align="right" colname="col4" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>II. in overige gevallen</al>
+            </entry>
+          </row>
+        </thead>
+        <tbody valign="top">
+          <row rowsep="0">
+            <entry align="right" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>€ 0</al>
+            </entry>
+            <entry align="right" colname="col2" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>€ 158.669</al>
+            </entry>
+            <entry align="right" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>10%</al>
+            </entry>
+            <entry align="right" colname="col4" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>30%</al>
+            </entry>
+          </row>
+          <row rowsep="0">
+            <entry align="right" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+              <al>€ 158.669 en hoger</al>
+            </entry>
+            <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top" />
+            <entry align="right" colname="col3" colsep="0" morerows="0" rotate="0" valign="bottom">
+              <al>20%</al>
+            </entry>
+            <entry align="right" colname="col4" colsep="0" morerows="0" rotate="0" valign="bottom">
+              <al>40%</al>
+            </entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+    <al>
+      <sup>1</sup> Voor afstammelingen in de tweede of verdere graad bedraagt de belasting het ingevolge deze kolom verschuldigde, vermeerderd met 80% daarvan.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0002226&amp;hoofdstuk=III&amp;artikel=24&amp;lid=1&amp;z=2026-01-01&amp;g=2026-01-01" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/HoofdstukIII/Artikel24/Lid2" label-id="2954544L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De overdrachtsbelasting, voor zover deze niet heeft geleid tot toepassing van <extref doc="jci1.3:c:BWBR0002740&amp;artikel=13" label-id="2825904" verwijzing-id="2323923" bwb-id="BWBR0002740">artikel 13 van de Wet op belastingen van rechtsverkeer</extref>, betaald over het bedrag waarover schenkbelasting verschuldigd is, strekt in mindering van de schenkbelasting.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0002226&amp;hoofdstuk=III&amp;artikel=24&amp;lid=2&amp;z=2026-01-01&amp;g=2026-01-01" onderdeel="lid=2" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stcrt" urlidentifier="stcrt-2025-40487"><publicatiejaar>2025</publicatiejaar><publicatienr>40487</publicatienr><uitgiftedatum isodatum="2025-12-24">24-12-2025</uitgiftedatum><ondertekeningsdatum isodatum="2025-12-24">24-12-2025</ondertekeningsdatum><kenmerk>2025-0000608432</kenmerk></publicatie><inwerkingtreding.datum isodatum="2026-01-01">01-01-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0002226&amp;artikel=24&amp;g=2026-01-01" onderdeel="artikel=24" korte-verwijzing="1.0:c:BWBR0002226&amp;artikel=24" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0002226&amp;hoofdstuk=III&amp;artikel=24&amp;z=2026-01-01&amp;g=2026-01-01" onderdeel="artikel=24" korte-verwijzing="jci1.3:c:BWBR0002226&amp;artikel=24" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2020-472"><publicatiejaar>2020</publicatiejaar><publicatienr>472</publicatienr><uitgiftedatum isodatum="2020-11-25">25-11-2020</uitgiftedatum><ondertekeningsdatum isodatum="2020-11-11">11-11-2020</ondertekeningsdatum><dossierref dossier="35437">35437</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2020-472"><publicatiejaar>2020</publicatiejaar><publicatienr>472</publicatienr><uitgiftedatum isodatum="2020-11-25">25-11-2020</uitgiftedatum><ondertekeningsdatum isodatum="2020-11-11">11-11-2020</ondertekeningsdatum><dossierref dossier="35437">35437</dossierref></publicatie><inwerkingtreding.datum isodatum="2021-01-01">01-01-2021</inwerkingtreding.datum><terugwerkend.datum datum-scope="tot-en-met" isodatum="2010-01-01">01-01-2010</terugwerkend.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0002226&amp;hoofdstuk=III&amp;g=2026-01-01" onderdeel="hoofdstuk=III" korte-verwijzing="1.0:c:BWBR0002226&amp;hoofdstuk=III" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0002226&amp;hoofdstuk=III&amp;z=2026-01-01&amp;g=2026-01-01" onderdeel="hoofdstuk=III" korte-verwijzing="jci1.3:c:BWBR0002226&amp;hoofdstuk=III" /></jcis></meta-data></hoofdstuk>
+      </wettekst>
+    <wetsluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="3004923" versie-id="4652352" id="C34347691" label-id="2955284" inwerking="1956-08-01" bron="Stb.1956-362" effect="nieuwe-regeling" ondertekening_bron="1956-06-28" publicatie_bron="1956-07-06" publicatie_iwt="1956-07-06" status="goed">
+  <slotformulering>
+    <al>Lasten en bevelen, dat deze in het <nadruk type="cur">Staatsblad</nadruk> zal worden geplaatst, en dat alle Ministeriële Departementen, Autoriteiten, Colleges en Ambtenaren, wie zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden. </al>
+  </slotformulering>
+  <gegeven>
+    <dagtekening>
+      <plaats>Gegeven ten Paleize Soestdijk </plaats>
+      <datum isodatum="">28 juni 1956 </datum>
+    </dagtekening>
+    <koning>JULIANA. </koning>
+  </gegeven>
+  <ondertekening>
+    <functie>De Minister van Financiën, </functie>
+    <naam>
+      <achternaam>VAN DE KIEFT. </achternaam>
+    </naam>
+  </ondertekening>
+  <ondertekening>
+    <functie>De Staatssecretaris van Financiën, </functie>
+    <naam>
+      <achternaam>VAN DEN BERGE. </achternaam>
+    </naam>
+  </ondertekening>
+  <uitgifte>
+    <datum isodatum="">de zesde juli 1956. </datum>
+    <ondertekening>
+      <functie>De Minister van Justitie, </functie>
+      <naam>
+        <achternaam>J. C. VAN OVEN. </achternaam>
+      </naam>
+    </ondertekening>
+  </uitgifte>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1956</publicatiejaar><publicatienr>362</publicatienr><uitgiftedatum isodatum="1956-07-06">06-07-1956</uitgiftedatum><ondertekeningsdatum isodatum="1956-06-28">28-06-1956</ondertekeningsdatum><dossierref dossier=" 915"> 915</dossierref></publicatie><inwerkingtreding.datum isodatum="1956-08-01">01-08-1956</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></wetsluiting>
+  </wet-besluit>
+<meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2009-564"><publicatiejaar>2009</publicatiejaar><publicatienr>564</publicatienr><uitgiftedatum isodatum="2009-12-23">23-12-2009</uitgiftedatum><ondertekeningsdatum isodatum="2009-12-17">17-12-2009</ondertekeningsdatum><dossierref dossier="31930">31930</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2009-564"><publicatiejaar>2009</publicatiejaar><publicatienr>564</publicatienr><uitgiftedatum isodatum="2009-12-23">23-12-2009</uitgiftedatum><ondertekeningsdatum isodatum="2009-12-17">17-12-2009</ondertekeningsdatum><dossierref dossier="31930">31930</dossierref></publicatie><inwerkingtreding.datum isodatum="2009-12-17">17-12-2009</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Vindt voor het eerst toepassing met betrekking tot
+belastbare feiten in de zin van de Successiewet 1956 die zich hebben
+voorgedaan op of na de datum van inwerkingtreding van deze wet.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0002226&amp;g=2026-01-01" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0002226" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0002226&amp;z=2026-01-01&amp;g=2026-01-01" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0002226" /></jcis></meta-data></wetgeving></toestand>

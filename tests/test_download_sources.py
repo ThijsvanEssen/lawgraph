@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pytest
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer
 from lawgraph.clients.eu import EUClient
 from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
@@ -150,7 +150,7 @@ def _run(
     return runs[source](store, answers)
 
 
-FAILED_IS_SKIPPED = {"eurlex"}
+FAILED_IS_SKIPPED = {"eurlex", "tk-transposition-tables"}
 
 
 @pytest.mark.parametrize(
@@ -185,7 +185,8 @@ def test_a_document_a_404_and_a_source_that_goes_down(
         result.errors
     )
     failed = [error for error in result.errors if "download failed (HTTP 500)" in error]
-    # EUR-Lex skips an act it failed to download; the others fail it
+    # EUR-Lex and the transposition tables skip a document they failed to download; the
+    # others fail it
     assert bool(failed) is (source not in FAILED_IS_SKIPPED)
 
 
@@ -209,7 +210,9 @@ def test_hudoc_has_no_text_for_a_5xx_but_many_in_a_row_are_the_host() -> None:
 
 def test_hudoc_answer_that_is_no_docx_is_missing_and_a_bug_ends_the_step() -> None:
     store = InMemoryStore()
-    result = _echr(store, {"doc-01": UnexpectedAnswer("HUDOC doc-01: no DOCX")})
+    result = _echr(
+        store, {"doc-01": UnexpectedAnswer(Unexpected.NOT_DOCX, "HUDOC doc-01")}
+    )
     assert result.errors == []
     ((_, kind),) = [r for r in _kinds(store) if r[1].startswith(RAW_KIND_ECHR_TEXT)]
     assert kind.endswith(RAW_KIND_MISSING_SUFFIX)

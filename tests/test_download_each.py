@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
+import requests
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer, xml_text
 from lawgraph.clients.bwb import BWBClient, ToestandMeta
 from lawgraph.clients.koop_publications import AMVB, KoopPublicationClient
 from lawgraph.config.constants import RAW_KIND_MISSING_SUFFIX
@@ -17,6 +18,7 @@ from lawgraph.pipelines.retrieve.base import (
     RetrievePipelineBase,
     RetrieveRecord,
     SourceDown,
+    failure_reason,
     missing_record,
 )
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
@@ -192,3 +194,53 @@ def test_staatsblad_does_not_store_an_error_page(raw_reads: None) -> None:
     )
     assert external_ids(store) == ["stb-2009-602"]
     assert result.created == 1 and result.skipped == 1
+
+
+def _with_status(status: int) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = status
+    return requests.HTTPError("https://example.org/doc?key=x", response=response)
+
+
+@pytest.mark.parametrize(
+    ("exc", "reason"),
+    [
+        (_with_status(503), "HTTP 503"),
+        (requests.ReadTimeout("https://example.org/doc"), "time-out"),
+        (requests.ConnectTimeout("https://example.org/doc"), "time-out"),
+        (requests.ConnectionError("https://example.org/doc"), "geen verbinding"),
+        (requests.TooManyRedirects("https://example.org/doc"), "te veel redirects"),
+        (requests.exceptions.ChunkedEncodingError("x"), "afgebroken antwoord"),
+        (requests.RequestException("https://example.org/doc"), "verzoek mislukt"),
+        (UnexpectedAnswer(Unexpected.NOT_PDF, "https://example.org/a.pdf"), "geen PDF"),
+        (UnexpectedAnswer(Unexpected.EMPTY_XML, "https://example.org/a"), "lege XML"),
+    ],
+)
+def test_a_failed_download_says_why_in_fixed_words(exc: Exception, reason: str) -> None:
+    assert failure_reason(exc) == reason
+
+
+def test_the_reason_of_a_failed_download_names_no_url() -> None:
+    page = UnexpectedAnswer(Unexpected.HTML_PAGE, "https://example.org/kst-1.xml")
+    _, progress = _download({"kst-1": page})
+    assert progress.errors() == ["1 x download failed (HTML-pagina) (first: kst-1)"]
+
+
+@pytest.mark.parametrize(
+    ("content", "reason"),
+    [
+        (b"", Unexpected.EMPTY_XML),
+        (b"<a>", Unexpected.NOT_XML),
+        (XHTML.encode(), Unexpected.HTML_PAGE),
+    ],
+)
+def test_an_answer_that_is_no_xml_says_what_it_is(
+    content: bytes, reason: Unexpected
+) -> None:
+    response = requests.Response()
+    response.status_code = 200
+    response._content = content
+    response.url = "https://example.org/doc"
+    with pytest.raises(UnexpectedAnswer) as raised:
+        xml_text(response)
+    assert raised.value.reason is reason

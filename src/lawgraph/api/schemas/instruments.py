@@ -13,7 +13,11 @@ from lawgraph.api.schemas.articles import (
     ArticlePartSpanDTO,
     ArticleReferenceDTO,
     DelegatedArticleDTO,
+    FootnoteDTO,
+    FootnoteMarkDTO,
     basis_kind_of,
+    footnote_marks_from_props,
+    footnotes_from_props,
     headings_from_props,
     parts_from_props,
     references_from_props,
@@ -960,6 +964,16 @@ class InstrumentArticleVersionDTO(StrictModel):
         description="The headings in the text as spans of it; empty when the text was "
         "not asked for.",
     )
+    footnote_marks: list[FootnoteMarkDTO] = Field(
+        [],
+        description="Where the markers of its footnotes stood in the text; empty when "
+        "the text was not asked for.",
+    )
+    footnotes: list[FootnoteDTO] = Field(
+        [],
+        description="Its footnotes, not in the text, as on the article; empty when the "
+        "text was not asked for.",
+    )
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
@@ -969,6 +983,11 @@ class InstrumentArticleVersionDTO(StrictModel):
         "``/api/articles/{bwb_id}/{article_number}`` gives them; null when not asked "
         "for, and for a version that is not the current one of its article (they are "
         "spans of the current text).",
+    )
+    footnote_references: list[ArticleReferenceDTO] | None = Field(
+        None,
+        description="With ``include=references``: the references of its footnotes, as "
+        "the article gives them; null as ``references``.",
     )
     citations: list[ArticleCitationSpan] | None = Field(
         None,
@@ -992,12 +1011,16 @@ class InstrumentArticleVersionDTO(StrictModel):
         props = doc.get("props") or {}
         text = props.get("text") or None
         known = current is not None and doc["key"] in current.references
-        return cls(
-            references=references_from_props(
-                {"references": current.references[doc["key"]]}, current.present
+        references = footnote_references = None
+        if current is not None and known:
+            stored = {"references": current.references[doc["key"]]}
+            references = references_from_props(stored, current.present)
+            footnote_references = references_from_props(
+                stored, current.present, footnotes=True
             )
-            if current is not None and known
-            else None,
+        return cls(
+            references=references,
+            footnote_references=footnote_references,
             citations=[
                 ArticleCitationSpan.from_entry(entry)
                 for entry in current.citations[doc["key"]]
@@ -1029,6 +1052,8 @@ class InstrumentArticleVersionDTO(StrictModel):
             ),
             tables=tables_from_props(props) if include_text else [],
             headings=headings_from_props(props) if include_text else [],
+            footnote_marks=footnote_marks_from_props(props) if include_text else [],
+            footnotes=footnotes_from_props(props) if include_text else [],
             text_preview=text[:text_preview_chars] if text else None,
         )
 

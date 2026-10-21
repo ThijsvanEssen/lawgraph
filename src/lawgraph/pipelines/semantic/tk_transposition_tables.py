@@ -10,11 +10,11 @@ table's source (when two tables give the pair, the first; the CELEX number of an
 ``meta.basis`` ``transposition_table``. What a table says of a part it places in no article
 is an edge from the old article to the new law: ``meta.parts`` ``[{from, to, outcome}]``,
 ``meta.outcome`` that of the whole (``vervallen``, ``niet_overgenomen``,
-``blijft_in:<law>``; ``gat`` for an old article that is a gap, its parts as the table writes
-them). A row that does not hold, and an article of the old law no row of any table between
-the two laws places in an article of the new law or answers for, is a gap: counted as a note
-of the run, listed by ``lawgraph succession-gaps``. Derived in full on every run: an edge of
-the step no table gives any more goes.
+``blijft_in:<law>``, ``naar:<law>``; ``gat`` for an old article that is a gap, its parts as
+the table writes them). A row that does not hold, and an article of the old law no row of
+any table between the two laws places in an article of the new law or answers for, is a gap:
+counted as a note of the run, listed by ``lawgraph succession-gaps``. Derived in full on
+every run: an edge of the step no table gives any more goes.
 """
 
 from __future__ import annotations

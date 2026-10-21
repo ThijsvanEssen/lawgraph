@@ -10,6 +10,10 @@ from lawgraph.api.schemas.articles import (
     ArticleHeadingDTO,
     ArticlePartDTO,
     ArticleReferenceDTO,
+    FootnoteDTO,
+    FootnoteMarkDTO,
+    footnote_marks_from_props,
+    footnotes_from_props,
     headings_from_props,
     parts_from_props,
 )
@@ -77,6 +81,15 @@ class AnnexDTO(StrictModel):
         default_factory=list,
         description="The headings in `text` (of a division, a table), as spans of it.",
     )
+    footnote_marks: list[FootnoteMarkDTO] = Field(
+        default_factory=list,
+        description="Where the markers of its footnotes stood in `text`, as on an "
+        "article.",
+    )
+    footnotes: list[FootnoteDTO] = Field(
+        default_factory=list,
+        description="Its footnotes, not in `text`, as on an article.",
+    )
     entries: list[AnnexEntryDTO] = Field(default_factory=list)
     stub: bool = False
 
@@ -106,6 +119,8 @@ class AnnexDTO(StrictModel):
             parts=parts_from_props(props),
             tables=tables_from_props(props),
             headings=headings_from_props(props),
+            footnote_marks=footnote_marks_from_props(props),
+            footnotes=footnotes_from_props(props),
             entries=entries,
             stub=bool(props.get("stub") or False),
         )
@@ -128,4 +143,10 @@ class AnnexDetailResponse(StrictModel):
         description="The links of its `text` to a regulation, an article, an annex or an EU "
         "act, in text order, as those of an article.",
     )
+    footnote_references: list[ArticleReferenceDTO] = Field(
+        default_factory=list,
+        description="The links of its footnotes (`annex.footnotes`), as those of an "
+        "article.",
+    )
+
     referenced_by: list[AnnexReferencedByItem] = Field(default_factory=list)

@@ -153,7 +153,7 @@ _EXPLANATION_ROW = {
 
 
 def _explanation(**changes):
-    return ArticleExplanationDTO.from_row({**_EXPLANATION_ROW, **changes})
+    return ArticleExplanationDTO.from_row({**_EXPLANATION_ROW, **changes}, {})
 
 
 def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> None:
@@ -174,6 +174,7 @@ def test_an_explanation_on_a_version_names_the_version_and_is_dossier_wide() -> 
         "title": "MvT",
         "date": "2025-01-10",
         "dossier_number": "36000",
+        "dossier_short_title": None,
         # the row names no number of its own: no nr. and no address
         "sequence": None,
         "path": None,
@@ -254,6 +255,8 @@ def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
     assert body["total"] == 41 and len(body["items"]) == 1
     assert body["items"][0]["target"] == "article_version"
     assert body["items"][0]["document"]["dossier_number"] == "36000"
+    # the name the dossier goes by, as /api/dossiers gives it (stubs.DOSSIER_NAMES)
+    assert body["items"][0]["document"]["dossier_short_title"] == "Wet beter voorbeeld"
 
 
 def test_explained_by_of_an_unknown_article_is_an_empty_page_not_a_404(

@@ -1,0 +1,522 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0004054/2025-12-09/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0004054" inwerkingtreding="2025-12-09"><bwb-inputbestand /><bwb-wijzigingen /><redactionele-correcties><redactionele-correctie label-id="2644654" oud-revisie-id="44594741" nieuw-revisie-id="45035371" /><redactionele-correctie label-id="2644674" oud-revisie-id="44594771" nieuw-revisie-id="45035381" /></redactionele-correcties><wetgeving dtdversie="2.0" soort="wet" xml:lang="nl" stam-id="2698873" versie-id="12882752" id="C17367231" label-id="2644764" inwerkingtredingsdatum="2006-01-01">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="2698903" versie-id="4109452" id="C4109451" label-id="2644184" inwerking="1986-12-19" bron="Stb.1986-598" effect="nieuwe-regeling" ondertekening_bron="1986-11-27" status="goed">Wet van 27 november 1986, houdende regelen inzake het verhandelen van meststoffen en de afvoer van mestoverschotten <meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>598</publicatienr><ondertekeningsdatum isodatum="1986-11-27">27-11-1986</ondertekeningsdatum><dossierref dossier="18271">18271</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>620</publicatienr><ondertekeningsdatum isodatum="1986-12-12">12-12-1986</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1986-12-19">19-12-1986</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="2698913" versie-id="4109462" id="C4109461" label-id="2644194" inwerking="1986-12-19" bron="Stb.1986-598" effect="nieuwe-regeling" ondertekening_bron="1986-11-27">Meststoffenwet<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>598</publicatienr><ondertekeningsdatum isodatum="1986-11-27">27-11-1986</ondertekeningsdatum><dossierref dossier="18271">18271</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>620</publicatienr><ondertekeningsdatum isodatum="1986-12-12">12-12-1986</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1986-12-19">19-12-1986</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+  <wet-besluit>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="2698923" versie-id="4109472" id="C4109471" label-id="2644204" inwerking="1986-12-19" bron="Stb.1986-598" effect="nieuwe-regeling" ondertekening_bron="1986-11-27" status="goed">
+  <wij>Wij Beatrix, bij de gratie Gods, Koningin der Nederlanden, Prinses van Oranje-Nassau, enz. enz. enz. </wij>
+  <considerans>
+    <considerans.al>Allen, die deze zullen zien of horen lezen, saluut! doen te weten: </considerans.al>
+    <considerans.al>Alzo Wij in overweging genomen hebben, dat het wenselijk is regelen te stellen met betrekking tot het verhandelen van meststoffen, zowel in het belang van de bevordering van de deugdelijkheid voor het doel waarvoor zij zijn bestemd als in het belang van de bescherming van de bodem, en voorts regelen te stellen in het belang van een doelmatige afvoer van mestoverschotten; </considerans.al>
+  </considerans>
+  <afkondiging>
+    <al>Zo is het, dat Wij, de Raad van State gehoord, en met gemeen overleg der Staten-Generaal, hebben goedgevonden en verstaan, gelijk Wij goedvinden en verstaan bij deze: </al>
+  </afkondiging>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>598</publicatienr><ondertekeningsdatum isodatum="1986-11-27">27-11-1986</ondertekeningsdatum><dossierref dossier="18271">18271</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>620</publicatienr><ondertekeningsdatum isodatum="1986-12-12">12-12-1986</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1986-12-19">19-12-1986</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></aanhef>
+    <wettekst>
+      <hoofdstuk bwb-ng-variabel-deel="/HoofdstukI" stam-id="2698943" versie-id="12882892" id="C17367371" label-id="2644224" inwerking="2006-01-01" label="Hoofdstuk I" bron="Stb.2006-64" effect="structuurwijziging" ondertekening_bron="2006-02-14" publicatie_bron="2006-02-21" publicatie_iwt="2006-02-21" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">I</nr>
+    <titel status="officieel">Algemeen </titel>
+  </kop><artikel bwb-ng-variabel-deel="/HoofdstukI/Artikel1" stam-id="2698933" versie-id="29271472" id="C41864231" label-id="2644214" inwerking="2023-04-19" label="Artikel 1" bron="Stb.2023-66" effect="wijziging" ondertekening_bron="2022-11-02" publicatie_bron="2023-03-01" publicatie_iwt="2023-04-18" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">1</nr>
+  </kop>
+  <lid bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1" label-id="2644214L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>In deze wet en de daarop berustende bepalingen wordt verstaan onder: </al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>grond: dat deel van de bodem dat wordt gebruikt of is bestemd om te worden gebruikt als voedingsbodem voor planten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=a&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>groeimedium: materiaal in vaste of vloeibare vorm, niet zijnde grond, dat wordt gebruikt of is bestemd om te worden gebruikt als voedingsbodem voor planten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=b&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>dierlijke meststoffen: uitwerpselen van voor gebruiks- of winstdoeleinden gehouden dieren, daaronder begrepen de geheel of gedeeltelijk verteerde maag- of darminhoud van deze dieren en mengsels van strooisel met de uitwerpselen, alsook producten daarvan;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=c&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=c" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>meststoffen: dierlijke meststoffen, ongeacht hun bestemming, en producten die zijn bestemd om:</al>
+        <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeld/Onderdeel1">
+            <li.nr>1°.</li.nr>
+            <al>te worden toegevoegd aan grond of aan een groeimedium en die geheel of gedeeltelijk bestaan uit stoffen, organismen daaronder begrepen, of mengsels van stoffen, die als zodanig kunnen dienen om grond of een groeimedium geschikt of beter geschikt te maken als voedingsbodem voor planten;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=d&amp;o=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=1" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeld/Onderdeel2">
+            <li.nr>2°.</li.nr>
+            <al>te worden gebruikt als groeimedium;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=d&amp;o=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=2" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeld/Onderdeel3">
+            <li.nr>3°.</li.nr>
+            <al>te worden gebruikt als voedsel voor planten of delen van planten, voor zover deze producten niet reeds zijn begrepen onder 1° of 2°;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=d&amp;o=3&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=3" /></jcis></meta-data></li>
+        </lijst>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=d&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=d" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>verhandelen van meststoffen: afleveren van meststoffen aan handelaren in of gebruikers van meststoffen alsmede het met het oog daarop voorhanden of in voorraad hebben, aanbieden of vervoeren van meststoffen;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=e&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=e" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelf">
+        <li.nr>f.</li.nr>
+        <al>Onze Minister: Onze Minister van Landbouw, Natuur en Voedselkwaliteit;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=f&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=f" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelg">
+        <li.nr>g.</li.nr>
+        <al>landbouw: akkerbouw, veehouderij – daaronder begrepen elke bedrijfsmatige vorm van houden van dieren voor gebruiks- of winstdoeleinden – , tuinbouw – daaronder begrepen fruitteelt en het kweken van bomen, planten, bloemen en bloembollen – en bosbouw die aan bij ministeriële regeling gestelde regels voldoet;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=g&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=g" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelh">
+        <li.nr>h.</li.nr>
+        <al>landbouwgrond: grond waarop daadwerkelijk enige vorm van landbouw wordt uitgeoefend;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=h&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=h" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeli">
+        <li.nr>i.</li.nr>
+        <al>bedrijf: geheel van productie-eenheden bestaande uit één of meer gebouwen of afgescheiden gedeelten daarvan en de daarbij behorende landbouwgrond, uitsluitend of onder meer dienende tot de uitoefening van enige vorm van landbouw, zulks beoordeeld naar de feitelijke omstandigheden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=i&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=i" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelj">
+        <li.nr>j.</li.nr>
+        <al>stikstof: stikstof, in welke vorm of verbinding dan ook;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=j&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=j" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelk">
+        <li.nr>k.</li.nr>
+        <al>fosfaat: fosfor, in welke vorm of verbinding dan ook, vermenigvuldigd met de factor 2,29;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=k&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=k" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeell">
+        <li.nr>l.</li.nr>
+        <al>hectare: hectare in gemeten maat;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=l&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=l" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelm">
+        <li.nr>m.</li.nr>
+        <al>tot het bedrijf behorende oppervlakte landbouwgrond: in Nederland gelegen oppervlakte landbouwgrond, die in het kader van een normale bedrijfsvoering bij het bedrijf in gebruik is;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=m&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=m" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeln">
+        <li.nr>n.</li.nr>
+        <al>veengrond: perceel waarvan blijkens representatieve grondmonsters ten minste de helft van de oppervlakte voor meer dan de helft van de dikte van de grondlaag tot een diepte van 80 centimeter onder het maaiveld bestaat uit veen;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=n&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=n" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelo">
+        <li.nr>o.</li.nr>
+        <al>zand- of lössgrond: perceel waarvan blijkens representatieve grondmonsters ten minste de helft van de oppervlakte voor meer dan de helft van de dikte van de grondlaag tot een diepte van 80 centimeter onder het maaiveld bestaat uit zand of löss;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=o&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=o" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelp">
+        <li.nr>p.</li.nr>
+        <al>kleigrond: grond niet zijnde veengrond of zand- of lössgrond;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=p&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=p" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelq">
+        <li.nr>q.</li.nr>
+        <al>grasland: landbouwgrond waarop gras wordt geteeld dat is bestemd om te worden gebruikt als veevoer;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=q&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=q" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelr">
+        <li.nr>r.</li.nr>
+        <al>bouwland: landbouwgrond, niet zijnde grasland;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=r&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=r" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeels">
+        <li.nr>s.</li.nr>
+        <al>
+          <redactie type="vervanging">vervallen;</redactie>
+        </al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=s&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=s" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelt">
+        <li.nr>t.</li.nr>
+        <al>
+          <redactie type="vervanging">vervallen;</redactie>
+        </al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=t&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=t" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelu">
+        <li.nr>u.</li.nr>
+        <al>
+          <redactie type="vervanging">vervallen;</redactie>
+        </al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=u&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=u" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelv">
+        <li.nr>v.</li.nr>
+        <al>
+          <redactie type="vervanging">vervallen;</redactie>
+        </al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=v&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=v" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelw">
+        <li.nr>w.</li.nr>
+        <al>verordening (EU) 2019/1020: <extref doc="32920R2019" label="verordening" reeks="Celex">Verordening (EU) 2019/1020</extref> van het Europees Parlement en de Raad van 20 juni 2019 betreffende markttoezicht en conformiteit van producten en tot wijziging van <extref doc="32004L0042" label="richtlijn" reeks="Celex">Richtlijn 2004/42/EG</extref> en de <extref doc="32008R0765" label="verordening" reeks="Celex">Verordening (EG) nr. 765/2008</extref> en (EU) nr. 305/2011 (PbEU 2019, L 169);</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=w&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=w" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelx">
+        <li.nr>x.</li.nr>
+        <al> mestoverschot: de in een bepaald kalenderjaar geproduceerde, aangevoerde of uit opslag komende hoeveelheid dierlijke meststoffen, die van een bedrijf moet worden afgevoerd om te voldoen aan de voorwaarden, bedoeld in <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=III&amp;artikel=8&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644324" verwijzing-id="2027568" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukIII/Artikel8">artikel 8</intref>, en om te voldoen aan <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=IV&amp;artikel=14&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644424" verwijzing-id="2027569" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukIV/Artikel14">artikel 14</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=x&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=x" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeely">
+        <li.nr>y.</li.nr>
+        <al>varkensrecht: gemiddeld aantal varkens, uitgedrukt in varkenseenheden, dat op grond van <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=V&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644484" verwijzing-id="1997953" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukV">hoofdstuk V</intref> in een kalenderjaar ten hoogste mag worden gehouden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=y&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=y" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelz">
+        <li.nr>z.</li.nr>
+        <al>pluimveerecht: gemiddeld aantal kippen en kalkoenen, uitgedrukt in pluimvee-eenheden, dat op grond van <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=V&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644484" verwijzing-id="1997954" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukV">hoofdstuk V</intref> in een kalenderjaar ten hoogste mag worden gehouden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=z&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=z" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelza">
+        <li.nr>za.</li.nr>
+        <al>fosfaatrecht: hoeveelheid dierlijke meststoffen, uitgedrukt in kilogrammen fosfaat, die in een kalenderjaar ten hoogste met melkvee mag worden geproduceerd;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=za&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=za" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelaa">
+        <li.nr>aa.</li.nr>
+        <al>productierecht: varkensrecht, pluimveerecht of fosfaatrecht;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=aa&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=aa" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelbb">
+        <li.nr>bb.</li.nr>
+        <al>concentratiegebied: concentratiegebied Zuid of concentratiegebied Oost als aangegeven in <intref doc="jci1.3:c:BWBR0004054&amp;bijlage=I&amp;z=2025-12-09&amp;g=2025-12-09" label-id="7406784" verwijzing-id="1997959" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/BijlageI">bijlage I</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=bb&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=bb" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelcc">
+        <li.nr>cc.</li.nr>
+        <al>bedrijfsoverschot: hoeveelheid dierlijke meststoffen, uitgedrukt in kilogrammen fosfaat, die in een kalenderjaar op een bedrijf wordt geproduceerd boven de fosfaatruimte;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=cc&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=cc" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeldd">
+        <li.nr>dd.</li.nr>
+        <al>dierlijke meststoffen verwerken:</al>
+        <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeldd/Onderdeel1">
+            <li.nr>1°.</li.nr>
+            <al>behandelen van dierlijke meststoffen tot een eindproduct dat voldoet aan de bij regeling van Onze Minister vast te stellen specificaties, of</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=dd&amp;o=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=1" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeldd/Onderdeel2">
+            <li.nr>2°.</li.nr>
+            <al>exporteren van dierlijke meststoffen;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=dd&amp;o=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=2" /></jcis></meta-data></li>
+        </lijst>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=dd&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=dd" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelee">
+        <li.nr>ee.</li.nr>
+        <al>mestverwerkingsovereenkomst:</al>
+        <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelee/Onderdeel1">
+            <li.nr>1°.</li.nr>
+            <al>bij de overdracht van dierlijke meststoffen van een landbouwer die op zijn bedrijf dierlijke meststoffen produceert aan een verwerker behorend volledig ingevuld krachtens <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=VI&amp;artikel=34&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644684" verwijzing-id="2606720" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukVI/Artikel34">artikel 34, onderdeel b</intref>, vastgesteld bewijsmiddel, voor zover de daarop vermelde gegevens overeenkomstig de daartoe krachtens artikel 34, onderdeel b, geldende voorschriften tijdig bij Onze Minister zijn ingediend, of</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ee&amp;o=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=1" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelee/Onderdeel2">
+            <li.nr>2°.</li.nr>
+            <al>overeenkomst tussen een landbouwer die op zijn bedrijf dierlijke meststoffen produceert, een andere ondernemer dan een verwerker, en een verwerker;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ee&amp;o=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=2" /></jcis></meta-data></li>
+        </lijst>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ee&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=ee" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelff">
+        <li.nr>ff.</li.nr>
+        <al>produceren van dierlijke meststoffen: produceren van dierlijke meststoffen door het op een bedrijf houden of anderszins aanwezig hebben van dieren;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ff&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=ff" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelgg">
+        <li.nr>gg.</li.nr>
+        <al>landbouwer: natuurlijke persoon of rechtspersoon die of samenwerkingsverband van natuurlijke personen of rechtspersonen dat enige vorm van landbouw uitoefent op een bedrijf;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=gg&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=gg" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelhh">
+        <li.nr>hh.</li.nr>
+        <al>verwerker: natuurlijke persoon of rechtspersoon die of samenwerkingsverband van natuurlijke personen of rechtspersonen dat een verwerkende onderneming voert;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=hh&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=hh" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelii">
+        <li.nr>ii.</li.nr>
+        <al>verwerkende onderneming: onderneming, niet zijnde een bedrijf, in het kader waarvan dierlijke meststoffen worden verwerkt;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ii&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=ii" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeljj">
+        <li.nr>jj.</li.nr>
+        <al>huisvestingssysteem: gedeelte van een dierenverblijf, waarin dieren van één diercategorie op dezelfde wijze worden gehouden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=jj&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=jj" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk">
+        <li.nr>kk.</li.nr>
+        <al>melkvee: </al>
+        <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk/Onderdeel1">
+            <li.nr>1°.</li.nr>
+            <al>melk- en kalfkoeien, te weten koeien (bos taurus) die ten minste éénmaal hebben gekalfd en die worden gehouden voor de productie van melk voor menselijke consumptie of verwerking of voor de fokkerij van runderen voor de melkveehouderij, ook als ze:</al>
+            <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+              <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk/Onderdeel1/Onderdeel._1">
+                <li.nr>–</li.nr>
+                <al>drooggezet zijn om een kalf te krijgen, of</al>
+              </li>
+              <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk/Onderdeel1/Onderdeel._2">
+                <li.nr>–</li.nr>
+                <al>worden vetgemest en in de mesttijd worden gemolken;</al>
+              </li>
+            </lijst>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=kk&amp;o=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=1" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk/Onderdeel2">
+            <li.nr>2°.</li.nr>
+            <al>jongvee jonger dan 1 jaar voor de melkveehouderij, waaronder alle kalveren van melk- en kalfkoeien van 0 tot ten minste 14 dagen, en vrouwelijk jongvee jonger dan 1 jaar dat later een kalf krijgt voor de vleesveehouderij of dat bestemd is om een kalf te krijgen voor de vleesveehouderij;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=kk&amp;o=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=2" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelkk/Onderdeel3">
+            <li.nr>3°.</li.nr>
+            <al>vrouwelijk jongvee van 1 jaar en ouder voor de melkveehouderij en vrouwelijk jongvee van 1 jaar en ouder dat later een kalf krijgt voor de vleesveehouderij of dat bestemd is om een kalf te krijgen voor de vleesveehouderij;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=kk&amp;o=3&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=3" /></jcis></meta-data></li>
+        </lijst>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=kk&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=kk" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelll">
+        <li.nr>ll.</li.nr>
+        <al> fosfaatruimte: hoeveelheid dierlijke meststoffen, uitgedrukt in kilogrammen fosfaat, die in een kalenderjaar</al>
+        <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelll/Onderdeel1">
+            <li.nr>1°.</li.nr>
+            <al>ingevolge <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=III&amp;artikel=8&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644324" verwijzing-id="2676006" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukIII/Artikel8">artikel 8, onderdeel c</intref>, mag worden gebracht op of in de tot het desbetreffende bedrijf behorende oppervlakte landbouwgrond, en</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ll&amp;o=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=1" /></jcis></meta-data></li>
+          <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelll/Onderdeel2">
+            <li.nr>2°.</li.nr>
+            <al>ingevolge de krachtens de <extref doc="jci1.3:c:BWBR0003994&amp;artikel=7" label-id="2224414" verwijzing-id="2676007" bwb-id="BWBR0003994">artikelen 7</extref> en <extref doc="jci1.3:c:BWBR0003994&amp;artikel=15" label-id="2224504" verwijzing-id="2676008" bwb-id="BWBR0003994">15 van de Wet bodembescherming</extref> geldende voorschriften mag worden aangebracht op een in Nederland gelegen natuurterrein dat de hoofdfunctie natuur heeft en dat in het desbetreffende kalenderjaar op een bij algemene maatregel van bestuur vast te stellen datum bij het bedrijf in gebruik is;</al>
+          <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ll&amp;o=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=2" /></jcis></meta-data></li>
+        </lijst>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=ll&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=ll" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelmm">
+        <li.nr>mm.</li.nr>
+        <al>melkveefosfaatreferentie: een beschikking als bedoeld in <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=V&amp;titeldeel=2&amp;artikel=21a&amp;z=2025-12-09&amp;g=2025-12-09" label-id="12874364" verwijzing-id="2676952" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukV/Titeldeel2/Artikel21a">artikel 21a, eerste lid</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=mm&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=mm" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelnn">
+        <li.nr>nn.</li.nr>
+        <al>melkveefosfaatoverschot: de productie van dierlijke meststoffen door melkvee op het bedrijf in kilogrammen fosfaat, verminderd met de fosfaatruimte, het aantal kilogrammen fosfaat, genoemd in de melkveefosfaatreferentie van dat bedrijf en het aantal kilogrammen fosfaat, genoemd in overeenkomsten als bedoeld in <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=V&amp;titeldeel=2&amp;artikel=21&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644534" verwijzing-id="2824887" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukV/Titeldeel2/Artikel21">artikel 21, elfde lid</intref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=nn&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=nn" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeeloo">
+        <li.nr> oo.</li.nr>
+        <al>melkveefosfaatruimte: de fosfaatruimte van het bedrijf in 2015, verminderd met de krachtens <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=VI&amp;artikel=35&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644694" verwijzing-id="2856029" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukVI/Artikel35">artikel 35</intref> bepaalde forfaitaire productie van dierlijke meststoffen in dat kalenderjaar door melkvee dat op 2 juli 2015 op het bedrijf is gehouden en krachtens <extref doc="jci1.3:c:BWBR0030250&amp;artikel=2.4" label-id="11365124" verwijzing-id="3204339" bwb-id="BWBR0030250">artikel 2.4</extref>, eventueel in samenhang met <extref doc="jci1.3:c:BWBR0030250&amp;artikel=6.4" label-id="11365774" verwijzing-id="3204340" bwb-id="BWBR0030250">artikel 6.4, eerste lid, van de Wet dieren</extref> gestelde regels (I&amp;R) is geregistreerd, waarbij in afwijking van onderdeel ll, onder 2°, voor in dat onderdeel bedoeld natuurterrein, zijnde grasland, wordt gerekend met 70 kilogram fosfaat per hectare en voor overig natuurterrein wordt gerekend met 20 kg fosfaat per hectare;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=oo&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=oo" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid1/Onderdeelpp">
+        <li.nr>pp.</li.nr>
+        <al>melk- of kalfkoe: melk of kalfkoe als bedoeld in onderdeel kk.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;o=pp&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="o=pp" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid2" label-id="2644214L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>In deze wet en de daarop berustende bepalingen wordt onder bedrijf mede verstaan: een op het Nederlands grondgebied gelegen deel van een in het buitenland gevestigd bedrijf.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=2&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid3" label-id="2644214L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>In het eerste lid, onderdelen n en o, wordt onder perceel verstaan: aaneengesloten, door wegen, waterwegen, sloten, houtopstanden, muren, wallen of anderszins topografisch begrensde oppervlakte grond.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=3&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="lid=3" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/HoofdstukI/Artikel1/Lid4" label-id="2644214L4">
+    <lidnr status="officieel">4</lidnr>
+    <al>Voor de toepassing van deze wet wordt veengrond, zand- of lössgrond, en kleigrond aangeduid op bij algemene maatregel van bestuur vastgestelde kaarten.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;lid=4&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="lid=4" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2023-66"><publicatiejaar>2023</publicatiejaar><publicatienr>66</publicatienr><uitgiftedatum isodatum="2023-03-01">01-03-2023</uitgiftedatum><ondertekeningsdatum isodatum="2022-11-02">02-11-2022</ondertekeningsdatum><dossierref dossier="36093">36093</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2023-125"><publicatiejaar>2023</publicatiejaar><publicatienr>125</publicatienr><uitgiftedatum isodatum="2023-04-18">18-04-2023</uitgiftedatum><ondertekeningsdatum isodatum="2023-04-03">03-04-2023</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2023-04-19">19-04-2023</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0004054&amp;artikel=1&amp;g=2025-12-09" onderdeel="artikel=1" korte-verwijzing="1.0:c:BWBR0004054&amp;artikel=1" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="artikel=1" korte-verwijzing="jci1.3:c:BWBR0004054&amp;artikel=1" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2006-64"><publicatiejaar>2006</publicatiejaar><publicatienr>64</publicatienr><uitgiftedatum isodatum="2006-02-21">21-02-2006</uitgiftedatum><ondertekeningsdatum isodatum="2006-02-14">14-02-2006</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2006-64"><publicatiejaar>2006</publicatiejaar><publicatienr>64</publicatienr><uitgiftedatum isodatum="2006-02-21">21-02-2006</uitgiftedatum><ondertekeningsdatum isodatum="2006-02-14">14-02-2006</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2006-01-01">01-01-2006</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Tekstplaatsing met vernummering.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0004054&amp;hoofdstuk=I&amp;g=2025-12-09" onderdeel="hoofdstuk=I" korte-verwijzing="1.0:c:BWBR0004054&amp;hoofdstuk=I" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="hoofdstuk=I" korte-verwijzing="jci1.3:c:BWBR0004054&amp;hoofdstuk=I" /></jcis></meta-data></hoofdstuk>
+      </wettekst>
+    <wetsluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="2699473" versie-id="4110022" id="C4110021" label-id="2644754" inwerking="1986-12-19" bron="Stb.1986-598" effect="nieuwe-regeling" ondertekening_bron="1986-11-27" status="goed">
+  <slotformulering>
+    <al>Lasten en bevelen dat deze in het <nadruk type="cur">Staatsblad</nadruk> zal worden geplaatst en dat alle ministeries, autoriteiten, colleges en ambtenaren wie zulks aangaat, aan de nauwkeurige uitvoering de hand zullen houden. </al>
+  </slotformulering>
+  <gegeven>
+    <dagtekening>
+      <plaats>Gegeven te 's-Gravenhage </plaats>
+      <datum isodatum="">27 november 1986 </datum>
+    </dagtekening>
+    <koning>Beatrix </koning>
+  </gegeven>
+  <ondertekening>
+    <functie>De Minister van Landbouw en Visserij, </functie>
+    <naam>
+      <achternaam>G. J. M. Braks </achternaam>
+    </naam>
+  </ondertekening>
+  <ondertekening>
+    <functie>De Minister van Volkshuisvesting, Ruimtelijke Ordening en Milieubeheer, </functie>
+    <naam>
+      <achternaam>E. H. T. M. Nijpels </achternaam>
+    </naam>
+  </ondertekening>
+  <uitgifte>
+    <datum isodatum="">de elfde december 1986 </datum>
+    <ondertekening>
+      <functie>De Minister van Justitie, </functie>
+      <naam>
+        <achternaam>F. Korthals Altes </achternaam>
+      </naam>
+    </ondertekening>
+  </uitgifte>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>598</publicatienr><ondertekeningsdatum isodatum="1986-11-27">27-11-1986</ondertekeningsdatum><dossierref dossier="18271">18271</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier=""><publicatiejaar>1986</publicatiejaar><publicatienr>620</publicatienr><ondertekeningsdatum isodatum="1986-12-12">12-12-1986</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="1986-12-19">19-12-1986</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></wetsluiting>
+    <bijlage bwb-ng-variabel-deel="/BijlageI" stam-id="7419083" versie-id="27923122" id="C39503561" label-id="7406784" inwerking="2022-01-01" label="Bijlage I" bron="Stb.2021-375" effect="wijziging" ondertekening_bron="2021-07-14" publicatie_bron="2021-07-22" publicatie_iwt="2021-07-22" status="goed">
+  <kop>
+    <label>Bijlage</label>
+    <nr status="officieel">I</nr>
+    <titel status="officieel">behorende bij de <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=I&amp;artikel=1&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644214" verwijzing-id="1990915" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukI/Artikel1">artikelen 1, eerste lid</intref>, en <intref doc="jci1.3:c:BWBR0004054&amp;hoofdstuk=V&amp;titeldeel=4&amp;artikel=26&amp;z=2025-12-09&amp;g=2025-12-09" label-id="2644594" verwijzing-id="2027769" bwb-id="BWBR0004054" bwb-ng-variabel-deel="/HoofdstukV/Titeldeel4/Artikel26">26</intref> van de Meststoffenwet</titel>
+  </kop>
+  <plaatje>
+    <illustratie id="1692" display="block" formaat="png" kleur="nee" type="tekst" uitlijning="start" naam="1692.png" breedte="1071" hoogte="950" />
+  </plaatje>
+  <al>Gebied I omvat, gerekend naar de situatie op 1 januari 1997, het grondgebied van de navolgende gemeenten: </al>
+  <al>Aalten</al>
+  <al>Almelo</al>
+  <al>Ambt-Delden</al>
+  <al>Amerongen</al>
+  <al>Amersfoort</al>
+  <al>Angerlo</al>
+  <al>Apeldoorn</al>
+  <al>Baarn</al>
+  <al>Barneveld</al>
+  <al>Bathmen</al>
+  <al>Bergh</al>
+  <al>De Bilt</al>
+  <al>Borculo</al>
+  <al>Borne</al>
+  <al>Brummen</al>
+  <al>Bunschoten</al>
+  <al>Dalfsen <noot id="n1e7406784_7406784" type="voet"><noot.nr>1)</noot.nr><noot.al>Tot het grondgebied van de gemeente Dalfsen wordt uitsluitend gerekend het deel van Lemelerveld dat voor de datum van herindeling werd gerekend tot het grondgebied van de gemeenten Ommen en Raalte.</noot.al></noot></al>
+  <al>Denekamp</al>
+  <al>Deventer</al>
+  <al>Didam</al>
+  <al>Diepenheim</al>
+  <al>Diepenveen</al>
+  <al>Dinxperlo</al>
+  <al>Doesburg</al>
+  <al>Doetinchem</al>
+  <al>Doorn</al>
+  <al>Driebergen/Rijsenburg</al>
+  <al>Duiven</al>
+  <al>Ede</al>
+  <al>Eemnes</al>
+  <al>Eibergen</al>
+  <al>Elburg</al>
+  <al>Enschede</al>
+  <al>Epe</al>
+  <al>Ermelo</al>
+  <al>Gendringen</al>
+  <al>Goor</al>
+  <al>Gorssel</al>
+  <al>Groenlo</al>
+  <al>Haaksbergen</al>
+  <al>Den Ham</al>
+  <al>Harderwijk</al>
+  <al>Hattem</al>
+  <al>Heerde</al>
+  <al>Hellendoorn</al>
+  <al>Hengelo Gld.</al>
+  <al>Hengelo Ov.</al>
+  <al>Hoevelaken</al>
+  <al>Holten</al>
+  <al>Hummelo en Keppel</al>
+  <al>Leersum</al>
+  <al>Leusden</al>
+  <al>Lichtenvoorde</al>
+  <al>Lochem</al>
+  <al>Losser</al>
+  <al>Maarn</al>
+  <al>Markelo</al>
+  <al>Millingen a/d Rijn</al>
+  <al>Neede</al>
+  <al>Nunspeet</al>
+  <al>Nijkerk</al>
+  <al>Oldenbroek</al>
+  <al>Oldenzaal</al>
+  <al>Olst</al>
+  <al>Ommen</al>
+  <al>Ootmarsum</al>
+  <al>Putten</al>
+  <al>Raalte</al>
+  <al>Renswoude</al>
+  <al>Rhenen</al>
+  <al>Ruurlo</al>
+  <al>Rijnwaarden</al>
+  <al>Rijssen</al>
+  <al>Scherpenzeel</al>
+  <al>Soest</al>
+  <al>Stad-Delden</al>
+  <al>Steenderen</al>
+  <al>Tubbergen</al>
+  <al>Ubbergen</al>
+  <al>Veenendaal</al>
+  <al>Voorst</al>
+  <al>Vorden</al>
+  <al>Vriezenveen</al>
+  <al>Warnsveld</al>
+  <al>Weerselo</al>
+  <al>Wehl</al>
+  <al>Westervoort</al>
+  <al>Wierden</al>
+  <al>Winterswijk</al>
+  <al>Wisch</al>
+  <al>Woudenberg</al>
+  <al>Wijhe</al>
+  <al>Zeist</al>
+  <al>Zelhem</al>
+  <al>Zevenaar</al>
+  <al>Zutphen</al>
+  <al>Gebied II omvat, gerekend naar de situatie op 1 januari 1997, het grondgebied van de navolgende gemeenten:</al>
+  <al>Alphen-Chaam</al>
+  <al>Ambt Montfort</al>
+  <al>Arcen en Velden</al>
+  <al>Asten</al>
+  <al>Baarle Nassau</al>
+  <al>Beesel</al>
+  <al>Belfeld</al>
+  <al>Bergen (L)</al>
+  <al>Bergeijk</al>
+  <al>Bernheze</al>
+  <al>Best</al>
+  <al>Bladel</al>
+  <al>Boekel</al>
+  <al>Boxtel</al>
+  <al>Breda <noot id="n2e7406784_7406784" type="voet"><noot.nr>1)</noot.nr><noot.al>Tot het grondgebied van de gemeente Breda wordt niet gerekend het grondgebied van de opgeheven gemeenten Prinsenbeek en Teteringen.</noot.al></noot></al>
+  <al>Broekhuizen</al>
+  <al>Budel</al>
+  <al>Deurne</al>
+  <al>Dongen<noot id="n3e7406784_7406784" type="voet"><noot.nr>2)</noot.nr><noot.al>Tot het grondgebied van de gemeente Dongen wordt uitsluitend gerekend het grondgebied van de opgeheven gemeente Dongen.</noot.al></noot></al>
+  <al>Echt</al>
+  <al>Eersel</al>
+  <al>Eindhoven</al>
+  <al>Geldrop</al>
+  <al>Gemert-Bakel</al>
+  <al>Gennep</al>
+  <al>Gilze en Rijen</al>
+  <al>Goirle</al>
+  <al>Grubbenvorst</al>
+  <al>Haelen</al>
+  <al>Heel en Panheel</al>
+  <al>Heeze-Leende</al>
+  <al>Helden</al>
+  <al>Helmond</al>
+  <al>'s-Hertogenbosch</al>
+  <al>Heusden <noot id="n4e7406784_7406784" type="voet"><noot.nr>3)</noot.nr><noot.al>Tot het grondgebied van de gemeente Heusden wordt uitsluitend gerekend het grondgebied van de opgeheven gemeente Drunen.</noot.al></noot></al>
+  <al>Heythuysen</al>
+  <al>Hilvarenbeek</al>
+  <al>Horst</al>
+  <al>Hunsel</al>
+  <al>Kessel</al>
+  <al>Laarbeek</al>
+  <al>Land van Cuijk</al>
+  <al>Lith</al>
+  <al>Loon op Zand</al>
+  <al>Maasbracht</al>
+  <al>Maasbree</al>
+  <al>Maasdonk</al>
+  <al>Maashorst</al>
+  <al>Meerlo-Wanssum</al>
+  <al>Meyel</al>
+  <al>Mierlo</al>
+  <al>Mook en Middelaar</al>
+  <al>Nederweert</al>
+  <al>Nuenen, Gerwen en Nederwetten</al>
+  <al>Oirschot</al>
+  <al>Oisterwijk</al>
+  <al>Oss</al>
+  <al>Ravenstein</al>
+  <al>Reusel-De Mierden</al>
+  <al>Roerdalen</al>
+  <al>Roermond</al>
+  <al>Roggel</al>
+  <al>Roggel en Neer</al>
+  <al>Rucphen <noot id="n5e7406784_7406784" type="voet"><noot.nr>4)</noot.nr><noot.al>Tot het grondgebied van de gemeente Rucphen wordt uitsluitend gerekend het grondgebied van deze gemeente, zoals dat werd begrensd vóór de datum van herindeling.</noot.al></noot></al>
+  <al>Schijndel</al>
+  <al>Sevenum</al>
+  <al>St. Michielsgestel</al>
+  <al>St. Oedenrode</al>
+  <al>Someren</al>
+  <al>Son en Breugel</al>
+  <al>Stramproy</al>
+  <al>Swalmen</al>
+  <al>Tegelen</al>
+  <al>Thorn</al>
+  <al>Tilburg</al>
+  <al>Valkenswaard</al>
+  <al>Veghel</al>
+  <al>Veldhoven</al>
+  <al>Venlo</al>
+  <al>Venray</al>
+  <al>Vierlingsbeek</al>
+  <al>Vught</al>
+  <al>Waalre</al>
+  <al>Weert</al>
+  <al>Zundert</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2021-373"><publicatiejaar>2021</publicatiejaar><publicatienr>373</publicatienr><uitgiftedatum isodatum="2021-07-22">22-07-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-07-14">14-07-2021</ondertekeningsdatum><dossierref dossier="35619">35619</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2021-373"><publicatiejaar>2021</publicatiejaar><publicatienr>373</publicatienr><uitgiftedatum isodatum="2021-07-22">22-07-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-07-14">14-07-2021</ondertekeningsdatum><dossierref dossier="35619">35619</dossierref></publicatie><inwerkingtreding.datum isodatum="2022-01-01">01-01-2022</inwerkingtreding.datum></inwerkingtreding></brondata><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2021-375"><publicatiejaar>2021</publicatiejaar><publicatienr>375</publicatienr><uitgiftedatum isodatum="2021-07-22">22-07-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-07-14">14-07-2021</ondertekeningsdatum><dossierref dossier="35620">35620</dossierref></publicatie><juncto><publicatie soort="Stb" urlidentifier="stb-2021-374"><publicatiejaar>2021</publicatiejaar><publicatienr>374</publicatienr><uitgiftedatum isodatum="2021-07-22">22-07-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-07-14">14-07-2021</ondertekeningsdatum><dossierref dossier="35842">35842</dossierref></publicatie></juncto></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2021-375"><publicatiejaar>2021</publicatiejaar><publicatienr>375</publicatienr><uitgiftedatum isodatum="2021-07-22">22-07-2021</uitgiftedatum><ondertekeningsdatum isodatum="2021-07-14">14-07-2021</ondertekeningsdatum><dossierref dossier="35620">35620</dossierref></publicatie><inwerkingtreding.datum isodatum="2022-01-01">01-01-2022</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0004054&amp;bijlage=I&amp;g=2025-12-09" onderdeel="bijlage=I" korte-verwijzing="1.0:c:BWBR0004054&amp;bijlage=I" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;bijlage=I&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="bijlage=I" korte-verwijzing="jci1.3:c:BWBR0004054&amp;bijlage=I" /></jcis></meta-data></bijlage>
+    </wet-besluit>
+<meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2006-64"><publicatiejaar>2006</publicatiejaar><publicatienr>64</publicatienr><uitgiftedatum isodatum="2006-02-21">21-02-2006</uitgiftedatum><ondertekeningsdatum isodatum="2006-02-14">14-02-2006</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2006-64"><publicatiejaar>2006</publicatiejaar><publicatienr>64</publicatienr><uitgiftedatum isodatum="2006-02-21">21-02-2006</uitgiftedatum><ondertekeningsdatum isodatum="2006-02-14">14-02-2006</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2006-01-01">01-01-2006</inwerkingtreding.datum></inwerkingtreding></brondata><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2005-481"><publicatiejaar>2005</publicatiejaar><publicatienr>481</publicatienr><uitgiftedatum isodatum="2005-10-11">11-10-2005</uitgiftedatum><ondertekeningsdatum isodatum="2005-09-15">15-09-2005</ondertekeningsdatum><dossierref dossier="29930">29930</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2005-562"><publicatiejaar>2005</publicatiejaar><publicatienr>562</publicatienr><uitgiftedatum isodatum="2005-11-15">15-11-2005</uitgiftedatum><ondertekeningsdatum isodatum="2005-10-19">19-10-2005</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2006-01-01">01-01-2006</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0004054&amp;g=2025-12-09" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0004054" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0004054&amp;z=2025-12-09&amp;g=2025-12-09" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0004054" /></jcis></meta-data></wetgeving></toestand>

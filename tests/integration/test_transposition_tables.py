@@ -16,13 +16,21 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   ``normalize bwb-history``: Woningwet 101a, moved into the Omgevingswet) is one too.
 - The API reads it both ways: on the old article where it went, on the new one where it came
   from.
-- What a table answers instead of a place ("vervallen", "–", "Blijft in Waterwet") is an edge
-  to the new law, no gap; of an old article that is a gap, the edge keeps what the table
-  writes. A division of the old law ("§ 1.2") is each article of it.
+- What a table answers instead of a place ("vervallen", "–", "Blijft in Waterwet", "naar de
+  Gratiewet (via de invoeringswet)") is an edge to the new law, no gap; of an old article
+  that is a gap, the edge keeps what the table writes. A division of the old law ("§ 1.2")
+  is each article of it.
+- An article of the new law worked out in an AMvB under it ("20, derde lid, besluit",
+  kst-36440-3) is a place in the new law; an article of another law with the law that puts
+  it there ("art. 1a WED (door artikel 2.46 IwOw)", kst-34986-3) one of that law.
 - A row that does not hold, and an old article without a place, is a gap in the report; an
   old article without a row only of a law that expired no later than the new law came into
   force.
 - An edge no table gives any more goes.
+- A table of the Wet voortgezet onderwijs 2020 (kst-35297-3) with a column per old law, each
+  with a column of its leden, is a table per old law; it names the old laws by their
+  abbreviations of the WTI (``WVO``, ``WVO-BES``), of two laws of one name the one in force
+  when the new law came into force.
 """
 
 from __future__ import annotations
@@ -73,6 +81,7 @@ _OLD_ARTICLES = {
     "6:1:1": (("1", "2", "3"), False),
     "6:1:2": ((), False),
     "10": (("1", "2", "3"), False),  # lapses (p. 4: "vervalllen", "vervallen")
+    "6:7:1": ((), False),  # to the Gratiewet (kst-36636-3)
 }
 _NONE: tuple[tuple[str, ...], bool] = ((), False)
 _WATERWET = dict.fromkeys(
@@ -114,6 +123,12 @@ _MEDIAWET_2008 = {
 }
 _UNESCO = dict.fromkeys(("1", "2", "3", "4", "5", "6"), _NONE)
 _ERFGOEDWET = dict.fromkeys(("1.1", "3.13", "6.1", "6.3", "6.7"), _NONE)
+# kst-36440-3: the Wet zeevarenden to the Wet bemanning zeeschepen
+_WET_ZEEVARENDEN = dict.fromkeys(("5", "6", "20"), _NONE)
+_WET_BEMANNING_ZEESCHEPEN: dict[str, tuple[tuple[str, ...], bool]] = {
+    "20": (("1", "2", "3", "4", "5", "6"), False),
+    **dict.fromkeys(("23", "24", "25", "26"), _NONE),
+}
 
 
 def _historical(store: GraphStore, bwb_id: str, numbers: tuple[str, ...]) -> None:
@@ -146,6 +161,8 @@ def _bwb_law(
     articles: dict[str, tuple[tuple[str, ...], bool]],
     expired: str | None = None,
     in_force: str | None = None,
+    short_title: str | None = None,
+    aliases: tuple[str, ...] = (),
 ) -> None:
     key = bwb_id.lower()
     divisions = _DIVISIONS.get(bwb_id, {})
@@ -160,10 +177,12 @@ def _bwb_law(
                     "bwb_id": bwb_id,
                     "title": title,
                     "citation_title": title,
+                    "short_title": short_title,
                     "kind": "wet",
                     "in_force": expired is None,
                     "date_expired": expired,
                     "date_in_force": in_force,
+                    "aliases": list(aliases),
                 },
             }
         ],
@@ -253,6 +272,24 @@ def _seed(store: GraphStore) -> None:
     )
     _bwb_law(store, "BWBR0024186", "Uitvoeringswet UNESCO-verdrag 1970", _UNESCO)
     _bwb_law(store, "BWBR0037521", "Erfgoedwet", _ERFGOEDWET)
+    _bwb_law(
+        store, "BWBR0009124", "Wet zeevarenden", _WET_ZEEVARENDEN, expired="2025-07-01"
+    )
+    _bwb_law(
+        store,
+        "BWBR0050681",
+        "Wet bemanning zeeschepen",
+        _WET_BEMANNING_ZEESCHEPEN,
+        in_force="2025-07-01",
+    )
+    _bwb_law(store, "BWBR0008331", "Wet beheer rijkswaterstaatswerken", {"11": _NONE})
+    _bwb_law(
+        store,
+        "BWBR0002063",
+        "Wet op de economische delicten",
+        {"1a": _NONE},
+        short_title="WED",
+    )
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
             writer.add(
@@ -277,7 +314,10 @@ def _seed(store: GraphStore) -> None:
                 meta={"identifier": TABLE, "dossier": "36327", "encoding": "base64"},
             )
         )
-    for document in ("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"):
+    for document in (
+        *("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"),
+        "kst-36440-3",
+    ):
         _paper(store, document)
     _paper(store, "kst-34986-99", _REVERSED)
     # rows of the tables of the Waterwet and the Wet milieubeheer in kst-34986-3 the table
@@ -286,6 +326,10 @@ def _seed(store: GraphStore) -> None:
         store,
         "kst-34986-98",
         (FIXTURES / "kst_34986_3_answers_excerpt.xml").read_text(),
+    )
+    # the row of the Wet beheer rijkswaterstaatswerken in kst-34986-3 with the WED
+    _paper(
+        store, "kst-34986-97", (FIXTURES / "kst_34986_3_wbr_excerpt.xml").read_text()
     )
 
 
@@ -396,6 +440,15 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
                 ("4", "6_7"),
             )
         ),
+        # Wet zeevarenden | Wetsvoorstel: the Wet bemanning zeeschepen
+        ("articles/bwbr0009124_5", "articles/bwbr0050681_20"),
+        ("articles/bwbr0009124_6", "articles/bwbr0050681_20"),
+        *(
+            ("articles/bwbr0009124_20", f"articles/bwbr0050681_{new}")
+            for new in ("23", "24", "25", "26")
+        ),
+        # a place in another law: the WED
+        ("articles/bwbr0008331_11", "articles/bwbr0002063_1a"),
     }
     assert edges[("articles/bwbr0024186_1", "articles/bwbr0037521_6_1")] == {
         "basis": "transposition_table",
@@ -472,6 +525,45 @@ def test_what_a_table_answers_is_an_edge_to_the_new_law(store: GraphStore) -> No
         if old.startswith("articles/bwbr0003245_")
         for part in meta["parts"]
     } == {"§ 1.2"}
+
+
+def test_a_place_in_an_amvb_or_in_another_law_by_its_note(store: GraphStore) -> None:
+    """kst-36440-3: "20, derde lid, besluit" is 20, third lid, of the new law (it delegates
+    to the AMvB); kst-34986-3, Wbr 11: "art. 1a WED (door artikel 2.46 IwOw)" is 1a of the
+    WED; kst-36636-3, Sv 6:7:1: "naar de Gratiewet (via de invoeringswet)" an outcome."""
+    edges = _transposed(store)
+    wzv, wbz = "articles/bwbr0009124", "articles/bwbr0050681"
+    assert edges[(f"{wzv}_6", f"{wbz}_20")]["parts"] == [
+        {"from": "", "to": "20, derde lid, besluit", "article": "20", "leden": ["3"]}
+    ]
+    assert {new for old, new in edges if old == f"{wzv}_20"} == {
+        f"{wbz}_{n}" for n in ("23", "24", "25", "26")
+    }
+    assert edges[(f"{wzv}_20", f"{wbz}_24")]["parts"] == [
+        {"from": "", "to": "23 tot en met 26, besluit", "article": "24", "leden": []}
+    ]
+    assert edges[("articles/bwbr0008331_11", "articles/bwbr0002063_1a")]["parts"] == [
+        {
+            "from": "",
+            "to": "art. 1a WED (door artikel 2.46 IwOw)",
+            "article": "1a",
+            "leden": [],
+        }
+    ]
+    answers = _transposed(store, "instruments")
+    gratie = f"articles/{article_key('BWBR0001903', '6:7:1', None)}"
+    assert answers[(gratie, "instruments/wet_stb_2026_56")] == {
+        "basis": "transposition_table",
+        "source": "kst-36636-3",
+        "outcome": "naar:Gratiewet",
+        "parts": [
+            {
+                "from": "",
+                "to": "naar de Gratiewet (via de invoeringswet)",
+                "outcome": "naar:Gratiewet",
+            }
+        ],
+    }
 
 
 def test_the_api_reads_it_both_ways(api: Api) -> None:
@@ -586,3 +678,100 @@ def test_an_edge_no_table_gives_any_more_goes(database: str, cli: Any) -> None:
     )
     cli("semantic", "tk-transposition-tables")
     assert _transposed(store) == {}
+
+
+# The Wet voortgezet onderwijs 2020 and the laws it replaced (kst-35297-3): number -> leden.
+_WVO = {
+    **dict.fromkeys(("1", "2", "2a", "7", "10", "15", "33", "42", "118u"), _NONE),
+    "4": (("1", "2"), False),
+    "119": (("1", "2"), False),
+}
+_WVO_BES = dict.fromkeys(
+    ("1", "2", "3", "5", "13", "16", "41", "80", "96", "214b"), _NONE
+)
+_WVO_2020 = {
+    **dict.fromkeys(
+        ("1.1", "1.3", "1.4", "2.2", "2.3", "2.13", "2.26", "7.11", "8.28", "11.1"),
+        _NONE,
+    ),
+    "2.24": (("1", "2", "3", "4", "5", "6"), False),
+    "7.9": (("1", "2"), False),
+}
+
+
+def test_a_column_per_old_law_with_its_leden(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _bwb_law(
+        store,
+        "BWBR0002399",
+        "Wet op het voortgezet onderwijs",
+        _WVO,
+        expired="2022-08-01",
+        aliases=("WVO",),
+    )
+    # the WVO BES of its first months, and the one of 2011 on
+    _bwb_law(
+        store,
+        "BWBR0028424",
+        "Wet voortgezet onderwijs BES",
+        dict.fromkeys(("1", "3"), _NONE),
+        expired="2011-02-17",
+        aliases=("WVO BES",),
+    )
+    _bwb_law(
+        store,
+        "BWBR0030284",
+        "Wet voortgezet onderwijs BES",
+        _WVO_BES,
+        expired="2022-08-01",
+        in_force="2011-02-17",
+        aliases=("WVO BES",),
+    )
+    _bwb_law(
+        store,
+        "BWBR0044212",
+        "Wet voortgezet onderwijs 2020",
+        _WVO_2020,
+        in_force="2022-08-01",
+    )
+    _paper(store, "kst-35297-3")
+    cli("semantic", "tk-transposition-tables")
+
+    def article(bwb_id: str, number: str) -> str:
+        return f"articles/{article_key(bwb_id, number, None)}"
+
+    edges = _transposed(store)
+    pairs = {
+        "BWBR0002399": [
+            ("1", "1.1"), ("1", "2.13"), ("2", "1.4"), ("2a", "7.9"), ("4", "8.28"),
+            ("10", "2.24"), ("15", "2.26"), ("33", "7.11"), ("42", "2.3"),
+            ("119", "1.3"), ("7", "2.2"),
+        ],
+        "BWBR0030284": [
+            ("1", "1.1"), ("1", "2.13"), ("1", "11.1"), ("2", "1.4"), ("3", "7.9"),
+            ("5", "8.28"), ("16", "2.24"), ("41", "2.26"), ("80", "7.11"),
+            ("96", "2.3"), ("13", "2.2"),
+        ],
+    }  # fmt: skip
+    assert set(edges) == {
+        (article(old_law, old), article("BWBR0044212", new))
+        for old_law, rows in pairs.items()
+        for old, new in rows
+    }
+    assert edges[article("BWBR0002399", "2a"), article("BWBR0044212", "7.9")][
+        "parts"
+    ] == [{"from": "", "to": "7.9, lid 1", "article": "7.9", "leden": ["1"]}]
+    assert edges[article("BWBR0002399", "10"), article("BWBR0044212", "2.24")][
+        "parts"
+    ] == [
+        {
+            "from": "lid 4 t/m 8 (deels) en 10 (deels)",
+            "to": "2.24, lid 1 t/m 5",
+            "article": "2.24",
+            "leden": ["1", "2", "3", "4", "5"],
+        }
+    ]
+    out = cli("succession-gaps", "--table", "kst-35297-3").stdout
+    assert "instruments/bwbr0002399 -> instruments/bwbr0044212" in out
+    assert "instruments/bwbr0030284 -> instruments/bwbr0044212" in out
+    assert "rij 11: art. 118u: 12.* [does not read]" in out

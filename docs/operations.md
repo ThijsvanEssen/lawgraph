@@ -193,7 +193,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 | `lawgraph expand-graph [--max-iterations N] [--no-final-pass]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now (not with `--no-final-pass`) |
 | `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, each step that takes `--since` from the start of the window, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`; a normalize or semantic step from where the last complete `<phase> all` of its phase began when that is later (what the nightly run already did; a nightly phase that failed leaves its mark, and the poll reads the whole window). `tk`: `tk`, `tk-dossiers` (without members), `tk-document-links` and `tk-case-actors`, `tk-dossier-outcomes`, `tk-government`, `tk-cited-papers`, `tk-motion-kinds`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
-| `lawgraph succession-gaps [--table ID]` | reads only: what the transposition and concordance tables do not place (as `semantic tk-transposition-tables` reads them): per old and new law the rows of each table that do not hold (a place that does not read, an article the old law lacks, an article or lid the new law lacks, a law not found) and the articles of the old law in force without a place in the new law in any of them, each with its page or row and what the table writes; the outcomes the tables give instead of a place (`vervallen`, `niet_overgenomen`, `blijft_in:<law>`: no gaps), counted; then why a table places nothing. `--table` the tables of one source (`blg-1081574`, `kst-34986-3`, `32017R1001`) and the laws they are between |
+| `lawgraph succession-gaps [--table ID]` | reads only: what the transposition and concordance tables do not place (as `semantic tk-transposition-tables` reads them): per old and new law the rows of each table that do not hold (a place that does not read, an article the old law lacks, an article or lid the new law lacks, a law not found) and the articles of the old law in force without a place in the new law in any of them, each with its page or row and what the table writes; the outcomes the tables give instead of a place (`vervallen`, `niet_overgenomen`, `blijft_in:<law>`, `naar:<law>`: no gaps), counted; then why a table places nothing. `--table` the tables of one source (`blg-1081574`, `kst-34986-3`, `32017R1001`) and the laws they are between |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
 | `lawgraph built-beforehand` | reads nothing: the SQL that builds the indexes of the large tables a release adds before its deploy (see Deploy) |
 | `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
@@ -467,6 +467,7 @@ Dag check: mislukt, db-weg [herhaalt]
 Dag semantic tk-government: mislukt, onverwacht KeyError 'ministry' [actie]
 Poll tk: 3x overgeslagen, lock-bezet [actie]
 Dag retrieve tk +2: mislukt, db-weg [herhaalt]; Dag sitemaps: mislukt, exit-1 [actie]
+Dag retrieve tk-content: mislukt, download geen-pdf [herhaalt]
 ```
 
 The step is the address of the pipeline or command without its options (`check`, `semantic tk-government`); of a
@@ -512,6 +513,7 @@ Causes:
 | `challenge` | the source answered with a challenge page |
 | `geweigerd` | the source refused us otherwise |
 | `geen-voortgang` | a slice named the same key again, or there were too many |
+| `download <oorzaak>` | downloads failed; the cause of the first in fixed words (`download http-500`, `download time-out`, `download geen-pdf`) |
 | `exit-<N>` | the command ended with this exit code without saying why |
 | `onverwacht <Type> <tekst>` | any other failure: its exception and its first 60 characters |
 | `server-ongewijzigd` | the deploy failed before it changed the server |

@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import (
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
@@ -171,3 +172,29 @@ def test_a_paper_naming_a_table_is_listed_by_its_full_text_with_its_xml() -> Non
     assert 'cql.textAndIndexes="transponeringstabel"' in asked[0]["query"]
     client = KamerstukClient(session=ScriptedSession(lambda sent: without))
     assert client.search_documents_naming_tables() == []
+
+
+def test_a_failed_download_is_a_skip_and_the_next_run_asks_again(
+    raw_reads: None,
+) -> None:
+    """On 20 October the repository once answered blg-123216 with something that was not a
+    PDF; a day later it served the PDF. One such answer skips that table, the run stores
+    the rest, and the next run asks for it again."""
+    asked: list[str] = []
+    store = InMemoryStore()
+    client = _client(_documents(), asked)
+    client.fetch_pdf = lambda url: (_ for _ in ()).throw(
+        UnexpectedAnswer(Unexpected.NOT_PDF, url)
+    )
+
+    result = TKTranspositionTablesRetrievePipeline(store, client=client).run()
+
+    assert (result.created, result.skipped, result.errors) == (2, 1, [])
+    stored = {r["external_id"] for r in store.raw.values()}
+    assert "blg-1081574" not in stored
+
+    again: list[str] = []
+    TKTranspositionTablesRetrievePipeline(
+        store, client=_client(_documents(), again)
+    ).run()
+    assert again == [LISTED["pdf_url"]]

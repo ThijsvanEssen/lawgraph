@@ -29,8 +29,9 @@ GRAPH_PROPS_LEFT_OUT = (
 
 # And a neighbour, a node of a neighbourhood or of a path: the text of a document (its sections
 # and footnotes, hundreds of kB) and the structure of an article (its parts, tables, headings,
-# references and breadcrumb: three quarters of what the articles of a law weigh). A neighbour is
-# light; its text belongs to the node itself (``/api/nodes/{collection}/{key}``, the readers).
+# footnote marks, references and breadcrumb: three quarters of what the articles of a law
+# weigh). A neighbour is light; its text belongs to the node itself
+# (``/api/nodes/{collection}/{key}``, the readers).
 NEIGHBOR_PROPS_LEFT_OUT = (
     *GRAPH_PROPS_LEFT_OUT,
     "sections",
@@ -38,6 +39,7 @@ NEIGHBOR_PROPS_LEFT_OUT = (
     "parts",
     "tables",
     "headings",
+    "footnote_marks",
     "references",
     "breadcrumb",
 )

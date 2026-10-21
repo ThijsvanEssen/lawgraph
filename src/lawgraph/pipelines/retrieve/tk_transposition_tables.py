@@ -13,7 +13,8 @@ one, and the papers that hold one.
   until the SRU says it changed.
 
 Each one not stored yet, or changed since, is fetched, with what the SRU says of it in
-``meta``. ``semantic tk-transposition-tables`` reads them.
+``meta``. A download that fails is skipped; the next run asks for it again. ``semantic
+tk-transposition-tables`` reads them.
 """
 
 from __future__ import annotations
@@ -89,6 +90,7 @@ class TKTranspositionTablesRetrievePipeline(RetrievePipelineBase):
             lambda identifier: fetch(by_id[identifier]),
             lambda identifier, got: [record(identifier, by_id[identifier], got)],
             label="KOOP",
+            failed_is_skipped=True,
             missing=lambda identifier, status: missing_record(
                 SOURCE_TK, kind, identifier, listed=True, status=status
             ),

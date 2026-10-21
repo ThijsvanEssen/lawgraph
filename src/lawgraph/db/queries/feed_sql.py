@@ -255,6 +255,15 @@ ACTORS = truthy_or(_ACTORS_OF_N, EMPTY_ARRAY)
 
 # The first dossier label of a row (``labels[0]``), when it is a string.
 _LABEL = "lg_str(CASE WHEN json_typeof(l.labels) = 'array' THEN l.labels -> 0 END)"
+# The dossier a row is shown under with ``dossier``: its first label of that filter. A
+# commitment of a debate is about every dossier on its agenda; under the filter on one
+# it is that one, not the label that sorts first.
+_FILTERED_LABEL = (
+    f"(SELECT x.v {JSON_TEXT}"
+    f" FROM json_array_elements({array_or_empty('l.labels')}) WITH ORDINALITY AS x(v, i)"
+    " WHERE json_typeof(x.v) IN ('string', 'number', 'boolean')"
+    f" AND starts_with(x.v {JSON_TEXT}, %(dossier)s) ORDER BY x.i ASC NULLS LAST LIMIT 1)"
+)
 
 # The chamber of a vote: one of the Eerste Kamer carries ``chamber`` ``EK``.
 _VOTE_CHAMBER = "lg_str(" + truthy_or("n.props -> 'chamber'", "'\"TK\"'::json") + ")"
@@ -876,7 +885,7 @@ class Kind:
             str(KIND_RANK[self.source.kind]),
             "n.id",
             f"n.{self.source.date}",
-            _LABEL,
+            _FILTERED_LABEL if self.plan.filters.dossier else _LABEL,
             self.ministry,
             self.factions,
             self.source.chamber,

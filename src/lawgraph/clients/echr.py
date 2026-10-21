@@ -20,6 +20,7 @@ from lawgraph.clients.base import (
     PAGE_TIMEOUT,
     QUERY_TIMEOUT,
     BaseClient,
+    Unexpected,
     UnexpectedAnswer,
 )
 from lawgraph.config.sources import HUDOC
@@ -161,4 +162,6 @@ class EchrClient(BaseClient):
             with zipfile.ZipFile(io.BytesIO(resp.content)) as docx:
                 return docx.read(_DOCX_BODY).decode("utf-8")
         except (zipfile.BadZipFile, KeyError, UnicodeDecodeError) as exc:
-            raise UnexpectedAnswer(f"HUDOC {item_id}: no DOCX ({exc})") from exc
+            raise UnexpectedAnswer(
+                Unexpected.NOT_DOCX, f"HUDOC {item_id}: {exc}"
+            ) from exc

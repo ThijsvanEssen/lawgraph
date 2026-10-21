@@ -216,11 +216,20 @@ def test_a_number_is_read_as_the_law_writes_it() -> None:
         ("keert niet terug", "niet_overgenomen"),
         ("Blijft in Waterwet", "blijft_in:Waterwet"),
         ("Blijft in Wm 10.6, tweede lid", "blijft_in:Wm"),
+        # kst-36636-3 (Sv 6:7:1, 6:1:19), kst-34109-3 (Monumentenwet 1988 22–29): to another
+        # law, no article of it named
+        ("naar de Gratiewet (via de invoeringswet)", "naar:Gratiewet"),
+        (
+            "naar het Wetboek van Strafrecht (via de invoeringswet)",
+            "naar:Wetboek van Strafrecht",
+        ),
+        ("Wordt later ingevoegd in de Omgevingswet", "naar:Omgevingswet"),
         # no answer: a place, or more than the answer
         ("Vervallen (zie 3.24)", None),
         ("Deels vervallen, deels in 2.18 eerste en tweede lid", None),
-        ("Besluit B2", None),
+        ("Besluit B2", None),  # no law by name: a besluit of the new Sv not yet made
         ("bijlage A", None),
+        ("naar de bijlage", None),
     ],
 )
 def test_what_the_source_answers_instead_of_a_place(
@@ -242,8 +251,9 @@ def test_what_the_source_answers_instead_of_a_place(
         ("§ 1.2", [("paragraaf 1.2",)]),
         ("titel 10.5A", [("titel 10.5a",)]),
         ("Hfdst. IV", [("hoofdstuk iv",)]),
-        ("Besluit B2", None),
+        ("Besluit B2", None),  # no law by name: a besluit of the new Sv not yet made
         ("bijlage A", None),
+        ("naar de bijlage", None),
         ("2.8.6, 1", None),
     ],
 )
