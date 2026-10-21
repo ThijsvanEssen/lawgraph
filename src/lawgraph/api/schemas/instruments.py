@@ -61,6 +61,7 @@ from lawgraph.config.constants import (
     ImplementsBasis,
     Relation,
 )
+from lawgraph.core.completeness import ReferenceCounts
 from lawgraph.core.delegations import BasisKind, basis_qualifier
 from lawgraph.core.division_anchor import breadcrumb_on, division_anchors
 from lawgraph.core.dossier_numbers import short_title
@@ -1314,7 +1315,8 @@ class InstrumentDetailDTO(WithPath):
     completeness: Completeness | None = Field(
         None,
         description="Of a law of the Staatsblad the BWB does not hold (yet): `references` "
-        "of all its articles (`partial`: `missing` not linked) and `definitions`. Of a "
+        "of all its articles (`partial`: `missing` not linked or linked to a stub) and "
+        "`definitions`. Of a "
         "publication the BWB names (`kind` `publicatie`): `text` `not_fetched` (its text "
         "is on officielebekendmakingen.nl; what it changes is read from the BWB). "
         f"{COMPLETENESS} Null for any other instrument.",
@@ -1322,8 +1324,14 @@ class InstrumentDetailDTO(WithPath):
 
     @classmethod
     def from_document(
-        cls, doc: dict[str, Any], *, same_treaty: list[dict[str, Any]] | None = None
+        cls,
+        doc: dict[str, Any],
+        *,
+        same_treaty: list[dict[str, Any]] | None = None,
+        references: ReferenceCounts | None = None,
     ) -> InstrumentDetailDTO:
+        """Build from the node *doc*; *references* what the step that reads its references
+        counted of them (``db.queries.unlinked_references``)."""
         props = doc.get("props") or {}
         return cls(
             id=doc["id"],
@@ -1365,7 +1373,7 @@ class InstrumentDetailDTO(WithPath):
                 LinkedInstrumentDTO.from_document(other) for other in same_treaty or []
             ],
             treaty=TreatyRegisterDTO.from_props(props),
-            completeness=completeness_dto(props),
+            completeness=completeness_dto(props, references=references),
         )
 
 
