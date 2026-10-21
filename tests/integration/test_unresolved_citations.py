@@ -153,8 +153,14 @@ def test_a_law_that_is_loaded_later_takes_its_citations_over(
         "WHERE key = 'ecli_nl_hr_2019_1278'"
     )
     assert [(c["law"], c["article_number"]) for c in props] == [("Sv", "350")]
+    # 350 Sv still not linked; 392 Rv linked to a stub of the article, its text not loaded
     completeness = api.get(f"/api/judgments/{ECLI}").json()["completeness"]
-    assert completeness["references"]["missing"] == 1
+    assert completeness["references"] == {
+        "state": "partial",
+        "as_of": None,
+        "missing": 2,
+        "reason": None,
+    }
 
 
 def test_the_code_keeps_rv_beside_its_version_for_paper_in_slices(
