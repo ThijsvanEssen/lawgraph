@@ -222,6 +222,10 @@
   "split",
   "wissel"
  ],
+ "/components/schemas/CommitmentDossierDTO/properties/basis/anyOf/0": [
+  "nakoming",
+  "agenda"
+ ],
  "/components/schemas/CommitmentLetterDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",

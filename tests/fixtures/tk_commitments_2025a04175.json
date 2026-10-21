@@ -1,0 +1,349 @@
+{
+ "_comment": "TK OData v4 2.0, 21 Oct 2026: two Toezeggingen of Commissiedebat 2025A04175 (Staat van de Volkshuisvesting), expanded as fetch_toezeggingen asks; the activity with its agenda (Agendapunt > Zaak > Kamerstukdossier).",
+ "Toezegging": [
+  {
+   "Id": "02bd9062-c94a-429d-a6c9-0ff2218640f4",
+   "Aanmaakdatum": "2026-03-17T15:12:23.283+01:00",
+   "Nummer": "TZ202603-117",
+   "ActiviteitNummer": "2025A04175",
+   "Naam": "Boekholt-O’Sullivan, E.F.",
+   "Achternaam": "Boekholt-O’Sullivan",
+   "Initialen": "E.F.",
+   "Voornaam": "Elanor",
+   "Achtervoegsel": null,
+   "Titulatuur": "mw.",
+   "Functie": "Minister van Volkshuisvesting en Ruimtelijke Ordening",
+   "Status": "Afgedaan",
+   "DatumNakoming": "2026-07-06T00:00:00+02:00",
+   "Ministerie": "Binnenlandse Zaken en Koninkrijksrelaties",
+   "Tekst": "Voor de zomer ontvangt de Kamer de aanpak voor ouderenhuisvesting en doorstroming.",
+   "Verwijderd": false,
+   "GewijzigdOp": "2026-07-06T00:00:00+02:00",
+   "ApiGewijzigdOp": "2026-07-06T09:00:07.2879859Z",
+   "Tussenvoegsel": null,
+   "Notities": null,
+   "KamerbriefNakoming": [
+    {
+     "Id": "8e50861e-22cc-40cc-bb17-c0c92c75ee21",
+     "Kamerstukdossier": [
+      {
+       "Nummer": 29389,
+       "Toevoeging": null
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "Id": "b354a773-4df6-4f02-bc4e-5d24e784b458",
+   "Aanmaakdatum": "2026-03-17T14:27:05.527+01:00",
+   "Nummer": "TZ202603-106",
+   "ActiviteitNummer": "2025A04175",
+   "Naam": "Boekholt-O’Sullivan, E.F.",
+   "Achternaam": "Boekholt-O’Sullivan",
+   "Initialen": "E.F.",
+   "Voornaam": "Elanor",
+   "Achtervoegsel": null,
+   "Titulatuur": "mw.",
+   "Functie": "Minister van Volkshuisvesting en Ruimtelijke Ordening",
+   "Status": "Openstaand",
+   "DatumNakoming": "0001-01-01T00:00:00Z",
+   "Ministerie": "Binnenlandse Zaken en Koninkrijksrelaties",
+   "Tekst": "Dit najaar ontvangt de Kamer een brief over het gesprek dat minister voert met de provincie Zuid-Holland over de uitvoering van de motie-Mooiman (36800-XXII, nr. 18) over woningbouw in Koudekerk doorgang te laten vinden.",
+   "Verwijderd": false,
+   "GewijzigdOp": "2026-10-14T00:00:00+02:00",
+   "ApiGewijzigdOp": "2026-10-14T14:46:01.0166437Z",
+   "Tussenvoegsel": null,
+   "Notities": null,
+   "KamerbriefNakoming": []
+  }
+ ],
+ "Activiteit": {
+  "Id": "5df23796-fa6b-4740-8a23-be7308f5e251",
+  "Soort": "Commissiedebat",
+  "Nummer": "2025A04175",
+  "Onderwerp": "Staat van de Volkshuisvesting",
+  "Agendapunt": [
+   {
+    "Id": "58b31584-6dee-4082-bc72-11ff27b767f2",
+    "Zaak": [
+     {
+      "Id": "2018de43-0649-453f-8e53-34f24d29b54c",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 32847,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "2a2fc5b9-ac14-4e5b-a9af-21f3671356d4",
+    "Zaak": [
+     {
+      "Id": "77e28c65-d6dc-4295-9f31-0f885a3ad71c",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 33104,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "8787ce4a-156d-4a19-acbb-23a4f13a7f0d",
+    "Zaak": [
+     {
+      "Id": "2de9da12-7b18-459a-af98-4b6b48763ab0",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 36496,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "1ffdf08f-2f34-41dc-b20b-2ca014f06a13",
+    "Zaak": [
+     {
+      "Id": "e3d7c5b0-bc5b-4c72-b104-c73becee7ffe",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29861,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "f5ea2ed7-3f3e-4d4c-a083-3e1093e05920",
+    "Zaak": [
+     {
+      "Id": "5d4a30f3-0df8-4753-a774-ecb9b4e161b2",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 27926,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "3fa50999-bf51-43ce-bff1-3ea053f7c73c",
+    "Zaak": [
+     {
+      "Id": "8880bd8d-a936-4255-bc31-a562cd2bb470",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 32847,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "0f90fef0-5d74-4610-9a99-4dfb613ca836",
+    "Zaak": [
+     {
+      "Id": "ff829a06-a636-4ab9-bb84-7f65058e3fa7",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "ccb45235-d319-4de8-a305-5c00b4b5b203",
+    "Zaak": [
+     {
+      "Id": "4265821c-aed9-4a0e-9dcb-46adef67705d",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "101219c2-dd1e-4dcd-a187-63a3879d7d47",
+    "Zaak": [
+     {
+      "Id": "f652c3ef-39ce-4bb0-9dcd-80a399636e19",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "9afde49e-660e-43b8-a5e2-73c59a469461",
+    "Zaak": [
+     {
+      "Id": "2d98ba36-83cd-42c5-afa1-bb9e5fc63986",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "46d479af-dd21-48a7-a0d4-83a14327387e",
+    "Zaak": [
+     {
+      "Id": "19a7d461-a44b-4a80-bb11-f165d1a76b11",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 32847,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "8c60460a-f728-4355-bbaa-83d292d0a6d0",
+    "Zaak": [
+     {
+      "Id": "9056af72-4066-4feb-ad00-0a071a47e151",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "5e8daf1c-75ce-432c-8de8-867fdb72b837",
+    "Zaak": [
+     {
+      "Id": "e673dc77-3e71-4600-88ba-58989c9d95a3",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 27926,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "e41764a4-c9e6-4e08-b15f-8f971873a216",
+    "Zaak": [
+     {
+      "Id": "e92e85c8-93b1-454b-9054-c3a232e002b0",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 29453,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "443592e8-168e-484e-964e-92692eb8d4f2",
+    "Zaak": [
+     {
+      "Id": "ccf393d0-3f10-4914-b28b-07b4ff05112b",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 27926,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "0448e52c-4361-4b0a-a1a7-a9f7ce664c01",
+    "Zaak": [
+     {
+      "Id": "20855cb3-9b3b-46d9-8f43-bab2ba91d835",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 32847,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "7b168cef-65ef-463b-8ad0-c0aa5e381521",
+    "Zaak": [
+     {
+      "Id": "91732931-4d58-4550-b0f6-2ee6da695aac",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 22112,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "4c7e8737-e31d-4db5-89fe-e97995a1f476",
+    "Zaak": [
+     {
+      "Id": "d0a5f213-4272-4db8-8932-867f7aa3c16f",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 36512,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "f41dbc2d-dd64-4f9b-a5cf-f4bc8421b756",
+    "Zaak": [
+     {
+      "Id": "b74938e8-91ce-4f9f-b168-9bf5a7bd5e1d",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 22112,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "Id": "b4c3346e-8ef4-4b76-ab12-fd6915ef5249",
+    "Zaak": [
+     {
+      "Id": "5de19d65-802d-46a7-8b20-c679c7950b31",
+      "Kamerstukdossier": [
+       {
+        "Nummer": 32847,
+        "Toevoeging": null
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}

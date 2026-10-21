@@ -593,7 +593,7 @@ EXPECTED: dict[str, list[tuple[str, dict[str, str], Any, bool]]] = {
     ],
     "tk-commitments": [
         (
-            "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/Toezegging?%24expand=KamerbriefNakoming%28%24select%3DId%29&%24filter=ApiGewijzigdOp+ge+2026-10-01T00%3A00%3A00Z&%24top=250&%24skip=0&%24count=true",
+            "https://gegevensmagazijn.tweedekamer.nl/OData/v4/2.0/Toezegging?%24expand=KamerbriefNakoming%28%24select%3DId%3B%24expand%3DKamerstukdossier%28%24select%3DNummer%2CToevoeging%29%29&%24filter=ApiGewijzigdOp+ge+2026-10-01T00%3A00%3A00Z&%24top=250&%24skip=0&%24count=true",
             {"Accept": "*/*"},
             30,
             False,
