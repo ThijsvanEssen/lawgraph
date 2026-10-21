@@ -189,9 +189,10 @@ def government_graph(store: GraphStore) -> None:
             edge("p6", "documents/as_member", "dossiers/d3", "PART_OF"),
             edge("p7", "documents/undated", "dossiers/d3", "PART_OF"),
             edge("p8", "documents/elsewhere", "dossiers/gone", "PART_OF"),
-            edge("b1", "commitments/k1", "dossiers/d1", "ABOUT"),
-            edge("b2", "commitments/k1", "dossiers/d3", "ABOUT"),
-            edge("b3", "commitments/k3", "dossiers/d2", "ABOUT"),
+            # k1 discussed in a debate on two dossiers, k3 fulfilled by a letter in d2
+            edge("b1", "commitments/k1", "dossiers/d1", "ABOUT", basis="agenda"),
+            edge("b2", "commitments/k1", "dossiers/d3", "ABOUT", basis="agenda"),
+            edge("b3", "commitments/k3", "dossiers/d2", "ABOUT", basis="nakoming"),
             edge("b4", "commitments/k4", "dossiers/d4", "ABOUT"),
             edge("i1", "commitments/k1", "activities/a2", "MADE_IN"),
             edge("i2", "commitments/k1", "activities/a1", "MADE_IN"),

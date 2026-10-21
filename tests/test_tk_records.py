@@ -507,6 +507,34 @@ def test_commitment_reads_the_minister_and_the_status() -> None:
     assert props["made_on"] == "2024-12-16"
 
 
+def test_a_commitment_reads_the_dossiers_of_the_letters_that_fulfil_it() -> None:
+    _, props = present(
+        commitments.commitment(
+            {
+                "Id": "t-1",
+                "KamerbriefNakoming": [
+                    {
+                        "Id": "b-1",
+                        "Kamerstukdossier": [{"Nummer": 29389, "Toevoeging": None}],
+                    },
+                    {
+                        "Id": "b-2",
+                        "Kamerstukdossier": [{"Nummer": 36600, "Toevoeging": "VII"}],
+                    },
+                    {
+                        "Id": "b-3",
+                        "Kamerstukdossier": [{"Nummer": 29389, "Toevoeging": None}],
+                    },
+                    {"Id": "b-4", "Kamerstukdossier": []},
+                ],
+            }
+        )
+    )
+    assert props["letter_ids"] == ["b-1", "b-2", "b-3", "b-4"]
+    assert props["letter_dossiers"] == ["29389", "36600-VII"]
+    assert present(commitments.commitment({"Id": "t"}))[1]["letter_dossiers"] == []
+
+
 def test_a_commitment_keeps_the_status_the_kamer_gives_it() -> None:
     statuses = ("Deels Afgedaan", "Vervallen", "Nagekomen", "Niet nagekomen", "Iets")
     kept = [

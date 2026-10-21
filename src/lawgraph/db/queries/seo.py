@@ -1005,7 +1005,8 @@ def _changed(store: GraphStore, sources: list[str]) -> list[dict[str, Any]]:
 
 def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """A commitment: its props (its text is the page), the member who made it, the
-    cabinet in office that day, the dossiers it is about and the letters that fulfil it."""
+    cabinet in office that day, the dossiers it is about (with the ``basis`` of each) and
+    the letters that fulfil it."""
     row = _node(store, COLLECTION_COMMITMENTS, node_id)
     if row is None:
         return None
@@ -1038,7 +1039,8 @@ def commitment(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         store.query(
             f"""
             SELECT d.id, d.key, json_build_object('label', d.label, 'number', d.number)
-                       AS props, lg_str(d.props -> 'title') AS title
+                       AS props, lg_str(d.props -> 'title') AS title,
+                   e.doc -> 'meta' ->> 'basis' AS basis
             FROM edges e
             JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id
             WHERE e.from_id = %(id)s AND e.relation = %(about)s

@@ -154,7 +154,7 @@ the markers.
 | `ANSWERS` | Judgment → Judgment, Document → Commitment, Document → Document | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk 25424-795)" (`meta.basis` `subject`, `meta.text` the whole subject, `meta.reference` the reference as written), or its text or a footnote names: "Kamerstuk 36 764, nr. 28", "de motie-Kathmann (36764, nr. 31)" (`meta.basis` `text` or `footnote`, `meta.text` the line or footnote, confidence 0.9). |
 | `SAME_AS` | Judgment → Judgment, Instrument → Instrument, Document → Instrument, Member → Member | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede Kamer → the member with a role who is the same person: the same birth date, surname and initials (`tk-person-duplicates`). |
 | `SCOPED_BY` | Article → Annex | An article whose scope is defined by an annex. |
-| `ABOUT` | Activity → Case, Activity → Dossier, Decision → Case, Decision → Dossier, Decision → Document, Commitment → Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case and Dossier; Commitment → Dossier. A vote of the Eerste Kamer on a motion → the motion, its Kamerstuk with that letter (`Kamerstuk I 37020, M`): a paper of the Eerste Kamer has no case, where a decision of the Tweede Kamer is about the case of its motion. |
+| `ABOUT` | Activity → Case, Activity → Dossier, Decision → Case, Decision → Dossier, Decision → Document, Commitment → Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case and Dossier; Commitment → Dossier. A vote of the Eerste Kamer on a motion → the motion, its Kamerstuk with that letter (`Kamerstuk I 37020, M`): a paper of the Eerste Kamer has no case, where a decision of the Tweede Kamer is about the case of its motion. A commitment fulfilled by a letter in a dossier is about that dossier (`meta.basis` `nakoming`), one without is about the dossiers on the agenda of its debate (`agenda`). |
 | `LED_BY` | Activity → Committee, Case → Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
 | `MADE_IN` | Commitment → Activity, Document → Activity, Decision → Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: the debate held on the day its case started that has the case on its agenda and took no decision on it (`meta.reason` `ingediend`). |
 | `MEMBER_OF` | Member → Committee, Member → Faction | Membership of a committee or faction, with from/to dates and role. |
@@ -195,6 +195,8 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `basis` | `text` | `ANSWERS` | A line of the text of the letter names the motion. |
 | `basis` | `footnote` | `ANSWERS` | A footnote of the letter names the motion. |
 | `basis` | `transposition_table` | `TRANSPOSED_TO` | The table of the recodification places the old article in the new law (the transposition table sent with the bill, a bijlage of its memorie van toelichting or a table in it; the concordance table of an EU act that codifies or recasts others), and the text of the new law holds that article and lid. |
+| `basis` | `nakoming` | `ABOUT` | A commitment and the dossier of the letter that fulfils it (`Toezegging.KamerbriefNakoming`, its `Kamerstukdossier`): the dossier the Kamer files its answer in. |
+| `basis` | `agenda` | `ABOUT` | A commitment no letter in a stored dossier fulfils, and a dossier on the agenda of the debate it was made in: discussed there, not necessarily its subject. |
 | `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
 | `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
 | `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
@@ -375,6 +377,7 @@ its keys to the model of `REFERS_TO`.
 |  | `reference` | `str` | The reference as written. |
 | `SAME_AS` | `basis` | `Basis` | What makes the two the same (core/provenance.py). |
 | `SCOPED_BY` | `scope_type` | `str` | `fixed` or `discretionary`. |
+| `ABOUT` | `basis` | `Basis` | Of a commitment: `nakoming` or `agenda` (core/provenance.py). |
 | `MADE_IN` | `reason` | `Reason` | `ingediend`: a motion submitted in the debate. |
 | `MEMBER_OF` | `from_date` | `str` | The first day. |
 |  | `to_date` | `str` | The last day; absent while it lasts. |
@@ -439,7 +442,7 @@ its keys to the model of `REFERS_TO`.
 |  | `seats` | `int` | The seats the vote counts. |
 |  | `record_ids` | `list[str]` | The `Stemming` records it is made of. |
 
-Without meta: `PART_OF`, `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
+Without meta: `PART_OF`, `VERSION_OF`, `LED_BY`, `SECOND_READING_OF`.
 
 <!-- edge-meta:end -->
 
@@ -1477,6 +1480,7 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `activity_number` | `str` | The number of its activity. |
 | `number` | `str` | `TZ202603-130`, how the Kamer cites it. |
 | `letter_ids` | `list[str]` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it. |
+| `letter_dossiers` | `list[str]` | The dossiers those letters are numbered in (`37020`, `36600-VII`): it is `ABOUT` the stored ones, before the agenda of its debate. |
 | `member_key` | `str` | Who made it (`semantic tk-government`; also an `AUTHORED` edge, `role` `toezegger`). |
 | `post` | `str` | The post they made it in. |
 | `ministry` | `str` | The ministry of that post. |
@@ -1787,7 +1791,7 @@ record is skipped like one without a payload.
 | `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
-| `staatsblad` | `stb-amvb-xml` |
+| `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
 | `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |

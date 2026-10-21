@@ -1,6 +1,7 @@
 """Client for the official publications of KOOP: the AMvBs in the Staatsblad and the
 ministerial regulations in the Staatscourant, listed by the SRU of the repository
-(https://repository.overheid.nl/sru) and fetched as XML from it."""
+(https://repository.overheid.nl/sru) and fetched as XML from it; and the publications of the
+Staatsblad whose text names a transposition table, found by the SRU's full text search."""
 
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ from lawgraph.clients.base import BaseClient
 from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN
 from lawgraph.core.logging import get_logger
+from lawgraph.core.transposition_xml import TABLE_WORDS
 from lawgraph.core.xml import find_own_text, own_texts
 
 logger = get_logger(__name__)
@@ -45,6 +47,10 @@ AMVB = PublicationKind("stb", "Staatsblad", "dt.type=AMvB", STB_ID_PATTERN)
 LAW = PublicationKind(
     "stb", "Staatsblad", "(dt.type=Wet OR dt.type=Rijkswet)", STB_ID_PATTERN
 )
+# Every publication of the Staatsblad, of any type.
+STAATSBLAD = PublicationKind(
+    "stb", "Staatsblad", "w.publicatienaam=Staatsblad", STB_ID_PATTERN
+)
 MINISTERIAL_REGULATION = PublicationKind(
     "stcrt",
     "Staatscourant",
@@ -64,11 +70,16 @@ class KoopPublicationClient(BaseClient):
         self.kind = kind
 
     def search(
-        self, *, since: str | None = None, dossier: str | None = None
+        self,
+        *,
+        since: str | None = None,
+        dossier: str | None = None,
+        naming: tuple[str, ...] = (),
     ) -> list[dict[str, Any]]:
         """Every publication of the kind, ``since`` on ``dt.modified``, of the bill of
-        *dossier* (``w.behandeldDossier``, ``36327``): dicts with identifier, year, number,
-        title, content_url (its XML in the repository), modified and the kind's own fields.
+        *dossier* (``w.behandeldDossier``, ``36327``), whose text names one of the words
+        *naming* (``cql.textAndIndexes``): dicts with identifier, year, number, title,
+        content_url (its XML in the repository), modified and the kind's own fields.
 
         A record of another publication the query also matches (the Staatscourant query
         finds Staatsblad records) is left out, and counted in the log.
@@ -78,6 +89,9 @@ class KoopPublicationClient(BaseClient):
             query += f" AND dt.modified>={since}"
         if dossier:
             query += f' AND w.behandeldDossier=="{dossier}"'
+        if naming:
+            words = " OR ".join(f'cql.textAndIndexes="{word}"' for word in naming)
+            query += f" AND ({words})"
         others: list[str] = []
         found = list(
             iter_publications(
@@ -96,6 +110,12 @@ class KoopPublicationClient(BaseClient):
             f", such as {others[0]}" if others else "",
         )
         return found
+
+    def search_naming_tables(self) -> list[dict[str, Any]]:
+        """Every publication of the kind whose text names a transposition or concordance
+        table (``TABLE_WORDS``: in a heading, a sentence, a cell; most of them an EU
+        implementation table)."""
+        return self.search(naming=TABLE_WORDS)
 
     def fetch_publication_xml(self, identifier: str) -> str:
         """The XML of a publication of the kind (``_sru.fetch_publication_xml``)."""
