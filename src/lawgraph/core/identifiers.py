@@ -13,12 +13,13 @@ from lawgraph.core.time import dutch_today
 BWB_ID_PATTERN = re.compile(r"\b(BWB[RV]\d{7})\b", re.IGNORECASE)
 # A BWB id as a query parameter takes it, in any case: BWBR0052872, a treaty BWBV0001000.
 BWB_ID_PARAM_PATTERN = r"^[Bb][Ww][Bb][RrVv]\d+$"
-_BWB_ID_FULL = re.compile(r"BWB[RV]\d{7}", re.IGNORECASE)
+# A whole BWB id, a law or a treaty: the one pattern of a law of the BWB.
+BWB_ID = re.compile(r"^BWB[RV]\d{7}$", re.IGNORECASE)
 
 
 def is_bwb_id(value: str) -> bool:
     """True for a complete BWB id (``BWBR0001840``, ``BWBV0001000``)."""
-    return bool(_BWB_ID_FULL.fullmatch(value.strip()))
+    return bool(BWB_ID.match(value.strip()))
 
 
 # ---------------------------------------------------------------------------

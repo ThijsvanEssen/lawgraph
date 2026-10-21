@@ -2,6 +2,7 @@
 
     /uitspraken/ECLI:NL:HR:2019:2006     a judgment, by its ECLI (as rechtspraak.nl)
     /wetten/BWBR0005289                  a law, by its BWB id
+    /wetten/BWBV0007162                  a treaty, by its BWB id
     /wetten/32022L2555                   an EU act, by its CELEX number
     /wetten/STB-2026-56                  a law the BWB does not hold (yet), by the
                                          Staatsblad publication that enacted it
@@ -51,7 +52,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
-from lawgraph.core.identifiers import CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
+from lawgraph.core.identifiers import BWB_ID, CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.publications import (
     SERIES,
@@ -61,16 +62,15 @@ from lawgraph.core.publications import (
 )
 
 DOSSIER = re.compile(r"^\d{4,6}(-[A-Z0-9()]+)*$", re.IGNORECASE)
-# A law in the BWB by its id, which is its node key too: BWBR0005290.
-BWB = re.compile(r"^BWBR\d{7}$", re.IGNORECASE)
 # An EU act by its CELEX number (sector 3, its year, its kind and its number), its node key
 # too in lower case: 32022L2555 (``core/identifiers.parse_celex``).
 CELEX = re.compile(rf"^3\d{{4}}[{CELEX_MATCH_LETTERS}]\d+$", re.IGNORECASE)
 # A law the BWB does not hold (yet) by the Staatsblad publication that enacted it, whose
 # articles carry it as ``official_id`` (``stb-2026-56``): STB-2026-56.
 STB_LAW = re.compile(r"^STB-\d{4}-\d+$", re.IGNORECASE)
-# A law at ``/wetten``: one of the BWB, an EU act or one of the Staatsblad.
-LAW = re.compile(rf"{BWB.pattern}|{CELEX.pattern}|{STB_LAW.pattern}", re.IGNORECASE)
+# A law at ``/wetten``: one of the BWB (a regulation or a treaty, ``BWB_ID``), an EU act
+# or one of the Staatsblad.
+LAW = re.compile(rf"{BWB_ID.pattern}|{CELEX.pattern}|{STB_LAW.pattern}", re.IGNORECASE)
 # A key or slug as the API gives it: ``rutte_iv``, ``ek_democraten_1966``.
 SLEUTEL = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -127,7 +127,7 @@ def parse_path(pathname: str) -> Pad | None:
         return Pad(soort, a.upper() if upper else a) if pattern.match(a) else None
     if first == "wetten" and n == 4 and b == "artikel" and a and c:
         return Pad("artikel", a.upper(), c)
-    if first == "wetten" and n == 4 and b == "bijlage" and BWB.match(a):
+    if first == "wetten" and n == 4 and b == "bijlage" and BWB_ID.match(a):
         return Pad("bijlage", a.upper(), c.upper()) if ANNEX_LABEL.match(c) else None
     if (
         first in SERIES
@@ -243,7 +243,7 @@ def _article(key: str, props: dict[str, Any]) -> str | None:
 
 
 def _instrument(key: str, props: dict[str, Any]) -> str | None:
-    if BWB.match(key):
+    if BWB_ID.match(key):
         return pad_href(Pad("wet", key.upper()))
     celex = _text(props.get("celex")) or key
     if CELEX.match(celex):
@@ -284,7 +284,7 @@ def _annex(key: str, props: dict[str, Any]) -> str | None:
     # The one annex of a regulation, without a label, has no address of its own.
     law = _text(props.get("bwb_id"))
     label = _text(props.get("label"))
-    if not law or not BWB.match(law) or not label or not ANNEX_LABEL.match(label):
+    if not law or not BWB_ID.match(law) or not label or not ANNEX_LABEL.match(label):
         return None
     return pad_href(Pad("bijlage", law.upper(), label.upper()))
 

@@ -27,6 +27,10 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   old article without a row only of a law that expired no later than the new law came into
   force.
 - An edge no table gives any more goes.
+- A table of the Wet voortgezet onderwijs 2020 (kst-35297-3) with a column per old law, each
+  with a column of its leden, is a table per old law; it names the old laws by their
+  abbreviations of the WTI (``WVO``, ``WVO-BES``), of two laws of one name the one in force
+  when the new law came into force.
 """
 
 from __future__ import annotations
@@ -158,6 +162,7 @@ def _bwb_law(
     expired: str | None = None,
     in_force: str | None = None,
     short_title: str | None = None,
+    aliases: tuple[str, ...] = (),
 ) -> None:
     key = bwb_id.lower()
     divisions = _DIVISIONS.get(bwb_id, {})
@@ -177,6 +182,7 @@ def _bwb_law(
                     "in_force": expired is None,
                     "date_expired": expired,
                     "date_in_force": in_force,
+                    "aliases": list(aliases),
                 },
             }
         ],
@@ -672,3 +678,100 @@ def test_an_edge_no_table_gives_any_more_goes(database: str, cli: Any) -> None:
     )
     cli("semantic", "tk-transposition-tables")
     assert _transposed(store) == {}
+
+
+# The Wet voortgezet onderwijs 2020 and the laws it replaced (kst-35297-3): number -> leden.
+_WVO = {
+    **dict.fromkeys(("1", "2", "2a", "7", "10", "15", "33", "42", "118u"), _NONE),
+    "4": (("1", "2"), False),
+    "119": (("1", "2"), False),
+}
+_WVO_BES = dict.fromkeys(
+    ("1", "2", "3", "5", "13", "16", "41", "80", "96", "214b"), _NONE
+)
+_WVO_2020 = {
+    **dict.fromkeys(
+        ("1.1", "1.3", "1.4", "2.2", "2.3", "2.13", "2.26", "7.11", "8.28", "11.1"),
+        _NONE,
+    ),
+    "2.24": (("1", "2", "3", "4", "5", "6"), False),
+    "7.9": (("1", "2"), False),
+}
+
+
+def test_a_column_per_old_law_with_its_leden(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _bwb_law(
+        store,
+        "BWBR0002399",
+        "Wet op het voortgezet onderwijs",
+        _WVO,
+        expired="2022-08-01",
+        aliases=("WVO",),
+    )
+    # the WVO BES of its first months, and the one of 2011 on
+    _bwb_law(
+        store,
+        "BWBR0028424",
+        "Wet voortgezet onderwijs BES",
+        dict.fromkeys(("1", "3"), _NONE),
+        expired="2011-02-17",
+        aliases=("WVO BES",),
+    )
+    _bwb_law(
+        store,
+        "BWBR0030284",
+        "Wet voortgezet onderwijs BES",
+        _WVO_BES,
+        expired="2022-08-01",
+        in_force="2011-02-17",
+        aliases=("WVO BES",),
+    )
+    _bwb_law(
+        store,
+        "BWBR0044212",
+        "Wet voortgezet onderwijs 2020",
+        _WVO_2020,
+        in_force="2022-08-01",
+    )
+    _paper(store, "kst-35297-3")
+    cli("semantic", "tk-transposition-tables")
+
+    def article(bwb_id: str, number: str) -> str:
+        return f"articles/{article_key(bwb_id, number, None)}"
+
+    edges = _transposed(store)
+    pairs = {
+        "BWBR0002399": [
+            ("1", "1.1"), ("1", "2.13"), ("2", "1.4"), ("2a", "7.9"), ("4", "8.28"),
+            ("10", "2.24"), ("15", "2.26"), ("33", "7.11"), ("42", "2.3"),
+            ("119", "1.3"), ("7", "2.2"),
+        ],
+        "BWBR0030284": [
+            ("1", "1.1"), ("1", "2.13"), ("1", "11.1"), ("2", "1.4"), ("3", "7.9"),
+            ("5", "8.28"), ("16", "2.24"), ("41", "2.26"), ("80", "7.11"),
+            ("96", "2.3"), ("13", "2.2"),
+        ],
+    }  # fmt: skip
+    assert set(edges) == {
+        (article(old_law, old), article("BWBR0044212", new))
+        for old_law, rows in pairs.items()
+        for old, new in rows
+    }
+    assert edges[article("BWBR0002399", "2a"), article("BWBR0044212", "7.9")][
+        "parts"
+    ] == [{"from": "", "to": "7.9, lid 1", "article": "7.9", "leden": ["1"]}]
+    assert edges[article("BWBR0002399", "10"), article("BWBR0044212", "2.24")][
+        "parts"
+    ] == [
+        {
+            "from": "lid 4 t/m 8 (deels) en 10 (deels)",
+            "to": "2.24, lid 1 t/m 5",
+            "article": "2.24",
+            "leden": ["1", "2", "3", "4", "5"],
+        }
+    ]
+    out = cli("succession-gaps", "--table", "kst-35297-3").stdout
+    assert "instruments/bwbr0002399 -> instruments/bwbr0044212" in out
+    assert "instruments/bwbr0030284 -> instruments/bwbr0044212" in out
+    assert "rij 11: art. 118u: 12.* [does not read]" in out
