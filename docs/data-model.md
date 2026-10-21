@@ -1212,7 +1212,8 @@ so. Its schema does not name it.
 | `phases[].done` | `bool` | A record of the dossier marks it. |
 | `phases[].date` | `str` | The first date of the records that mark it. |
 | `current_phase` | `str` | The furthest done phase. |
-| `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down (`semantic tk-dossier-outcomes`). |
+| `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down, `ingetrokken` when the government withdrew it by letter (`semantic tk-dossier-outcomes`). |
+| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel` (`core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`). |
 | `tk_decision` | `object` | The last decision of the Tweede Kamer on its bill. |
 | `tk_decision.kind` | `str` | Its `BesluitSoort`. |
 | `tk_decision.text` | `str` | Its text. |
@@ -1915,10 +1916,11 @@ What the graph deliberately does not hold, because no official source gives it:
   faction or a committee runs from the first snapshot that shows it (`observed_from`) to the
   first that no longer does (`observed_until`). Nothing before the first snapshot is known,
   and `seniority_days` (`Anciënniteit`) is no start date.
-- Withdrawal of a bill: no source records it as data. The Tweede Kamer keeps the zaak of
-  the bill at `Status` `Vrijgegeven` (`Afgedaan` is true of a passed bill too), takes no
-  `BesluitSoort` for it, and the withdrawal comes as a `Brief regering` whose subject says
-  so in words; the Kamerstuk of officielebekendmakingen.nl says it only in its title and
-  text. So there is no outcome `ingetrokken`: a withdrawn bill stays open, and the API says
-  of an open bill only that no end is recorded since its last activity
-  (`completeness.outcome` `pending`; see [pipelines](pipelines.md), `tk-dossier-outcomes`).
+- Withdrawal of a bill as data: the Tweede Kamer keeps the zaak of a withdrawn bill at
+  `Status` `Vrijgegeven` and takes no `BesluitSoort` for it. What records it is the letter of
+  the government (`Brief regering`) whose `Onderwerp` is the fixed title `Brief houdende
+  intrekking van het wetsvoorstel`: that letter closes the dossier as `ingetrokken`
+  (`semantic tk-dossier-outcomes`, see [pipelines](pipelines.md)). A withdrawal the Kamer
+  gave another subject ("Intrekking Wetsvoorstel beroep bij niet tijdig beslissen (30 435)",
+  or the title with the bill's name after it) is not read: the dossier stays open, and
+  `completeness.outcome` says only that no end is recorded since its last activity.

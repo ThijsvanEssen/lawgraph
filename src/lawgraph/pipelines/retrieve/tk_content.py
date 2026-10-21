@@ -43,6 +43,10 @@ logger = get_logger(__name__)
 # there.
 _FRESH_RETRY_DAYS = 1
 
+# The most papers one run fetches without a limit of its own: at about two a second some two
+# hours, so the daily ends well before the morning; the rest comes the next nights.
+MAX_PAPERS_PER_RUN = 15_000
+
 
 class TKContentRetrievePipeline(RetrievePipelineBase):
     """Fetch the XML of Tweede Kamer documents and store it.
@@ -72,12 +76,15 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
         Args:
             kinds: Case-insensitive substrings matched against ``props.kind``; none for
                 every document.
-            limit: At most this many documents; the rest are the gaps of the next run.
+            limit: At most this many documents (default ``MAX_PAPERS_PER_RUN``); the rest
+                are the gaps of the next run.
             dry_run: When True, log what would happen but make no changes.
         """
-        documents = _gaps.kamerstuk_gaps(self.store, kinds)
-        if limit:
-            documents = _gaps.Gaps.capped(documents, "Kamerstukken without XML", limit)
+        documents = _gaps.Gaps.capped(
+            _gaps.kamerstuk_gaps(self.store, kinds),
+            "Kamerstukken without XML",
+            limit or MAX_PAPERS_PER_RUN,
+        )
         which = f" (kind contains one of {list(kinds)})" if kinds else ""
         if not documents:
             logger.info("No papers without XML found%s.", which)
