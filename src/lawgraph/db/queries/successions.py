@@ -158,11 +158,12 @@ def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
-    """``{id, citation_title, date_expired, date_in_force}`` of the laws *law_ids*."""
+    """``{id, citation_title, kind, date_expired, date_in_force}`` of the laws *law_ids*."""
     return list(
         store.query(
             f"""
-            SELECT id, citation_title, lg_str(props -> 'date_expired') AS date_expired,
+            SELECT id, citation_title, kind,
+                   lg_str(props -> 'date_expired') AS date_expired,
                    lg_str(props -> 'date_in_force') AS date_in_force
             FROM {COLLECTION_INSTRUMENTS} WHERE id = ANY(%(ids)s)
             """,
