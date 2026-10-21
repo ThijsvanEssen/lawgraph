@@ -12,20 +12,22 @@ only normalize writes), so it lives in core rather than in any of them.
   no kind is made up from its documents.
 * The phases of a bill are the curated list ``phases`` (``data/curated/phases.json``): the
   one order the Kamer does not give, each phase marked by exact values of the Kamer.
-* Its outcome is what the graph holds: the law published, or the Kamer voting the bill
-  down; its last decision on the bill is ``BesluitSoort`` as the Kamer writes it.
+* Its outcome is what the graph holds: the law published, the Kamer voting the bill down,
+  or the letter that withdraws it; its last decision on the bill is ``BesluitSoort`` as the
+  Kamer writes it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 from lawgraph.core.completeness import Coverage
 from lawgraph.core.curated import LISTS
 from lawgraph.core.ek_votes import RESULT_ADOPTED, RESULT_REJECTED
 from lawgraph.core.tk_records.kinds import KIND_BILL, KIND_EXPLANATORY_MEMORANDUM
-from lawgraph.core.votes import ADOPTED, REJECTED, VoteOutcome
+from lawgraph.core.votes import ADOPTED, REJECTED, WITHDRAWN, DossierEnd
+from lawgraph.core.xml import collapse_ws
 
 # ── What a dossier is ─────────────────────────────────────────────────────────
 
@@ -263,17 +265,32 @@ def select_title(
 
 # ── How a dossier ended ───────────────────────────────────────────────────────
 
+# The ``Onderwerp`` the Tweede Kamer gives the letter (``Brief regering``) by which the
+# government withdraws a bill: a fixed title of its own (``Document.Onderwerp`` in the OData
+# of gegevensmagazijn.tweedekamer.nl, as on Kamerstuk 36680, nr. 6), and the one record of
+# a withdrawal. A letter has it when its subject is this title but for spaces and case
+# (``subject_key``); a subject that says more ("… Kaderwet Veteranen") is not it.
+WITHDRAWAL_LETTER_SUBJECT: Final = "Brief houdende intrekking van het wetsvoorstel"
+
+
+def subject_key(subject: str) -> str:
+    """*subject* as it is compared with ``WITHDRAWAL_LETTER_SUBJECT``: its words, one space
+    apart, in lower case."""
+    return collapse_ws(subject).lower()
+
 
 @dataclass(frozen=True)
 class DossierOutcome:
     """Whether a dossier is closed, how it ended and on which date, the last decision of
-    the Tweede Kamer on its bill, and its outcome in the Eerste Kamer."""
+    the Tweede Kamer on its bill, its outcome in the Eerste Kamer, and the letter that
+    withdrew it."""
 
     closed: bool
-    outcome: VoteOutcome | None = None
+    outcome: DossierEnd | None = None
     closed_on: str | None = None
     tk_decision: dict[str, Any] | None = None
     ek_outcome: dict[str, Any] | None = None
+    withdrawal_letter: str | None = None
 
 
 def last_decision(bill_decisions: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -341,6 +358,7 @@ def derive_outcome(
     publications: list[dict[str, Any]],
     bill_decisions: list[dict[str, Any]],
     ek: dict[str, Any] | None = None,
+    withdrawal_letters: list[dict[str, Any]] | None = None,
 ) -> DossierOutcome:
     """How a dossier ended, from what the graph holds about it.
 
@@ -352,10 +370,12 @@ def derive_outcome(
     * ``verworpen``: the last vote of the Tweede Kamer on the bill itself (a decision on
       its own zaak, of one of ``LEGISLATIVE_KINDS``, not on an amendment or a motion) did
       not pass. Closed on the date of that vote.
+    * ``ingetrokken``: a letter of the dossier has the subject ``WITHDRAWAL_LETTER_SUBJECT``
+      (*withdrawal_letters*, ``{id, date}``). Closed on the date of the latest, which is
+      kept as ``withdrawal_letter``.
 
     Otherwise the dossier is open: a bill the Tweede Kamer passed waits for the Eerste
-    Kamer, a withdrawn bill has no record of the Kamer that says so, and a dossier without a
-    bill has no end in the graph.
+    Kamer, and a dossier without a bill has no end in the graph.
     """
     decision = last_decision(bill_decisions)
     shown = {k: v for k, v in ek.items() if k != "decision"} if ek else None
@@ -379,11 +399,20 @@ def derive_outcome(
         last = max(votes, key=lambda vote: vote.get("date") or "")
         if last["passed"] is False:
             return DossierOutcome(True, REJECTED, last.get("date"), decision)
+    if withdrawal_letters:
+        letter = max(withdrawal_letters, key=lambda x: (x.get("date") or "", x["id"]))
+        return DossierOutcome(
+            True,
+            WITHDRAWN,
+            letter.get("date"),
+            decision,
+            withdrawal_letter=letter["id"],
+        )
     return DossierOutcome(False, tk_decision=decision)
 
 
 # The kinds of dossier the graph can see the end of: a bill (its law published, a chamber
-# voting it down) and a treaty (its act of approval published).
+# voting it down, its withdrawal) and a treaty (its act of approval published).
 ENDING_KINDS: tuple[str, ...] = (*LEGISLATIVE_KINDS, "Verdrag")
 
 
@@ -391,10 +420,10 @@ def outcome_part(props: dict[str, Any]) -> dict[str, Any]:
     """The ``outcome`` part of the ``completeness`` of a dossier with these *props*.
 
     ``done`` as of ``closed_on`` when it closed. An open bill or treaty is ``pending`` as of
-    its ``last_activity``: still before a chamber, or ended in a way no record says (the
-    Kamer records no withdrawal), which the graph cannot tell apart. An open dossier of
-    another kind is ``not_in_source``: nothing records an end of it. ``pending`` without a
-    day before ``semantic tk-dossier-outcomes`` reached it."""
+    its ``last_activity``: still before a chamber, or ended in a way no record says, which
+    the graph cannot tell apart. An open dossier of another kind is ``not_in_source``:
+    nothing records an end of it. ``pending`` without a day before ``semantic
+    tk-dossier-outcomes`` reached it."""
     if "closed" not in props:
         return {"state": Coverage.PENDING.value}
     if props["closed"]:
@@ -412,4 +441,5 @@ def outcome_props(outcome: DossierOutcome) -> dict[str, Any]:
         "closed_on": outcome.closed_on,
         "tk_decision": outcome.tk_decision,
         "ek_outcome": outcome.ek_outcome,
+        "withdrawal_letter": outcome.withdrawal_letter,
     }

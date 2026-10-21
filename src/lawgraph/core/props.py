@@ -986,7 +986,12 @@ class DossierProps(_CommonProps):
     """The furthest done phase."""
     outcome: str | None = None
     """`aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen`
-    when a chamber voted the bill down (`semantic tk-dossier-outcomes`)."""
+    when a chamber voted the bill down, `ingetrokken` when the government withdrew it by
+    letter (`semantic tk-dossier-outcomes`)."""
+    withdrawal_letter: str | None = None
+    """Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose
+    `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel`
+    (``core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT``)."""
     tk_decision: TkDecisionProps | None = None
     """The last decision of the Tweede Kamer on its bill."""
     ek_rejected: EkRejectedProps | None = None

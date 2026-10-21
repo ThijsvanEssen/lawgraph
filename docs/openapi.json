@@ -2645,7 +2645,8 @@
                 {
                   "enum": [
                     "aangenomen",
-                    "verworpen"
+                    "verworpen",
+                    "ingetrokken"
                   ],
                   "type": "string"
                 },
@@ -8960,7 +8961,8 @@
                 "type": "string",
                 "enum": [
                   "aangenomen",
-                  "verworpen"
+                  "verworpen",
+                  "ingetrokken"
                 ]
               },
               {
@@ -8968,6 +8970,18 @@
               }
             ],
             "title": "Outcome"
+          },
+          "withdrawal_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Letter",
+            "description": "Of a withdrawn bill (``outcome`` ``ingetrokken``): the key of the letter that withdrew it (``GET /api/documents/{key}``), a ``Brief regering`` whose subject is the Tweede Kamer's fixed title ``Brief houdende intrekking van het wetsvoorstel``; its date is ``closed_on``."
           },
           "tk_decision": {
             "anyOf": [
@@ -9061,7 +9075,7 @@
             },
             "type": "object",
             "title": "Completeness",
-            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed (withdrawn too); `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have ended in a way no record says, and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
           },
           "ministry": {
             "anyOf": [
@@ -9163,6 +9177,7 @@
           "current_phase",
           "closed",
           "outcome",
+          "withdrawal_letter",
           "tk_decision",
           "ek_outcome",
           "opened_on",
@@ -18663,7 +18678,8 @@
                 "type": "string",
                 "enum": [
                   "aangenomen",
-                  "verworpen"
+                  "verworpen",
+                  "ingetrokken"
                 ]
               },
               {
@@ -18671,6 +18687,18 @@
               }
             ],
             "title": "Outcome"
+          },
+          "withdrawal_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Letter",
+            "description": "Of a withdrawn bill (``outcome`` ``ingetrokken``): the key of the letter that withdrew it (``GET /api/documents/{key}``), a ``Brief regering`` whose subject is the Tweede Kamer's fixed title ``Brief houdende intrekking van het wetsvoorstel``; its date is ``closed_on``."
           },
           "tk_decision": {
             "anyOf": [
@@ -18764,7 +18792,7 @@
             },
             "type": "object",
             "title": "Completeness",
-            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed (withdrawn too); `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have ended in a way no record says, and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
           },
           "ministry": {
             "anyOf": [
@@ -18911,6 +18939,7 @@
           "current_phase",
           "closed",
           "outcome",
+          "withdrawal_letter",
           "tk_decision",
           "ek_outcome",
           "opened_on",
@@ -20257,7 +20286,8 @@
                 "type": "string",
                 "enum": [
                   "aangenomen",
-                  "verworpen"
+                  "verworpen",
+                  "ingetrokken"
                 ]
               },
               {
@@ -20265,6 +20295,18 @@
               }
             ],
             "title": "Outcome"
+          },
+          "withdrawal_letter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Withdrawal Letter",
+            "description": "Of a withdrawn bill (``outcome`` ``ingetrokken``): the key of the letter that withdrew it (``GET /api/documents/{key}``), a ``Brief regering`` whose subject is the Tweede Kamer's fixed title ``Brief houdende intrekking van het wetsvoorstel``; its date is ``closed_on``."
           },
           "tk_decision": {
             "anyOf": [
@@ -20358,7 +20400,7 @@
             },
             "type": "object",
             "title": "Completeness",
-            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed (withdrawn too); `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have ended in a way no record says, and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
           },
           "ministry": {
             "anyOf": [
@@ -20427,6 +20469,7 @@
           "current_phase",
           "closed",
           "outcome",
+          "withdrawal_letter",
           "tk_decision",
           "ek_outcome",
           "opened_on",
@@ -20441,7 +20484,7 @@
           "path"
         ],
         "title": "DossierSummaryDTO",
-        "description": "A dossier in a list.\n\n``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of\nthe zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,\n``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``); null without\none (\"zonder soort\": no kind is made up from its papers). ``kind_basis`` is ``case``\nwith a kind. A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has\n``phases``: every phase of the curated list in its order, each done when a paper, an\nactivity or a decision of the Kamer marks it; ``current_phase`` is the furthest done\nphase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was\npublished, or the Eerste Kamer adopted it) or ``verworpen`` (a chamber voted the bill\ndown); ``tk_decision`` is the last decision of the Tweede Kamer on the bill and\n``ek_outcome`` its outcome in the Eerste Kamer."
+        "description": "A dossier in a list.\n\n``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of\nthe zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,\n``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``); null without\none (\"zonder soort\": no kind is made up from its papers). ``kind_basis`` is ``case``\nwith a kind. A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has\n``phases``: every phase of the curated list in its order, each done when a paper, an\nactivity or a decision of the Kamer marks it; ``current_phase`` is the furthest done\nphase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was\npublished, or the Eerste Kamer adopted it), ``verworpen`` (a chamber voted the bill\ndown) or ``ingetrokken`` (the government withdrew it by letter, ``withdrawal_letter``);\n``tk_decision`` is the last decision of the Tweede Kamer on the bill and ``ek_outcome``\nits outcome in the Eerste Kamer."
       },
       "DossierTimelineResponse": {
         "properties": {

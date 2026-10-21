@@ -412,11 +412,11 @@ read from the graph (`core/dossier_stages.derive_outcome`); the first rule that 
 | `aangenomen` | an instrument is `LEGISLATED_IN` the dossier: the Staatsblad publication of its law (`semantic bwb-amendments`, `normalize staatsblad-laws`), or a regulation whose BWB metadata names the dossier (`semantic bwb-amendments`) | the first `date_published` (else `date_signed`) of those publications; none when only a regulation names it |
 | `verworpen`, `aangenomen` | its outcome in the Eerste Kamer (`ek_outcome`, below) | the day of that vote |
 | `verworpen` | the last vote of the Tweede Kamer on the bill's own case (`primary_case_kind` `Wetgeving`, `Initiatiefwetgeving` or `Begroting`, not an amendment or a motion) did not pass | the date of that vote |
+| `ingetrokken` | a document of the dossier (`PART_OF`) of kind `Brief regering` has as `Onderwerp` the fixed title the Kamer gives the letter that withdraws a bill, `Brief houdende intrekking van het wetsvoorstel` (`core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`), compared but for spaces and case; the latest such letter is `withdrawal_letter` | the date of that letter |
 
 Anything else is open (`closed: false`): a bill the Tweede Kamer passed that the Eerste Kamer has
-not voted on, and a dossier without a bill (a budget chapter, a policy dossier), which has no end
-the graph can see. No record of the Kamer says a bill was withdrawn (its zaak keeps `Status` `Vrijgegeven`; only a
-free text now and then says so), so a withdrawn bill stays open too.
+not voted on, a bill withdrawn by a letter with another subject, and a dossier without a bill (a
+budget chapter, a policy dossier), which has no end the graph can see.
 
 Next to the outcome it writes `tk_decision`: the last decision on the bill's own case with a
 `BesluitSoort`, as the Kamer writes it (`Stemmen - aangenomen`, `Stemmen - zonder stemming

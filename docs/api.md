@@ -125,7 +125,9 @@ date}`: done when a paper of the dossier, an activity about it that took place o
 its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
 `current_phase` (the furthest done phase in the order of the list, not the one with the latest
 date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
-four days after the bill passed; null for none), `closed`, `outcome`, `tk_decision` (the last decision of the Kamer on its bill: `kind`
+four days after the bill passed; null for none), `closed`, `outcome` (`aangenomen`, `verworpen`
+or `ingetrokken`), `withdrawal_letter` (of a withdrawn bill the key of the letter that
+withdrew it, whose date is `closed_on`), `tk_decision` (the last decision of the Kamer on its bill: `kind`
 its `BesluitSoort`, `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a
 hamerstuk, `Stemmen - verworpen`, `Stemmen - uitstellen`, …; `text`, `date`; null for none),
 `ek_outcome` (the outcome of the bill in the Eerste Kamer, as eerstekamer.nl gives it:
@@ -325,9 +327,9 @@ part.
 
 Of a dossier (`/api/dossiers`, `/api/dossiers/{number}` and every list of dossiers) its
 `outcome`, from what `semantic tk-dossier-outcomes` wrote (`core/dossier_stages.outcome_part`):
-`done` as of `closed_on` when it closed; `pending` as of `last_activity` when a bill or treaty
-is open, for the graph cannot tell one still before a chamber from one withdrawn (the
-Tweede Kamer records no withdrawal, [data model](data-model.md)); `not_in_source` when a
+`done` as of `closed_on` when it closed (a withdrawn bill on the day of its letter);
+`pending` as of `last_activity` when a bill or treaty is open, for the graph cannot tell one
+still before a chamber from one ended in a way no record says; `not_in_source` when a
 dossier of another kind is open (nothing records its end); `pending` without `as_of` before
 the step reached it.
 

@@ -30,13 +30,15 @@ VOTE_NOTED: Final = "Aantekening gevraagd"
 
 # What a vote decided; a document can also end without one.
 VoteOutcome = Literal["aangenomen", "verworpen"]
+# How a dossier ended: its bill adopted, voted down or withdrawn (``core/dossier_stages``).
+DossierEnd = Literal[VoteOutcome, "ingetrokken"]
 DocumentOutcome = Literal[
     VoteOutcome, "ingetrokken", "aangehouden", "vervallen", "vervangen"
 ]
 OUTCOMES: tuple[DocumentOutcome, ...] = get_args(DocumentOutcome)
 ADOPTED: Final[VoteOutcome] = "aangenomen"
 REJECTED: Final[VoteOutcome] = "verworpen"
-WITHDRAWN: Final[DocumentOutcome] = "ingetrokken"
+WITHDRAWN: Final[DossierEnd] = "ingetrokken"
 HELD: Final[DocumentOutcome] = "aangehouden"
 LAPSED: Final[DocumentOutcome] = "vervallen"
 REPLACED: Final[DocumentOutcome] = "vervangen"

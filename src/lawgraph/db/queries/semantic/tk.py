@@ -35,8 +35,14 @@ from lawgraph.config.constants import (
     RELATION_SECOND_READING_OF,
     SOURCE_EERSTEKAMER,
 )
+from lawgraph.core.dossier_stages import WITHDRAWAL_LETTER_SUBJECT, subject_key
 from lawgraph.core.models import make_node_key
-from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_BILL, KIND_MOTION
+from lawgraph.core.tk_records.kinds import (
+    KIND_AMENDMENT,
+    KIND_BILL,
+    KIND_GOVERNMENT_LETTER,
+    KIND_MOTION,
+)
 from lawgraph.db._rows import node_doc
 from lawgraph.db._sql import sql_text_list
 from lawgraph.db.counting import Store
@@ -639,6 +645,7 @@ _DOSSIER_PROPS = keep_props(
     "ek_outcome",
     "ek_rejected",
     "kind",
+    "withdrawal_letter",
 )
 _BILL_DECISION_PROPS = keep_props(
     "dc.props", "date", "passed", "decision_kind", "decision_text"
@@ -695,6 +702,19 @@ SELECT json_build_object(
           AND lg_str(dc.props -> 'chamber') = '{CHAMBER_EK}'
           -- the votes on the bill, not those on a motion about it
           AND lg_str(dc.props -> 'kind') IS DISTINCT FROM '{KIND_MOTION}'
+    ),
+    -- its letters of the government whose subject is the withdrawal of the bill, compared
+    -- as ``core/dossier_stages.subject_key`` does (its words one space apart, lower case)
+    'withdrawal_letters', (
+        SELECT coalesce(json_agg(json_build_object('id', d.id, 'date', d.date)
+            ORDER BY d.id), '[]'::json)
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_DOCUMENTS} d ON d.id = e.from_id
+        WHERE e.to_id = ds.id AND e.relation = '{RELATION_PART_OF}'
+          AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+          AND d.kind = '{KIND_GOVERNMENT_LETTER}'
+          AND lower(btrim(regexp_replace(lg_str(d.pj_subject), '\\s+', ' ', 'g')))
+              = %(withdrawal_subject)s
     )
 )
 FROM unnest(%(dossier_ids)s::text[]) WITH ORDINALITY AS a(dossier_id, ord)
@@ -706,12 +726,13 @@ ORDER BY a.ord
 def dossier_outcome_signals(
     store: Store, dossier_ids: list[str], *, bill_case_kinds: list[str]
 ) -> Iterator[dict[str, Any]]:
-    """``{key, props, publications, bill_decisions, ek_votes}`` per dossier of
-    *dossier_ids*: the instruments ``LEGISLATED_IN`` it, the decisions on a case of one of
-    *bill_case_kinds*, the votes of the Eerste Kamer about it, and the outcome props it
-    holds now."""
+    """``{key, props, publications, bill_decisions, ek_votes, withdrawal_letters}`` per
+    dossier of *dossier_ids*: the instruments ``LEGISLATED_IN`` it, the decisions on a case
+    of one of *bill_case_kinds*, the votes of the Eerste Kamer about it, its letters that
+    withdraw its bill (``{id, date}``), and the outcome props it holds now."""
     params: dict[str, Any] = {
         "dossier_ids": dossier_ids,
+        "withdrawal_subject": subject_key(WITHDRAWAL_LETTER_SUBJECT),
         "legislated_in": RELATION_LEGISLATED_IN,
         "about": RELATION_ABOUT,
         "bill_case_kinds": bill_case_kinds,
