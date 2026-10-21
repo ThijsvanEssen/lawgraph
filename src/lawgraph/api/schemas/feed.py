@@ -1168,10 +1168,10 @@ def _atom_entry(feed: ElementTree.Element, item: FeedItemDTO, site_url: str) -> 
     ElementTree.SubElement(entry, "id").text = f"tag:lawgraph,2026:{item.id}"
     ElementTree.SubElement(entry, "title").text = item.title or item.kind
     ElementTree.SubElement(entry, "updated").text = f"{item.date}T00:00:00Z"
-    # the event on Concordans, and its official page
-    ElementTree.SubElement(
-        entry, "link", rel="alternate", href=f"{site_url}/explore?focus={item.id}"
-    )
+    # the event on Concordans (at its readable address, else in the explorer), and its
+    # official page
+    page = item.path or f"/explore?focus={item.id}"
+    ElementTree.SubElement(entry, "link", rel="alternate", href=f"{site_url}{page}")
     related = item.official_url or item.tk_url
     if related:
         ElementTree.SubElement(entry, "link", rel="related", href=related)

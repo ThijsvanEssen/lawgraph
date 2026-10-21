@@ -212,6 +212,11 @@ of the graph with a date; nothing is stored for the feed. The `kind` of a paper 
 `Document.Soort` up to ` (` (`Motie (gewijzigd/nader)` is a `Motie`), its `subkind` the whole
 `Soort`.
 
+One dossier is followed by its filter: `GET /api/feed.atom?dossier=36496` is its events as an
+Atom feed for a feed reader (each entry at its readable address on Concordans), and `GET
+/api/feed?dossier=36496&since=<day>&facets=false&limit=1` has an item when anything happened
+in it on or after that day, the newest first.
+
 | `kind` | Event | Node, date |
 |--------|-------|------------|
 | `toezegging` | a commitment made (its current `status`; the source gives no date of a change) | commitment, `made_on` |
