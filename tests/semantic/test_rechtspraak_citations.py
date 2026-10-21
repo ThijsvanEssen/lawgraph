@@ -12,10 +12,11 @@ from lawgraph.config.constants import RELATION_REFERS_TO
 from lawgraph.core.ecli import cited_eclis
 from lawgraph.core.models import Node, NodeType, make_node_key
 from lawgraph.db.queries import raw as raw_queries
-from lawgraph.db.queries import removals
+from lawgraph.db.queries import removals, unlinked_references
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 from lawgraph.pipelines.semantic.rechtspraak_citations import (
     RechtspraakCitationsSemanticPipeline,
+    unlinked_ljns,
 )
 from tests.asserts import show_items
 from tests.fakes import InMemoryStore
@@ -47,6 +48,18 @@ def test_detect_ecli_references_empty() -> None:
     assert cited_eclis(None) == []
 
 
+def test_an_ljn_no_judgment_has_is_not_linked() -> None:
+    """An LJN the graph gives no ECLI of (none has it, or two) is counted, one the graph
+    has is not, nor one whose ECLI the text names too: that cites the judgment or its
+    stub."""
+    text = (
+        "De Raad verwijst naar LJN BG6197, LJN BK9271 en LJN AB1234 "
+        "(ECLI:NL:HR:2001:AB1234), en nogmaals naar LJN BG6197."
+    )
+    assert unlinked_ljns(text, {"BK9271": "ECLI:NL:CRVB:2010:BK9271"}) == 1
+    assert unlinked_ljns("Zie ECLI:NL:HR:2020:1234.", {}) == 0
+
+
 # ---------------------------------------------------------------------------
 # Pipeline smoke test
 # ---------------------------------------------------------------------------
@@ -65,6 +78,8 @@ class _Store(InMemoryStore):
         super().__init__(
             {"judgments": [node.to_document() for node in judgments or []]}
         )
+        # judgment id -> the LJNs it cites that no judgment has (``keep_unlinked_ljns``)
+        self.ljns: dict[str, int] = {}
         self.payload_rows = [
             {"ecli": d["props"]["ecli"], "payload_text": d["props"]["raw_xml"]}
             for d in judgment_docs
@@ -99,6 +114,17 @@ def reads(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
         lambda store, ids, relations: iter([]),
     )
     monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
+    monkeypatch.setattr(
+        semantic_rechtspraak,
+        "eclis_with_an_ljn",
+        lambda store: (n["props"]["ecli"] for n in store.nodes["judgments"].values()),
+    )
+
+    def keep_unlinked_ljns(store: _Store, counts: dict[str, int]) -> int:
+        store.ljns.update(counts)
+        return len(counts)
+
+    monkeypatch.setattr(unlinked_references, "keep_unlinked_ljns", keep_unlinked_ljns)
     monkeypatch.setattr(
         semantic_rechtspraak, "remove_unreached_judgment_stubs", lambda store: 0
     )
@@ -154,6 +180,22 @@ def test_pipeline_skips_self_reference(reads: list[str | None]) -> None:
     pipeline = RechtspraakCitationsSemanticPipeline(store=store)
     result = pipeline.run()
     assert result.created == 0
+
+
+def test_a_judgment_keeps_how_many_ljns_it_cites_no_judgment_has(
+    reads: list[str | None],
+) -> None:
+    cited = "ECLI:NL:CRVB:2010:BK9271"
+    ecli = "ECLI:NL:CRVB:2011:BP0671"
+    doc = _make_judgment(
+        make_node_key(ecli), ecli, "Zie LJN BK9271 en LJN BG6197, die niet geladen is."
+    )
+    store = _Store(
+        judgment_docs=[doc],
+        judgments=[Node.skeleton("judgments", make_node_key(cited), {"ecli": cited})],
+    )
+    RechtspraakCitationsSemanticPipeline(store=store).run()
+    assert store.ljns == {f"judgments/{make_node_key(ecli)}": 1}
 
 
 def test_an_incremental_run_reads_the_judgments_fetched_since(

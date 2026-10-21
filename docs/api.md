@@ -319,7 +319,8 @@ reference its text makes that the step recognized is linked to a loaded record) 
 (`missing` those recognized and not linked, a law or an article not in the graph, as `semantic
 bwb` (the references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk`
 kept them in `lg_unlinked_references`, and its `REFERS_TO` edges to a stub, of which the graph
-has not loaded the text: of a judgment also those to a judgment it cites by an ECLI not loaded;
+has not loaded the text: of a judgment also those to a judgment it cites by an ECLI not loaded,
+and among those not linked the LJNs it cites that no judgment in the graph has;
 `reason` `target_not_loaded` when every one missing is of the second kind). Null on a record no step read the references of (an article
 without references, a paper without text, one not read yet) and on any other record.
 

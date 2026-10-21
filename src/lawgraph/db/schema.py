@@ -2092,15 +2092,21 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 # when the step has not read it (``core.completeness.references_part``). Kept by ``semantic
 # bwb`` (an article of the BWB), ``semantic eurlex`` (an EU article), ``semantic rechtspraak``
 # (a judgment) and ``semantic tk`` (a paper of the Tweede Kamer), each under its own
-# ``step``. Apart from the props, so a run that counts every judgment rewrites no texts. Not
-# a table of the graph, but the detail routes serve it: writing it raises the data version.
+# ``step``. Of a judgment also ``ljns``: how many LJNs its text cites that no one judgment in
+# the graph has, kept by ``semantic rechtspraak-citations`` on the row ``semantic rechtspraak``
+# wrote; null when it cites none such. Apart from the props, so a run that counts every
+# judgment rewrites no texts. Not a table of the graph, but the detail routes serve it:
+# writing it raises the data version. ``ljns`` is added to a table built before it (nullable:
+# a version without it starts on it).
 UNLINKED_TABLE = "lg_unlinked_references"
 UNLINKED_REFERENCES = f"""
 CREATE TABLE IF NOT EXISTS {UNLINKED_TABLE} (
     id text PRIMARY KEY,
     step text NOT NULL,
-    count integer NOT NULL
+    count integer NOT NULL,
+    ljns integer
 );
+ALTER TABLE {UNLINKED_TABLE} ADD COLUMN IF NOT EXISTS ljns integer;
 CREATE INDEX IF NOT EXISTS lg_unlinked_references_step ON {UNLINKED_TABLE} (step)
 """
 
