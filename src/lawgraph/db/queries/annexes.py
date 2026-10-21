@@ -1,4 +1,4 @@
-"""Annex queries: one annex and the articles referring to it."""
+"""Annex queries: one annex, the annexes of a law and the articles referring to one."""
 
 from __future__ import annotations
 
@@ -18,6 +18,31 @@ def get_annex(store: GraphStore, key: str) -> dict[str, Any] | None:
     """Return an annex document by key, or None when unknown."""
     doc = store.get_document(COLLECTION_ANNEXES, key)
     return doc if isinstance(doc, dict) else None
+
+
+_LAW_ANNEXES = """
+SELECT id, key, type, labels,
+       json_build_object(
+           'bwb_id', props -> 'bwb_id',
+           'label', props -> 'label',
+           'title', props -> 'title',
+           'display_name', props -> 'display_name',
+           'position', props -> 'position',
+           'text', left(props ->> 'text', %(chars)s)
+       ) AS props
+FROM annexes
+WHERE bwb_id = %(bwb_id)s AND (props ->> 'stub') IS DISTINCT FROM 'true'
+ORDER BY (props ->> 'position')::int NULLS LAST, key
+"""
+
+
+def get_law_annexes(
+    store: GraphStore, bwb_id: str, *, text_chars: int
+) -> list[dict[str, Any]]:
+    """The annexes of the law *bwb_id* its toestand holds (no stub), in the order of the
+    toestand: light documents, their ``text`` cut to *text_chars*."""
+    rows = store.query(_LAW_ANNEXES, {"bwb_id": bwb_id, "chars": text_chars})
+    return [node_doc(row) for row in rows]
 
 
 def get_annex_referenced_by(

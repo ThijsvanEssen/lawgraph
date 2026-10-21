@@ -1,18 +1,17 @@
-"""The annexes (``<bijlage>``) of a BWB toestand: their structure, key and node props.
+"""The annexes (``<bijlage>``) of a BWB toestand: their heading, their list, their key.
 
-``bwb_xml.parse_toestand`` reads them with the rest of the toestand, so ``normalize bwb``
-writes the annex nodes from the one parse it already does.
+``bwb_xml.parse_annexes`` reads them with the rest of the toestand (their text as that of an
+article), so ``normalize bwb`` writes the annex nodes from the one parse it already does.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS, SOURCE_BWB
-from lawgraph.core.models import make_node_key, node_id
+from lawgraph.core.models import make_node_key
 from lawgraph.core.xml import (
+    child_named,
     collapse_ws,
     find_text,
     first_named,
@@ -29,8 +28,19 @@ MAX_DESCRIPTION_CHARS = 2000
 
 
 def annex_display_name(label: str | None) -> str:
-    """The name of an annex without a title: ``Annex`` and its label."""
-    return f"Annex {label}" if label else "Annex"
+    """The name of an annex whose heading prints none: ``Bijlage`` and its label."""
+    return f"Bijlage {label}" if label else "Bijlage"
+
+
+def extract_name(element: ET.Element, label: str | None) -> str:
+    """The annex as its heading prints it: the ``<label>`` and ``<nr>`` of its ``<kop>``
+    (``Bijlage 1``, ``Lijst Ia``), else its ``label`` attribute, else ``annex_display_name``
+    of *label*."""
+    kop = child_named(element, "kop")
+    word = collapse_ws(text_of(child_named(kop, "label")))
+    if word:
+        return " ".join(filter(None, (word, label)))
+    return collapse_ws(element.get("label") or "") or annex_display_name(label)
 
 
 def _collapsed(element: ET.Element) -> str:
@@ -141,55 +151,6 @@ def extract_description(element: ET.Element) -> str | None:
     return "\n".join(parts)[:MAX_DESCRIPTION_CHARS]
 
 
-@dataclass(frozen=True)
-class AnnexXml:
-    label: str | None  # "I", "2"; None for the one annex of a regulation
-    title: str | None
-    description: str | None
-    entries: tuple[dict[str, Any], ...]
-    # its ``bwb-ng-variabel-deel`` (``/Bijlage_1``): what a link to it names
-    path: str | None = None
-
-
-def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
-    """The annexes of a toestand, the first of each label."""
-    seen: set[str | None] = set()
-    annexes = []
-    for element in iter_named(root, "bijlage"):
-        label, title = extract_kop(element)
-        if label in seen:
-            continue
-        seen.add(label)
-        annexes.append(
-            AnnexXml(
-                label,
-                title,
-                extract_description(element),
-                tuple(extract_entries(element)),
-                element.get("bwb-ng-variabel-deel") or None,
-            )
-        )
-    return tuple(annexes)
-
-
 def annex_node_key(bwb_id: str, label: str | None) -> str:
     """Deterministic annex key: ``<bwb_id>_annex[_<label>]``."""
     return make_node_key(bwb_id, "annex", label)
-
-
-def annex_props(
-    annex: AnnexXml, bwb_id: str, citation_title: str | None = None
-) -> dict[str, Any]:
-    """Props of the Annex node; *citation_title* that of its law, which its title cites."""
-    display = annex.title or annex_display_name(annex.label)
-    return {
-        "source": SOURCE_BWB,
-        "bwb_id": bwb_id,
-        "label": annex.label,
-        "title": annex.title,
-        "display_name": display,
-        "description": annex.description,
-        "entries": list(annex.entries) or None,
-        "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
-        "instrument_citation_title": citation_title,
-    }

@@ -722,10 +722,15 @@ hoofdstuk is renamed; null for most), which its schema does not name.
 - `inbound_citation_count` of an article (`semantic graph-list-stats`): its `REFERS_TO` and
   `EXPLAINS` edges in.
 - An annex (`annexes`, `normalize bwb`, `PART_OF` its instrument) has `bwb_id`, `label` (`I`,
-  `2`, `A`: as cited in article text), `title`, `description`, `instrument_id`,
+  `2`, `A`: as cited in article text), `display_name` as its heading prints it (the `<label>`
+  and `<nr>` of its `<kop>`: `Bijlage 1`, `Lijst Ia`), `title` (the `<titel>` of its `<kop>`),
+  `position` (its place among the annexes of the toestand), `description`, `instrument_id`,
   `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
   cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
-  introduces a list, `parent_index` the entry it is nested in).
+  introduces a list, `parent_index` the entry it is nested in). Its `text`, `parts`, `tables`,
+  `headings` and `references` are read as those of an article (one reader,
+  `core/bwb_xml.py`), without the articles of the annex, which are articles of their own; the
+  heading of a division of the annex (`1.1 Structuurelement A`) is a heading of the text.
 - `references` holds every `extref`/`intref` of the text that names a regulation, an annex or
   an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`. The
   `doc` (JCI) of a BWB link stops at the article, so `leden`, `onderdelen` (written as in the
@@ -824,14 +829,20 @@ Annexes:
 |------|------|---------|
 | `bwb_id` | `str` | The BWB id of its regulation. |
 | `label` | `str` | `I`, `2`, `A`: as cited in article text. |
-| `title` | `str` | Its title. |
-| `description` | `str` | Its description. |
+| `title` | `str` | The title of its heading; absent where it prints none. |
+| `position` | `int` | Its place among the annexes of the toestand: the order of the table of contents. |
+| `description` | `str` | Its paragraphs outside its lists, a line each, cut at 2,000 characters. |
 | `entries` | `list[object]` | Its list. |
 | `entries[].index` | `int` | Its place in the list. |
 | `entries[].name` | `str` | Its name. |
 | `entries[].description` | `str` | Its description. |
 | `entries[].heading` | `str` | The paragraph introducing its list: "Gemeentewet". |
 | `entries[].parent_index` | `int` | The entry it is nested in. |
+| `text` | `str` | Its text as that of an article, without its articles (articles of their own): a paragraph a line, list items on their own lines, a table a row a line, the heading of a division on a line of its own. |
+| `parts` | `list[object]` | The structure of its text, as of an article: `{id, kind, number, start, end, term}`. |
+| `tables` | `list[object]` | The tables in its text, as of an article: `{start, end, head_rows, columns, spans}`. |
+| `headings` | `list[object]` | The headings in its text (of a division, a table), as of an article: `{start, end}`. |
+| `references` | `list[object]` | The links of its text to a regulation, an annex or an EU act, as of an article. |
 | `instrument_id` | `str` | Its instrument. |
 | `instrument_citation_title` | `str` | The citation title of its law, which its title cites (`Bijlage 1 Awb`; `normalize bwb` keeps it in step with the instrument). |
 | `instrument_abbreviation` | `str` | The abbreviation of its law, likewise. |

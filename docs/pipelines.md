@@ -1216,9 +1216,11 @@ regulation without a WTI location or element gets no WTI record.
 the Instrument ([its props](data-model.md#instrument): the dates and dossiers are those of the
 regulation as enacted, not of the toestand), one Article per `(bwb_id, article number)`, or per
 `stam-id` for an article with a heading and no number ([its
-props](data-model.md#article-and-versions)), the Annex nodes of its `<bijlage>` elements, and
-`PART_OF` from each article and annex to the instrument. Two articles of one regulation with the
-same number share a key.
+props](data-model.md#article-and-versions)), the Annex nodes of its `<bijlage>` elements (their
+text, tables and links read as those of an article), and `PART_OF` from each article and annex
+to the instrument. Two articles of one regulation with the same number share a key. A line
+break in the text of an element, with the indent around it, is the layout of the XML and reads
+as a space.
 
 After the nodes it sets `short_title` on existing instruments from the stored WTI records
 (`core/bwb_wti.py`). A regulation can have several abbreviations, listed alphabetically by the

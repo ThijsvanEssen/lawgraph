@@ -5,7 +5,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 from lawgraph.config.constants import SCOPE_TYPE_DISCRETIONARY, SCOPE_TYPE_FIXED
-from lawgraph.core.annex_xml import annex_node_key, annex_props, parse_annexes
+from lawgraph.core.annex_xml import annex_node_key
+from lawgraph.core.bwb_xml import annex_props, parse_annexes
 from lawgraph.pipelines.semantic._annex_detect import (
     annex_name,
     detect_annex_name,
@@ -85,7 +86,7 @@ def test_node_key_is_deterministic():
 
 _ANNEX_XML = """
 <regeling>
-  <bijlage label="bijlage">
+  <bijlage label="Bijlage I">
     <kop><nr>I</nr><titel>Vitale sectoren</titel></kop>
     <al>De volgende sectoren worden aangemerkt als vitaal.</al>
     <lijst>
@@ -103,7 +104,7 @@ def test_an_annex_is_parsed_with_its_label_title_entries_and_description():
     props = annex_props(annex, "BWBR0099999")
     assert annex_node_key("BWBR0099999", annex.label) == "bwbr0099999_annex_i"
     assert props["label"] == "I"
-    assert props["title"] == props["display_name"] == "Vitale sectoren"
+    assert (props["display_name"], props["title"]) == ("Bijlage I", "Vitale sectoren")
     assert [e["name"] for e in props["entries"]] == [
         "Telecommunicatie",
         "Energie",
@@ -117,4 +118,4 @@ def test_an_annex_without_a_heading_is_the_annex_of_its_regulation():
     root = ET.fromstring("<regeling><bijlage><al>Tekst</al></bijlage></regeling>")
     (annex,) = parse_annexes(root)
     assert annex_node_key("BWBR0099999", annex.label) == "bwbr0099999_annex"
-    assert annex_props(annex, "BWBR0099999")["display_name"] == "Annex"
+    assert annex_props(annex, "BWBR0099999")["display_name"] == "Bijlage"
