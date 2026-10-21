@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
-from lawgraph.core.bwb_xml import ENIG_ARTIKEL, ENIG_ARTIKEL_LABEL
+from lawgraph.core.bwb_xml import named_number
 from lawgraph.core.code_families import book_of, cited_number, family_of
 from lawgraph.core.dossier_names import dossier_own_name
 from lawgraph.core.dossier_numbers import official_number
@@ -80,8 +80,8 @@ def law_short(props: dict[str, Any] | None) -> str:
 
 def article_name(bwb_id: str | None, number: str, law: str) -> str:
     """``Artikel 6:162 BW``; ``Enig artikel Wet`` for the one article of a regulation."""
-    if number == ENIG_ARTIKEL:
-        return f"{ENIG_ARTIKEL_LABEL} {law}".strip()
+    if named := named_number(number):
+        return f"{named} {law}".strip()
     cited = cited_number(bwb_id, number)
     return f"Artikel {cited} {law}".strip()
 
@@ -112,8 +112,8 @@ def article_cite(props: dict[str, Any], law: dict[str, Any] | None = None) -> st
     if not number:
         return own or text_of(props.get("label"))
     short = law_short(law if law is not None else law_of(props))
-    if number == ENIG_ARTIKEL:
-        return f"{ENIG_ARTIKEL_LABEL} {short}".strip()
+    if named := named_number(number):
+        return f"{named} {short}".strip()
     if not short and own:
         return own
     cited = cited_number(text_of(props.get("bwb_id")) or None, number)

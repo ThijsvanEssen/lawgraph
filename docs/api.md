@@ -293,7 +293,7 @@ completeness: {<part>: {state, as_of, missing, reason}}
 | `done` | the step ran and holds all it found |
 | `partial` | it ran and left some; `missing` how many |
 | `none` | it ran and found nothing |
-| `pending` | the step has not reached it yet |
+| `pending` | the step has not reached it yet: what it lacks is not known (links laid before may show already; without a count of what is missing they are not `partial`) |
 | `paused` | the source or the step is off |
 | `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
 | `not_in_source` | the source does not give it |

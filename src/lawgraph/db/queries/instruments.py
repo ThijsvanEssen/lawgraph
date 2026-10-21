@@ -43,7 +43,7 @@ from lawgraph.db.queries._lists import (
 )
 from lawgraph.db.queries.delegations import expired, summary_json
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
-from lawgraph.db.queries.instrument_scope import scope_of
+from lawgraph.db.queries.instrument_scope import listed_article, scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
 from lawgraph.db.schema import instrument_date_in_force, node_of
@@ -84,11 +84,12 @@ def _articles_matched(
     """The articles of an instrument (BWB id or CELEX) a list holds (``articles a WHERE
     ...``) and their binds."""
     scope = scope_of(identifier)
-    conditions = [f"a.{scope.prop} = %(bwb)s"]
-    if not include_stubs:
-        conditions.append("a.stub IS NOT TRUE")
-    if not include_repealed:
-        conditions.append("a.repealed IS NOT TRUE")
+    conditions = [
+        f"a.{scope.prop} = %(bwb)s",
+        *listed_article(
+            "a", include_stubs=include_stubs, include_repealed=include_repealed
+        ),
+    ]
     return f"articles a WHERE {' AND '.join(conditions)}", {"bwb": scope.value}
 
 

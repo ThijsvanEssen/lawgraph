@@ -18,6 +18,7 @@ from lawgraph.api.seo.pages.base import (
     trail,
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.core.bwb_xml import article_label
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.models import node_id
 from lawgraph.core.names import (
@@ -216,8 +217,8 @@ def article_page(row: dict[str, Any]) -> Page:
         data={
             "@type": "Legislation",
             "name": title,
-            "legislationIdentifier": f"{law_id} artikel "
-            f"{text_of(props.get('article_number'))}",
+            "legislationIdentifier": f"{law_id} "
+            + article_label(text_of(props.get("article_number"))),
             "legislationJurisdiction": jurisdiction,
             **_part_of(law_label, law_id),
         },

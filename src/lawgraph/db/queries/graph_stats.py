@@ -22,6 +22,7 @@ from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.time import dutch_today
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._chunks import update_props
+from lawgraph.db.queries.instrument_scope import article_count, listed_article
 
 
 def _differs(field: str, value: str, *, stored: bool) -> str:
@@ -65,7 +66,7 @@ def _run(
 
 # ``(props -> 'x')`` again for every field, never the whole props into a column: a judgment's
 # props hold its text and paragraphs.
-_INSTRUMENTS = """
+_INSTRUMENTS = f"""
     SELECT i.id,
            lower(coalesce(
                lg_str(i.props -> 'jurisdiction'),
@@ -73,10 +74,8 @@ _INSTRUMENTS = """
                     WHEN i.bwb_id IS NOT NULL THEN 'nl' END,
                ''
            )) AS jurisdiction,
-           -- its articles only: its annexes are PART_OF it too
-           (SELECT count(*)::int FROM edges e
-            WHERE e.to_id = i.id AND e.relation = %(part_of)s
-              AND e.from_collection = 'articles') AS article_count,
+           -- what the list of its articles holds by default
+           {article_count("i")} AS article_count,
            lower(lg_str(i.props -> 'kind')) AS kind,
            -- what refers to the law: to the law itself, and to each of its articles and
            -- annexes (not to a treaty that belongs to it)
@@ -103,7 +102,7 @@ _INSTRUMENTS = """
         FROM edges e JOIN articles a ON a.id = e.from_id
         WHERE e.to_id = i.id AND e.relation = %(part_of)s
           AND e.from_collection = 'articles'
-          AND a.repealed IS NOT TRUE AND a.stub IS NOT TRUE
+          AND {" AND ".join(listed_article("a"))}
     ) own ON i.bwb_id LIKE 'BWBR%%'
 """
 
