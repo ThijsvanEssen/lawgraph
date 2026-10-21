@@ -802,6 +802,40 @@ def _items(
     ]
 
 
+class EnactedInstrumentDTO(WithPath):
+    """The law a publication enacted: the instrument whose articles it ``ESTABLISHES``."""
+
+    path_source = PathSource(collection="instruments")
+
+    key: str
+    title: str | None = Field(
+        None,
+        description="The citation title, else the title: `Wet betaalbare huur`.",
+    )
+
+
+class EnactedPublicationDTO(WithPath):
+    """A publication the dossier's law was enacted in: one ``LEGISLATED_IN`` the dossier."""
+
+    path_source = PathSource(collection="instruments")
+
+    key: str
+    cite: str | None = Field(None, description="As it is cited: `Stb. 2024, 193`.")
+    published_on: str | None = Field(None, description="The day it was published.")
+    first_effective_date: str | None = Field(
+        None,
+        description="The earliest effective date of what it enacted (the "
+        "`effective_date` of its `establishes`, `amends`, `introduces` and `repeals` "
+        "edges, as the BWB gives it); null where its source gives none, as for a law "
+        "of the Staatsblad the BWB does not hold.",
+    )
+    instrument: EnactedInstrumentDTO | None = Field(
+        None,
+        description="The law it enacted, whose articles it established; null for a "
+        "publication that only changes other laws.",
+    )
+
+
 class DossierLawNamedDTO(StrictModel):
     """A law the title of a dossier names, and whether the graph holds it."""
 
@@ -974,6 +1008,11 @@ class DossierDetailResponse(DossierSummaryDTO):
         description="What the dossier's law changes and implements: from its bills (proposed) "
         "and its publications and act (enacted), the order its title names them.",
     )
+    enacted: list[EnactedPublicationDTO] = Field(
+        default_factory=list,
+        description="The publications its law was enacted in (`Stb. 2024, 193`), the "
+        "earliest published first: the same `legislated_in` edges as `instruments`.",
+    )
     laws_named: list[DossierLawNamedDTO] = Field(
         default_factory=list,
         description=(
@@ -1032,6 +1071,10 @@ class DossierDetailResponse(DossierSummaryDTO):
             decision_count=counts.get("decisions", 0),
             commitment_count=counts.get("commitments", 0),
             instruments=merge_instruments(hub.get("instruments") or []),
+            enacted=[
+                EnactedPublicationDTO.model_validate(row)
+                for row in hub.get("enacted") or []
+            ],
             laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
             legal_effect=legal_effect or LegalEffectDTO(),
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],

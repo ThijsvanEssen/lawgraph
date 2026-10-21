@@ -145,6 +145,14 @@ took place or decision; `sort=last_activity` lists by it, newest first), and `cl
 `subject` filter takes a number (`37035`: every dossier of that
 number), a dossier (`37035-XXII`, `37035 xxii`) or words of the title.
 
+The detail (`/api/dossiers/{number}`) names in `enacted` the publications its law was enacted
+in: each publication `LEGISLATED_IN` the dossier (the same edges as its `instruments`), the
+earliest published first, with `cite` (`Stb. 2024, 193`), `path`, `published_on`,
+`first_effective_date` (the earliest `effective_date` of what it enacted, as the BWB gives it;
+null for a law of the Staatsblad the BWB does not hold, whose publication names no date it took
+effect) and `instrument` (`{key, title, path}` of the law whose articles it established; null
+for a publication that only changes other laws).
+
 `tk_url` of a Tweede Kamer document or activity, wherever it appears (timeline, document lists and
 detail, node responses), is its page on tweedekamer.nl, made from the number the site knows: the
 document number (`kamerstukken/detail?id=2026D44984&did=2026D44984`) or the activity number

@@ -2932,7 +2932,7 @@
           "dossiers"
         ],
         "summary": "Dossier detail",
-        "description": "One dossier: its title, stage, how many documents, activities, decisions and commitments it holds, and what it links to: the instruments it legislated, amends, introduces or repeals (one item per instrument, relation and status), the committees that lead its activities, its documents per kind, its Eerste Kamer papers, and the dossiers it revises, accompanies or is related to (and those that revise, accompany or relate to it).",
+        "description": "One dossier: its title, stage, how many documents, activities, decisions and commitments it holds, and what it links to: the instruments it legislated, amends, introduces or repeals (one item per instrument, relation and status), the committees that lead its activities, the publications its law was enacted in (`enacted`: `Stb. 2024, 193`), its documents per kind, its Eerste Kamer papers, and the dossiers it revises, accompanies or is related to (and those that revise, accompany or relate to it).",
         "operationId": "get_dossier_api_dossiers__number__get",
         "parameters": [
           {
@@ -19068,6 +19068,14 @@
             "$ref": "#/components/schemas/LegalEffectDTO",
             "description": "What the dossier's law changes and implements: from its bills (proposed) and its publications and act (enacted), the order its title names them."
           },
+          "enacted": {
+            "items": {
+              "$ref": "#/components/schemas/EnactedPublicationDTO"
+            },
+            "type": "array",
+            "title": "Enacted",
+            "description": "The publications its law was enacted in (`Stb. 2024, 193`), the earliest published first: the same `legislated_in` edges as `instruments`."
+          },
           "laws_named": {
             "items": {
               "$ref": "#/components/schemas/DossierLawNamedDTO"
@@ -19164,6 +19172,7 @@
           "commitment_count",
           "instruments",
           "legal_effect",
+          "enacted",
           "laws_named",
           "committees",
           "documents_by_kind",
@@ -21566,6 +21575,128 @@
         ],
         "title": "EkStepDTO",
         "description": "A step of the progress of a bill, as the page of the Eerste Kamer shows it."
+      },
+      "EnactedInstrumentDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "The citation title, else the title: `Wet betaalbare huur`."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "path"
+        ],
+        "title": "EnactedInstrumentDTO",
+        "description": "The law a publication enacted: the instrument whose articles it ``ESTABLISHES``."
+      },
+      "EnactedPublicationDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cite",
+            "description": "As it is cited: `Stb. 2024, 193`."
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On",
+            "description": "The day it was published."
+          },
+          "first_effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Effective Date",
+            "description": "The earliest effective date of what it enacted (the `effective_date` of its `establishes`, `amends`, `introduces` and `repeals` edges, as the BWB gives it); null where its source gives none, as for a law of the Staatsblad the BWB does not hold."
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnactedInstrumentDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The law it enacted, whose articles it established; null for a publication that only changes other laws."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "cite",
+          "published_on",
+          "first_effective_date",
+          "instrument",
+          "path"
+        ],
+        "title": "EnactedPublicationDTO",
+        "description": "A publication the dossier's law was enacted in: one ``LEGISLATED_IN`` the dossier."
       },
       "EuLinkDTO": {
         "properties": {

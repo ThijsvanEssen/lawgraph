@@ -703,10 +703,95 @@ def test_a_dossier_without_links_has_an_empty_hub(store: GraphStore) -> None:
 
     assert hub == {
         "instruments": [],
+        "enacted": [],
         "committees": [],
         "documents_by_kind": {},
         "senate": {"document_count": 0, "first_date": None},
     }
+
+
+def test_the_hub_names_the_publications_the_law_was_enacted_in(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each publication LEGISLATED_IN the dossier, with the law whose articles it
+    ESTABLISHES and the earliest effective date of what it enacted; a law of the Staatsblad
+    the BWB does not hold has no effective date in its source."""
+    g = Graph(store)
+    dossier = g.node("dossiers", "36496", number="36496", label="36496")
+    bwb_law = g.node(
+        "instruments",
+        "bwbr0049889",
+        bwb_id="BWBR0049889",
+        citation_title="Wet betaalbare huur",
+        display_name="Wet betaalbare huur",
+    )
+    bw7 = g.node("instruments", "bwbr0005290", bwb_id="BWBR0005290")
+    stb_law = g.node(
+        "instruments",
+        "wet_stb_2026_56",
+        citation_title="Wetboek van Strafvordering",
+        display_name="Wetboek van Strafvordering (Stb. 2026, 56)",
+    )
+    own = g.node("articles", "bwbr0049889_1")
+    changed = g.node("articles", "bwbr0005290_7_247")
+    stb_article = g.node("articles", "stb_2026_56_1")
+    g.edge(own, RELATION_PART_OF, bwb_law)
+    g.edge(changed, RELATION_PART_OF, bw7)
+    g.edge(stb_article, RELATION_PART_OF, stb_law)
+
+    def publication(key: str, cite: str, published: str) -> str:
+        found = g.node(
+            "instruments",
+            key,
+            publication_kind="Stb",
+            citation_title=cite,
+            display_name=cite,
+            date_published=published,
+        )
+        g.edge(found, RELATION_LEGISLATED_IN, dossier)
+        return found
+
+    enacting = publication("stb_2024_193", "Stb. 2024, 193", "2024-06-26")
+    g.edge(enacting, RELATION_ESTABLISHES, own, effective_date="2024-07-01")
+    g.edge(enacting, RELATION_AMENDS, changed, effective_date="2025-01-01")
+    amending = publication("stb_2025_10", "Stb. 2025, 10", "2025-01-15")
+    g.edge(amending, RELATION_AMENDS, changed, effective_date="2025-02-01")
+    no_bwb = publication("stb_2026_56", "Stb. 2026, 56", "2026-03-01")
+    g.edge(no_bwb, RELATION_ESTABLISHES, stb_article)
+    # the act itself is legislated in the dossier too: no publication
+    g.edge(bwb_law, RELATION_LEGISLATED_IN, dossier)
+    g.write()
+
+    asked = recorded(store, monkeypatch)
+    hub = get_dossier_hub(store, "dossiers/36496")
+    assert len(asked) == 1
+
+    assert hub["enacted"] == [
+        {
+            "key": "stb_2024_193",
+            "cite": "Stb. 2024, 193",
+            "published_on": "2024-06-26",
+            "first_effective_date": "2024-07-01",
+            "instrument": {"key": "bwbr0049889", "title": "Wet betaalbare huur"},
+        },
+        {
+            "key": "stb_2025_10",
+            "cite": "Stb. 2025, 10",
+            "published_on": "2025-01-15",
+            "first_effective_date": "2025-02-01",
+            "instrument": None,
+        },
+        {
+            "key": "stb_2026_56",
+            "cite": "Stb. 2026, 56",
+            "published_on": "2026-03-01",
+            "first_effective_date": None,
+            "instrument": {
+                "key": "wet_stb_2026_56",
+                "title": "Wetboek van Strafvordering",
+            },
+        },
+    ]
 
 
 def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
@@ -755,6 +840,7 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
             "led_by": RELATION_LED_BY,
             "legislated_in": RELATION_LEGISLATED_IN,
             "changes": [RELATION_AMENDS],
+            "establishes": RELATION_ESTABLISHES,
             "canonical": "canoniek",
             "relation_order": ["legislated_in", "amends"],
         },
@@ -1355,7 +1441,13 @@ def test_the_hub_lists_its_parts_in_their_order(store: GraphStore) -> None:
 
     hub = get_dossier_hub(store, dossier)
 
-    assert list(hub) == ["instruments", "committees", "documents_by_kind", "senate"]
+    assert list(hub) == [
+        "instruments",
+        "enacted",
+        "committees",
+        "documents_by_kind",
+        "senate",
+    ]
     assert [(i["key"], i["relation"], i["status"]) for i in hub["instruments"]] == [
         ("nameless", "legislated_in", "canoniek"),  # no display name sorts first
         ("same_a", "legislated_in", "canoniek"),  # the key settles a tie
