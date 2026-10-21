@@ -37,6 +37,9 @@ def activity(payload: Payload) -> Record | None:
     return make_node_key(external_id), {
         "external_id": external_id,
         "date": date,
+        # how precise the date is: a day, or the Monday of a week planned, or the first
+        # day of several
+        "precision": first_text(payload, "DatumSoort") or None,
         "agenda_title": description,
         "kind": kind,
         "status": first_text(payload, "Status") or None,

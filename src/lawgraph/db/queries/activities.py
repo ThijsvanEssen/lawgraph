@@ -1,5 +1,6 @@
 """Queries behind ``GET /api/activities/{key}`` and its records: one activity (a debate, a
-hearing, a vote) and what was made in it or is on its agenda.
+hearing, a vote) and what was made in it or is on its agenda; and when the Tweede Kamer
+meets and votes (``chamber_schedule`` of ``GET /api/feed/summary``).
 
 The head reads the activity, its committee and the activities it continues; the records are
 a route of their own (``records``), each list a probe of an index of the edges
@@ -24,6 +25,8 @@ from lawgraph.config.constants import (
     RELATION_LED_BY,
     RELATION_MADE_IN,
 )
+from lawgraph.core.dossier_stages import ACTIVITY_HELD, ACTIVITY_PLANNED
+from lawgraph.core.tk_links import PLENARY_KINDS, VOTES_KIND
 from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db import GraphStore
 
@@ -164,6 +167,64 @@ def get_activity_records(store: GraphStore, node_id: str) -> dict[str, Any]:
             "made_in": RELATION_MADE_IN,
             "about": RELATION_ABOUT,
             "motion": KIND_MOTION,
+        },
+    )
+    return dict(next(iter(rows)))
+
+
+# The day-precise one first within a week: a vote planned for the week of a Monday
+# (``Weeknummer``) is that week, after one planned for a day of it.
+_WEEK_ORDER = (
+    "date_trunc('week', a.date::date) ASC NULLS LAST, "
+    "lg_str(a.props -> 'precision') IS DISTINCT FROM 'Dag' ASC NULLS LAST"
+)
+
+
+def _schedule_part(kinds: str, *, held: bool) -> str:
+    """SQL: the activity of *kinds* (a ``LIKE ANY`` parameter) last held on or before
+    ``today``, or first planned on or after it."""
+    if held:
+        where, order = "a.date <= %(today)s", "a.date DESC NULLS LAST, a.key DESC"
+    else:
+        where, order = (
+            "a.date >= %(today)s",
+            f"{_WEEK_ORDER}, a.date ASC NULLS LAST, a.key",
+        )
+    status = "%(held)s" if held else "%(planned)s"
+    return f"""(
+        SELECT json_build_object('id', a.id, 'key', a.key, 'props', a.props)
+        FROM {COLLECTION_ACTIVITIES} a
+        WHERE {where} AND lg_str(a.props -> 'status') = {status}
+          AND lower(lg_str(a.props -> 'kind')) LIKE ANY({kinds})
+        ORDER BY {order}
+        LIMIT 1
+    )"""
+
+
+_SCHEDULE_SQL = f"""
+SELECT
+    {_schedule_part("%(sitting)s", held=True)} AS last_sitting,
+    {_schedule_part("%(votes)s", held=True)} AS last_votes,
+    {_schedule_part("%(sitting)s", held=False)} AS next_sitting,
+    {_schedule_part("%(votes)s", held=False)} AS next_votes
+"""
+
+
+def get_chamber_schedule(store: GraphStore, today: str) -> dict[str, Any]:
+    """When the Tweede Kamer last met and voted in the plenary hall, and when it meets and
+    votes next, from its activities: ``last_sitting`` and ``last_votes`` the latest held
+    (``Uitgevoerd``) on or before *today*, ``next_sitting`` and ``next_votes`` the first
+    planned (``Gepland``) on or after it, of a week the one planned for a day before one
+    planned for the week; a sitting any plenary kind (``PLENARY_KINDS``), the votes
+    ``Stemmingen``. Each ``{id, key, props}``, or None."""
+    rows = store.query(
+        _SCHEDULE_SQL,
+        {
+            "today": today,
+            "held": ACTIVITY_HELD,
+            "planned": ACTIVITY_PLANNED,
+            "sitting": [f"{kind}%" for kind in PLENARY_KINDS],
+            "votes": [f"{VOTES_KIND}%"],
         },
     )
     return dict(next(iter(rows)))

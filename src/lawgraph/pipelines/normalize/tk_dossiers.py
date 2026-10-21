@@ -139,6 +139,7 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         seats: bool = False,
         factions: bool = False,
         committees: bool = False,
+        activities: bool = False,
     ) -> None:
         """With *mixed_votes* a run reads only the decisions taken for a roll call that
         were a faction vote with members voting apart
@@ -150,7 +151,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         only every stored Fractie record (the props of the factions: after the reading of
         their names changed); with *committees* only every stored Commissie record (the
         committees and the MEMBER_OF edges of their seats: after the reading of a seat
-        changed)."""
+        changed); with *activities* only every stored Activiteit record (the props of the
+        activities: after a prop of the record was added)."""
         super().__init__(store=store)
         self._mixed_votes = mixed_votes
         self._limit = limit
@@ -158,10 +160,11 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
         self._seats = seats
         self._factions = factions
         self._committees = committees
+        self._activities = activities
 
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         """The records since *since*, or all; the mixed decisions, the persons, the
-        seats, the factions or the committees alone when asked."""
+        seats, the factions, the committees or the activities alone when asked."""
         if self._mixed_votes:
             return self._run_mixed_votes(self._limit)
         if self._persons:
@@ -172,6 +175,8 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
             return self._run_factions()
         if self._committees:
             return self._run_committees()
+        if self._activities:
+            return self._run_activities()
         return super().run(since=since)
 
     def _alone(self, step: Callable[[], object]) -> PipelineResult:
@@ -204,6 +209,14 @@ class TKDossiersNormalizePipeline(NormalizePipelineBase[Window]):
             tk_members.link_members_to_committees(self, records, source=EDGE_SOURCE)
 
         return self._alone(step)
+
+    def _run_activities(self) -> PipelineResult:
+        """Normalize every stored Activiteit record again into its activity."""
+        return self._alone(
+            lambda: tk_cases.normalize_activities(
+                self, self._every(RAW_KIND_TK_ACTIVITEIT)
+            )
+        )
 
     def _run_seats(self) -> PipelineResult:
         """Link every stored FractieZetelPersoon record again to its member and faction:

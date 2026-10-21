@@ -6620,7 +6620,7 @@
           "feed"
         ],
         "summary": "News feed summary",
-        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements.",
+        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements; and ``chamber_schedule``: when the Tweede Kamer last met and voted in the plenary hall and when it meets and votes next (``last_sitting``, ``last_votes``, ``next_sitting``, ``next_votes``), as of today, from its activities (``Activiteit``): the latest held (``Uitgevoerd``) and the first planned (``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week the one planned for a day before one planned for the week (``precision`` ``Weeknummer``, dated on its Monday); each null when there is none. The Kamer publishes no recess as data: no sitting planned for days is what tells.",
         "operationId": "get_feed_summary_route_api_feed_summary_get",
         "parameters": [
           {
@@ -13522,6 +13522,64 @@
         ],
         "title": "ChamberColorsDTO",
         "description": "The colours a Kamer draws its factions in."
+      },
+      "ChamberScheduleDTO": {
+        "properties": {
+          "last_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The latest plenary activity held, on or before today."
+          },
+          "last_votes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The latest ``Stemmingen`` held, on or before today."
+          },
+          "next_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first plenary activity planned (``Gepland``) on or after today."
+          },
+          "next_votes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first ``Stemmingen`` planned on or after today."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "last_sitting",
+          "last_votes",
+          "next_sitting",
+          "next_votes"
+        ],
+        "title": "ChamberScheduleDTO",
+        "description": "When the Tweede Kamer last met and voted in the plenary hall, and when it meets and\nvotes next, as its activities say (``Activiteit``); each null when it has none."
       },
       "ChangeSource": {
         "properties": {
@@ -24213,6 +24271,10 @@
             "type": "object",
             "title": "Data As Of",
             "description": "Per source: how current the graph is, as in `GET /api/stats`."
+          },
+          "chamber_schedule": {
+            "$ref": "#/components/schemas/ChamberScheduleDTO",
+            "description": "When the Tweede Kamer last met and voted and when it meets and votes next, as of today whatever ``until`` and the filters."
           }
         },
         "additionalProperties": false,
@@ -24224,7 +24286,8 @@
           "days",
           "items",
           "items_truncated",
-          "data_as_of"
+          "data_as_of",
+          "chamber_schedule"
         ],
         "title": "FeedSummaryResponse",
         "description": "A few days of the feed in one answer."
@@ -34147,6 +34210,117 @@
         ],
         "title": "ResolveResponse",
         "description": "The best match for a query and the others that fit; ``kind`` ``none`` when nothing does."
+      },
+      "ScheduledActivityDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "``Activiteit.Nummer``."
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "``Activiteit.Soort``: ``Stemmingen``, ``Vragenuur``."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision",
+            "description": "``Activiteit.DatumSoort``, how precise ``date`` is: ``Dag``; ``Weeknummer``, planned for the week of that Monday, not yet for a day; ``Meerdaags``, its first day."
+          },
+          "agenda_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agenda Title",
+            "description": "``Activiteit.Onderwerp``: ``Stemmingen over alle begrotingen``."
+          },
+          "tk_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tk Url",
+            "description": "Its page on tweedekamer.nl."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "number",
+          "kind",
+          "date",
+          "precision",
+          "agenda_title",
+          "tk_url",
+          "path"
+        ],
+        "title": "ScheduledActivityDTO",
+        "description": "A plenary activity of the Tweede Kamer, held or planned."
       },
       "ScopeArticleReference": {
         "properties": {

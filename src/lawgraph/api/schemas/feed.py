@@ -55,7 +55,7 @@ from lawgraph.core.publications import (
     publication_citation,
     publication_series,
 )
-from lawgraph.core.tk_links import document_page
+from lawgraph.core.tk_links import activity_page, document_page
 from lawgraph.core.tk_records.actors import CAPACITY_MEMBER, SUBMITTER_FIRST
 from lawgraph.core.tk_records.commitments import due_date
 from lawgraph.core.tk_records.decisions import VoteKind
@@ -993,6 +993,74 @@ class FeedDayDTO(StrictModel):
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
 
 
+class ScheduledActivityDTO(WithPath):
+    """A plenary activity of the Tweede Kamer, held or planned."""
+
+    path_source = PathSource("activities")
+
+    id: str
+    key: str
+    number: str | None = Field(None, description="``Activiteit.Nummer``.")
+    kind: str | None = Field(
+        None, description="``Activiteit.Soort``: ``Stemmingen``, ``Vragenuur``."
+    )
+    date: str | None = None
+    precision: str | None = Field(
+        None,
+        description="``Activiteit.DatumSoort``, how precise ``date`` is: ``Dag``; "
+        "``Weeknummer``, planned for the week of that Monday, not yet for a day; "
+        "``Meerdaags``, its first day.",
+    )
+    agenda_title: str | None = Field(
+        None,
+        description="``Activiteit.Onderwerp``: ``Stemmingen over alle begrotingen``.",
+    )
+    tk_url: str | None = Field(None, description="Its page on tweedekamer.nl.")
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any] | None) -> ScheduledActivityDTO | None:
+        """From a part of ``get_chamber_schedule``; None for none."""
+        if not row:
+            return None
+        props = row.get("props") or {}
+        return cls(
+            id=row["id"],
+            key=row["key"],
+            number=props.get("number") or None,
+            kind=props.get("kind") or None,
+            date=props.get("date"),
+            precision=props.get("precision"),
+            agenda_title=props.get("agenda_title") or None,
+            tk_url=activity_page(props.get("number"), props.get("kind")),
+        )
+
+
+class ChamberScheduleDTO(StrictModel):
+    """When the Tweede Kamer last met and voted in the plenary hall, and when it meets and
+    votes next, as its activities say (``Activiteit``); each null when it has none."""
+
+    last_sitting: ScheduledActivityDTO | None = Field(
+        None, description="The latest plenary activity held, on or before today."
+    )
+    last_votes: ScheduledActivityDTO | None = Field(
+        None, description="The latest ``Stemmingen`` held, on or before today."
+    )
+    next_sitting: ScheduledActivityDTO | None = Field(
+        None,
+        description="The first plenary activity planned (``Gepland``) on or after today.",
+    )
+    next_votes: ScheduledActivityDTO | None = Field(
+        None, description="The first ``Stemmingen`` planned on or after today."
+    )
+
+    @classmethod
+    def from_raw(cls, raw: dict[str, Any]) -> ChamberScheduleDTO:
+        """From ``get_chamber_schedule``."""
+        return cls(**{part: ScheduledActivityDTO.from_row(raw.get(part)) for part in (
+            "last_sitting", "last_votes", "next_sitting", "next_votes"
+        )})  # fmt: skip
+
+
 class FeedSummaryResponse(StrictModel):
     """A few days of the feed in one answer."""
 
@@ -1011,6 +1079,11 @@ class FeedSummaryResponse(StrictModel):
     data_as_of: dict[str, DataAsOfDTO] = Field(
         default_factory=dict,
         description="Per source: how current the graph is, as in `GET /api/stats`.",
+    )
+    chamber_schedule: ChamberScheduleDTO = Field(
+        default_factory=ChamberScheduleDTO,
+        description="When the Tweede Kamer last met and voted and when it meets and "
+        "votes next, as of today whatever ``until`` and the filters.",
     )
 
     @classmethod

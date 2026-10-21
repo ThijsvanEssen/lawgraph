@@ -468,6 +468,24 @@ def test_activity_reads_its_subject_and_status() -> None:
     assert props["display_name"] == "Digitale grondrechten en data-ethiek (2027-02-11)"
 
 
+def test_activity_reads_how_precise_its_date_is() -> None:
+    # a vote planned for a week, not yet for a day: the Kamer dates it on the Monday
+    _, props = present(
+        activities.activity(
+            {
+                "Id": "a-1",
+                "Soort": "Stemmingen",
+                "Status": "Gepland",
+                "Datum": "2026-12-07T00:00:00+01:00",
+                "DatumSoort": "Weeknummer",
+            }
+        )
+    )
+    assert props["precision"] == "Weeknummer"
+    _, undated = present(activities.activity({"Id": "a-2"}))
+    assert undated["precision"] is None
+
+
 def test_commitment_reads_the_minister_and_the_status() -> None:
     _, props = present(
         commitments.commitment(
