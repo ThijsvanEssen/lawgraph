@@ -31,7 +31,8 @@ def _dossier_label(dossier: Payload) -> str:
 
 
 def dossier_numbers(cases: Iterable[Payload]) -> list[str]:
-    """Kamerstukdossier labels (``37020``, ``37020-XV``) of the given Zaak records."""
+    """Kamerstukdossier labels (``37020``, ``37020-XV``) of the given records: a Zaak, or
+    the Document of a letter."""
     return distinct(
         _dossier_label(dossier)
         for record in cases

@@ -8,6 +8,9 @@ their answer (``completeness.references``).
 - A paper cites ``artikel 300 Sr``, which the graph holds as a stub only: linked, to a target
   that is not loaded. A judgment cites ``artikel 287 Sr`` and a judgment not loaded (a stub
   of its ECLI): one of its references goes to a target that is not loaded.
+- A judgment of 2011 (ECLI:NL:CRVB:2011:BP0671, as the Rechtspraak publishes it) cites an
+  earlier one by its LJN alone ("LJN BG6197"), which no judgment in the graph has: a citation
+  linked to nothing.
 - A record without text to read has no ``completeness.references``; the count of a record
   that is gone goes in a run over all.
 """
@@ -28,9 +31,11 @@ from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from tests.databases import Api, module_store
 from tests.integration.seed import rechtspraak_xml, write_judgments
+from tests.paths import FIXTURES
 
 SR, CELEX = "BWBR0001854", "32019L1158"
 RULING, CITED = "ECLI:NL:HR:2021:10", "ECLI:NL:HR:2015:1"
+BY_LJN = "ECLI:NL:CRVB:2011:BP0671"
 
 
 def _put(store: GraphStore, collection: str, key: str, **props: Any) -> None:
@@ -112,7 +117,8 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
             procedure="Cassatie",
             text=f"Zoals in {CITED} geoordeeld, is artikel 287 Sr geschonden.",
         )
-        write_judgments(store, {RULING: ruling})
+        by_ljn = (FIXTURES / "rechtspraak_crvb_2011_bp0671.xml").read_text("utf-8")
+        write_judgments(store, {RULING: ruling, BY_LJN: by_ljn})
         cli("normalize", "rechtspraak")
         _put(store, COLLECTION_DOCUMENTS, "kst-36000-8", kind="Brief")
         # of a paper that is gone: a run over all removes it
@@ -178,6 +184,13 @@ def test_a_judgment_counts_a_cited_judgment_not_loaded(api: Api) -> None:
     }
 
 
+def test_a_judgment_counts_an_ljn_no_judgment_has(api: Api) -> None:
+    completeness = api.get_json(f"/api/judgments/{BY_LJN}")["completeness"]
+    assert completeness == {
+        "references": {"state": "partial", "as_of": None, "missing": 1, "reason": None}
+    }
+
+
 def test_a_record_no_step_read_has_no_completeness(api: Api) -> None:
     paper = api.get_json("/api/documents/kst-36000-8")["completeness"]
     assert "references" not in paper  # only what of its text there is
@@ -185,12 +198,20 @@ def test_a_record_no_step_read_has_no_completeness(api: Api) -> None:
 
 
 def test_a_count_is_kept_per_record_read(store: GraphStore) -> None:
-    rows = store.query("SELECT id, step, count FROM lg_unlinked_references ORDER BY id")
+    rows = store.query(
+        "SELECT id, step, count, ljns FROM lg_unlinked_references ORDER BY id"
+    )
     assert list(rows) == [
-        {"id": "articles/32016r0679_6", "step": "eu-article-linker", "count": 1},
-        {"id": "documents/kst-36000-10", "step": "tk-article-linker", "count": 1},
-        {"id": "documents/kst-36000-7", "step": "tk-article-linker", "count": 1},
-        {"id": "documents/kst-36000-9", "step": "tk-article-linker", "count": 0},
+        {"id": "articles/32016r0679_6", "step": "eu-article-linker", "count": 1,
+         "ljns": None},
+        {"id": "documents/kst-36000-10", "step": "tk-article-linker", "count": 1,
+         "ljns": None},
+        {"id": "documents/kst-36000-7", "step": "tk-article-linker", "count": 1,
+         "ljns": None},
+        {"id": "documents/kst-36000-9", "step": "tk-article-linker", "count": 0,
+         "ljns": None},
+        {"id": "judgments/ecli_nl_crvb_2011_bp0671",
+         "step": "rechtspraak-article-linker", "count": 0, "ljns": 1},
         {"id": "judgments/ecli_nl_hr_2021_10", "step": "rechtspraak-article-linker",
-         "count": 0},
+         "count": 0, "ljns": None},
     ]  # fmt: skip

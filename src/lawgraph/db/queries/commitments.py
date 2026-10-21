@@ -18,8 +18,8 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.queries.cabinets import person_object
 
-# What a commitment item shows beside its own props: who made it, its dossiers, the
-# activity it was made in and the letters that fulfil it (``ANSWERS``, light).
+# What a commitment item shows beside its own props: who made it, its dossiers (with the
+# basis of each: ``core/provenance.py``), the activity it was made in and the letters that fulfil it (``ANSWERS``, light).
 _COMMITMENT_ITEM = f"""json_build_object(
     'commitment', json_build_object(
         'key', c.key, 'id', c.id, 'type', c.type, 'labels', to_json(c.labels),
@@ -30,7 +30,8 @@ _COMMITMENT_ITEM = f"""json_build_object(
     ),
     'dossiers', (
         SELECT coalesce(json_agg(json_build_object(
-            'key', d.key, 'number', d.props -> 'label', 'title', d.props -> 'title'
+            'key', d.key, 'number', d.props -> 'label', 'title', d.props -> 'title',
+            'basis', e.doc -> 'meta' -> 'basis'
         ) ORDER BY d.label ASC NULLS FIRST, d.key ASC), '[]'::json)
         FROM edges e JOIN dossiers d ON d.id = e.to_id
         WHERE e.from_id = c.id AND e.relation = %(about)s

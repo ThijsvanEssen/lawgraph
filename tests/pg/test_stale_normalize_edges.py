@@ -1,6 +1,7 @@
 """The edges normalize derives from a record go when the record no longer names their end: a
-paper moved to another dossier, a commitment whose letter changed, a case with another
-submitter or committee. Edges of the same relation and source to other tables stay."""
+paper moved to another dossier, a commitment whose letter changed or that a letter fulfilled,
+a case with another submitter or committee. Edges of the same relation and source to other
+tables stay."""
 
 from __future__ import annotations
 
@@ -76,6 +77,52 @@ def test_a_commitment_whose_letter_changed_loses_the_first(store: GraphStore) ->
     tk_cases.link_letters_to_commitments(store, [commitment("brief1")], source=SOURCE)
     tk_cases.link_letters_to_commitments(store, [commitment("brief2")], source=SOURCE)
     assert _edges(store, "ANSWERS") == [("documents/brief2", "commitments/t1")]
+
+
+def test_a_commitment_fulfilled_in_a_dossier_leaves_the_agenda(
+    store: GraphStore,
+) -> None:
+    _nodes(store, "dossiers", "36001", "36002", "29389")
+    _nodes(store, "activities", "a1")
+    _nodes(store, "commitments", "t1", "t2")
+    activities = {
+        "a1": Node(
+            collection="activities",
+            key="a1",
+            props={"number": "2025A04175", "dossier_numbers": ["36001", "36002"]},
+            _skip_validation=True,
+        )
+    }
+
+    def commitment(key: str, letter_dossiers: list[str]) -> Node:
+        return Node(
+            collection="commitments",
+            key=key,
+            props={"activity_number": "2025A04175", "letter_dossiers": letter_dossiers},
+            _skip_validation=True,
+        )
+
+    tk_cases.link_commitments(
+        store,
+        {"t1": commitment("t1", []), "t2": commitment("t2", [])},
+        activities,
+        source=SOURCE,
+    )
+    # t1 fulfilled by a letter in 29389; t2 is not in this run and keeps its edges
+    tk_cases.link_commitments(
+        store, {"t1": commitment("t1", ["29389"])}, activities, source=SOURCE
+    )
+    assert [
+        (row["from_id"], row["to_id"], row["basis"])
+        for row in store.query(
+            "SELECT from_id, to_id, doc -> 'meta' ->> 'basis' AS basis FROM edges"
+            " WHERE relation = 'ABOUT' ORDER BY from_id, to_id"
+        )
+    ] == [
+        ("commitments/t1", "dossiers/29389", "nakoming"),
+        ("commitments/t2", "dossiers/36001", "agenda"),
+        ("commitments/t2", "dossiers/36002", "agenda"),
+    ]
 
 
 def test_a_case_with_other_actors_loses_the_first(store: GraphStore) -> None:

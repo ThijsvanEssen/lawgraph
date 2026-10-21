@@ -4645,6 +4645,40 @@
 }
 },
 "fixtures": {
+"rechtspraak_crvb_2011_bp0671.xml": {
+"advocate_general": null,
+"parties": [
+{
+"alias": null,
+"name": "[Appellante]",
+"representatives": [
+{
+"capacity": null,
+"name": "mr. K.M. van der Zouwen",
+"place": "Oosterhout",
+"role": "advocaat"
+}
+],
+"role": "Appellant",
+"role_stated": true,
+"roles": [
+"Appellant"
+],
+"side": "first"
+},
+{
+"alias": "Uwv",
+"name": "de Raad van bestuur van het Uitvoeringsinstituut werknemersverzekeringen",
+"representatives": [],
+"role": "Verweerder",
+"role_stated": false,
+"roles": [
+"Verweerder"
+],
+"side": "second"
+}
+]
+},
 "rechtspraak_crvb_2025_1295.xml": {
 "advocate_general": "P.H.A. Brauer",
 "parties": [

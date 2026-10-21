@@ -16,7 +16,11 @@ makes no stub. A stub judgment no edge reaches any more goes at the end.
 A decision before 2013 is cited by its LJN alone ("CRvB 12 januari 2010, LJN BK9271"): the
 number of its ECLI (``ECLI:NL:CRVB:2010:BK9271``), unique over the courts. Such an LJN cites the
 judgment in the graph whose ECLI has it for its number (``core.ecli.cited_ljns``, ``ljn_of``);
-one that no judgment has, or that two have, cites nothing and makes no stub.
+one that no judgment has, or that two have, cites nothing and makes no stub: without the court
+and the year there is no ECLI to make one of. How many such LJNs a judgment cites, but one
+whose ECLI its text names too, is kept on its row of ``lg_unlinked_references`` (``ljns``, of
+``semantic rechtspraak``, which runs before this step): what ``completeness.references`` of the
+API counts as not linked.
 
 A decision of the ECHR is cited by application number ("EHRM 28 maart 2000, nr. 22492/93"):
 ``REFERS_TO`` to the decision of that number and date, or without a date to the only decision of
@@ -66,6 +70,7 @@ from lawgraph.core.models import Node, PipelineResult, parse_node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import unlinked_references as unlinked_queries
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
 from . import _echr_citations
@@ -91,6 +96,13 @@ def cited(text: str, by_ljn: Mapping[str, str]) -> list[str]:
     LJN -> the ECLI of the judgment in the graph that has it), once each."""
     ljns = (by_ljn[ljn] for ljn in cited_ljns(text) if ljn in by_ljn)
     return list(dict.fromkeys([*cited_eclis(text), *ljns]))
+
+
+def unlinked_ljns(text: str, by_ljn: Mapping[str, str]) -> int:
+    """How many LJNs *text* cites that *by_ljn* does not give an ECLI of, but the number of
+    an ECLI it names too, which cites that judgment (or a stub of it)."""
+    named = {ljn_of(ecli) for ecli in cited_eclis(text)}
+    return sum(1 for ljn in cited_ljns(text) if ljn not in by_ljn and ljn not in named)
 
 
 def judgment_mentions(
@@ -142,7 +154,8 @@ def places_meta(mentions: list[Mention]) -> dict[str, Any]:
 class _Collected:
     """What the texts read cite: ``(citing id, cited ECLI)`` pairs and the ECLIs cited, the
     ids of every judgment whose text was read, ``(citing id, cited ECHR decision)`` pairs,
-    and per pair the places that name it, as the edge keeps them."""
+    per pair the places that name it, as the edge keeps them, and per judgment read how many
+    LJNs it cites that no judgment in the graph has."""
 
     pending: list[tuple[str, str]] = field(default_factory=list)
     cited: set[str] = field(default_factory=set)
@@ -152,6 +165,7 @@ class _Collected:
     places: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
     # (citing id, application number) -> places
     echr_places: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    unlinked_ljns: dict[str, int] = field(default_factory=dict)
 
 
 class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
@@ -192,6 +206,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 places=found.echr_places,
             )
         edges.flush_into(result)
+        unlinked_queries.keep_unlinked_ljns(self.store, found.unlinked_ljns)
         removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, found.read)
         logger.info("Removed %d citations the text does not name.", removed)
         stubs = semantic_rechtspraak.remove_unreached_judgment_stubs(self.store)
@@ -219,6 +234,7 @@ class RechtspraakCitationsSemanticPipeline(SemanticPipelineBase):
                 continue
             found.read.append(judgment.node_id)
             by_ljn = self._judgments_by_ljn() if cited_ljns(text) else {}
+            found.unlinked_ljns[judgment.node_id] = unlinked_ljns(text, by_ljn)
             paragraphs, footnotes = judgment_text(root)
             by_ecli, by_number = judgment_mentions(
                 [*paragraphs, *footnote_paragraphs(paragraphs, footnotes)], by_ljn
