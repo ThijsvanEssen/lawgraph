@@ -125,9 +125,9 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 other options are in `docs/operations.md`. Commissie, Persoon, Fractie, FractieZetelPersoon and
 FractieZetelVacature are always read whole. Each entity type is stored while it is fetched (a buffer at a time), so
 an interrupted run keeps what it fetched. A gaps run takes at most 50,000 dossiers (and
-`retrieve tk-content` at most 50,000 papers, `retrieve rechtspraak --mode gaps` 50,000
-judgments; `MAX_GAPS_PER_RUN`); the table of `retrieve all` says how many are left, and the next
-run takes them.
+`retrieve rechtspraak --mode gaps` 50,000 judgments; `MAX_GAPS_PER_RUN`; `retrieve tk-content`
+at most 15,000 papers, `MAX_PAPERS_PER_RUN`, about two hours a night); the table of
+`retrieve all` says how many are left, and the next run takes them.
 
 Client quirks:
 

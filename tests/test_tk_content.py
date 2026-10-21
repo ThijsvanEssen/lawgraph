@@ -21,6 +21,7 @@ from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.core.time import dutch_today
 from lawgraph.db import raw_key
 from lawgraph.db.queries import gaps as gap_queries
+from lawgraph.pipelines.retrieve import tk_content
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.asserts import assert_status, show_items
 from tests.fakes import (
@@ -340,6 +341,17 @@ def test_a_limit_fetches_the_first_papers_and_leaves_the_rest_for_the_next_run()
     result, _, client = _run(papers, limit=2)
     assert client.fetched == ["kst-1-1", "kst-2-2"] and result.created == 2
     assert result.notes == ["2 of 3 Kamerstukken without XML, again for the rest"]
+
+
+def test_without_a_limit_a_run_takes_at_most_a_nights_papers(monkeypatch) -> None:
+    monkeypatch.setattr(tk_content, "MAX_PAPERS_PER_RUN", 2)
+    papers = [_document("1", 1), _document("2", 2), _document("3", 3)]
+    result, _, client = _run(papers)
+    assert client.fetched == ["kst-1-1", "kst-2-2"]
+    assert result.notes == ["2 of 3 Kamerstukken without XML, again for the rest"]
+    # a limit given wins over the cap
+    _, _, client = _run(papers, limit=3)
+    assert len(client.fetched) == 3
 
 
 def test_a_dry_run_fetches_and_stores_nothing() -> None:
