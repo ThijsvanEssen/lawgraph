@@ -2,13 +2,13 @@
 ``semantic tk-transposition-tables`` writes and ``lawgraph succession-gaps`` reports.
 
 A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
-of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
-(read by ``core.transposition_xml``); or it is the concordance table of an EU act that
-codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
-``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
-them. The one law of the BWB of a name is the one of that citation title, else the one of
-that abbreviation (the WTI's, as the citation extractor reads "artikel 1 WVO", "artikel 1
-Bal"):
+of its own (read by ``core.transposition_tables``), or a Kamerstuk or a Staatsblad with a
+table in its XML (read by ``core.transposition_xml``; a Staatsblad has no dossier); or it
+is the concordance table of an EU act that codifies or recasts others (its HTML as
+``retrieve eurlex`` stored it, read by ``core.concordance_html``). The laws of a
+Kamerstuk's table are found by the names it gives them. The one law of the BWB of a name is
+the one of that citation title, else the one of that abbreviation (the WTI's, as the
+citation extractor reads "artikel 1 WVO", "artikel 1 Bal"):
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
@@ -61,6 +61,7 @@ from pypdf.errors import PyPdfError
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
 )
 from lawgraph.core.aliases import code_choices, curated_abbreviations, instrument_names
@@ -284,10 +285,15 @@ class _OtherLaws:
         return self._extractor
 
 
+# The kinds of a stored source with its tables in its XML.
+_XML_KINDS = (RAW_KIND_TK_TRANSPOSITION_DOCUMENT, RAW_KIND_STAATSBLAD_TRANSPOSITION)
+
+
 def _tables(store: Store, laws: _OtherLaws) -> Iterator[Table]:
-    """Every stored table: of each PDF, and of each Kamerstuk stored with its XML."""
+    """Every stored table: of each PDF, and of each Kamerstuk and Staatsblad stored with its
+    XML."""
     for record in queries.transposition_tables(store):
-        if record.get("kind") != RAW_KIND_TK_TRANSPOSITION_DOCUMENT:
+        if record.get("kind") not in _XML_KINDS:
             yield _pdf_table(store, record)
         elif payload_text(record):
             yield from _xml_tables(store, record, laws)
