@@ -29,13 +29,31 @@ A ``<table>`` is read in one of these layouts:
 
 The last two only under a title, a heading or a ``<tussenkop>`` right before it that names a
 transposition or concordance table (``TABLE_WORDS``); such a table in no layout places
-nothing and says so. A head with more than two columns of articles that are no pairs is none:
-which two are the old and the new law is not read from it. The Wet voortgezet onderwijs 2020
-has a column per law, each with its own column of leden (``artikel WVO | lid/onderdeel |
-artikel WVO-BES | lid/onderdeel | artikel WVO 20xx | …``), the Invoeringsbesluit Omgevingswet
-the old regulation's article and its places in two new ones (``Artikel | Artikel Omgevingswet
-| Artikel AMvB``). Columns are those of the ``<colspec>``: an entry without a ``colname``
+nothing and says so. Columns are those of the ``<colspec>``: an entry without a ``colname``
 stands in the next column not taken by a cell above it (``morerows``).
+
+Columns of articles may stand in groups:
+
+* a column of articles with a column of the part of each beside it (``lid/onderdeel``): its
+  cell names the leden of the article beside it (``lid 1 t/m 3 en 5``), a remark in brackets
+  (``(deels)``, ``(1e volzin)``) no lid. The Wet voortgezet onderwijs 2020 (kst-35297-3)::
+
+      artikel WVO | lid/onderdeel | artikel WVO-BES | lid/onderdeel | artikel WVO 20xx | …
+
+* more columns of old laws beside the one of the proposed law: a table of each old law's
+  column to the proposed law's, as above (each names its law: ``artikel WVO``);
+* one column of articles that names no law beside more that do, under a title that names the
+  old law: a table of the old law to each. The Invoeringsbesluit Omgevingswet (Stb. 2020,
+  400)::
+
+      b. Transponeringstabel Bouwbesluit 2012
+      Hoofdstuk/onderwerp | Artikel | Artikel Omgevingswet | Artikel AMvB | Toelichting
+
+  A column whose cells name their law at their end (``1.1 Bbl``, ``2.13 Bal en 8.28 Bkl``;
+  at least half of those with a figure) holds the places of more laws: a table per law its
+  cells name, of the part of each cell that names it, and one under the column's name of the
+  cells with a figure that name none. Any other head with more than two columns of articles
+  places nothing: which are the old and the new law is not read from it.
 
 Each cell holds one or more references as the source writes them (``8.2.26, vierde lid``,
 ``2.1 en 2.2``, ``5.8 t/m 5.14``, ``2.31, eerste lid, onder a``, ``art. 1.1, lid 1``), apart
@@ -82,21 +100,28 @@ TABLE_WORDS = (
 _NAMES_A_TABLE = re.compile(
     r"(?:transponerings|concordantie)tabel(?:len)?", re.IGNORECASE
 )
-# A title "h. Transponeringstabel Waterwet": the law after the words.
+# A title "h. Transponeringstabel Waterwet", "aa. Transponeringstabel …": the law after the words.
 _TITLE_LAW = re.compile(
-    r"^(?:[a-z]\.\s+)?(?:transponerings|concordantie)tabel(?:len)?\s+(?P<law>.+)$",
+    r"^(?:[a-z]{1,2}\.\s+)?(?:transponerings|concordantie)tabel(?:len)?\s+(?P<law>.+)$",
     re.IGNORECASE,
 )
 # A title's label and the words that name a table before its law: "h. Transponeringstabel
 # Waterwet", "Tabel 3. Boswet".
 _TITLE_LABEL = re.compile(
-    r"^(?:[a-z]\.\s+|tabel\s+\d+[a-z]?\.?\s+)?"
+    r"^(?:[a-z]{1,2}\.\s+|tabel\s+\d+[a-z]?\.?\s+)?"
     r"(?:(?:transponerings|concordantie)tabel(?:len)?\s*)?",
     re.IGNORECASE,
 )
 _COLUMN_LAW = re.compile(r"^artikel(?:en)?\s+(?P<law>.+)$", re.IGNORECASE)
 # A column of articles, of a law it names or not ("Artikel", "artikel WVO 20xx").
 _ARTICLE_COLUMN = re.compile(r"^artikel(?:en)?\b", re.IGNORECASE)
+# A column of the part of the article in the column before it: "lid/onderdeel", "lid".
+_PART_COLUMN = re.compile(
+    r"^(?:lid|leden|onderde(?:el|len))(?:\s*[/,]\s*(?:lid|leden|onderde(?:el|len)))*$",
+    re.IGNORECASE,
+)
+# A remark in brackets in such a cell: "lid 1 (deels)", "lid 2 (1e t/m 3e volzin)".
+_REMARK = re.compile(r"\([^()]*\)")
 _OLD_TO_NEW = re.compile(r"^huidig\s+naar\s+nieuw\b", re.IGNORECASE)
 _NEW_TO_OLD = re.compile(r"^nieuw\s+naar\s+huidig\b", re.IGNORECASE)
 # A year a proposed law's name leaves open: "Mediawet 20..", "WVO 20xx".
@@ -161,6 +186,11 @@ _UNDER_THEM = re.compile(r"besluit", re.IGNORECASE)
 _PART_WORDS = re.compile(
     rf"\b(?:lid|leden|onder(?:deel|delen)?|aanhef|(?:vol)?zin(?:nen)?|{ORDINAL})\b",
     re.IGNORECASE,
+)
+# What starts the number of a division, not a law: "VII", "D" (bijlage VII, onder D).
+_DIVISION_NUMBER = re.compile(r"(?:[IVXLC]+|[A-Z])(?:\s|$)")
+_DIVISION_WORD = re.compile(
+    r"(?:boek|hoofdstuk|afdeling|paragraaf|titel|bijlage)\b|§", re.IGNORECASE
 )
 # The words of a cell in prose before its references: "Komt inhoudelijk gewijzigd terug in
 # artikel 10.23.", "Komt terug in de Omgevingswet, in artikel 10.1".
@@ -286,24 +316,69 @@ def _with_law(text: str) -> list[Place] | None:
     match = _LAW_AT_END.fullmatch(text)
     if match is None:
         return None
-    law = match["law"].strip()
-    under = _UNDER_THEM.fullmatch(law) is not None and not match["note"]
-    if not (under or _is_law(law)):
-        return None
-    found = references(match["references"].rstrip(" ,"), divisions=True)
-    if found is None:
-        return None
-    *first, last = [_place(r) for r in found]
-    if under:
+    if _UNDER_THEM.fullmatch(match["law"].strip()) and not match["note"]:
+        found = references(match["references"].rstrip(" ,"), divisions=True)
+        if found is None:
+            return None
+        *first, last = [_place(r) for r in found]
         return [*first, replace(last, text=last.text + text[match.end("references") :])]
+    read = _law_at_end(text)
+    if read is None:
+        return None
+    found, law = read
+    *first, last = [_place(r) for r in found]
     note = f" {match['note']}" if match["note"] else ""
     return [*first, replace(last, text=f"{last.text} {law}{note}", law=law)]
 
 
+def _law_at_end(text: str) -> tuple[list[Reference], str] | None:
+    """The references of a cell that names a law at its end, and that law: the words after
+    the last reference from the first that can name a law ("4.834, eerste lid Bal": "Bal")."""
+    match = _LAW_AT_END.fullmatch(text)
+    if match is None:
+        return None
+    for word in re.finditer(r"\S+", match["law"]):
+        law = match["law"][word.start() :].strip()
+        if not _is_law(law):
+            continue
+        before = (
+            match["references"]
+            if word.start() == 0
+            else text[: match.start("law") + word.start()]
+        )
+        found = references(before.rstrip(" ,"), divisions=True)
+        return None if found is None else (found, law)
+    return None
+
+
+# Between the parts of a cell of more laws ("2.13 Bal en 8.28 Bkl").
+_LAW_SEPARATOR = re.compile(r"\s*(?:[,;]|\ben\b)\s*", re.IGNORECASE)
+
+
+def law_parts(text: str) -> list[tuple[str, str | None]]:
+    """The parts of a cell each of which names its law at its end (``_law_at_end``), with
+    that law: ``2.13 Bal en 8.28 Bkl`` is ``[("2.13 Bal", "Bal"), ("8.28 Bkl", "Bkl")]``; a
+    cell that names no law is one part of none."""
+    text = collapse_ws(text)
+    for separator in _LAW_SEPARATOR.finditer(text):
+        first, rest = text[: separator.start()], text[separator.end() :]
+        read = _law_at_end(first)
+        if read is not None and rest:
+            return [(first, read[1]), *law_parts(rest)]
+    read = _law_at_end(text)
+    return [(text, read[1] if read else None)]
+
+
 def _is_law(text: str) -> bool:
     """Whether *text* can be the name of a law: it starts with a capital ("Awb", "Wet op de
-    expertisecentra") and names no part of an article ("eerste lid", "onder a")."""
-    return text[:1].isupper() and not _PART_WORDS.search(text)
+    expertisecentra"), names no part of an article ("eerste lid", "onder a") and does not
+    start with the number of a division or a word that names one ("VII", "Bijlage VII")."""
+    return (
+        text[:1].isupper()
+        and not _PART_WORDS.search(text)
+        and not _DIVISION_NUMBER.match(text)
+        and not _DIVISION_WORD.match(text)
+    )
 
 
 def _place(reference: Reference) -> Place:
@@ -338,8 +413,8 @@ class XmlTable:
     (``("Wabo", "Omgevingswet")``); None for the layout ``Huidig naar nieuw``, whose first
     column is the current text of a law and the second the new one. ``title_law``: the law
     the title names (``Waterwet``). ``cells``: per row of the body, the text of the two
-    columns of articles and where the row is. Which column is the old law is not read here:
-    ``rows`` reads them in the order it is told.
+    columns of articles (``Cells``). Which column is the old law is not read here: ``rows``
+    reads them in the order it is told.
 
     ``proposed``: of a table of the law the paper proposes, the names that law may go by, to
     try in order (its column's ``Energiewet``, the dossier's ``Wet dieren``; none when
@@ -351,17 +426,32 @@ class XmlTable:
     source: str
     columns: tuple[str, str] | None = None
     title_law: str | None = None
-    cells: tuple[tuple[str, str, str], ...] = ()
+    cells: tuple[Cells, ...] = ()
     problem: str | None = None
     proposed: tuple[str, ...] | None = None
 
     def rows(self, *, reverse: bool = False) -> tuple[SourceRow, ...]:
         """Each place of each row: from the first column to the second, or the other way."""
         reader = _RowReader(self.source)
-        for first, second, where in self.cells:
-            old, new = (second, first) if reverse else (first, second)
-            reader.read(old, new, where)
+        for cells in self.cells:
+            old, new = (
+                (cells.second, cells.first) if reverse else (cells.first, cells.second)
+            )
+            parts = (cells.second_part, cells.first_part)
+            reader.read(old, new, cells.where, *(parts if reverse else parts[::-1]))
         return tuple(reader.rows)
+
+
+@dataclass(frozen=True)
+class Cells:
+    """A row of a table: the text of its two columns of articles, where it is, and the cell
+    of the part of each (its column ``lid/onderdeel``; empty without one)."""
+
+    first: str
+    second: str
+    where: str
+    first_part: str = ""
+    second_part: str = ""
 
 
 def read_tables(xml: str, source: str) -> list[XmlTable]:
@@ -422,9 +512,13 @@ def _tables(
     named = any(_NAMES_A_TABLE.search(h) for h in (title, *headings) if h)
     name = title or " – ".join(h for h in headings if h)
     head = _rows(element, "thead", "")
-    body = _rows(element, "tbody", " ")
-    columns = _columns(element, head)
-    pairs = _proposal_pairs(columns, body)
+    body = _Body(_rows(element, "tbody", " "), _part_columns(_columns(element, head)))
+    columns = {
+        column: text
+        for column, text in _columns(element, head).items()
+        if column not in body.parts.values()
+    }
+    pairs = _proposal_pairs(columns, body.rows)
     if pairs:
         return [
             _proposal_table(
@@ -432,15 +526,19 @@ def _tables(
                 document,
                 title,
                 (columns[old], columns[new]),
-                _cells(body, old, new, alone=True),
+                body.cells(old, new, alone=True),
             )
             for old, new in pairs
         ]
     if not named:
         return []
-    entries = [entry for row in head for entry in row.items()]
-    table = _table(name, document.source, title, headings, entries, body)
-    return [] if table is None else [table]
+    entries = [
+        (column, text)
+        for row in head
+        for column, text in row.items()
+        if column not in body.parts.values()
+    ]
+    return _table(name, document.source, title, headings, entries, body)
 
 
 def _proposal_table(
@@ -448,7 +546,7 @@ def _proposal_table(
     document: _Document,
     title: str,
     heads: tuple[str, str],
-    cells: tuple[tuple[str, str, str], ...],
+    cells: tuple[Cells, ...],
 ) -> XmlTable:
     """The table of a proposed law of the columns *heads* (the old law's, the proposed
     law's) and their *cells*."""
@@ -489,38 +587,86 @@ def _table(
     title: str,
     headings: tuple[str, ...],
     head: list[tuple[str, str]],
-    body: list[dict[str, str]],
-) -> XmlTable | None:
+    body: _Body,
+) -> list[XmlTable]:
     """The table a heading names, in a layout with a column per law or ``Huidig naar
-    nieuw``, or why it is not read; None for the half ``Nieuw naar huidig``."""
+    nieuw``, or why it is not read; none for the half ``Nieuw naar huidig``. A head with
+    more than two columns of articles: a table of the old law to each new one."""
     columns = [
         (column, match["law"])
         for column, text in head
         if (match := _COLUMN_LAW.match(text))
     ]
-    articles = [text for _, text in head if _ARTICLE_COLUMN.match(text)]
+    articles = [(column, text) for column, text in head if _ARTICLE_COLUMN.match(text)]
+    titled = _TITLE_LAW.match(title)
+    title_law_ = titled["law"] if titled else None
     if len(articles) > 2:
-        return XmlTable(
-            name,
-            source,
-            problem=f"columns not recognised: {len(articles)} of articles "
-            f"({' | '.join(articles)})",
-        )
+        return _per_new_law(name, source, title_law_, articles, body)
     if len(columns) >= 2:
-        titled = _TITLE_LAW.match(title)
-        return XmlTable(
-            name,
-            source,
-            (columns[0][1], columns[1][1]),
-            titled["law"] if titled else None,
-            _cells(body, columns[0][0], columns[1][0]),
-        )
+        return [
+            XmlTable(
+                name,
+                source,
+                (columns[0][1], columns[1][1]),
+                title_law_,
+                body.cells(columns[0][0], columns[1][0]),
+            )
+        ]
     direction = headings[-1] if headings else ""
     if _NEW_TO_OLD.match(direction):
-        return None
+        return []
     if _OLD_TO_NEW.match(direction):
-        return XmlTable(name, source, cells=_cells(body, "col1", "col2"))
-    return XmlTable(name, source, problem="no column of an old and of a new law")
+        return [XmlTable(name, source, cells=body.cells("col1", "col2"))]
+    return [XmlTable(name, source, problem="no column of an old and of a new law")]
+
+
+def _per_new_law(
+    name: str,
+    source: str,
+    old_law: str | None,
+    articles: list[tuple[str, str]],
+    body: _Body,
+) -> list[XmlTable]:
+    """The tables of a head with more than two columns of articles (*articles*): of the one
+    that names no law (the old law the title names, *old_law*) to each of the others, a
+    column of more laws a table per law (``_of_laws``); or why it is not read."""
+    unnamed = [column for column, text in articles if not _COLUMN_LAW.match(text)]
+    if len(unnamed) != 1 or old_law is None:
+        heads = " | ".join(text for _, text in articles)
+        return [
+            XmlTable(
+                name,
+                source,
+                problem=f"columns not recognised: {len(articles)} of articles ({heads})",
+            )
+        ]
+    old = unnamed[0]
+    tables: list[XmlTable] = []
+    for column, text in articles:
+        match = _COLUMN_LAW.match(text)
+        if match is not None:
+            for law, cells in _of_laws(body.cells(old, column), match["law"]):
+                tables.append(XmlTable(name, source, (old_law, law), old_law, cells))
+    return tables
+
+
+def _of_laws(cells: tuple[Cells, ...], law: str) -> list[tuple[str, tuple[Cells, ...]]]:
+    """The cells of a column of the *law* its head names, or of a column of more laws (at
+    least half its cells with a figure name their law at their end: "1.1 Bbl", "2.13 Bal en
+    8.28 Bkl") the part of each cell of each law it names, by law, then under the head's
+    name those with a figure that name none."""
+    figures = [c for c in cells if re.search(r"\d", c.second)]
+    parts = {id(c): law_parts(c.second) for c in figures}
+    named = [c for c in figures if any(law for _, law in parts[id(c)])]
+    if not figures or 2 * len(named) < len(figures):
+        return [(law, cells)]
+    by_law: dict[str, list[Cells]] = {}
+    for cell in figures:
+        for text, own in parts[id(cell)]:
+            by_law.setdefault(own or law, []).append(replace(cell, second=text))
+    if law in by_law:  # the cells that name no law last
+        by_law[law] = by_law.pop(law)
+    return [(name, tuple(found)) for name, found in by_law.items()]
 
 
 def _rows(table: ET.Element, part: str, separator: str) -> list[dict[str, str]]:
@@ -588,8 +734,9 @@ def _proposal_pairs(
     columns: dict[str, str], body: list[dict[str, str]]
 ) -> list[tuple[str, str]] | None:
     """The pairs ``(old law's column, proposed law's column)`` of a head with a column of a
-    proposed law (``_PROPOSAL``) beside each column whose cells read as articles; None for
-    any other head."""
+    proposed law (``_PROPOSAL``) beside each column whose cells read as articles, or one
+    beside more such columns that each name their law (``artikel WVO | artikel WVO-BES |
+    artikel WVO 20xx``); None for any other head."""
     proposed = [c for c, text in columns.items() if _PROPOSAL.search(text)]
     if not proposed:
         return None
@@ -599,6 +746,10 @@ def _proposal_pairs(
         if c not in proposed and _of_articles([row.get(c, "") for row in body])
     ]
     order = [c for c in columns if c in proposed or c in old]
+    if len(proposed) == 1 and len(old) > 1:
+        if not all(_COLUMN_LAW.match(columns[c]) for c in old):
+            return None
+        return [(column, proposed[0]) for column in old]
     if len(old) != len(proposed):
         return None
     pairs = []
@@ -618,16 +769,42 @@ def _of_articles(texts: list[str]) -> bool:
     return bool(filled) and 2 * len(read) >= len(filled)
 
 
-def _cells(
-    body: list[dict[str, str]], first: str, second: str, *, alone: bool = False
-) -> tuple[tuple[str, str, str], ...]:
-    """The text of the columns *first* and *second* of each row of the *body* that has
-    both, with where it is; with *alone* also of a row that has only the first."""
-    return tuple(
-        (cells[first], cells.get(second, ""), f"rij {number}")
-        for number, cells in enumerate(body, start=1)
-        if cells.get(first) and (alone or cells.get(second))
-    )
+def _part_columns(columns: dict[str, str]) -> dict[str, str]:
+    """The column of the part of each column of articles that has one right after it
+    (``artikel WVO | lid/onderdeel``), by the column of articles."""
+    order = list(columns)
+    return {
+        column: after
+        for column, after in zip(order, order[1:], strict=False)
+        if _ARTICLE_COLUMN.match(columns[column]) and _PART_COLUMN.match(columns[after])
+    }
+
+
+@dataclass(frozen=True)
+class _Body:
+    """The rows of a table's body (the text of each column), and the column of the part
+    of each column of articles that has one (``_part_columns``)."""
+
+    rows: list[dict[str, str]]
+    parts: dict[str, str]
+
+    def cells(
+        self, first: str, second: str, *, alone: bool = False
+    ) -> tuple[Cells, ...]:
+        """The text of the columns *first* and *second* of each row that has both, with
+        where it is and the part of each; with *alone* also of a row that has only the
+        first."""
+        return tuple(
+            Cells(
+                cells[first],
+                cells.get(second, ""),
+                f"rij {number}",
+                cells.get(self.parts.get(first, ""), ""),
+                cells.get(self.parts.get(second, ""), ""),
+            )
+            for number, cells in enumerate(self.rows, start=1)
+            if cells.get(first) and (alone or cells.get(second))
+        )
 
 
 class _RowReader:
@@ -641,11 +818,17 @@ class _RowReader:
         self._old: Reference | None = None
         self._new: Reference | None = None
 
-    def read(self, old: str, new: str, where: str) -> None:
+    def read(
+        self, old: str, new: str, where: str, old_part: str = "", new_part: str = ""
+    ) -> None:
+        """The rows of one row of the table; *old_part*, *new_part*: the cells of the part
+        beside the old and the new cell (a column ``lid/onderdeel``)."""
         if not collapse_ws(new):  # a row without a place: one below may continue it
             self._olds(old)
             return
         olds = self._olds(old)
+        if olds is not None and collapse_ws(old_part):
+            olds = [_with_part(r, old_part) for r in olds]
         parts = cell_parts(new)
         if parts is not None:
             for base in olds or [Reference(collapse_ws(old), None)]:
@@ -662,6 +845,8 @@ class _RowReader:
             if not continued:
                 found = references(new)
                 self._new = found[-1] if found else None
+        if collapse_ws(new_part):
+            news = [_place_with_part(n, new_part) for n in news]
         if olds is None:
             if not re.search(r"\w", old):  # "–": no article of the old law
                 return
@@ -683,6 +868,31 @@ class _RowReader:
         found = references(old)
         self._old = found[-1] if found else None
         return found
+
+
+def _with_part(reference: Reference, cell: str) -> Reference:
+    """*reference* with the part the cell beside it names (``lid 1 (deels)``)."""
+    cell = collapse_ws(cell)
+    part = ", ".join(p for p in (reference.part, cell) if p)
+    return replace(reference, text=_beside(reference.text, cell), part=part)
+
+
+def _place_with_part(place_: Place, cell: str) -> Place:
+    """*place_*, an article, with the part the cell beside it names: its text with the cell,
+    its leden those the cell names without a remark in brackets (``lid 1 t/m 3 en 5``, ``lid
+    4 (deels)``); a run of articles keeps none."""
+    if place_.article is None:
+        return place_
+    cell = collapse_ws(cell)
+    leden = place_.leden
+    if not leden and place_.through is None:
+        leden = parse_qualifier(collapse_ws(_REMARK.sub(" ", cell))).leden
+    return replace(place_, text=_beside(place_.text, cell), leden=leden)
+
+
+def _beside(text: str, part: str) -> str:
+    """*text* with the *part* beside it: after a comma, a remark in brackets after a space."""
+    return f"{text} {part}" if part.startswith("(") else f"{text}, {part}"
 
 
 def _is_part(text: str) -> bool:
