@@ -1802,8 +1802,8 @@ when it was written. `lg_amendment_chains` holds the chains of the amendments (a
 that the step recognized and could not link (`id`, `step`: the edge source of the step,
 `count`; 0 when it linked every one): `semantic bwb`, `semantic eurlex`, `semantic rechtspraak`
 and `semantic tk` write a row per article, judgment or paper read, only where it changed, and a
-run over all removes the rows of its step it did not read. The detail routes read it by `id`
-(`completeness.references`). Apart from the props, so a run that counts every judgment
+run over all removes the rows of its step it did not read. The detail routes read it by `id`, with the
+`REFERS_TO` edges of the node to a stub (`completeness.references`). Apart from the props, so a run that counts every judgment
 rewrites no texts.
 
 `lg_data_version` holds a counter per table of the graph, and one each for

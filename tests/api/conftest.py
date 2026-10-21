@@ -39,9 +39,9 @@ def stub_loaders(monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def stub_unlinked_count(monkeypatch) -> None:
-    """No step read the references of a record (``unlinked_count``): its
+def stub_reference_counts(monkeypatch) -> None:
+    """No step read the references of a record (``reference_counts``): its
     ``completeness`` is null unless a test stubs a count."""
     for module in route_modules():
-        if hasattr(module, "unlinked_count"):
-            monkeypatch.setattr(module, "unlinked_count", lambda store, node: None)
+        if hasattr(module, "reference_counts"):
+            monkeypatch.setattr(module, "reference_counts", lambda store, node: None)
