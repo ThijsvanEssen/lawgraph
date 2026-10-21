@@ -281,6 +281,38 @@ def test_the_law_goes_once_the_bwb_holds_it(database: str, cli: Any) -> None:
     assert list(kept) == []
 
 
+def test_a_daily_run_counts_what_an_earlier_release_linked(
+    database: str, cli: Any
+) -> None:
+    """Edges laid by a release that kept no counts, the counts missing: the daily runs
+    (``semantic all --since``) write them, though no edge changes."""
+    store = GraphStore()
+    _build(store, cli)
+    counts = ["unlinked_references", "definitions_found"]
+    for table in ("articles", "instruments"):
+        store.execute(
+            f"UPDATE {table} SET props = lg_unset(props, %(keys)s)", {"keys": counts}
+        )
+    with serving(store) as api:
+        assert _states(api.get_json("/api/instruments/wet_stb_2026_56")) == {
+            "references": "pending",
+            "definitions": "pending",
+        }
+    edges = _edges(store, "REFERS_TO")
+    cli("semantic", "staatsblad-law-references")
+    cli("semantic", "bwb-definitions", "--since", "1d")
+    assert _edges(store, "REFERS_TO") == edges
+    with serving(store) as api:
+        assert _states(api.get_json("/api/instruments/wet_stb_2026_56")) == {
+            "references": "partial",
+            "definitions": "done",
+        }
+        assert _states(api.get_json("/api/articles/STB-2026-56/2.8.6")) == {
+            "references": "done",
+            "definitions": "done",
+        }
+
+
 def test_an_article_refers_to_the_articles_of_the_bwb_it_cites(
     api: Api,
 ) -> None:
