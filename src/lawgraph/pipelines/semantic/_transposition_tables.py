@@ -34,7 +34,7 @@ what moves.
 
 The acts of an EU table are its own (the new act) and the one its column names by CELEX
 (``core.concordance_html``), each as ``normalize eurlex`` made it; an old act the graph does
-not hold places nothing (``retrieve eurlex --celex`` fetches it).
+not hold places nothing (``retrieve eurlex --mode gaps`` fetches it).
 """
 
 from __future__ import annotations
