@@ -157,7 +157,6 @@ EXPECTED = {
     (_id(QUESTIONS), "REFERS_TO", _id(AGENDA)): {
         "basis": "subject",
         "text": "21501-02-3465",
-        "reference": "21501-02-3465",
     },
     # named by the subject: from the subject, not again from the footnote
     (_id(ON_MOTIONS), "ANSWERS", _id(MOTION_A)): {

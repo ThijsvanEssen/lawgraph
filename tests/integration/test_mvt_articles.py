@@ -248,9 +248,9 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
         EDGE_SOURCE_SECTIONS,
         CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW],
     )
-    assert _best(named["meta"])["match_type"] == "body_named_law"
-    assert named["meta"]["changed"] is True
-    assert named["meta"]["explanation"].endswith("het dossier wijzigt het artikel.")
+    best = _best(named["meta"])
+    assert (best["match_type"], best["changed"]) == ("body_named_law", True)
+    assert best["explanation"].endswith("het dossier wijzigt het artikel.")
     assert named["meta"]["heading"] == "Artikel I" and named["meta"]["section_anchor"]
     assert [s["section_anchor"] for s in named["meta"]["sections"]] == [
         named["meta"]["section_anchor"]
@@ -515,8 +515,8 @@ def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
     for number, section in (("10", "s-0"), ("20a", "s-1")):
         meta = edges[ids[number]]["meta"]
         assert meta["section_anchor"] == section
-        assert _best(meta)["match_type"] == "bill_part"
-        assert meta["changed"] is True
+        best = _best(meta)
+        assert (best["match_type"], best["changed"]) == ("bill_part", True)
     # what the bill inserted and the dossier did not change, and the bill's own articles
     assert ids["20b"] not in edges
     assert set(edges) == {ids["10"], ids["20a"]}
@@ -695,8 +695,9 @@ def test_the_memorandum_of_a_new_law_that_changes_another_explains_both(
     assert zorgplicht["source"] == EDGE_SOURCE_SECTIONS
     assert zorgplicht["confidence"] == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
     meta = zorgplicht["meta"]
-    assert (_best(meta)["match_type"], meta["changed"]) == ("own_number", True)
-    assert meta["explanation"].endswith("het dossier stelt het artikel vast.")
+    best = _best(meta)
+    assert (best["match_type"], best["changed"]) == ("own_number", True)
+    assert best["explanation"].endswith("het dossier stelt het artikel vast.")
     # article 22 is named in passing: the dossier explains it, no section
     assert edges[ids["cbw_22"]]["source"] == EDGE_SOURCE
     assert edges[ids["cbw_99"]]["meta"]["section_anchor"] == "s-1"

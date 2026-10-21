@@ -228,8 +228,8 @@ class RefersToMeta(_Span, _Parts):
     reason: Reason | None = None
     """What the citation names or how it was read (core/provenance.py)."""
     text: str | None = None
-    """The reference as written (`bwb-article-references`, `staatsblad-law-references`); the
-    subject that names the paper (`tk-cited-papers`)."""
+    """The reference as written (`bwb-article-references`, `staatsblad-law-references`,
+    `tk-cited-papers`)."""
     reference_kind: str | None = None
     """`intref` or `extref`, as the BWB XML writes the link."""
     semantic_pattern: str | None = None
@@ -254,12 +254,8 @@ class RefersToMeta(_Span, _Parts):
     """The ECLI the judgment cites."""
     cited_appno: str | None = None
     """The application number of the ECHR decision it cites."""
-    match_type: str | None = None
-    """`bwb_text_scan`: the conclusion of an ECHR judgment names the law."""
     basis: Basis | None = None
     """`subject` (core/provenance.py)."""
-    reference: str | None = None
-    """The reference to the paper as written."""
 
 
 class MvtSection(_Meta):
@@ -295,10 +291,6 @@ class ExplainsMeta(_Meta):
     """Where it ends."""
     heading: str | None = None
     """Its heading."""
-    changed: bool | None = None
-    """As in `sections`."""
-    explanation: str | None = None
-    """As in `sections`."""
     sections: list[MvtSection] | None = None
     """Every section about the article, in the order of the memorandum."""
 
@@ -331,9 +323,7 @@ class SameAsMeta(_Meta):
     """What makes the two the same (core/provenance.py)."""
 
 
-class ScopedByMeta(_Span):
-    text: str | None = None
-    """The words that name the annex."""
+class ScopedByMeta(_Meta):
     scope_type: str | None = None
     """`fixed` or `discretionary`."""
 
@@ -383,8 +373,6 @@ class AuthoredMeta(_Meta):
 
 
 class PairSide(_Meta):
-    case: str | None = None
-    """The number of the case."""
     document: str | None = Field(default=None, alias="paper")
     """The document of its own kind; null when the graph has none."""
     kind: str | None = None
@@ -395,13 +383,9 @@ class PairSide(_Meta):
     """The suffix of that dossier."""
     sequence: int | None = None
     """Its number in the dossier."""
-    date: str | None = None
-    """Its date."""
 
 
 class CasePair(_Meta):
-    kinds: str
-    """What the two cases are: `Brief regering → Motie`."""
     from_: PairSide = Field(alias="from")
     """The paper of the case of this dossier."""
     to: PairSide

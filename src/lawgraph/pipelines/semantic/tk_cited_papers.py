@@ -7,8 +7,8 @@ dossier and number gets an edge when it is in the graph, found by its ``dossier_
 ``dossier_suffix`` and ``sequence``: ``ANSWERS`` from a letter of the government (``Brief
 regering``) to a motion, ``REFERS_TO`` otherwise (a list of questions about a letter, the
 decision note of a letter, an inbreng on it). ``meta.basis`` is ``subject``; ``meta.text``
-of an ``ANSWERS`` the whole subject, of a ``REFERS_TO`` the reference as written, and
-``meta.reference`` of both the reference as written.
+of a ``REFERS_TO`` the reference as written, of an ``ANSWERS`` the whole subject with
+``meta.reference`` the reference as written.
 
 A letter of the government also names the motions it answers in its text and its footnotes:
 "Uw Kamer heeft met de motie van het lid Kathmann¹ …" with the footnote "Kamerstuk 36 764,
@@ -209,15 +209,18 @@ class TKCitedPapersSemanticPipeline(SemanticPipelineBase):
             if source_id == target_id:
                 continue
             relation = relation_of(row.get("kind"), target.get("kind"))
-            # of an answer the whole subject: what the letter says it does with the motion
-            text = row["subject"] if relation == RELATION_ANSWERS else ref.text
+            meta = {"basis": BASIS_SUBJECT, "text": ref.text}
+            if relation == RELATION_ANSWERS:
+                # the whole subject, what the letter says it does with the motion, and in it
+                # the reference as written
+                meta.update(text=row["subject"], reference=ref.text)
             edges.add(
                 source_id,
                 target_id,
                 relation,
                 source=EDGE_SOURCE,
                 confidence=EXACT_CONFIDENCE,
-                meta={"basis": BASIS_SUBJECT, "text": text, "reference": ref.text},
+                meta=meta,
             )
         written.update({r: n for r in RELATIONS if (n := edges.written(r))})
         return written

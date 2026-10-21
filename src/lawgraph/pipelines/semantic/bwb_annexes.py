@@ -128,12 +128,7 @@ class BWBAnnexesSemanticPipeline(SemanticPipelineBase):
             relation=RELATION_SCOPED_BY,
             source=EDGE_SOURCE,
             confidence=confidence,
-            meta={
-                "start": hit.start,
-                "end": hit.end,
-                "text": hit.text,
-                "scope_type": hit.scope_type,
-            },
+            meta={"scope_type": hit.scope_type},
         )
         if edge:
             edges.add_doc(edge)

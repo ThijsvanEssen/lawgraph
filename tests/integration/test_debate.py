@@ -425,18 +425,14 @@ def test_the_dossiers_the_kamer_relates_name_the_letter_and_the_motion(
         for item in bucket["items"]
     ]
     (pair,) = edge["meta"]["pairs"]
-    assert pair["kinds"] == "Brief regering → Motie"
     assert pair["from"] == {
-        "case": "2026Z20000",
         "paper": f"documents/{_key(LETTER_12)}",
         "kind": "Brief regering",
         "dossier_number": "32761",
         "dossier_suffix": None,
         "sequence": 12,
-        "date": "2026-07-01",
     }
-    assert (pair["to"]["case"], pair["to"]["paper"], pair["to"]["sequence"]) == (
-        "2026Z05830",
+    assert (pair["to"]["paper"], pair["to"]["sequence"]) == (
         f"documents/{_key(DOCUMENT_28)}",
         28,
     )
