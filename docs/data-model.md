@@ -314,7 +314,7 @@ its keys to the model of `REFERS_TO`.
 |  | `start` | `int` | Where the reference starts in the text of the source node. |
 |  | `end` | `int` | Where it ends. |
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
-|  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`); the subject that names the paper (`tk-cited-papers`). |
+|  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`, `tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |
@@ -346,15 +346,11 @@ its keys to the model of `REFERS_TO`.
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
-|  | `match_type` | `str` | `bwb_text_scan`: the conclusion of an ECHR judgment names the law. |
 |  | `basis` | `Basis` | `subject` (core/provenance.py). |
-|  | `reference` | `str` | The reference to the paper as written. |
 | `EXPLAINS` | `section_anchor` | `str` | The `id` of the surest section (`props.sections` of the Document); the keys below up to `sections` are that section's. |
 |  | `char_start` | `int` | Where it starts in `props.text` of the Document. |
 |  | `char_end` | `int` | Where it ends. |
 |  | `heading` | `str` | Its heading. |
-|  | `changed` | `bool` | As in `sections`. |
-|  | `explanation` | `str` | As in `sections`. |
 |  | `sections` | `list[object]` | Every section about the article, in the order of the memorandum. |
 |  | `sections[].section_anchor` | `str` | The section of the memorandum. |
 |  | `sections[].heading` | `str` | Its heading. |
@@ -377,10 +373,7 @@ its keys to the model of `REFERS_TO`.
 |  | `text` | `str` | The subject, line or footnote that names the motion. |
 |  | `reference` | `str` | The reference as written. |
 | `SAME_AS` | `basis` | `Basis` | What makes the two the same (core/provenance.py). |
-| `SCOPED_BY` | `start` | `int` | Where the reference starts in the text of the source node. |
-|  | `end` | `int` | Where it ends. |
-|  | `text` | `str` | The words that name the annex. |
-|  | `scope_type` | `str` | `fixed` or `discretionary`. |
+| `SCOPED_BY` | `scope_type` | `str` | `fixed` or `discretionary`. |
 | `MADE_IN` | `reason` | `Reason` | `ingediend`: a motion submitted in the debate. |
 | `MEMBER_OF` | `from_date` | `str` | The first day. |
 |  | `to_date` | `str` | The last day; absent while it lasts. |
@@ -432,15 +425,12 @@ its keys to the model of `REFERS_TO`.
 |  | `cases` | `int` | How many pairs of cases relate the dossiers. |
 |  | `case_kinds` | `str \| list[str] \| NoneType` | What the cases are: of two cases one (`Brief regering → Motie`), of two dossiers each. |
 |  | `pairs` | `list[object]` | The papers of the newest pairs. |
-|  | `pairs[].kinds` | `str` | What the two cases are: `Brief regering → Motie`. |
 |  | `pairs[].from` | `object` | The paper of the case of this dossier. |
-|  | `pairs[].from.case` | `str` | The number of the case. |
 |  | `pairs[].from.paper` | `str` | The document of its own kind; null when the graph has none. |
 |  | `pairs[].from.kind` | `str` | The kind of the paper. |
 |  | `pairs[].from.dossier_number` | `str` | Its dossier. |
 |  | `pairs[].from.dossier_suffix` | `str` | The suffix of that dossier. |
 |  | `pairs[].from.sequence` | `int` | Its number in the dossier. |
-|  | `pairs[].from.date` | `str` | Its date. |
 |  | `pairs[].to` | `object` | The paper of the case of the other. |
 | `REVISES` | `rule` | `str` | `begrotingswijziging`, `slotwet` or `vervanging`. |
 | `ACCOMPANIES` | `nota` | `str` | The Voorjaarsnota, Najaarsnota or Miljoenennota. |

@@ -143,7 +143,7 @@ def test_the_edge_of_an_article_lists_the_sections_that_explain_it() -> None:
     assert edge["to_id"] == "article_versions/bwbr0005068_stam2_v2"
     assert edge["source"] == EDGE_SOURCE_SECTIONS
     assert edge["confidence"] == CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW] < 1
-    assert edge["meta"]["explanation"] == (
+    assert _best(edge["meta"])["explanation"] == (
         "De tekst onder de kop 'Onderdeel A' noemt het artikel met zijn wet; het dossier "
         "wijzigt het artikel."
     )
@@ -330,9 +330,10 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
         "s-1",
         "Artikel 21 (zorgplicht)",
     )
-    assert (_best(meta)["match_type"], meta["changed"]) == ("own_number", True)
+    best = _best(meta)
+    assert (best["match_type"], best["changed"]) == ("own_number", True)
     assert (meta["char_start"], meta["char_end"]) == (0, _CBW_99 - 1)
-    assert meta["explanation"] == (
+    assert best["explanation"] == (
         "De kop 'Artikel 21 (zorgplicht)' is een artikel van de nieuwe wet; het dossier "
         "stelt het artikel vast."
     )
@@ -342,4 +343,4 @@ def test_the_memorandum_of_a_law_its_publication_established(own: list[str]) -> 
     )
     tw = edges["article_versions/bwbr0009950_11a.1_v1"]["meta"]
     assert (tw["section_anchor"], _best(tw)["match_type"]) == ("s-2", "body_named_law")
-    assert tw["explanation"].endswith("het dossier wijzigt het artikel.")
+    assert _best(tw)["explanation"].endswith("het dossier wijzigt het artikel.")

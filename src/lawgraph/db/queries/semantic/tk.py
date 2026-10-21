@@ -770,16 +770,14 @@ def related_cases(store: Store) -> Iterator[dict[str, Any]]:
     return store.query(_RELATED_CASES_SQL)
 
 
-def case_documents(store: Store, cases: list[str]) -> dict[str, dict[str, Any]]:
-    """Per case of *cases* (TK ids) that is stored: its ``number`` and its ``papers`` of its
-    own kind (a letter of a ``Brief regering``, the motion of a ``Motie``, not an
-    attachment), each ``{id, kind, dossier_number, dossier_suffix, sequence, date}``, by
-    date and id."""
-    found: dict[str, dict[str, Any]] = {}
+def case_documents(store: Store, cases: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Per case of *cases* (TK ids) that is stored: its papers of its own kind (a letter of a
+    ``Brief regering``, the motion of a ``Motie``, not an attachment), each ``{id, kind,
+    dossier_number, dossier_suffix, sequence, date}``, by date and id."""
+    found: dict[str, list[dict[str, Any]]] = {}
     for row in store.query(
         f"""
         SELECT lg_str(c.props -> 'external_id') AS case_id,
-               lg_str(c.props -> 'number') AS number,
                (
                    SELECT coalesce(json_agg(json_build_object(
                        'id', l.id, 'kind', l.props -> 'kind',
@@ -800,7 +798,7 @@ def case_documents(store: Store, cases: list[str]) -> dict[str, dict[str, Any]]:
         """,
         {"keys": sorted({make_node_key(case) for case in cases})},
     ):
-        found[str(row["case_id"])] = {"number": row["number"], "papers": row["papers"]}
+        found[str(row["case_id"])] = row["papers"]
     return found
 
 

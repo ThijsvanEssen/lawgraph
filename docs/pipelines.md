@@ -388,8 +388,8 @@ two laws share.
 An edge is one per (document, target), so an article that several sections explain has one
 edge, and it is the edge `tk-mvt` writes at dossier level: the same key, upgraded in place.
 Its `confidence` is that of the surest section, `source` is `mvt-section-linker` and `meta`
-holds `section_anchor`, `char_start`, `char_end`, `changed`, `explanation` and `heading` of
-that section and `sections`, every section that explains the article (each with its
+holds `section_anchor`, `char_start`, `char_end` and `heading` of that section and
+`sections`, every section that explains the article (each with its
 `match_type`, `confidence`, `changed` and `explanation`), in document order. The span of a
 section is `text[char_start:char_end]`: the whole section for a heading match, the text before
 its first subsection for a match in the body. The two pipelines can run in either order and any
@@ -499,7 +499,7 @@ in the graph; the dossiers of one number need no edge (`GET /api/dossiers?number
 
 | Edge | Rule | In the source |
 |------|------|-----------------------------|
-| `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds, `meta.pairs` the papers of the 5 newest pairs (two dossiers may share hundreds: `21501-02`): per pair of papers of the two cases' own kinds (the letter, the motion; not an attachment) `{kinds, from, to}`, a side `{case, paper, kind, dossier_number, dossier_suffix, sequence, date}` or `{case, paper: null}` for a case without such a paper in the graph. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
+| `RELATED_TO` | the Kamer's own statement: a case of dossier A relates to a case of dossier B (`Zaak.GerelateerdNaar`, read by `normalize tk`). `meta.cases` counts the pairs of cases, `meta.case_kinds` names their kinds, `meta.pairs` the papers of the 5 newest pairs (two dossiers may share hundreds: `21501-02`): per pair of papers of the two cases' own kinds (the letter, the motion; not an attachment) `{from, to}`, a side `{paper, kind, dossier_number, dossier_suffix, sequence}` or `{paper: null}` for a case without such a paper in the graph. Cases within one dossier relate no dossiers | 80,544 related pairs of cases, of which 24,241 between dossiers of different numbers and 894 between two dossiers of one number: 10,571 pairs of dossiers. Mostly `Brief regering → Motie` (a letter that answers a motion filed elsewhere), then `→ Begroting` and `→ Wetgeving` |
 | `REVISES` | a budget is "Vaststelling van de begrotingsstaten … voor het jaar Y" under a chapter or fund (`36800-XXII`). "Wijziging van de begrotingsstaten … voor het jaar Y" revises the budget of year Y with its own suffix; one with a number of its own (an incidental supplementary budget) names its chapter in its title ("(XIII)"; `IXB` falls back to `IX`), or else the budget by name, which must fit exactly one budget of the year. "Jaarverslag en slotwet … Y" revises the budget of year Y with its suffix. `meta.rule` is `begrotingswijziging` or `slotwet` | 1,529: 1,123 of 1,131 budget changes and 406 of 419 slotwetten; the rest (2007-2009) have no budget of their year in the source |
 | `REVISES` (papers) | a paper of a case that replaces another (an amended amendment or motion, "Gewijzigd amendement … ter vervanging van nr. 21": `Zaak.VervangenVanuit`, read by `normalize tk` as `replaces_cases`) revises each paper of that case, Document → Document, `meta.rule` `vervanging` | 11,641 cases that replace another (9 Oct 2026) |
 | `ACCOMPANIES` | "(wijziging samenhangende met de Voorjaarsnota)" of year Y goes with the dossier "Voorjaarsnota Y", likewise the Najaarsnota. The Miljoenennota of Prinsjesdag in year Y presents the budgets of Y + 1, so a change of year Y "samenhangende met de Miljoenennota" goes with the dossier "Nota over de toestand van ’s Rijks Financiën" whose number holds the budgets of Y + 1. `meta.nota` names it | 912: 412 Voorjaarsnota, 404 Najaarsnota, 96 Miljoenennota; 15 changes "samenhangende met" something else (an incidental supplementary budget, the refinancing of covid loans) get none |
@@ -544,8 +544,8 @@ Each paper named is found by `dossier_number`, `dossier_suffix` and `sequence`
 government (`Brief regering`) `ANSWERS` a motion (`Motie`, `Motie (gewijzigd/nader)`): the
 appreciatie, the reaction, the carrying out; every other paper `REFERS_TO` what it names (a list
 of questions, an inbreng or the decision note about a letter). `meta.basis` is `subject`,
-`meta.reference` the reference as written, and `meta.text` of an `ANSWERS` the whole subject
-(what the letter says it does with the motion), of a `REFERS_TO` the reference.
+`meta.text` of a `REFERS_TO` the reference as written, of an `ANSWERS` the whole subject
+(what the letter says it does with the motion) with `meta.reference` the reference in it.
 
 A letter of the government also names the motions it answers in its text, mostly in a
 footnote ("Uw Kamer heeft met de motie van het lid Kathmann¹ …", note 1 "Kamerstuk 36 764,

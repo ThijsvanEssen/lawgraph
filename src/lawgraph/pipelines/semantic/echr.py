@@ -245,8 +245,7 @@ class ECHRSemanticPipeline(SemanticPipelineBase):
                 targets.append((article, CONFIDENCE_ARTICLE, {"leden": paragraphs}))
         for bwb_id in sorted(read.bwb_ids):
             if bwb_id in instruments:
-                meta = {"match_type": "bwb_text_scan"}
-                targets.append((instruments[bwb_id], CONFIDENCE_CONCLUSION, meta))
+                targets.append((instruments[bwb_id], CONFIDENCE_CONCLUSION, {}))
         return targets
 
     def _instruments_named(self, named: set[str]) -> dict[str, Node]:

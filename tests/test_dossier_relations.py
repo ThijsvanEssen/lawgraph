@@ -181,34 +181,28 @@ def test_the_cases_the_kamer_relates_relate_their_dossiers() -> None:
     }
     # the letter and one motion are in the graph with their papers; the other motion and
     # the budget are known by their case alone
-    papers: dict[str, dict[str, Any]] = {
-        "brief-1": {
-            "number": "2026Z10000",
-            "papers": [
-                {
-                    "id": "documents/brief",
-                    "kind": "Brief regering",
-                    "dossier_number": "21501",
-                    "dossier_suffix": "02",
-                    "sequence": 3465,
-                    "date": "2026-06-24",
-                }
-            ],
-        },
-        "motie-1": {
-            "number": "2025Z20000",
-            "papers": [
-                {
-                    "id": "documents/motie",
-                    "kind": "Motie",
-                    "dossier_number": "36800",
-                    "dossier_suffix": "V",
-                    "sequence": 31,
-                    "date": "2025-11-20",
-                }
-            ],
-        },
-        "motie-2": {"number": "2025Z20001", "papers": []},
+    papers: dict[str, list[dict[str, Any]]] = {
+        "brief-1": [
+            {
+                "id": "documents/brief",
+                "kind": "Brief regering",
+                "dossier_number": "21501",
+                "dossier_suffix": "02",
+                "sequence": 3465,
+                "date": "2026-06-24",
+            }
+        ],
+        "motie-1": [
+            {
+                "id": "documents/motie",
+                "kind": "Motie",
+                "dossier_number": "36800",
+                "dossier_suffix": "V",
+                "sequence": 31,
+                "date": "2025-11-20",
+            }
+        ],
+        "motie-2": [],
     }
     found = list(related_dossiers([letter, other], papers))
     assert [(link.from_label, link.to_label) for link in found] == [
@@ -220,38 +214,25 @@ def test_the_cases_the_kamer_relates_relate_their_dossiers() -> None:
         ["Brief regering → Begroting", "Brief regering → Motie"],
     )
     letter_side = {
-        "case": "2026Z10000",
         "paper": "documents/brief",
         "kind": "Brief regering",
         "dossier_number": "21501",
         "dossier_suffix": "02",
         "sequence": 3465,
-        "date": "2026-06-24",
     }
     assert meta["pairs"] == [
         {
-            "kinds": "Brief regering → Motie",
             "from": letter_side,
             "to": {
-                "case": "2025Z20000",
                 "paper": "documents/motie",
                 "kind": "Motie",
                 "dossier_number": "36800",
                 "dossier_suffix": "V",
                 "sequence": 31,
-                "date": "2025-11-20",
             },
         },
-        {
-            "kinds": "Brief regering → Motie",
-            "from": letter_side,
-            "to": {"case": "2025Z20001", "paper": None},
-        },
-        {
-            "kinds": "Brief regering → Begroting",
-            "from": {"case": None, "paper": None},
-            "to": {"case": None, "paper": None},
-        },
+        {"from": letter_side, "to": {"paper": None}},
+        {"from": {"paper": None}, "to": {"paper": None}},
     ]
 
 

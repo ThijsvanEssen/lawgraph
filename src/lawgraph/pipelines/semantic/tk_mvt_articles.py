@@ -105,8 +105,6 @@ def edge_meta(references: list[Reference]) -> dict[str, Any]:
         "section_anchor": best.section_id,
         "char_start": best.char_start,
         "char_end": best.char_end,
-        "changed": best.changed,
-        "explanation": best.explanation,
         "heading": best.heading,
         "sections": [
             {
