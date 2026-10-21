@@ -197,9 +197,10 @@ PROVENANCE: tuple[Provenance, ...] = (
         "basis",
         BASIS_TRANSPOSITION_TABLE,
         (RELATION_TRANSPOSED_TO,),
-        "The transposition table sent with the bill (a bijlage of its memorie van "
-        "toelichting, or a table in it) places the old article in the new law, and the text "
-        "of the new law holds that article and lid.",
+        "The table of the recodification places the old article in the new law (the "
+        "transposition table sent with the bill, a bijlage of its memorie van toelichting "
+        "or a table in it; the concordance table of an EU act that codifies or recasts "
+        "others), and the text of the new law holds that article and lid.",
     ),
     Provenance(
         "bases",

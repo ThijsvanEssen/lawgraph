@@ -539,8 +539,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "TRANSPOSED_TO",
         ((_A, _A),),
         "An article of the old law → the article of the new law that takes its place in a "
-        "recodification, as an official source gives it (`meta.basis`; `meta.source` the "
-        "identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each "
+        "recodification (of Dutch law, or a codification or recast of EU law), as an "
+        "official source gives it (`meta.basis`; `meta.source` the identifier of that "
+        "source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: "
+        "`32017R1001`). `meta.parts` pairs each "
         "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) "
         "with the place in the new law as the source writes it (`to`: `2.8.6, 1`, "
         "`8.2.26, vierde lid`), read: the number of the new article of the edge "

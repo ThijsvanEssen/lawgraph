@@ -3,7 +3,10 @@
 
 A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
 of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
-(read by ``core.transposition_xml``). Its laws are found by the names it gives them:
+(read by ``core.transposition_xml``); or it is the concordance table of an EU act that
+codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
+``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
+them:
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
@@ -25,8 +28,13 @@ articles in, else the one the title does not name. A table whose laws are not fo
 nothing and says why (``Table.problem``). The tables between the same two laws are checked
 together (``Succession``): an article of the old law one table leaves out may be in another.
 An article of the old law without a row is a gap only when the old law goes (``_replaced``):
-expired in the BWB, or recodified as a whole under its own name; of a law that stays (the Wet
-milieubeheer after the Omgevingswet) a table names only what moves.
+expired in the BWB, recodified as a whole under its own name, or repealed by the EU act of the
+table; of a law that stays (the Wet milieubeheer after the Omgevingswet) a table names only
+what moves.
+
+The acts of an EU table are its own (the new act) and the one its column names by CELEX
+(``core.concordance_html``), each as ``normalize eurlex`` made it; an old act the graph does
+not hold places nothing (``retrieve eurlex --celex`` fetches it).
 """
 
 from __future__ import annotations
@@ -46,6 +54,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
 )
 from lawgraph.core.citations import article_order
+from lawgraph.core.concordance_html import read_tables as read_concordance
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
@@ -61,17 +70,23 @@ from lawgraph.db.queries import successions as queries
 class Table:
     """One table of a source: its laws and rows, or why it places nothing."""
 
-    identifier: str  # the source: blg-1081574, kst-34986-3
-    dossier: str
+    identifier: str  # the source: blg-1081574, kst-34986-3, 32017R1001
+    dossier: str  # empty for an EU act
     name: str = ""  # the table in its source: "h. Transponeringstabel Waterwet"
     problem: str | None = None
     old_law: str | None = None  # instruments/bwbr0001903
     new_law: str | None = None  # instruments/wet_stb_2026_56
     rows: tuple[SourceRow, ...] = ()
+    repeals_old: bool = False  # the source repeals the old law (an EU act)
 
     @property
     def title(self) -> str:
         return f"{self.identifier} {self.name}".strip()
+
+    @property
+    def heading(self) -> str:
+        """The title with the dossier, when there is one."""
+        return f"{self.title} (dossier {self.dossier})" if self.dossier else self.title
 
 
 @dataclass(frozen=True)
@@ -96,7 +111,7 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
             problems.append(table)
     successions = []
     for (old, new), own in by_laws.items():
-        replaced = _replaced(store, old, new)
+        replaced = any(t.repeals_old for t in own) or _replaced(store, old, new)
         placed = place(
             [row for table in own for row in table.rows],
             _articles(store, old, historical=True),
@@ -125,6 +140,37 @@ def _tables(store: Store) -> Iterator[Table]:
             yield _pdf_table(store, record)
         elif payload_text(record):
             yield from _xml_tables(store, record)
+    for record in queries.eu_acts_with_concordance(store):
+        yield from _eu_tables(store, record)
+
+
+def _eu_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
+    """The concordance tables of the EU act of *record*, a table per old act."""
+    celex = str(record.get("external_id") or "")
+    if not (html := payload_text(record)):
+        return
+    tables = read_concordance(html, celex)
+    acts = queries.eu_acts(store, [celex, *(t.old_act for t in tables if t.old_act)])
+    for table in tables:
+        found = Table(celex, "", table.name, table.problem)
+        if table.problem or table.old_act is None:
+            yield found
+        elif celex not in acts:
+            yield replace(found, problem=f"the act {celex} is not in the graph")
+        elif table.old_act not in acts:
+            yield replace(
+                found,
+                problem=f"the act {table.old_act} is not in the graph "
+                f"(retrieve eurlex --celex {table.old_act})",
+            )
+        else:
+            yield replace(
+                found,
+                old_law=acts[table.old_act],
+                new_law=acts[celex],
+                rows=table.rows,
+                repeals_old=table.repealed,
+            )
 
 
 def _pdf_table(store: Store, record: dict[str, Any]) -> Table:

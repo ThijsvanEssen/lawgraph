@@ -11707,7 +11707,7 @@
               }
             ],
             "title": "Source",
-            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`."
+            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`, the CELEX number of an EU act: `32017R1001`."
           },
           "source_url": {
             "anyOf": [
@@ -11719,7 +11719,7 @@
               }
             ],
             "title": "Source Url",
-            "description": "The source on zoek.officielebekendmakingen.nl."
+            "description": "The source on zoek.officielebekendmakingen.nl, an EU act on EUR-Lex."
           }
         },
         "additionalProperties": false,
