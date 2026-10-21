@@ -1,0 +1,77 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-34986-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>34 986</dossiernr>
+      </dossiernummer>
+      <titel>Aanvulling en wijziging van de Omgevingswet, intrekking van enkele wetten over de fysieke leefomgeving, wijziging van andere wetten en regeling van overgangsrecht voor de invoering van de Omgevingswet (Invoeringswet Omgevingswet)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <bijlage status="goed">
+          <kop kopopmaak="vet">
+            <label>BIJLAGE</label>
+            <nr status="officieel">2</nr>
+            <titel>TRANSPONERINGSTABELLEN</titel>
+          </kop>
+          <table tabstyle="xml2" frame="all" pgwide="2" rowsep="0" colsep="0">
+            <title>j. Transponeringstabel Wet beheer rijkswaterstaatswerken</title>
+            <tgroup tgroupstyle="xml2" cols="4" colsep="1" rowsep="1" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="1*" />
+              <colspec colnum="2" colname="col2" colwidth="1*" />
+              <colspec colnum="3" colname="col3" colwidth="1*" />
+              <colspec colnum="4" colname="col4" colwidth="1*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Onderwerp / Hoofdstuk</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel</nadruk>
+                    </al>
+                    <al>
+                      <nadruk type="halfvet">Wbr</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel Omgevingswet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Toelichting</nadruk>
+                    </al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>Strafbaarstelling</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>11</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>art. 1a WED (door artikel 2.46 IwOw)</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>Geen overgangsrecht nodig i.v.m. artikel 1, tweede lid, WvSr.</al>
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+        </bijlage>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

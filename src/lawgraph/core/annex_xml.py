@@ -7,6 +7,7 @@ article), so ``normalize bwb`` writes the annex nodes from the one parse it alre
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.core.models import make_node_key
@@ -26,6 +27,25 @@ ANNEX_EDGE_SOURCE = "bwb-annex-links"
 MAX_ENTRIES = 200
 MAX_DESCRIPTION_CHARS = 2000
 
+# A footnote the BWB writes where its marker stands (``<noot>``, its number and its text):
+# no words of the text it stands in. ``bwb_xml`` reads it as a footnote of the article.
+NOTE = "noot"
+
+
+def _texts(element: ET.Element) -> Iterator[str]:
+    if local_name(element.tag) == NOTE:
+        return
+    yield element.text or ""
+    for child in element:
+        yield from _texts(child)
+        yield child.tail or ""
+
+
+def words_without_notes(element: ET.Element | None) -> str:
+    """The words of *element* and its descendants, its whitespace collapsed and its
+    footnotes (``<noot>``) left out ('' for None)."""
+    return collapse_ws("".join(_texts(element))) if element is not None else ""
+
 
 def annex_display_name(label: str | None) -> str:
     """The name of an annex whose heading prints none: ``Bijlage`` and its label."""
@@ -44,7 +64,7 @@ def extract_name(element: ET.Element, label: str | None) -> str:
 
 
 def _collapsed(element: ET.Element) -> str:
-    return collapse_ws(text_of(element))
+    return words_without_notes(element)
 
 
 def extract_kop(element: ET.Element) -> tuple[str | None, str | None]:
@@ -53,8 +73,8 @@ def extract_kop(element: ET.Element) -> tuple[str | None, str | None]:
     if kop is None:
         return None, None
     label = find_text(kop, "nr", collapse=True, skip_empty=False)
-    title = find_text(kop, "titel", collapse=True, skip_empty=False)
-    return label, title
+    title = words_without_notes(first_named(kop, "titel"))
+    return label, title or None
 
 
 def _lead_in(element: ET.Element | None) -> str | None:

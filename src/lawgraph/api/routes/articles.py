@@ -106,6 +106,7 @@ def get_article_detail(
     relationship_data = get_article_relationship_data(store, data.article["id"])
     upstream, downstream, scope = _build_relationship_dtos(relationship_data)
     props = data.article.get("props") or {}
+    present = present_targets(store, reference_targets(props.get("references")))
 
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
@@ -118,10 +119,8 @@ def get_article_detail(
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],
-        references=references_from_props(
-            props,
-            present_targets(store, reference_targets(props.get("references"))),
-        ),
+        references=references_from_props(props, present),
+        footnote_references=references_from_props(props, present, footnotes=True),
         delegations=[
             DelegationClauseDTO.from_clause(clause)
             for clause in delegation_clauses(props.get("text"), props.get("parts"))
