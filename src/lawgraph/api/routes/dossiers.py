@@ -278,7 +278,8 @@ def list_dossiers(
         "decisions and commitments it holds, and what it links to: the "
         "instruments it legislated, amends, introduces or repeals (one item per "
         "instrument, relation and status), the committees that lead its "
-        "activities, its documents per kind, its Eerste Kamer papers, and the dossiers it "
+        "activities, the publications its law was enacted in (`enacted`: `Stb. 2024, 193`), "
+        "its documents per kind, its Eerste Kamer papers, and the dossiers it "
         "revises, accompanies or is related to (and those that revise, accompany or "
         "relate to it)."
     ),

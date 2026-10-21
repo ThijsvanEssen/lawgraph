@@ -121,6 +121,7 @@ def test_a_dossier_without_links_has_an_empty_hub(
     body = client.get("/api/dossiers/36000").json()
 
     assert body["instruments"] == [] and body["committees"] == []
+    assert body["enacted"] == []
     assert body["documents_by_kind"] == {}
     assert body["senate"] == {
         "document_count": 0,
@@ -130,6 +131,54 @@ def test_a_dossier_without_links_has_an_empty_hub(
         "progress": [],
         "source": None,
     }
+
+
+def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enacted = [
+        {
+            "key": "stb_2024_193",
+            "cite": "Stb. 2024, 193",
+            "published_on": "2024-06-26",
+            "first_effective_date": "2024-07-01",
+            "instrument": {"key": "bwbr0049889", "title": "Wet betaalbare huur"},
+        },
+        {
+            "key": "stb_2026_56",
+            "cite": "Stb. 2026, 56",
+            "published_on": "2026-03-01",
+            "first_effective_date": None,
+            "instrument": {
+                "key": "wet_stb_2026_56",
+                "title": "Wetboek van Strafvordering",
+            },
+        },
+        {
+            "key": "stb_2025_10",
+            "cite": "Stb. 2025, 10",
+            "published_on": "2025-01-15",
+            "first_effective_date": "2025-02-01",
+            "instrument": None,
+        },
+    ]
+    _dossier_routes(monkeypatch, {**_HUB, "enacted": enacted})
+
+    body = client.get("/api/dossiers/36000").json()
+
+    assert body["enacted"] == [
+        {
+            **enacted[0],
+            "path": "/stb/2024/193",
+            "instrument": {**enacted[0]["instrument"], "path": "/wetten/BWBR0049889"},
+        },
+        {
+            **enacted[1],
+            "path": "/stb/2026/56",
+            "instrument": {**enacted[1]["instrument"], "path": "/wetten/STB-2026-56"},
+        },
+        {**enacted[2], "path": "/stb/2025/10"},
+    ]
 
 
 def test_an_instrument_relation_the_catalogue_lacks_is_refused(
