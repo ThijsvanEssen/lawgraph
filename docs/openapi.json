@@ -1370,7 +1370,7 @@
           "instruments"
         ],
         "summary": "All articles of an instrument",
-        "description": "The articles in force of this instrument (BWB id or CELEX number), in the order of the document: an article with only a heading (the Algemene bepaling of the Grondwet) where it stands, an annex after the regulation. `include_repealed` adds the repealed identities (last). The text is a short preview; /api/articles/{bwb_id}/{address} has the full content. ``division`` cuts the list to the articles of one division (``total`` and the pages count those), with the division itself in ``division``; 404 when no article stands in it.",
+        "description": "The articles in force of this instrument (BWB id or CELEX number), in the order of the document: an article with only a heading (the Algemene bepaling of the Grondwet) where it stands, an article of an annex after the regulation; the annexes themselves in ``annexes``. `include_repealed` adds the repealed identities (last). The text is a short preview; /api/articles/{bwb_id}/{address} has the full content. ``division`` cuts the list to the articles of one division (``total`` and the pages count those), with the division itself in ``division``; 404 when no article stands in it.",
         "operationId": "list_articles_api_instruments__bwb_id__articles_get",
         "parameters": [
           {
@@ -5248,7 +5248,7 @@
           "annexes"
         ],
         "summary": "Annex detail",
-        "description": "One annex with its entries and every article referring to it.",
+        "description": "One annex with its text, its tables, its links, its entries and every article referring to it.",
         "operationId": "get_annex_detail_api_annexes__key__get",
         "parameters": [
           {
@@ -10032,7 +10032,8 @@
                 "type": "null"
               }
             ],
-            "title": "Label"
+            "title": "Label",
+            "description": "As article text cites it: `1`, `I`, `Ia`."
           },
           "display_name": {
             "anyOf": [
@@ -10043,7 +10044,8 @@
                 "type": "null"
               }
             ],
-            "title": "Display Name"
+            "title": "Display Name",
+            "description": "As its heading prints it: `Bijlage 1`, `Lijst Ia`."
           },
           "title": {
             "anyOf": [
@@ -10054,7 +10056,8 @@
                 "type": "null"
               }
             ],
-            "title": "Title"
+            "title": "Title",
+            "description": "The title of its heading; null where it prints none."
           },
           "description": {
             "anyOf": [
@@ -10065,7 +10068,44 @@
                 "type": "null"
               }
             ],
-            "title": "Description"
+            "title": "Description",
+            "description": "Its paragraphs outside its lists, a line each and cut at 2,000 characters, a table flat; `text` has them whole."
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text",
+            "description": "Its text as that of an article: a paragraph a line, a list item on a line of its own, a table a row a line (its cells separated by a tab), the heading of a division on a line of its own. Without its articles, which are articles of their own (`bijlage 2 artikel 9`); null for an annex of articles only."
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ArticlePartDTO"
+            },
+            "type": "array",
+            "title": "Parts",
+            "description": "Its onderdelen and the paragraphs outside them, as spans of `text`."
+          },
+          "tables": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTableDTO"
+            },
+            "type": "array",
+            "title": "Tables",
+            "description": "The tables in `text`, as spans of it."
+          },
+          "headings": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleHeadingDTO"
+            },
+            "type": "array",
+            "title": "Headings",
+            "description": "The headings in `text` (of a division, a table), as spans of it."
           },
           "entries": {
             "items": {
@@ -10090,16 +10130,28 @@
           "display_name",
           "title",
           "description",
+          "text",
+          "parts",
+          "tables",
+          "headings",
           "entries",
           "stub"
         ],
         "title": "AnnexDTO",
-        "description": "Annex metadata plus structured entries."
+        "description": "An annex: its heading, its text as that of an article (paragraphs, lists, tables,\nheadings) and its list as entries."
       },
       "AnnexDetailResponse": {
         "properties": {
           "annex": {
             "$ref": "#/components/schemas/AnnexDTO"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleReferenceDTO"
+            },
+            "type": "array",
+            "title": "References",
+            "description": "The links of its `text` to a regulation, an article, an annex or an EU act, in text order, as those of an article."
           },
           "referenced_by": {
             "items": {
@@ -10113,6 +10165,7 @@
         "type": "object",
         "required": [
           "annex",
+          "references",
           "referenced_by"
         ],
         "title": "AnnexDetailResponse",
@@ -25422,6 +25475,92 @@
         "title": "ImplementingMeasureDTO",
         "description": "A national implementing measure as EUR-Lex lists it for the EU act: the publication\nthrough which the instrument implements it (the law that changed the Awb to implement a\ndirective)."
       },
+      "InstrumentAnnexDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "As article text cites it: `1`, `I`, `Ia`; null for the one annex of a regulation, which has no address of its own."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "As its heading prints it: `Bijlage 1`, `Lijst Ia`."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "The title of its heading (`Bevoegdheidsregeling bestuursrechtspraak (artikelen 8:5, ...)`); null where it prints none."
+          },
+          "text_preview": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text Preview",
+            "description": "The start of its own text (`/api/annexes/{key}` has the whole); null for an annex whose content is articles (in ``items``, their breadcrumb names it)."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "label",
+          "display_name",
+          "title",
+          "text_preview",
+          "path"
+        ],
+        "title": "InstrumentAnnexDTO",
+        "description": "An annex (``<bijlage>``) of a law in its table of contents."
+      },
       "InstrumentArticleBreadcrumbDTO": {
         "properties": {
           "type": {
@@ -25943,6 +26082,14 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "annexes": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentAnnexDTO"
+            },
+            "type": "array",
+            "title": "Annexes",
+            "description": "The annexes of the law, in the order of the toestand, which puts them after its articles: each in full, whatever ``limit``, ``offset`` or ``division``; empty for a law without one and for an EU act."
           }
         },
         "additionalProperties": false,
@@ -25951,7 +26098,8 @@
           "bwb_id",
           "total",
           "division",
-          "items"
+          "items",
+          "annexes"
         ],
         "title": "InstrumentArticlesResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/articles."

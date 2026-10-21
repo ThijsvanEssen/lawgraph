@@ -233,6 +233,46 @@ class InstrumentArticleNodeDTO(WithPath):
         )
 
 
+class InstrumentAnnexDTO(WithPath):
+    """An annex (``<bijlage>``) of a law in its table of contents."""
+
+    path_source = PathSource("annexes")
+
+    id: str
+    key: str
+    label: str | None = Field(
+        None,
+        description="As article text cites it: `1`, `I`, `Ia`; null for the one annex of "
+        "a regulation, which has no address of its own.",
+    )
+    display_name: str | None = Field(
+        None, description="As its heading prints it: `Bijlage 1`, `Lijst Ia`."
+    )
+    title: str | None = Field(
+        None,
+        description="The title of its heading (`Bevoegdheidsregeling "
+        "bestuursrechtspraak (artikelen 8:5, ...)`); null where it prints none.",
+    )
+    text_preview: str | None = Field(
+        None,
+        description="The start of its own text (`/api/annexes/{key}` has the whole); null "
+        "for an annex whose content is articles (in ``items``, their breadcrumb names it).",
+    )
+
+    @classmethod
+    def from_document(cls, doc: dict[str, Any]) -> InstrumentAnnexDTO:
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["id"],
+            key=doc["key"],
+            label=props.get("label"),
+            display_name=props.get("display_name"),
+            title=props.get("title"),
+            text_preview=props.get("text") or None,
+            path_props={"bwb_id": props.get("bwb_id"), "label": props.get("label")},
+        )
+
+
 class InstrumentArticlesResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/articles."""
 
@@ -246,6 +286,12 @@ class InstrumentArticlesResponse(StrictModel):
     )
     division: InstrumentDivisionDTO | None = Field(None, description=_DIVISION)
     items: list[InstrumentArticleNodeDTO]
+    annexes: list[InstrumentAnnexDTO] = Field(
+        default_factory=list,
+        description="The annexes of the law, in the order of the toestand, which puts them "
+        "after its articles: each in full, whatever ``limit``, ``offset`` or ``division``; "
+        "empty for a law without one and for an EU act.",
+    )
 
 
 # ── /api/instruments/{bwb_id}/judgments ───────────────────────────────────

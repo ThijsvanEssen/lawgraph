@@ -13,7 +13,9 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 * references in the text are ``<extref>`` / ``<intref>`` with a machine-readable
   ``doc="jci1.3:c:BWBR0001854&artikel=287"``;
 * the preamble (``<aanhef>/<considerans>``) lists the legal basis in the
-  paragraph that starts with "Gelet op", again as ``<extref>``.
+  paragraph that starts with "Gelet op", again as ``<extref>``;
+* an annex (``<bijlage>``) has a heading of its own (``Bijlage 1``, ``Lijst Ia``) and its
+  text is read as that of an article (``AnnexXml``), without the articles it holds.
 
 Text offsets of references, of the structure of the article (``ArticleXml.parts``: aanhef,
 leden, onderdelen), of its tables (``ArticleXml.tables``) and of its headings
@@ -29,8 +31,14 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from lawgraph.config.constants import SOURCE_BWB
-from lawgraph.core.annex_xml import AnnexXml, annex_node_key, parse_annexes
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS, SOURCE_BWB
+from lawgraph.core.annex_xml import (
+    annex_node_key,
+    extract_description,
+    extract_entries,
+    extract_kop,
+    extract_name,
+)
 from lawgraph.core.eu_citations import implemented_acts
 from lawgraph.core.identifiers import (
     find_celex_ids,
@@ -38,7 +46,7 @@ from lawgraph.core.identifiers import (
     is_bwb_id,
     rebuilt_celex,
 )
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.publications import koop_id, publication_citation, publication_series
 from lawgraph.core.qualifiers import Qualifier, parse_qualifier, part_slug
 from lawgraph.core.text_tables import TextTable, read_cals
@@ -355,6 +363,27 @@ class ArticleXml:
 
 
 @dataclass(frozen=True)
+class AnnexXml:
+    """A ``<bijlage>`` of a toestand. Its text is read as that of an article (offsets of its
+    references, parts, tables and headings into ``text``), without its articles, which are
+    articles of their own (``bijlage 2 artikel 9``)."""
+
+    label: str | None  # "I", "2"; None for the one annex of a regulation
+    # as its heading prints it: "Bijlage 1", "Lijst Ia"
+    name: str
+    title: str | None
+    description: str | None
+    entries: tuple[dict[str, Any], ...]
+    # its ``bwb-ng-variabel-deel`` (``/Bijlage_1``): what a link to it names
+    path: str | None = None
+    text: str = ""
+    references: tuple[Reference, ...] = ()
+    parts: tuple[ArticlePart, ...] = ()
+    tables: tuple[TextTable, ...] = ()
+    headings: tuple[Heading, ...] = ()
+
+
+@dataclass(frozen=True)
 class BasisRef:
     """An article an instrument is issued under ('Gelet op artikel …')."""
 
@@ -632,8 +661,19 @@ def _linked_celex(link: ET.Element, doc: str, text: str) -> str | None:
     return celex if has_possible_year(celex) else rebuilt_celex(celex, text)
 
 
+# A line break in the text of an element and the indent around it: the layout of the XML
+# (``<al>\n    <sup>1</sup>\n    <extref>``), which prints as a space.
+_LAYOUT = re.compile(r"\s*\n\s*")
+
+
+def _unlaid(text: str) -> str:
+    """*text* without the layout of the XML: each line break a space."""
+    return _LAYOUT.sub(" ", text)
+
+
 def _flatten(element: ET.Element) -> _Flat:
-    """Concatenate all text of *element*; note reference offsets (unstripped)."""
+    """Concatenate all text of *element*, a line break of its layout a space; note reference
+    offsets (unstripped)."""
     out: list[str] = []
     refs: list[Reference] = []
     length = 0
@@ -645,13 +685,15 @@ def _flatten(element: ET.Element) -> _Flat:
             return
         start = length
         if node.text:
-            out.append(node.text)
-            length += len(node.text)
+            text = _unlaid(node.text)
+            out.append(text)
+            length += len(text)
         for child in node:
             walk(child)
             if child.tail:
-                out.append(child.tail)
-                length += len(child.tail)
+                tail = _unlaid(child.tail)
+                out.append(tail)
+                length += len(tail)
         if name in ("extref", "intref"):
             doc = node.get("doc") or ""
             jci = parse_jci(doc)
@@ -956,11 +998,37 @@ def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     builder.close_from(0)
 
 
-def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> None:
-    """Add the law text under *element* (paragraphs and list items) on new lines."""
-    name = local_name(element.tag)
-    if name == "meta-data":
+def _holds_article(element: ET.Element) -> bool:
+    """Whether an article stands in *element*."""
+    return any(local_name(node.tag) in ARTICLE_ELEMENTS for node in element.iter())
+
+
+def _add_division_heading(builder: TextBuilder, division: ET.Element) -> None:
+    """Add the heading of a division on a line of its own: the label, number and title of
+    its ``<kop>`` ("1.1 Structuurelement A")."""
+    kop = child_named(division, "kop")
+    heading = " ".join(
+        filter(None, (words_of(child_named(kop, n)) for n in ("label", "nr", "titel")))
+    )
+    if not heading:
         return
+    if builder.parts:
+        builder.add("\n")
+    builder.headings.append(Heading(builder.length, builder.length + len(heading)))
+    builder.add(heading)
+
+
+def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> None:
+    """Add the law text under *element* (paragraphs and list items) on new lines; a division
+    (of an annex) its heading first. An article (of an annex), and a division that holds
+    one, is a node of its own: not its text."""
+    name = local_name(element.tag)
+    if name in ("meta-data", "kop") or name in ARTICLE_ELEMENTS:
+        return
+    if name in DIVISIONS:
+        if _holds_article(element):
+            return
+        _add_division_heading(builder, element)
     if name in ("al", _HEADING):
         if builder.parts:
             builder.add("\n")
@@ -1081,6 +1149,34 @@ def _article_text(
         key=lambda part: (part.start, -part.end),
     )
     return text, refs, parts, tables, headings
+
+
+def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
+    """The annexes of a toestand in document order, the first of each label."""
+    seen: set[str | None] = set()
+    annexes = []
+    for element in iter_named(root, "bijlage"):
+        label, title = extract_kop(element)
+        if label in seen:
+            continue
+        seen.add(label)
+        text, refs, parts, tables, headings = _article_text(element)
+        annexes.append(
+            AnnexXml(
+                label=label,
+                name=extract_name(element, label),
+                title=title,
+                description=extract_description(element),
+                entries=tuple(extract_entries(element)),
+                path=element.get("bwb-ng-variabel-deel") or None,
+                text=text,
+                references=tuple(refs),
+                parts=tuple(parts),
+                tables=tuple(tables),
+                headings=tuple(headings),
+            )
+        )
+    return tuple(annexes)
 
 
 def _number_teksten(builder: TextBuilder, paragraphs: list[_Paragraph]) -> None:
@@ -1402,6 +1498,49 @@ def annex_keys(toestand: ToestandXml, bwb_id: str) -> dict[str, str]:
     }
 
 
+def _references(
+    references: Iterable[Reference], annexes: Mapping[str, str] | None
+) -> list[dict[str, Any]]:
+    """The references to store of a text: those that name a regulation or an EU act, one to
+    an annex with the key of its node (*annexes*, ``annex_keys``)."""
+    return [
+        r.to_dict((annexes or {}).get(r.part or ""))
+        for r in references
+        if r.bwb_id or r.celex
+    ]
+
+
+def annex_props(
+    annex: AnnexXml,
+    bwb_id: str,
+    citation_title: str | None = None,
+    position: int | None = None,
+    *,
+    annexes: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Props of the Annex node; *citation_title* that of its law, which its title cites,
+    *position* its place among the annexes of the toestand, *annexes* the keys of those
+    annexes (``annex_keys``). Every prop is written, null where it has none: an upsert
+    merges props, so a stale value must be overwritten."""
+    return {
+        "source": SOURCE_BWB,
+        "bwb_id": bwb_id,
+        "label": annex.label,
+        "title": annex.title,
+        "display_name": annex.name,
+        "position": position,
+        "description": annex.description,
+        "entries": list(annex.entries) or None,
+        "text": annex.text or None,
+        "parts": [part.to_dict() for part in annex.parts] or None,
+        "tables": [table.to_dict() for table in annex.tables] or None,
+        "headings": [heading.to_dict() for heading in annex.headings] or None,
+        "references": _references(annex.references, annexes) or None,
+        "instrument_id": node_id(COLLECTION_INSTRUMENTS, make_node_key(bwb_id)),
+        "instrument_citation_title": citation_title,
+    }
+
+
 def article_props(
     article: ArticleXml,
     bwb_id: str,
@@ -1413,11 +1552,7 @@ def article_props(
     """Props of the (current) Article node; *position* is its place in the toestand,
     *annexes* the keys of its annexes (``annex_keys``). A reference names a regulation or
     an EU act; one to an annex the key of its node."""
-    references = [
-        r.to_dict((annexes or {}).get(r.part or ""))
-        for r in article.references
-        if r.bwb_id or r.celex
-    ]
+    references = _references(article.references, annexes)
     return _drop_none(
         {
             "bwb_id": bwb_id,
