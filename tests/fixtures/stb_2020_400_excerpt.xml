@@ -1,5 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
-<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+<?xml version="1.0" encoding="utf-8"?>
+<officiele-publicatie>
   <metadata>
     <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2020-400/metadata.xml" />
   </metadata>
@@ -13,11 +13,268 @@
         <kop>
           <titel>NOTA VAN TOELICHTING</titel>
         </kop>
-        <bijlage status="goed">
-          <divisie opmaak="default">
+        <bijlage>
+          <divisie>
             <kop>
               <titel>BIJLAGE TRANSPONERINGSTABELLEN</titel>
             </kop>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <title>a. Transponeringstabel Activiteitenbesluit milieubeheer</title>
+              <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="119*" />
+                <colspec colnum="2" colname="col2" colwidth="80*" />
+                <colspec colnum="3" colname="col3" colwidth="68*" />
+                <colspec colnum="4" colname="col4" colwidth="80*" />
+                <colspec colnum="5" colname="col5" colwidth="106*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Onderwerp/hoofdstuk</nadruk>
+                      </al>
+                      <al>
+                        <nadruk type="vet">Activiteitenbesluit milieubeheer</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel Omgevingswet</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel AMvB</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Toelichting overgangsrecht</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Hoofdstuk 1 Algemeen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Wederzijdse erkenning</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>1.3 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Omhangbepaling</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.3a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Van toepassing verklaring Waterwet</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.3b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Bedrijfswoning bij inrichting voor agrarische activiteiten</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.3c</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig. Regels komen terug in de bruidsschat.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Toepassingsbereik lozingen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.4</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>2.10, 6.5 en 7.5 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Voortzetting verplichtingen. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Toepassingsbereik lozingen agrarische activiteiten</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.4a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>Lozingsvoorschriften in de paragrafen 4.62 tot en met 4.90 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Voortzetting verplichtingen. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Toepassingsbereik lozingen agrarische activiteiten met biociden</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.4b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>Lozingsvoorschriften in de paragrafen 4.62 tot en met 4.90 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Voortzetting verplichtingen. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Afbakening met Plantenziektenwet</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.5</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Komt niet terug. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Stookinstallaties in de EEZ</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.5a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>1.2 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Voortzetting regel. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Buiten toepassing verklaring bij niet verenigbaarheid met internationale verdragen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.5b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Komt niet terug want volgt al uit artikel 94 Grondwet. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Vrijstellingen verboden van de Waterwet voor lozingen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.6, eerste lid, onder a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Komt niet terug. Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Vrijstellingen verboden van de Waterwet voor lozingen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.6, eerste lid, onder b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>3.3 Bal</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Overgangsrecht is geregeld in de artikelen 4.13 en 4.14 IwOw.</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
             <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
               <title>b. Transponeringstabel Bouwbesluit 2012</title>
               <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
@@ -114,6 +371,462 @@
                     </entry>
                     <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
                       <al>Artikel 8.2.17 IbOw.</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <title>r. Transponeringstabel Besluit omgevingsrecht</title>
+              <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="120*" />
+                <colspec colnum="2" colname="col2" colwidth="71*" />
+                <colspec colnum="3" colname="col3" colwidth="78*" />
+                <colspec colnum="4" colname="col4" colwidth="92*" />
+                <colspec colnum="5" colname="col5" colwidth="113*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Onderwerp/ hoofdstuk Besluit omgevingsrecht</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel Omgevingswet</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel AMvB</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Toelichting overgangsrecht</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Hoofdstuk 3. Bevoegd gezag</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Ruimtelijke ordening</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.1, onder a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.1, onder b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>5.10, eerste lid, onder a, en 5.12, tweede en derde lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>4.6, eerste lid, onder a, Ob</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.2, onder a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.2, onder b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>-5.11, eerste lid, onder a, en 5.12, tweede en derde lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>-4.8 Ob</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Inrichting en mijnbouwwerk</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>5.10, eerste lid, onder c, en 5.12, tweede en derde lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>4.6, eerste lid, onder c, Ob</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.3, tweede lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>5.11, eerste lid, onder d, onder 2°, en 5.12, tweede en derde lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>4.11, eerste lid, onder b, Ob</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Dit onderdeel lift mee met het overgangsrecht dat is opgenomen in afdeling 4.1 IwOw.</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <title>cc. Transponeringstabel Waterbesluit</title>
+              <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="123*" />
+                <colspec colnum="2" colname="col2" colwidth="110*" />
+                <colspec colnum="3" colname="col3" colwidth="62*" />
+                <colspec colnum="4" colname="col4" colwidth="69*" />
+                <colspec colnum="5" colname="col5" colwidth="96*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Onderwerp/hoofdstuk Waterbesluit</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel OW</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel AMvB</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Toelichting overgangsrecht</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Hoofdstuk 1 Algemene bepalingen </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>§ 1. Begripsbepalingen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.1, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «dijkdeel»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «gesloten bodemenergiesysteem»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «grondwaterrichtlijn»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Bijlage B</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «hoofdwater»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «kaderrichtlijn mariene strategie»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Bijlage B</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «mariene strategie voor de Noordzee»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «maritieme ruimtelijke planning»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>Bijlage I Bkl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «maritiem ruimtelijk plan»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>Bijlage I Bkl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «Nederlandse mariene wateren»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>2.24, eerste lid en 2.26, eerste lid en derde lid, onder c</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>4.8 en 4.9 Bkl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «open bodemenergiesysteem»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «overstromingsrisicobeheerplan»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Begrip «protocol»</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>–</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <title>bb. Transponeringstabel Uitvoeringsbesluit rijkscoördinatieregeling energie-infrastructuurprojecten<noot id="n00104" type="tabel">
+                  <noot.nr>1</noot.nr>
+                  <noot.al>
+                    <nadruk type="cur">Deze transponeringstabel is op een andere wijze opgesteld dan de overige transponeringstabellen. Het besluit is «gelet op» de aanhef gebaseerd op de artikelen 9d, eerste lid, en 20c, eerste lid, van de Elektriciteitswet 1998, 39d, eerste lid, van de Gaswet en 141c, eerste lid, van de Mijnbouwwet. Deze artikelen komen door de voorgestelde wijzigingen van de Elektriciteitswet 1998, de Gaswet en de Mijnbouwwet in de Invoeringswet te vervallen, zie de artikelen 6.1, 6.2 en 6.2 van de Iw Ow. In de transponeringstabel zijn daarom de kolommen «verwijzing naar» en «toelichting overgangsrecht op artikelniveau» opgenomen in plaats van de kolommen «artikel Ow», «artikel AMvB» en «toelichting overgangsrecht».</nadruk>
+                  </noot.al>
+                </noot>
+              </title>
+              <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="120*" />
+                <colspec colnum="2" colname="col2" colwidth="49*" />
+                <colspec colnum="3" colname="col3" colwidth="56*" />
+                <colspec colnum="4" colname="col4" colwidth="107*" />
+                <colspec colnum="5" colname="col5" colwidth="148*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Onderwerp/ hoofdstuk Uitvoeringsbesluit rijkscoördinatieregeling energie-infrastructuurprojecten </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Verwijzing naar </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Toelichting overgangsrecht op artikelniveau</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Besluiten als bedoeld in artikel 9d, eerste lid, van de Elektriciteitswet 1998</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>9d, eerste lid Elektriciteitswet 1998</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Bepaling vervalt, artikel 2.7, onderdeel A, IwOw.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Eerste lid, sub a</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>2.1, eerste lid, Wabo</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Bepaling wordt ingetrokken en keert terug in artikel 5.1 respectievelijk 5.3 en 5.4 jo. 4.4, tweede lid, Ow.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>2.2 Wabo</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Bepaling wordt ingetrokken en keert terug in artikel 5.1 respectievelijk 5.3 en 5.4 jo. 4.4, tweede lid, Ow.</al>
                     </entry>
                   </row>
                 </tbody>

@@ -1,5 +1,5 @@
 """The reads of old law to new law: the stored transposition tables (a PDF of their own, or
-in the XML of a Kamerstuk), the stored HTML of the EU acts with a concordance table, and the
+in the XML of a Kamerstuk or a Staatsblad), the stored HTML of the EU acts with a concordance table, and the
 laws a table names with their articles (``semantic tk-transposition-tables``, ``lawgraph
 succession-gaps``)."""
 
@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
     RAW_KIND_EURLEX_CELEX,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_ESTABLISHES,
@@ -20,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
     SOURCE_EURLEX,
+    SOURCE_STAATSBLAD,
     SOURCE_TK,
 )
 from lawgraph.core.transposition_xml import PLACEHOLDER_YEAR
@@ -140,15 +142,19 @@ def law_articles(
 
 
 def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:
-    """Every stored transposition table and Kamerstuk naming one, with its payload."""
-    rows = raw_queries.iter_raw_records(
-        store,
-        source=SOURCE_TK,
-        kinds=[RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT],
-        since_iso=None,
-        batch_size=1,
-    )
-    return store.with_payloads(rows)
+    """Every stored transposition table, and Kamerstuk and Staatsblad naming one, with its
+    payload."""
+    for source, kinds in (
+        (
+            SOURCE_TK,
+            [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT],
+        ),
+        (SOURCE_STAATSBLAD, [RAW_KIND_STAATSBLAD_TRANSPOSITION]),
+    ):
+        rows = raw_queries.iter_raw_records(
+            store, source=source, kinds=kinds, since_iso=None, batch_size=1
+        )
+        yield from store.with_payloads(rows)
 
 
 def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:

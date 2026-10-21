@@ -557,8 +557,8 @@ RETRIEVE: list[Pipeline] = [
     _retrieve(
         TKTranspositionTablesRetrievePipeline,
         "The transposition tables among the attachments of Kamerstukken (PDF), and the "
-        "Kamerstukken whose text names one (XML, kept when a table is read in it), as the KOOP "
-        "SRU lists them: those not stored yet or changed since.",
+        "Kamerstukken and Staatsbladen whose text names one (XML, kept when a table is read "
+        "in it), as the KOOP SRU lists them: those not stored yet or changed since.",
         argv_for_all=_no_argv,
         lane=KOOP_REPOSITORY.lane,
     ),

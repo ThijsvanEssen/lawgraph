@@ -2,14 +2,17 @@
 Strafvordering (the PDF blg-1081574 and the XML of its second memorie van toelichting,
 kst-36636-3, as ``retrieve tk-transposition-tables`` stores them), of the Omgevingswet (the
 tables of the Waterwet, the Woningwet and the Wet milieubeheer in kst-34986-3), of the
-Mediawet 2008 (kst-31356-3,
-``Huidige Mediawet | Mediawet 20..``) and of the Erfgoedwet (kst-34109-3, ``oud | nieuw``
-under the old law's name), the new Sv read from its Staatsblad XML (``normalize
-staatsblad-laws``) and a few articles of the laws of the BWB, through ``semantic
-tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
+Mediawet 2008 (kst-31356-3, ``Huidige Mediawet | Mediawet 20..``), of the Erfgoedwet
+(kst-34109-3, ``oud | nieuw`` under the old law's name) and of the Invoeringsbesluit
+Omgevingswet (Stb. 2020, 400: the Activiteitenbesluit milieubeheer to the Omgevingswet and
+the Bal), the new Sv read from its Staatsblad XML (``normalize staatsblad-laws``) and a few
+articles of the laws of the BWB, through ``semantic tk-transposition-tables``, the API and
+``lawgraph succession-gaps``.
 
 - A row that holds is a part of the ``TRANSPOSED_TO`` of its pair of articles; the tables
   between the same two laws are read together.
+- A table of the Staatsblad places an old regulation in the new law and in another the
+  cell names ("2.10, 6.5 en 7.5 Bal").
 - A table of the law the paper proposes finds it by the name its column or its dossier
   gives it, a year still open standing for any; the old law by its column or its title.
 - An article of the old law the law has lost since (a historical identity of
@@ -35,6 +38,7 @@ import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_PART_OF,
@@ -82,13 +86,27 @@ _WATERWET = dict.fromkeys(
     ),
     _NONE,
 )
-_OMGEVINGSWET = dict.fromkeys(
-    (
-        *("1.3", "1.5", "1.6", "2.6", "2.13", "2.18", "2.19", "2.20", "2.21", "2.21a"),
-        *("2.22", "2.23", "2.32", "4.23", "16.25", "19.17", "19.18"),
+_OMGEVINGSWET = {
+    **dict.fromkeys(
+        (
+            *("1.3", "1.5", "1.6", "2.6", "2.13", "2.18", "2.19", "2.20", "2.21"),
+            *("2.21a", "2.22", "2.23", "2.32", "4.23", "16.25", "19.17", "19.18"),
+        ),
+        _NONE,
     ),
-    _NONE,
-)
+    "4.3": (("1", "2"), False),
+}
+# The Activiteitenbesluit milieubeheer (expired when the Omgevingswet came into force) and
+# the Besluit activiteiten leefomgeving, without its 3.3.
+ACTIVITEITENBESLUIT = "BWBR0022762"
+_ACTIVITEITENBESLUIT = {
+    **dict.fromkeys(
+        ("1.3", "1.3a", "1.3b", "1.3c", "1.4", "1.4a", "1.4b", "1.5", "1.5a", "1.5b"),
+        _NONE,
+    ),
+    "1.6": (("1",), False),
+}
+_BAL = dict.fromkeys(("1.2", "1.3", "2.10", "6.5", "7.5"), _NONE)
 # The Wet milieubeheer (it stays): § 1.2 and § 2.4, each a division of articles.
 _WET_MILIEUBEHEER = dict.fromkeys(("1.1a", "1.2", "1.3", "2.42"), _NONE)
 _DIVISIONS = {
@@ -146,6 +164,7 @@ def _bwb_law(
     articles: dict[str, tuple[tuple[str, ...], bool]],
     expired: str | None = None,
     in_force: str | None = None,
+    short_title: str | None = None,
 ) -> None:
     key = bwb_id.lower()
     divisions = _DIVISIONS.get(bwb_id, {})
@@ -160,6 +179,7 @@ def _bwb_law(
                     "bwb_id": bwb_id,
                     "title": title,
                     "citation_title": title,
+                    "short_title": short_title,
                     "kind": "wet",
                     "in_force": expired is None,
                     "date_expired": expired,
@@ -253,6 +273,21 @@ def _seed(store: GraphStore) -> None:
     )
     _bwb_law(store, "BWBR0024186", "Uitvoeringswet UNESCO-verdrag 1970", _UNESCO)
     _bwb_law(store, "BWBR0037521", "Erfgoedwet", _ERFGOEDWET)
+    _bwb_law(
+        store,
+        ACTIVITEITENBESLUIT,
+        "Activiteitenbesluit milieubeheer",
+        _ACTIVITEITENBESLUIT,
+        expired="2024-01-01",
+    )
+    _bwb_law(
+        store,
+        "BWBR0041330",
+        "Besluit activiteiten leefomgeving",
+        _BAL,
+        in_force="2024-01-01",
+        short_title="Bal",
+    )
     with RawSourceWriter(store) as writer:
         for official in ("stb-2026-56", "stb-2026-57"):
             writer.add(
@@ -275,6 +310,15 @@ def _seed(store: GraphStore) -> None:
                     (FIXTURES / "blg_1081574_excerpt.pdf").read_bytes()
                 ).decode("ascii"),
                 meta={"identifier": TABLE, "dossier": "36327", "encoding": "base64"},
+            )
+        )
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_STAATSBLAD,
+                kind=RAW_KIND_STAATSBLAD_TRANSPOSITION,
+                external_id="stb-2020-400",
+                payload_text=(FIXTURES / "stb_2020_400_excerpt.xml").read_text(),
+                meta={"identifier": "stb-2020-400", "tables": 4},
             )
         )
     for document in ("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"):
@@ -327,7 +371,11 @@ def _transposed(store: GraphStore, to: str = "articles") -> dict[tuple[str, str]
 
 
 def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -> None:
-    edges = _transposed(store)
+    edges = {
+        pair: meta
+        for pair, meta in _transposed(store).items()
+        if not pair[0].startswith(f"articles/{ACTIVITEITENBESLUIT.lower()}_")
+    }
     assert set(edges) == {
         ("articles/bwbr0001903_1", "articles/stb_2026_56_1_1_1"),
         ("articles/bwbr0001903_126ffa", "articles/stb_2026_56_2_8_6"),
@@ -432,6 +480,54 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
     }
 
 
+def test_an_old_regulation_in_the_new_law_and_in_another(store: GraphStore) -> None:
+    """Stb. 2020, 400, table a.: each article of the Activiteitenbesluit milieubeheer in the
+    Omgevingswet ("4.3, eerste lid") and in the Bal the cell names ("2.10, 6.5 en 7.5 Bal");
+    a "–" beside a place is no answer, two of them one."""
+    old = f"articles/{ACTIVITEITENBESLUIT.lower()}_"
+    edges = {
+        (from_[len(old) :], to): meta
+        for (from_, to), meta in _transposed(store).items()
+        if from_.startswith(old)
+    }
+    assert set(edges) == {
+        ("1_3", "articles/bwbr0037885_4_3"),
+        ("1_3", "articles/bwbr0041330_1_3"),
+        ("1_4", "articles/bwbr0037885_4_3"),
+        ("1_4", "articles/bwbr0041330_2_10"),
+        ("1_4", "articles/bwbr0041330_6_5"),
+        ("1_4", "articles/bwbr0041330_7_5"),
+        ("1_5a", "articles/bwbr0037885_4_3"),
+        ("1_5a", "articles/bwbr0041330_1_2"),
+        ("1_6", "articles/bwbr0037885_4_3"),
+    }
+    assert edges[("1_4", "articles/bwbr0041330_6_5")] == {
+        "basis": "transposition_table",
+        "source": "stb-2020-400",
+        "parts": [{"from": "", "to": "6.5 Bal", "article": "6.5", "leden": []}],
+    }
+    assert edges[("1_6", "articles/bwbr0037885_4_3")]["parts"] == [
+        {
+            "from": "eerste lid, onder b",
+            "to": "4.3, eerste lid",
+            "article": "4.3",
+            "leden": ["1"],
+        }
+    ]
+    answers = {
+        from_[len(old) :]: meta["outcome"]
+        for (from_, to), meta in _transposed(store, "instruments").items()
+        if from_.startswith(old)
+    }
+    assert answers == {
+        **dict.fromkeys(("1_3a", "1_3b", "1_3c", "1_5", "1_5b"), "niet_overgenomen"),
+        "1_6": "niet_overgenomen",  # its eerste lid, onder a ("–")
+        # "Lozingsvoorschriften in de paragrafen 4.62 tot en met 4.90 Bal"
+        "1_4a": "gat",
+        "1_4b": "gat",
+    }
+
+
 def test_what_a_table_answers_is_an_edge_to_the_new_law(store: GraphStore) -> None:
     """blg-1081574 p. 4, art. 10 lapses ("vervalllen", "vervallen"); kst-34986-3: the
     Waterwet's 3.6a t/m 3.6e stay in it, its 3.14 is not taken over ("–"), the Wet
@@ -450,7 +546,12 @@ def test_what_a_table_answers_is_an_edge_to_the_new_law(store: GraphStore) -> No
         ],
     }
     assert (
-        {old: meta["outcome"] for (old, law), meta in answers.items() if law == ow}
+        {
+            old: meta["outcome"]
+            for (old, law), meta in answers.items()
+            if law == ow
+            and not old.startswith(f"articles/{ACTIVITEITENBESLUIT.lower()}_")
+        }
         == {
             **{f"articles/bwbr0025458_3_6{n}": "blijft_in:Waterwet" for n in "abcde"},
             "articles/bwbr0025458_3_14": "niet_overgenomen",
@@ -564,6 +665,16 @@ def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
     assert "instruments/bwbr0004025 -> instruments/bwbr0025028" in out
     assert "(the old law is not replaced: no row is no gap)" in out
 
+    # the Bal has no 3.3; the Bouwbesluit 2012 is not in the graph
+    assert "instruments/bwbr0022762 -> instruments/bwbr0037885" in out
+    assert (
+        "rij 13: art. 1.6 eerste lid, onder b: 3.3 Bal [the new law has no such article]"
+    ) in out
+    assert (
+        "stb-2020-400 b. Transponeringstabel Bouwbesluit 2012: places nothing: "
+        "no two laws named ('Bouwbesluit 2012', 'Omgevingswet')."
+    ) in out
+
     # a table of the Erfgoedwet whose old law the graph does not have
     assert (
         "kst-34109-3 Wet tot behoud van cultuurbezit (dossier 34109): places nothing: "
@@ -582,7 +693,13 @@ def test_an_edge_no_table_gives_any_more_goes(database: str, cli: Any) -> None:
     _build(store, cli)
     store.execute(
         "DELETE FROM raw_sources WHERE kind = ANY(%(k)s)",
-        {"k": [RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT]},
+        {
+            "k": [
+                RAW_KIND_TK_TRANSPOSITION_TABLE,
+                RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
+                RAW_KIND_STAATSBLAD_TRANSPOSITION,
+            ]
+        },
     )
     cli("semantic", "tk-transposition-tables")
     assert _transposed(store) == {}

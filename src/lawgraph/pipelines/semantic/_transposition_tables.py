@@ -2,9 +2,9 @@
 ``semantic tk-transposition-tables`` writes and ``lawgraph succession-gaps`` reports.
 
 A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
-of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
-(read by ``core.transposition_xml``); or it is the concordance table of an EU act that
-codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
+of its own (read by ``core.transposition_tables``), or a Kamerstuk or a Staatsblad with a
+table in its XML (read by ``core.transposition_xml``); or it is the concordance table of an
+EU act that codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
 ``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
 them:
 
@@ -24,7 +24,10 @@ them:
 
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
-articles in, else the one the title does not name. A table whose laws are not found places
+articles in, else the one the title does not name. A table of the Staatsblad that places an
+old regulation in the new law and in further ones (``Artikel | Artikel Omgevingswet |
+Artikel AMvB``) is such a table: its places in a further column are of the law the cell or
+the column names. A table whose laws are not found places
 nothing and says why (``Table.problem``). The tables between the same two laws are checked
 together (``Succession``): an article of the old law one table leaves out may be in another.
 A place that names another law ("afdeling 3.5 Awb", "16.52 Omgevingswet") is of the law of
@@ -57,6 +60,7 @@ from pypdf.errors import PyPdfError
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
 )
 from lawgraph.core.aliases import code_choices, curated_abbreviations, instrument_names
@@ -86,8 +90,8 @@ from lawgraph.pipelines.semantic._detection import build_extractor
 class Table:
     """One table of a source: its laws and rows, or why it places nothing."""
 
-    identifier: str  # the source: blg-1081574, kst-34986-3, 32017R1001
-    dossier: str  # empty for an EU act
+    identifier: str  # the source: blg-1081574, kst-34986-3, stb-2020-400, 32017R1001
+    dossier: str  # empty for an EU act and a Staatsblad
     name: str = ""  # the table in its source: "h. Transponeringstabel Waterwet"
     problem: str | None = None
     old_law: str | None = None  # instruments/bwbr0001903
@@ -239,10 +243,15 @@ class _OtherLaws:
         return self._extractor
 
 
+# The kinds of a stored source with its tables in its XML.
+_XML_KINDS = (RAW_KIND_TK_TRANSPOSITION_DOCUMENT, RAW_KIND_STAATSBLAD_TRANSPOSITION)
+
+
 def _tables(store: Store) -> Iterator[Table]:
-    """Every stored table: of each PDF, and of each Kamerstuk stored with its XML."""
+    """Every stored table: of each PDF, and of each Kamerstuk and Staatsblad stored with its
+    XML."""
     for record in queries.transposition_tables(store):
-        if record.get("kind") != RAW_KIND_TK_TRANSPOSITION_DOCUMENT:
+        if record.get("kind") not in _XML_KINDS:
             yield _pdf_table(store, record)
         elif payload_text(record):
             yield from _xml_tables(store, record)
@@ -396,7 +405,8 @@ def _proposed_law(
 
 def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
     """*table* with the laws of the two columns of *xml*, its rows read from the old law's
-    column to the new law's (``new_column``), or with the reason they are not found."""
+    column to the new law's (``new_column``) and its further columns, or with the reason they
+    are not found. A table with further columns reads from its first column only."""
     assert xml.columns is not None
     laws = _dossier_laws(store, table.dossier)
     found = [_named_law(store, laws, name) for name in xml.columns]
@@ -411,7 +421,7 @@ def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
     if first is None or second is None or first == second:
         return replace(table, problem=f"no two laws named {xml.columns!r}")
     new = new_column((first, second), {str(law["id"]) for law in laws}, titled)
-    if new is None:
+    if new is None or (new == 0 and xml.further):
         return replace(
             table, problem=f"which of {xml.columns!r} is the new law is not known"
         )

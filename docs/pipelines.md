@@ -118,7 +118,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
 | `retrieve tk-content` | the XML of every document numbered in a dossier (a Kamerstuk: a letter as much as a motie or a memorandum; with `--kind`, repeatable, only those whose `kind` contains it), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
-| `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF (the `itemUrl` of the manifestation `pdf`: the SRU's `url` is the XML of the few that have one); and the Kamerstukken whose full text names one (`cql.textAndIndexes`) and that are published as XML (the `itemUrl` of the manifestation `xml`); those not stored yet or modified since. The PDF stored as it is (base64); the XML of a paper as it is when `core/transposition_xml.py` reads a table in it, else the paper without it (so it is not fetched again until it changes). A download that fails is skipped and asked for again the next run | `tk-transposition-table-pdf`, `tk-transposition-document-xml` |
+| `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF (the `itemUrl` of the manifestation `pdf`: the SRU's `url` is the XML of the few that have one); and the Kamerstukken whose full text names one (`cql.textAndIndexes`) and that are published as XML (the `itemUrl` of the manifestation `xml`); and the publications of the Staatsblad, of any type, whose full text names one (an AMvB that takes over old regulations has its tables in its nota van toelichting: Stb. 2020, 400; most name an EU implementation table); those not stored yet or modified since. The PDF stored as it is (base64); the XML of a paper or a Staatsblad as it is when `core/transposition_xml.py` reads a table in it, else the record without it (so it is not fetched again until it changes). A download that fails is skipped and asked for again the next run | `tk-transposition-table-pdf`, `tk-transposition-document-xml`, `stb-transposition-xml` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
@@ -576,8 +576,8 @@ reported.
   place that is no article (`vervallen (mvt)`, `Besluit B2`; `**`, a footnote mark whose note
   the PDF does not hold), or one that does not read (`1,5,2, 6`). A footnote mark after a place
   is no part of its number. A line that ends in a space runs on into the next unlabelled line.
-- A table in the XML of a Kamerstuk (`core/transposition_xml.py`), as `retrieve
-  tk-transposition-tables` stored it. A `<table>` with a column of the law the paper proposes
+- A table in the XML of a Kamerstuk or a Staatsblad (`core/transposition_xml.py`), as
+  `retrieve tk-transposition-tables` stored it. A `<table>` with a column of the law the paper proposes
   (`Wetsvoorstel`, `Wetsvoorstel Energiewet`, `Plaats wetsvoorstel`, `Mediawet 20..`, `nieuw`)
   beside a column of the old law, the other column whose cells read as articles, is read
   wherever it stands (the Wet dieren's tables, kst-31389-3, stand under no heading that names
@@ -594,12 +594,16 @@ reported.
   head row with a column per law
   (`Artikel Wabo | Artikel Omgevingswet`, the title naming one of them, `i.
   Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
-  under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
-  `Nieuw naar huidig` is not read, another table places nothing. So does a head with more
-  than two columns of articles (`columns not recognised`): a column per law with its own
+  under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3), or a
+  column of the old regulation's articles (`Artikel`, the regulation named in the title)
+  beside one of the new law and further ones of other regulations (`Artikel | Artikel
+  Omgevingswet | Artikel AMvB`, Stb. 2020, 400): each reference of a further column's cell is
+  of the law the cell names at its end (`2.10, 6.5 en 7.5 Bal`), else of the one its column
+  names (`Artikel Bkl`), and a `–` beside a place in another column is no answer. The half
+  `Nieuw naar huidig` is not read, another table places nothing. So does any other head with
+  more than two columns of articles (`columns not recognised`): a column per law with its own
   column of leden (`artikel WVO | lid/onderdeel | artikel WVO-BES | … | artikel WVO 20xx`,
-  kst-35297-3), or an old article with its places in two new laws (`Artikel | Artikel
-  Omgevingswet | Artikel AMvB`, Stb. 2020, 400). A cell holds references as
+  kst-35297-3). A cell holds references as
   written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
   joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo. 16.15`, `3.89 i.c.m. 3.10`, `5.1
   resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
@@ -608,8 +612,8 @@ reported.
   3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`): a name that
   starts with a capital and names no part of an article. A cell in prose reads the references
   after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
-  Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
-  above it, in both columns; a cell over more rows holds for each. A run of articles stands
+  Omgevingswet.`). A row whose old cell names only a part (`onder a`) or a definition of it
+  (`Begrip «dijkdeel»`) continues the reference above it, in both columns; a cell over more rows holds for each. A run of articles stands
   for each article of the law from the first to the last, in its order. An old cell that is
   a division of the old law (`§ 1.2`, `titel 10.5`) stands for each article of it, by the
   divisions of its `props.breadcrumb` (also an article repealed since).
@@ -2139,7 +2143,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | retrieve `staatsblad` (from-graph) | `retrieve bwb`; for the laws the outcome of the dossiers (`semantic tk-dossier-outcomes` of an earlier run) |
 | retrieve `staatscourant-posts` | `retrieve rijksoverheid` (the posts whose function names no ministry) |
 | retrieve `tk-content` | `normalize tk-dossiers` (the TK documents whose XML it fetches) |
-| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf` and `tk-transposition-document-xml`; the `eu-celex-html` of the EU acts whose articles `normalize eurlex` wrote, with those acts and articles; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, the historical identities of `normalize bwb-history`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
+| semantic `tk-transposition-tables` | stored `tk-transposition-table-pdf`, `tk-transposition-document-xml` and `stb-transposition-xml`; the `eu-celex-html` of the EU acts whose articles `normalize eurlex` wrote, with those acts and articles; the laws and articles of `normalize bwb` and `normalize staatsblad-laws`, the historical identities of `normalize bwb-history`, and the `LEGISLATED_IN`, `ESTABLISHES` and `INTRODUCES` of their publications (`normalize staatsblad-laws`, `semantic bwb-amendments`) |
 | retrieve `eerstekamer-bills` | `normalize eerstekamer-votes` (the bills the EK decisions name, `bill_url`); the bills its committees list come from the site |
 | retrieve `eurlex` (incremental, `com`) | `normalize eurlex` (the EU instruments with a CELEX number) |
 | semantic `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-relation-types` | normalized articles; `bwb-amendments` also `bwb-history` versions and the dossiers of `normalize tk-dossiers`; `bwb-relation-types` runs after `bwb` |

@@ -1771,7 +1771,7 @@ record is skipped like one without a payload.
 | `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
-| `staatsblad` | `stb-amvb-xml` |
+| `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
 | `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |

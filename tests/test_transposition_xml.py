@@ -1,10 +1,10 @@
 """The transposition tables in the XML of a Kamerstuk: excerpts of the second table of the new
 Wetboek van Strafvordering (kst-36636-3, "Huidig naar nieuw"), of the Omgevingswet's table of
 the Waterwet (kst-34986-3, Bijlage 2), of the Wet voortgezet onderwijs 2020 (kst-35297-3), of
-the Invoeringsbesluit Omgevingswet (Stb. 2020, 400), of the tables of a proposed law (the
-Energiewet, the Wet dieren, the Mediawet 2008, the Waarborgwet 2019, the Wet op de Nederlandse
-identiteitskaart, the Erfgoedwet and the Wet natuurbescherming), and the layouts a table
-holds."""
+the Invoeringsbesluit Omgevingswet (Stb. 2020, 400, in its nota van toelichting), of the
+tables of a proposed law (the Energiewet, the Wet dieren, the Mediawet 2008, the Waarborgwet
+2019, the Wet op de Nederlandse identiteitskaart, the Erfgoedwet and the Wet
+natuurbescherming), and the layouts a table holds."""
 
 from __future__ import annotations
 
@@ -389,13 +389,6 @@ def test_a_memorandum_whose_xml_does_not_read_is_a_table_that_says_so() -> None:
             "columns not recognised: 3 of articles "
             "(artikel WVO | artikel WVO-BES | artikel WVO 20xx)",
         ),
-        # the old regulation's article and its places in the Omgevingswet and an AMvB
-        (
-            "stb_2020_400_excerpt.xml",
-            "stb-2020-400",
-            "columns not recognised: 3 of articles "
-            "(Artikel | Artikel Omgevingswet | Artikel AMvB)",
-        ),
     ],
 )
 def test_a_head_with_more_than_two_columns_of_articles_is_not_read(
@@ -676,3 +669,109 @@ def test_a_name_of_a_law_and_the_titles_it_matches(
 ) -> None:
     pattern = name_pattern(name)
     assert {t: bool(re.fullmatch(pattern, folded(t))) for t in titles} == titles
+
+
+def _placed(table: XmlTable) -> list[tuple[str, str, str, str | None, str | None]]:
+    return [
+        (r.old_article, r.part, r.place.text, r.place.article, r.place.law)
+        for r in table.rows()
+    ]
+
+
+def test_an_old_regulation_placed_in_the_new_law_and_in_another() -> None:
+    """The Invoeringsbesluit Omgevingswet (Stb. 2020, 400) names the old regulation in the
+    title and places each of its articles (``Artikel``) in the Omgevingswet and in an AMvB
+    whose cell names it at its end: each reference of that cell is of it ("2.10, 6.5 en 7.5
+    Bal"). A "–" beside a place is no answer; two of them are one."""
+    activiteitenbesluit, bouwbesluit, bor, waterbesluit, rijkscoordinatie = _read(
+        "stb_2020_400"
+    )
+    assert (
+        activiteitenbesluit.columns,
+        activiteitenbesluit.title_law,
+        activiteitenbesluit.further,
+    ) == (
+        ("Activiteitenbesluit milieubeheer", "Omgevingswet"),
+        "Activiteitenbesluit milieubeheer",
+        ("AMvB",),
+    )
+    lozingen = "Lozingsvoorschriften in de paragrafen 4.62 tot en met 4.90 Bal"
+    assert _placed(activiteitenbesluit) == [
+        ("1.3", "", "4.3, eerste lid", "4.3", None),
+        ("1.3", "", "1.3 Bal", "1.3", "Bal"),
+        ("1.3a", "", "–", None, None),
+        ("1.3b", "", "–", None, None),
+        ("1.3c", "", "–", None, None),
+        ("1.4", "", "4.3, eerste lid", "4.3", None),
+        ("1.4", "", "2.10 Bal", "2.10", "Bal"),
+        ("1.4", "", "6.5 Bal", "6.5", "Bal"),
+        ("1.4", "", "7.5 Bal", "7.5", "Bal"),
+        ("1.4a", "", lozingen, None, None),
+        ("1.4b", "", lozingen, None, None),
+        ("1.5", "", "–", None, None),
+        ("1.5a", "", "4.3, eerste lid", "4.3", None),
+        ("1.5a", "", "1.2 Bal", "1.2", "Bal"),
+        ("1.5b", "", "–", None, None),
+        ("1.6", "eerste lid, onder a", "–", None, None),
+        ("1.6", "eerste lid, onder b", "4.3, eerste lid", "4.3", None),
+        ("1.6", "eerste lid, onder b", "3.3 Bal", "3.3", "Bal"),
+    ]
+    assert _placed(bouwbesluit)[-3:] == [
+        ("1.3", "", "4.7", "4.7", None),
+        ("1.3", "", "2.4 Bbl", "2.4", "Bbl"),
+        ("1.3", "", "2.5 Bbl", "2.5", "Bbl"),
+    ]
+    assert _placed(bor)[1:4] == [
+        ("3.1", "onder b", "5.10, eerste lid, onder a", "5.10", None),
+        ("3.1", "onder b", "5.12, tweede en derde lid", "5.12", None),
+        ("3.1", "onder b", "4.6, eerste lid, onder a Ob", "4.6", "Ob"),
+    ]
+    assert bor.rows()[2].place.leden == ("2", "3")
+    # "Artikel OW"; a definition of an article ("Begrip «…»") is a part of the one above
+    assert (waterbesluit.columns, waterbesluit.further) == (
+        ("Waterbesluit", "OW"),
+        ("AMvB",),
+    )
+    assert _placed(waterbesluit)[:4] == [
+        ("1.1", "eerste lid", "–", None, None),
+        ("1.1", "eerste lid, Begrip «dijkdeel»", "–", None, None),
+        ("1.1", "eerste lid, Begrip «gesloten bodemenergiesysteem»", "–", None, None),
+        ("1.1", "eerste lid, Begrip «grondwaterrichtlijn»", "Bijlage B", None, None),
+    ]
+    mariene_wateren = "eerste lid, Begrip «Nederlandse mariene wateren»"
+    assert _placed(waterbesluit)[-7:-3] == [
+        ("1.1", mariene_wateren, "2.24, eerste lid", "2.24", None),
+        (
+            "1.1",
+            mariene_wateren,
+            "2.26, eerste lid en derde lid, onder c",
+            "2.26",
+            None,
+        ),
+        ("1.1", mariene_wateren, "4.8 Bkl", "4.8", "Bkl"),
+        ("1.1", mariene_wateren, "4.9 Bkl", "4.9", "Bkl"),
+    ]
+    # another layout ("Verwijzing naar"): not read
+    assert rijkscoordinatie.problem == "no column of an old and of a new law"
+
+
+def test_a_column_of_another_law_names_the_law_of_a_cell_that_names_none() -> None:
+    """``Artikel Bkl``: a cell of that column without a law is of the Bkl; one the head
+    names only as ``AMvB`` stays without, and ``core.succession`` reports it."""
+    head = (
+        "<thead><row><entry colname='col1'><al>Artikel</al></entry>"
+        "<entry colname='col2'><al>Artikel Wet y</al></entry>"
+        "<entry colname='col3'><al>Artikel Bkl</al></entry></row></thead>"
+    )
+    body = "<row><entry colname='col1'><al>2</al></entry>" + (
+        "<entry colname='col3'><al>4.8 en 4.9</al></entry></row>"
+    )
+    xml = (
+        "<officiele-publicatie><table><title>a. Transponeringstabel Besluit x</title>"
+        f"<tgroup>{head}<tbody>{body}</tbody></tgroup></table></officiele-publicatie>"
+    )
+    (table,) = read_tables(xml, "stb-2020-1")
+    assert _placed(table) == [
+        ("2", "", "4.8 Bkl", "4.8", "Bkl"),
+        ("2", "", "4.9 Bkl", "4.9", "Bkl"),
+    ]

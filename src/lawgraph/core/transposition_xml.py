@@ -23,19 +23,29 @@ A ``<table>`` is read in one of these layouts:
 
       Onderwerp | Artikel Wabo | Artikel Omgevingswet | Toelichting
 
+* a column of the old regulation's articles, ``Artikel``, the regulation named in the title,
+  beside a column of the new law, ``Artikel <law>``, and one or more of another regulation
+  that takes over too (``Artikel AMvB``, ``Artikel Bkl``). The Invoeringsbesluit
+  Omgevingswet (Stb. 2020, 400, in its nota van toelichting) is such::
+
+      Onderwerp | Artikel | Artikel Omgevingswet | Artikel AMvB | Toelichting overgangsrecht
+
+  Each reference of a cell of another regulation is of the law the cell names at its end
+  (``2.10, 6.5 en 7.5 Bal``), else of the one its column names (``XmlTable.further``). A
+  cell that answers instead of a place (``–``) beside one that gives a place is no answer.
+
 * two columns under the heading ``Huidig naar nieuw``: the current and the new text of one
   law, the old in the first column. The new Wetboek van Strafvordering's second table
   (kst-36636-3) is such; its half ``Nieuw naar huidig`` is not read.
 
-The last two only under a title, a heading or a ``<tussenkop>`` right before it that names a
-transposition or concordance table (``TABLE_WORDS``); such a table in no layout places
-nothing and says so. A head with more than two columns of articles that are no pairs is none:
-which two are the old and the new law is not read from it. The Wet voortgezet onderwijs 2020
-has a column per law, each with its own column of leden (``artikel WVO | lid/onderdeel |
-artikel WVO-BES | lid/onderdeel | artikel WVO 20xx | …``), the Invoeringsbesluit Omgevingswet
-the old regulation's article and its places in two new ones (``Artikel | Artikel Omgevingswet
-| Artikel AMvB``). Columns are those of the ``<colspec>``: an entry without a ``colname``
-stands in the next column not taken by a cell above it (``morerows``).
+The last three only under a title, a heading or a ``<tussenkop>`` right before it that names
+a transposition or concordance table (``TABLE_WORDS``); such a table in no layout places
+nothing and says so. Any other head with more than two columns of articles is none: which
+two are the old and the new law is not read from it. The Wet voortgezet onderwijs 2020 has a
+column per law, each with its own column of leden (``artikel WVO | lid/onderdeel | artikel
+WVO-BES | lid/onderdeel | artikel WVO 20xx | …``). Columns are those of the ``<colspec>``:
+an entry without a ``colname`` stands in the next column not taken by a cell above it
+(``morerows``).
 
 Each cell holds one or more references as the source writes them (``8.2.26, vierde lid``,
 ``2.1 en 2.2``, ``5.8 t/m 5.14``, ``2.31, eerste lid, onder a``, ``art. 1.1, lid 1``), apart
@@ -50,13 +60,13 @@ place that is no article when it has no figure (``–``, ``niet overgenomen``), 
 read otherwise (``2.21,eerste lid, onder b, … 16.89. 20.7``). A cell of the new law in parts
 (``Eerste lid: 3.1 Tweede lid: 3.2``, ``Onder a: 1.1 Onder b-d: 6.1``) places each part of the
 old article on its own. A row whose old cell names only a part (``onder a``, ``Tweede lid``,
-``Lid 1``) continues the reference above it, and its new cell, when it names only a part too,
-the new reference above; in a table of a proposed law also when the row above has no place
-(``Artikel 1 |`` over ``Lid 1 | 1.1, lid 1``). A cell over more rows (``morerows``) holds for
-each. An old cell that is no reference (``§ 2.3``) is a row of that text: ``core.succession``
-reads it as the articles of that division of the old law, else as an article the old law does
-not have. Nothing is corrected: ``core.succession`` checks every row against the text of the
-laws.
+``Lid 1``, a definition ``Begrip «dijkdeel»``) continues the reference above it, and its new
+cell, when it names only a part too, the new reference above; in a table of a proposed law
+also when the row above has no place (``Artikel 1 |`` over ``Lid 1 | 1.1, lid 1``). A cell
+over more rows (``morerows``) holds for each. An old cell that is no reference (``§ 2.3``)
+is a row of that text: ``core.succession`` reads it as the articles of that division of the
+old law, else as an article the old law does not have. Nothing is corrected:
+``core.succession`` checks every row against the text of the laws.
 """
 
 from __future__ import annotations
@@ -66,7 +76,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, replace
 
 from lawgraph.core.qualifiers import ORDINAL, parse_qualifier
-from lawgraph.core.succession import Place, SourceRow
+from lawgraph.core.succession import Place, SourceRow, outcome
 from lawgraph.core.xml import collapse_ws, local_name
 
 # The words that name such a table, in a title or a heading.
@@ -79,15 +89,16 @@ TABLE_WORDS = (
 _NAMES_A_TABLE = re.compile(
     r"(?:transponerings|concordantie)tabel(?:len)?", re.IGNORECASE
 )
-# A title "h. Transponeringstabel Waterwet": the law after the words.
+# A title "h. Transponeringstabel Waterwet", "cc. Transponeringstabel Waterbesluit": the law
+# after the words.
 _TITLE_LAW = re.compile(
-    r"^(?:[a-z]\.\s+)?(?:transponerings|concordantie)tabel(?:len)?\s+(?P<law>.+)$",
+    r"^(?:[a-z]{1,2}\.\s+)?(?:transponerings|concordantie)tabel(?:len)?\s+(?P<law>.+)$",
     re.IGNORECASE,
 )
 # A title's label and the words that name a table before its law: "h. Transponeringstabel
 # Waterwet", "Tabel 3. Boswet".
 _TITLE_LABEL = re.compile(
-    r"^(?:[a-z]\.\s+|tabel\s+\d+[a-z]?\.?\s+)?"
+    r"^(?:[a-z]{1,2}\.\s+|tabel\s+\d+[a-z]?\.?\s+)?"
     r"(?:(?:transponerings|concordantie)tabel(?:len)?\s*)?",
     re.IGNORECASE,
 )
@@ -124,7 +135,8 @@ _QUALIFIER = (
     rf"|{_ORDINALS}\s+(?:vol)?zin(?:nen)?\b"
     rf"|(?:aanhef(?:\s+en)?\s+)?(?:onder(?:deel|delen)?|sub)\s+{_SUB}"
     rf"(?:\s*(?:,|\ben\b|\bt/m\b|\btot en met\b)\s*{_SUB})*"
-    r"|aanhef\b)"
+    r"|aanhef\b"
+    r"|begrip\s+«[^»]+»)"
 )
 _QUALIFIERS = rf"(?:\s*,?\s*(?:\ben\s+)?{_QUALIFIER})*"
 _REFERENCE = re.compile(
@@ -329,7 +341,13 @@ class XmlTable:
     try in order (its column's ``Energiewet``, the dossier's ``Wet dieren``; none when
     neither names it: the law of the dossier); its ``columns`` are the old law's column and
     the proposed law's, and its ``cells`` run from the old law to the new one. None for a
-    table whose head names both laws."""
+    table whose head names both laws.
+
+    ``further``: of a table that places the old regulation in the new law and in others
+    (``Artikel | Artikel Omgevingswet | Artikel AMvB``), what the head names each other
+    column by (``AMvB``, ``Bkl``); its ``columns`` are the old regulation the title names and
+    the new law, and ``further_cells`` holds per row of ``cells`` the text of each other
+    column."""
 
     name: str
     source: str
@@ -338,13 +356,19 @@ class XmlTable:
     cells: tuple[tuple[str, str, str], ...] = ()
     problem: str | None = None
     proposed: tuple[str, ...] | None = None
+    further: tuple[str, ...] = ()
+    further_cells: tuple[tuple[str, ...], ...] = ()
 
     def rows(self, *, reverse: bool = False) -> tuple[SourceRow, ...]:
-        """Each place of each row: from the first column to the second, or the other way."""
+        """Each place of each row: from the first column to the second (and the further
+        ones), or the other way (a table without further columns)."""
+        if reverse and self.further:
+            raise ValueError(f"{self.name}: a table with further columns reads one way")
         reader = _RowReader(self.source)
-        for first, second, where in self.cells:
+        further = self.further_cells or ((),) * len(self.cells)
+        for (first, second, where), others in zip(self.cells, further, strict=True):
             old, new = (second, first) if reverse else (first, second)
-            reader.read(old, new, where)
+            reader.read(old, new, where, tuple(zip(self.further, others, strict=True)))
         return tuple(reader.rows)
 
 
@@ -475,14 +499,21 @@ def _table(
     head: list[tuple[str, str]],
     body: list[dict[str, str]],
 ) -> XmlTable | None:
-    """The table a heading names, in a layout with a column per law or ``Huidig naar
-    nieuw``, or why it is not read; None for the half ``Nieuw naar huidig``."""
+    """The table a heading names, in a layout with a column per law, of the old regulation
+    and its places in the new law and others, or ``Huidig naar nieuw``; or why it is not
+    read; None for the half ``Nieuw naar huidig``."""
     columns = [
         (column, match["law"])
         for column, text in head
         if (match := _COLUMN_LAW.match(text))
     ]
     articles = [text for _, text in head if _ARTICLE_COLUMN.match(text)]
+    titled = _TITLE_LAW.match(title)
+    own = [
+        column for column, text in head if re.fullmatch(r"artikel(?:en)?", text, re.I)
+    ]
+    if titled and len(own) == 1 and len(columns) >= 2 and len(articles) > 2:
+        return _further_table(name, source, titled["law"], own[0], columns, body)
     if len(articles) > 2:
         return XmlTable(
             name,
@@ -491,7 +522,6 @@ def _table(
             f"({' | '.join(articles)})",
         )
     if len(columns) >= 2:
-        titled = _TITLE_LAW.match(title)
         return XmlTable(
             name,
             source,
@@ -505,6 +535,31 @@ def _table(
     if _OLD_TO_NEW.match(direction):
         return XmlTable(name, source, cells=_cells(body, "col1", "col2"))
     return XmlTable(name, source, problem="no column of an old and of a new law")
+
+
+def _further_table(
+    name: str,
+    source: str,
+    old_law: str,
+    old: str,
+    columns: list[tuple[str, str]],
+    body: list[dict[str, str]],
+) -> XmlTable:
+    """The table of the old regulation *old_law* (its articles in the column *old*) and its
+    places in the law of the first of *columns* and in the further ones."""
+    (new, new_law), *further = columns
+    rows = [(n, cells) for n, cells in enumerate(body, start=1) if cells.get(old)]
+    return XmlTable(
+        name,
+        source,
+        (old_law, new_law),
+        old_law,
+        tuple((cells[old], cells.get(new, ""), f"rij {n}") for n, cells in rows),
+        further=tuple(law for _, law in further),
+        further_cells=tuple(
+            tuple(cells.get(column, "") for column, _ in further) for _, cells in rows
+        ),
+    )
 
 
 def _rows(table: ET.Element, part: str, separator: str) -> list[dict[str, str]]:
@@ -616,7 +671,8 @@ def _cells(
 
 class _RowReader:
     """The rows of a table in order: a row whose old cell names only a part ("onder a")
-    continues the reference above it, in both columns."""
+    continues the reference above it, in both columns. The places of the further columns
+    of a row (``XmlTable.further``) are places of the old reference too."""
 
     def __init__(self, source: str) -> None:
         self.source = source
@@ -625,9 +681,14 @@ class _RowReader:
         self._old: Reference | None = None
         self._new: Reference | None = None
 
-    def read(self, old: str, new: str, where: str) -> None:
-        if not collapse_ws(new):  # a row without a place: one below may continue it
-            self._olds(old)
+    def read(
+        self, old: str, new: str, where: str, further: tuple[tuple[str, str], ...] = ()
+    ) -> None:
+        """One row: its *old* and *new* cell, and of each further column the law the head
+        names it by and its cell."""
+        others = [further_places(text, law) for law, text in further]
+        if not collapse_ws(new) and not any(others):
+            self._olds(old)  # a row without a place: one below may continue it
             return
         olds = self._olds(old)
         parts = cell_parts(new)
@@ -635,6 +696,7 @@ class _RowReader:
             for base in olds or [Reference(collapse_ws(old), None)]:
                 for part, text in parts:
                     self._add(_continued(base, part), places(text), where)
+                self._add(base, _placing(others), where)
             return
         continued = olds is not None and self._old is not None and _is_part(old)
         if continued and self._new is not None and _is_part(new):
@@ -651,7 +713,7 @@ class _RowReader:
                 return
             olds = [Reference(collapse_ws(old), collapse_ws(old))]
         for reference in olds:
-            self._add(reference, news, where)
+            self._add(reference, _placing([news, *others]), where)
 
     def _add(self, old: Reference, news: list[Place], where: str) -> None:
         self.rows += [
@@ -667,6 +729,33 @@ class _RowReader:
         found = references(old)
         self._old = found[-1] if found else None
         return found
+
+
+def further_places(text: str, law: str) -> list[Place]:
+    """The places a cell of a further column gives (``Artikel AMvB``): each article of the
+    law the cell names at its end (``2.10, 6.5 en 7.5 Bal``), else of the *law* its column
+    names (``Artikel Bkl``: ``4.8 en 4.9``). A law at the end is read first: ``4.6, eerste
+    lid, onder a, Ob`` is of the Ob, not a part ``onder a, Ob``."""
+    found = _with_law(collapse_ws(text)) or places(text)
+    own = found[-1].law if found and found[-1].law else law
+    return [
+        replace(p, text=f"{p.text} {own}", law=own)
+        if p.article is not None and p.law is None
+        else p
+        for p in found
+    ]
+
+
+def _placing(columns: list[list[Place]]) -> list[Place]:
+    """The places of the columns of one row: of each column that gives a place, not of a
+    column beside it that only answers (``–``); of columns that all answer, the first's."""
+    filled = [places_ for places_ in columns if places_]
+    placing = [
+        places_
+        for places_ in filled
+        if not all(p.article is None and outcome(p.text) for p in places_)
+    ]
+    return [p for places_ in placing or filled[:1] for p in places_]
 
 
 def _is_part(text: str) -> bool:
