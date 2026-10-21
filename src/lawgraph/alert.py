@@ -30,6 +30,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from lawgraph.pipelines.command import KNOWN_FAILURES
+from lawgraph.pipelines.retrieve.base import DOWNLOAD_FAILED
 from lawgraph.sources.addresses import PHASES
 
 # The runs, by the script that runs them; ``<…>`` is the chain or the script given after it.
@@ -55,6 +56,8 @@ CAUSES: dict[str, str] = {
     "challenge": "the source answered with a challenge page",
     "geweigerd": "the source refused us otherwise",
     "geen-voortgang": "a slice named the same key again, or there were too many",
+    "download <oorzaak>": "downloads failed; the cause of the first in fixed words "
+    "(`download http-500`, `download time-out`, `download geen-pdf`)",
     "exit-<N>": "the command ended with this exit code without saying why",
     "onverwacht <Type> <tekst>": "any other failure: its exception and its first 60 characters",
     "server-ongewijzigd": "the deploy failed before it changed the server",
@@ -79,6 +82,7 @@ _PARENT = re.compile(rf"^(?:(?:{_PHASE}) [a-z0-9-]+ failed: )+")
 _MORE = re.compile(r" \(and \d+ more\)$")
 _EXIT_CODE = re.compile(r"exit code (\d+)")
 _HTTP = re.compile(r"\bHTTP (\d{3})\b")
+_DOWNLOAD = re.compile(rf"\b{DOWNLOAD_FAILED} \(([^)]+)\)")
 
 
 @dataclass(frozen=True)
@@ -155,6 +159,13 @@ def _ended(line: _Line) -> tuple[str, str, bool]:
     for name in _TYPE.findall(line.why):
         if name in _KNOWN:
             return "mislukt", _KNOWN[name].code, _KNOWN[name].passes
+    download = _DOWNLOAD.search(line.why)
+    if download:  # the next run asks for it again
+        return (
+            "mislukt",
+            "download " + download.group(1).lower().replace(" ", "-"),
+            True,
+        )
     code = _EXIT_CODE.fullmatch(line.why)
     if code:
         return "mislukt", f"exit-{code.group(1)}", False

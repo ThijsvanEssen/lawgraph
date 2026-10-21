@@ -9,7 +9,7 @@ from typing import Any, cast
 import pytest
 import requests
 
-from lawgraph.clients.base import ATTEMPTS, UnexpectedAnswer
+from lawgraph.clients.base import ATTEMPTS, Unexpected, UnexpectedAnswer
 from lawgraph.clients.verdragenbank import VerdragenbankClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -216,7 +216,7 @@ def test_the_retrieve_keeps_the_summary_and_the_item_xml_of_each_treaty() -> Non
 
 def test_a_404_is_remembered_and_a_page_that_is_no_xml_is_not_kept() -> None:
     records, _ = _retrieve(
-        {"000009": http_error(404), "000026": UnexpectedAnswer("not XML")}
+        {"000009": http_error(404), "000026": UnexpectedAnswer(Unexpected.NOT_XML)}
     )
 
     items = [r for r in records if r.kind != RAW_KIND_VERDRAGENBANK_JSON]

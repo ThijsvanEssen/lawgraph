@@ -80,7 +80,7 @@ def test_staatscourant_stores_each_publication_as_it_is_downloaded() -> None:
     assert external_ids(store) == ["stcrt-2020-1", "stcrt-2020-2", "stcrt-2020-4"]
     assert result.created == 3
     assert result.errors == [
-        "1 x download failed (ConnectionError) (first: stcrt-2020-3)"
+        "1 x download failed (geen verbinding) (first: stcrt-2020-3)"
     ]
 
 

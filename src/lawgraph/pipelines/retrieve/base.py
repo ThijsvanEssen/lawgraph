@@ -51,6 +51,8 @@ class SourceDown(RuntimeError):
 # What a download fails with when the source is at fault: a request that failed, or an answer
 # that is not what was asked for. Any other exception is a bug and ends the step.
 DOWNLOAD_FAILURES = (requests.RequestException, UnexpectedAnswer)
+# The reason a failed download is counted by: ``download failed (<failure_reason>)``.
+DOWNLOAD_FAILED = "download failed"
 
 # 4xx answers that are about us and not about the document: not allowed (a ban answers 403
 # to everything) or too many requests.
@@ -107,7 +109,7 @@ class FailureStreak:
         if self.count >= self.limit:
             raise SourceDown(
                 f"{self.source}: {self.limit} requests in a row failed (last: {what}: "
-                f"{exc}); the source seems to be down."
+                f"{failure_reason(exc)}); the source seems to be down."
             ) from exc
 
 
@@ -160,11 +162,30 @@ def status_of(exc: Exception) -> int | None:
     return getattr(response, "status_code", None) if response is not None else None
 
 
+# The cause of a request that got no answer, in fixed words; the first class that fits.
+# ``ConnectTimeout`` is a ``ConnectionError`` too: the time-out comes first.
+_NO_ANSWER: tuple[tuple[type[requests.RequestException], str], ...] = (
+    (requests.Timeout, "time-out"),
+    (requests.ConnectionError, "geen verbinding"),
+    (requests.TooManyRedirects, "te veel redirects"),
+    (requests.exceptions.ChunkedEncodingError, "afgebroken antwoord"),
+    (requests.exceptions.ContentDecodingError, "afgebroken antwoord"),
+    (requests.RequestException, "verzoek mislukt"),
+)
+
+
 def failure_reason(exc: Exception) -> str:
-    """The cause of a failed request without the record it was for: ``HTTP 503``, ``Timeout``."""
-    response = getattr(exc, "response", None)
-    if response is not None and getattr(response, "status_code", None):
-        return f"HTTP {response.status_code}"
+    """The cause of a failed download in fixed words, without the URL or the record it was
+    for: ``HTTP 503``, ``time-out``, ``geen PDF`` (``Unexpected``). The run log counts by
+    it and the alert names it (``download <cause>``)."""
+    status = status_of(exc)
+    if status:
+        return f"HTTP {status}"
+    if isinstance(exc, UnexpectedAnswer):
+        return str(exc.reason)
+    for kind, reason in _NO_ANSWER:
+        if isinstance(exc, kind):
+            return reason
     return type(exc).__name__
 
 
@@ -370,7 +391,7 @@ class RetrievePipelineBase(PipelineBase):
                 yield missing(one, status_of(got) or 200)
             elif isinstance(got, DOWNLOAD_FAILURES):
                 count = self.progress.skip if failed_is_skipped else self.progress.fail
-                count(f"download failed ({failure_reason(got)})", one)
+                count(f"{DOWNLOAD_FAILED} ({failure_reason(got)})", one)
                 streak.failed(one, got)
             else:
                 raise got

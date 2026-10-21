@@ -84,6 +84,19 @@ def _record(*lines: tuple[str, str, str]) -> str:
             "db-weigert [actie]",
         ),
         (
+            # a failed download names its cause, not the exception or the URL
+            ["daily"],
+            _record(
+                (
+                    "failed",
+                    "lawgraph retrieve all --since 1d",
+                    "retrieve tk-content failed: 3 x download failed (geen PDF) "
+                    "(first: kst-36867-3)",
+                )
+            ),
+            "Dag retrieve tk-content: mislukt, download geen-pdf [herhaalt]",
+        ),
+        (
             ["daily"],
             _record(("failed", "lawgraph sitemaps", "exit code 137")),
             "Dag sitemaps: mislukt, exit-137 [actie]",

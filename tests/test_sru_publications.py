@@ -98,7 +98,7 @@ MAINTENANCE_PAGE = (
 @pytest.mark.parametrize("kind", [AMVB, MINISTERIAL_REGULATION])
 def test_a_page_that_is_no_sru_response_raises_instead_of_an_empty_result(kind) -> None:
     client = _client(kind, MAINTENANCE_PAGE)
-    with pytest.raises(RuntimeError, match="not an SRU response.*<html>"):
+    with pytest.raises(RuntimeError, match="geen SRU-antwoord.*<html>"):
         client.search()
 
 

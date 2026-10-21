@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import time
 import xml.etree.ElementTree as ET
+from enum import StrEnum
 from typing import Any, TypedDict, Unpack
 
 import requests
@@ -16,10 +17,30 @@ logger = get_logger(__name__)
 RETRY_STATUSES = (429, 502, 503, 504)
 
 
+class Unexpected(StrEnum):
+    """What an answer was instead of what was asked for, in fixed words: the cause the run
+    log and the alert give, without the URL or the record."""
+
+    EMPTY_XML = "lege XML"
+    NOT_XML = "geen XML"
+    HTML_PAGE = "HTML-pagina"
+    NOT_SRU = "geen SRU-antwoord"
+    SRU_ERROR = "SRU-fout"
+    TOO_MANY = "te veel resultaten"
+    BAD_ID = "ongeldig id"
+    NOT_PDF = "geen PDF"
+    NOT_DOCX = "geen DOCX"
+
+
 class UnexpectedAnswer(RuntimeError):
     """The source answered, but not with what was asked for: an SRU diagnostic, a
     maintenance page with HTTP 200, a document that is not XML; or it named a document by an
-    identifier that cannot be asked for."""
+    identifier that cannot be asked for. *reason* is the cause in fixed words, *detail* the
+    rest for the log (the URL, the parser's message)."""
+
+    def __init__(self, reason: Unexpected, detail: str = "") -> None:
+        super().__init__(f"{reason}: {detail}" if detail else str(reason))
+        self.reason = reason
 
 
 _XML_ENCODING = re.compile(rb"""<\?xml[^>]*encoding=["']([A-Za-z0-9._-]+)""")
@@ -52,12 +73,14 @@ def xml_text(resp: requests.Response) -> str:
     would stand for the document until it changes at the source.
     """
     text = response_text(resp)
+    if not text.strip("\ufeff \t\r\n"):
+        raise UnexpectedAnswer(Unexpected.EMPTY_XML, resp.url)
     try:
         root = ET.fromstring(text.lstrip("\ufeff"))
     except ET.ParseError as exc:
-        raise UnexpectedAnswer(f"not XML ({exc}): {resp.url}") from exc
+        raise UnexpectedAnswer(Unexpected.NOT_XML, f"{exc}: {resp.url}") from exc
     if local_name(root.tag) == "html":
-        raise UnexpectedAnswer(f"an HTML page: {resp.url}")
+        raise UnexpectedAnswer(Unexpected.HTML_PAGE, resp.url)
     return text
 
 
