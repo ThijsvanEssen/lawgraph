@@ -2429,7 +2429,7 @@
           "nodes"
         ],
         "summary": "BFS neighborhood around a node",
-        "description": "Returns every node and edge within `depth` hops of the focal node in a single traversal query. `relations` and `status` restrict the edges the traversal follows, `direction` restricts it to edges leaving (`outbound`) or reaching (`inbound`) each node on the way, and `node_types` to paths through nodes of those types (the focal node is always included).",
+        "description": "Returns every node and edge within `depth` hops of the focal node in a single traversal query. `relations` and `status` restrict the edges the traversal follows, `direction` restricts it to edges leaving (`outbound`) or reaching (`inbound`) each node on the way, and `node_types` to paths through nodes of those types (the focal node is always included). `stop_at` names collections the walk reaches but does not go through (but from the focal node, and from a member to the faction and the cabinet it sits in, `MEMBER_OF` and `SERVED_IN`), so the cap goes to what the node itself touches: `stop_at=members,factions,committees,cabinets` keeps the papers of a paper's dossier, not those its signers signed elsewhere.",
         "operationId": "get_node_neighborhood_route_api_nodes__collection___key__neighborhood_get",
         "parameters": [
           {
@@ -2507,6 +2507,24 @@
               "title": "Edge Meta"
             },
             "description": "`passages`: an edge that keeps where a judgment cites (its `meta.mentions`) has its passages (`paragraph_id`, `paragraph_number`, `footnote`, `snippet`, `text`, `start`, `end`: `snippet[start:end]` is `text`), the first place in each of its first three paragraphs; `light` (the default) none."
+          },
+          {
+            "name": "stop_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated collections the walk reaches but does not go through (`members,factions,committees,cabinets`).",
+              "title": "Stop At"
+            },
+            "description": "Comma-separated collections the walk reaches but does not go through (`members,factions,committees,cabinets`)."
           },
           {
             "name": "relations",

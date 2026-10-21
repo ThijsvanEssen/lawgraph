@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
     as_relation,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Direction, NodeType
+from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES, without_unknown_relations
 from lawgraph.db import GraphStore, version_cache
@@ -452,7 +452,12 @@ def get_node_graph(
         "the traversal follows, `direction` restricts it to edges leaving "
         "(`outbound`) or reaching (`inbound`) each node on the way, and "
         "`node_types` to paths through nodes of those types (the focal node is "
-        "always included)."
+        "always included). `stop_at` names collections the walk reaches but does "
+        "not go through (but from the focal node, and from a member to the faction "
+        "and the cabinet it sits in, `MEMBER_OF` and `SERVED_IN`), so the cap goes "
+        "to what the node itself touches: `stop_at=members,factions,committees,"
+        "cabinets` keeps the papers of a paper's dossier, not those its signers "
+        "signed elsewhere."
     ),
     tags=["nodes"],
 )
@@ -483,7 +488,15 @@ def get_node_neighborhood_route(
         ),
     ] = "full",
     edge_meta: EdgeMeta = "light",
+    stop_at: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated collections the walk reaches but does not go "
+            "through (`members,factions,committees,cabinets`)."
+        ),
+    ] = None,
 ) -> NodeNeighborhoodResponse:
+    stops = parse_choices(stop_at, TYPE_OF_COLLECTION, "stop_at")
     if depth > 1 and cap > NEIGHBORHOOD_CAP:
         raise Invalid(
             "cap",
@@ -500,6 +513,7 @@ def get_node_neighborhood_route(
             filters=filters,
             canvas=props == "canvas",
             passages=edge_meta == "passages",
+            stop_at=stops,
         )
     except UnsupportedCollectionError as err:
         raise Invalid("collection", str(err)) from err

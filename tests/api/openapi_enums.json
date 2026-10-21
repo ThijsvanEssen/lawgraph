@@ -1805,7 +1805,7 @@
   "light",
   "passages"
  ],
- "/paths//api/nodes/{collection}/{key}/neighborhood/get/parameters/8/schema/anyOf/0": [
+ "/paths//api/nodes/{collection}/{key}/neighborhood/get/parameters/9/schema/anyOf/0": [
   "outbound",
   "inbound"
  ],

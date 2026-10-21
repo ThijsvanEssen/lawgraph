@@ -401,7 +401,11 @@ not exist is 422. On the node route they narrow the edges, so totals count what
 remains. On `.../neighborhood` they shape the walk: it follows only edges of those relations
 and status, only in that direction (at every hop), and only through nodes of those types (the
 focal node is always kept); the edges returned between the kept nodes are those of the
-relations and status.
+relations and status. `.../neighborhood` also takes `stop_at`, comma-separated collections
+the walk reaches but does not go through: from such a node (but the focal one) it takes only
+the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in. With
+`stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
+touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
 
 ## Rendered pages
 

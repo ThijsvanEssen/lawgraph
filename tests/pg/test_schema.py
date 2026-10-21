@@ -312,7 +312,7 @@ def test_the_schema_works_without_a_search_path(conn: psycopg.Connection) -> Non
         'public.lg_faction_names(\'{"name": "A", "aliases": ["C"]}\')': "a  c",
         "public.lg_same('{\"a\": [1, null]}', '{\"a\": [1]}')": True,
         "public.lg_walk('dossiers/1', 1, 10, NULL, NULL, true, true, NULL,"
-        " ARRAY['dossiers'])": [],
+        " ARRAY['dossiers'], NULL, NULL)": [],
     }
     for call, expected in calls.items():
         assert _one(conn, f"SELECT {call}") == expected, call
