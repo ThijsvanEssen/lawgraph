@@ -162,6 +162,7 @@
   "lg_text_array",
   "lg_tokens",
   "lg_tokens_all",
+  "lg_transposition_outcome",
   "lg_truthy",
   "lg_unset",
   "lg_update",
