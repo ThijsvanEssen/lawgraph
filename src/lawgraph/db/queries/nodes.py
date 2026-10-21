@@ -112,7 +112,10 @@ class NeighborFilter:
             if self.collections is not None
             else ""
         )
-        return f"e.{own} = %(node_id)s {self.edge_sql('e')} {collections}"
+        return (
+            f"e.{own} = %(node_id)s {self.edge_sql('e')} {collections}"
+            f" {_not_an_outcome(direction, 'e')}"
+        )
 
     def edge_params(self) -> dict[str, Any]:
         params: dict[str, Any] = {}
@@ -124,6 +127,16 @@ class NeighborFilter:
 
 
 NO_FILTER = NeighborFilter()
+
+
+def _not_an_outcome(direction: Direction, edge: str) -> str:
+    """Of the edges that reach a node (``inbound``), the condition that leaves out those
+    that tell what became of an old article no new article takes the place of
+    (``lg_transposition_outcome``, db/schema.py): read from the old article, never a
+    neighbour of the new law, as ``lg_walk`` never walks them back."""
+    if direction != "inbound":
+        return ""
+    return f"AND NOT lg_transposition_outcome({edge}.relation, {edge}.to_id)"
 
 
 def nodes_of_ids_sql(ids: str) -> str:
@@ -664,6 +677,7 @@ FROM (
     UNION
     SELECT e.from_id FROM edges e
     WHERE %(inbound)s AND e.to_id = %(focal)s {filters.edge_sql("e")}
+      {_not_an_outcome("inbound", "e")}
 ) x
 LEFT JOIN unnest(%(kept)s::text[]) AS k(id) ON k.id = x.id
 WHERE x.id <> %(focal)s
