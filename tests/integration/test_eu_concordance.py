@@ -8,6 +8,7 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   CELEX number of the new act; a run placed in a run as long pairs them one by one.
 - An article the table names that the old act does not have (one inserted later: "Artikel 9
   bis"), and an article of the repealed act without a row, is a gap in the report.
+- An old article the table places nowhere ("—") is not taken over: an edge to the new act.
 - An old act the graph does not hold places nothing and says which retrieve fetches it;
   ``retrieve eurlex --mode gaps`` (and ``lawgraph gaps``) lists it.
 """
@@ -159,7 +160,11 @@ def _id(celex: str, number: str) -> str:
 
 
 def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -> None:
-    edges = _transposed(store)
+    edges = {
+        pair: meta
+        for pair, meta in _transposed(store).items()
+        if pair[1].startswith("articles/")
+    }
     pairs = {
         (old, new)
         for old, new in [
@@ -206,6 +211,21 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
     }
 
 
+def test_what_the_table_answers_is_an_edge_to_the_new_act(store: GraphStore) -> None:
+    answers = {
+        (o, n): meta
+        for (o, n), meta in _transposed(store).items()
+        if n.startswith("instruments/")
+    }
+    assert answers
+    assert {meta["outcome"] for meta in answers.values()} == {"niet_overgenomen"}
+    assert {
+        (part["to"], part["outcome"])
+        for meta in answers.values()
+        for part in meta["parts"]
+    } == {("—", "niet_overgenomen")}
+
+
 def test_the_api_links_the_source_on_eur_lex(api: Api) -> None:
     old = api.get_json(f"/api/articles/{OLD_TRADE_MARK}/10")
     (successor,) = old["successors"]
@@ -229,8 +249,9 @@ def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
     assert "rij 6: art. 9 bis: Artikel 10 [the old law has no such article]" in out
     # the old act is repealed: an article of it without a row is a gap
     assert "art. 15 [no row]" in out
-    # an old part the table places nowhere
-    assert "art. 2: — [placed in no article]" in out
+    # an old part the table places nowhere ("—"): no gap, what the table answers
+    assert "art. 2: —" not in out
+    assert "What the tables say instead of a place (no gap): niet_overgenomen" in out
     # an old act the graph does not hold
     assert (
         f"{CODE} BIJLAGE XIII CONCORDANTIETABEL, Richtlijn 2002/19/EG: places nothing: "
