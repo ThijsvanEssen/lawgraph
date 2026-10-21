@@ -22984,7 +22984,7 @@
             },
             "type": "array",
             "title": "Dossiers",
-            "description": "Per kind (in the order of a day) and first dossier of an event, most first within a kind."
+            "description": "Per kind (in the order of a day) and dossier of an event (as its item has it), most first within a kind."
           },
           "votes": {
             "items": {
@@ -23479,7 +23479,7 @@
                 "type": "null"
               }
             ],
-            "description": "Its first dossier; null for an event without one."
+            "description": "Its first dossier, under ``dossier`` the first of that filter; null for an event without one."
           },
           "persons": {
             "items": {
