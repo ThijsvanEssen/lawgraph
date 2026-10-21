@@ -1357,6 +1357,7 @@ plenary block or `ek_<yyyymmdd>_<committees>` of a committee meeting.
 |------|------|---------|
 | `external_id` | `str` | The id of its `Activiteit` record. |
 | `date` | `str` | Its date. |
+| `precision` | `str` | `Activiteit.DatumSoort`, how precise `date` is: `Dag`, `Weeknummer` (planned for the week of that Monday), `Meerdaags` (its first day); none of the Eerste Kamer. |
 | `agenda_title` | `str` | Its `Onderwerp`; of the Eerste Kamer the block's title, or the committees. |
 | `kind` | `str` | Its kind (a debate, a hearing); of the Eerste Kamer `plenaire vergadering` or the kind of a meeting as its agenda gives it. |
 | `status` | `str` | `Activiteit.Status` as the Kamer writes it: `Gepland`, `Uitgevoerd`, `Geannuleerd`, `Verplaatst`, `Vervallen`; none of the Eerste Kamer. |

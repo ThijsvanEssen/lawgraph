@@ -476,6 +476,11 @@ def _tk_dossiers_add_args(parser: argparse.ArgumentParser) -> None:
         help="Only every stored Fractie record, normalized again into its faction "
         "(its aliases and abbreviation from the names its vote rows give it).",
     )
+    parser.add_argument(
+        "--activities",
+        action="store_true",
+        help="Only every stored Activiteit record, normalized again into its activity.",
+    )
 
 
 _TK_DOSSIERS_OPTIONS = Options(
@@ -487,6 +492,7 @@ _TK_DOSSIERS_OPTIONS = Options(
         "seats": args.seats,
         "factions": args.factions,
         "committees": args.committees,
+        "activities": args.activities,
     },
 )
 

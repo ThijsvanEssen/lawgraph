@@ -30,12 +30,14 @@ PLENARY_ACTIVITY_PAGE = (
     + "/debat_en_vergadering/plenaire_vergaderingen/details/activiteit?id={number}"
 )
 
+# Activiteit.Soort, lowercased, of the votes of the Kamer in the plenary hall.
+VOTES_KIND = "stemmingen"
 # Activiteit.Soort, lowercased, of what happens in the plenary hall: "Plenair debat
 # (wetgeving)", "Plenair debat (tweeminutendebat)", ... and the sittings of the Kamer itself.
 # Every activity has a Voortouwcommissie, also a plenary one, so the kind is what tells.
-_PLENARY_KINDS = (
+PLENARY_KINDS = (
     "plenair debat",
-    "stemmingen",
+    VOTES_KIND,
     "hamerstukken",
     "regeling van werkzaamheden",
     "vragenuur",
@@ -51,7 +53,7 @@ def activity_page(number: str | None, kind: str | None) -> str | None:
     """The page of a Tweede Kamer activity, or None without an activity number."""
     if not number:
         return None
-    plenary = (kind or "").strip().lower().startswith(_PLENARY_KINDS)
+    plenary = (kind or "").strip().lower().startswith(PLENARY_KINDS)
     template = PLENARY_ACTIVITY_PAGE if plenary else COMMITTEE_ACTIVITY_PAGE
     return template.format(number=number)
 

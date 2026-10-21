@@ -24,6 +24,7 @@ from lawgraph.api.params import (
     parse_choices,
 )
 from lawgraph.api.schemas.feed import (
+    ChamberScheduleDTO,
     FeedFacetsDTO,
     FeedItemDTO,
     FeedPeriodDTO,
@@ -60,6 +61,7 @@ from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.stats import cached_data_as_of
@@ -552,7 +554,15 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         "under the filters of ``GET /api/feed``: per day the events per kind, per dossier "
         "and, of the votes, per subkind and outcome; and the events a timeline shows one by "
         "one, as feed items in the order of the feed: bills submitted, votes on a bill, "
-        "votes decided by at most ``margin`` seats, commitments and commencements."
+        "votes decided by at most ``margin`` seats, commitments and commencements; and "
+        "``chamber_schedule``: when the Tweede Kamer last met and voted in the plenary "
+        "hall and when it meets and votes next (``last_sitting``, ``last_votes``, "
+        "``next_sitting``, ``next_votes``), as of today, from its activities "
+        "(``Activiteit``): the latest held (``Uitgevoerd``) and the first planned "
+        "(``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week "
+        "the one planned for a day before one planned for the week (``precision`` "
+        "``Weeknummer``, dated on its Monday); each null when there is none. The Kamer "
+        "publishes no recess as data: no sitting planned for days is what tells."
     ),
     tags=["feed"],
 )
@@ -593,6 +603,9 @@ def get_feed_summary_route(
         raw, since=first, until=last, margin=margin, limit=limit
     )
     summary.data_as_of = _data_as_of(store)
+    summary.chamber_schedule = ChamberScheduleDTO.from_raw(
+        get_chamber_schedule(store, dutch_today().isoformat())
+    )
     return summary
 
 
