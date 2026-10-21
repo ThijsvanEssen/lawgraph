@@ -191,7 +191,7 @@ def concordance_gaps(store: Store) -> list[str]:
     return [celex for celex in named if celex not in held | stored]
 
 
-def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
+def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:
     """The Tweede Kamer documents whose XML was not retrieved; with *kinds*, only those whose
     kind contains one of them.
 
@@ -215,10 +215,7 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
         RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX,
         retry_ahead=True,
     )
-    return Gaps.capped(
-        [p for p in documents if p["identifier"] not in stored | waiting],
-        "Kamerstukken without XML",
-    )
+    return [p for p in documents if p["identifier"] not in stored | waiting]
 
 
 def _with_raw_record(
