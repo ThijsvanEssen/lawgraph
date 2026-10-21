@@ -39,25 +39,31 @@ stands in the next column not taken by a cell above it (``morerows``).
 
 Each cell holds one or more references as the source writes them (``8.2.26, vierde lid``,
 ``2.1 en 2.2``, ``5.8 t/m 5.14``, ``2.31, eerste lid, onder a``, ``art. 1.1, lid 1``), apart
-by a comma, ``en``, a semicolon or a paragraph of their own; in the new law's cell also a
-division (``afdeling 15.2``, ``bijlage A``), a place that is no article. A cell of the new law
-that does not read as such is a place that is no article when it has no figure (``–``,
-``niet overgenomen``), and does not read otherwise (``5.33 jo. 16.15``, ``Komt terug in
-13.1``). A cell of the new law in parts (``Eerste lid: 3.1 Tweede lid: 3.2``, ``Onder a: 1.1
-Onder b-d: 6.1``) places each part of the old article on its own. A row whose old cell names
-only a part (``onder a``, ``Tweede lid``, ``Lid 1``) continues the reference above it, and its
-new cell, when it names only a part too, the new reference above; in a table of a proposed
-law also when the row above has no place (``Artikel 1 |`` over ``Lid 1 | 1.1, lid 1``). A
-cell over more rows (``morerows``) holds for each. An old cell that is no reference (``§
-2.3``) is a row of an article the old law does not have. Nothing is corrected:
-``core.succession`` checks every row against the text of the laws.
+by a comma, ``en``, a semicolon, a paragraph of their own or a word that joins them (``16.50
+in samenhang met 16.40``, ``5.33 jo. 16.15``, ``3.89 i.c.m. 3.10``, ``5.1 resp. 5.3``); in
+the new law's cell also a division (``afdeling 15.2``, ``bijlage A``), a place that is no
+article. A law named after the last reference of a cell of the new law is the law of that one
+(``12 en 47b WEC``, ``afdeling 3.5 Awb``, ``16.52, eerste lid, Omgevingswet``: ``Place.law``);
+a cell in prose gives the references after ``komt/keert … terug in`` (``Komt inhoudelijk
+gewijzigd terug in artikel 10.23.``). A cell of the new law that does not read as such is a
+place that is no article when it has no figure (``–``, ``niet overgenomen``), and does not
+read otherwise (``2.21,eerste lid, onder b, … 16.89. 20.7``). A cell of the new law in parts
+(``Eerste lid: 3.1 Tweede lid: 3.2``, ``Onder a: 1.1 Onder b-d: 6.1``) places each part of the
+old article on its own. A row whose old cell names only a part (``onder a``, ``Tweede lid``,
+``Lid 1``) continues the reference above it, and its new cell, when it names only a part too,
+the new reference above; in a table of a proposed law also when the row above has no place
+(``Artikel 1 |`` over ``Lid 1 | 1.1, lid 1``). A cell over more rows (``morerows``) holds for
+each. An old cell that is no reference (``§ 2.3``) is a row of that text: ``core.succession``
+reads it as the articles of that division of the old law, else as an article the old law does
+not have. Nothing is corrected: ``core.succession`` checks every row against the text of the
+laws.
 """
 
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from lawgraph.core.qualifiers import ORDINAL, parse_qualifier
 from lawgraph.core.succession import Place, SourceRow
@@ -128,7 +134,33 @@ _REFERENCE = re.compile(
 # A cell that names only a part ("onder a", "Tweede lid"): of the reference above it.
 _PART_ONLY = re.compile(rf"\s*,?\s*{_QUALIFIER}{_QUALIFIERS}", re.IGNORECASE)
 _RUN = re.compile(rf"\s*(?:t/m|tot en met|[–-])\s*(?P<last>{_NUMBER})", re.IGNORECASE)
-_SEPARATOR = re.compile(r"\s*[,;]?\s*(?:\ben\b\s*)?", re.IGNORECASE)
+# Between two references: a comma, "en", a semicolon, or a word that joins them ("16.50 in
+# samenhang met 16.40", "5.33 jo. 16.15", "3.89 i.c.m. 3.10", "5.1 resp. 5.3").
+_SEPARATOR = re.compile(
+    r"\s*[,;]?\s*(?:(?:\ben\b|\bin\s+samenhang\s+met\b|\bjo\b\.?|\bjuncto\b"
+    r"|\bi\.c\.m\.|\bresp\.)\s*)?",
+    re.IGNORECASE,
+)
+# A cell whose references name a law at their end ("16.52, eerste lid, Omgevingswet",
+# "afdeling 3.5 Awb", "5.20, derde lid, Awb (nieuw)", "16.75 (Aanvullingswet grondeigendom
+# Omgevingswet)", "10.25 van de Omgevingswet"): the references and the law.
+_LAW_AT_END = re.compile(
+    r"^(?P<references>.*?\d[^\s,]*(?:,\s*[^,]*?)*?)\s*,?\s+(?:van\s+(?:de|het)\s+)?"
+    r"\(?(?P<law>[^\W\d][^\d,;()]*?)\)?(?:\s*\((?:nieuw)\))?\s*\.?$",
+    re.IGNORECASE,
+)
+# A word that names a part of an article, never a law.
+_PART_WORDS = re.compile(
+    rf"\b(?:lid|leden|onder(?:deel|delen)?|aanhef|(?:vol)?zin(?:nen)?|{ORDINAL})\b",
+    re.IGNORECASE,
+)
+# The words of a cell in prose before its references: "Komt inhoudelijk gewijzigd terug in
+# artikel 10.23.", "Komt terug in de Omgevingswet, in artikel 10.1".
+_PROSE = re.compile(
+    r"^(?:komt|keert)\b[^\d]*?\bterug\s+in\s+(?:(?:de|het)\s+[^,\d]+,\s*in\s+)?"
+    r"(?:de\s+)?",
+    re.IGNORECASE,
+)
 # A division of a law, or a list of them: "afdeling 15.2", "afdelingen 16.3, 16.8 en 23.1",
 # "§ 2.5.1", "bijlage A bij 1.1", "hoofdstuk 13 en 15": a place that is no article.
 _DIVISIONS = re.compile(
@@ -227,7 +259,35 @@ def places(text: str) -> list[Place]:
         return [_place(r) for r in found]
     if not text:
         return []
+    prose = _PROSE.sub("", text).rstrip(".")
+    if prose != text and (found := references(prose, divisions=True)):
+        return [_place(r) for r in found]
+    for cell in dict.fromkeys((text, prose)):
+        if read := _with_law(cell):
+            return read
     return [Place(text, None, (), readable=not re.search(r"\d", text))]
+
+
+def _with_law(text: str) -> list[Place] | None:
+    """The places of a cell whose last reference names a law at its end ("12 en 47b WEC":
+    12 of the new law, 47b of the WEC), that one of the law (``Place.law`` as written, its
+    text with the law after it); None for any other cell. A cell of only a part ("Tweede
+    lid") names no law."""
+    match = _LAW_AT_END.fullmatch(text)
+    if match is None or not _is_law(match["law"]):
+        return None
+    found = references(match["references"].rstrip(" ,"), divisions=True)
+    if found is None:
+        return None
+    law = match["law"].strip()
+    *first, last = [_place(r) for r in found]
+    return [*first, replace(last, text=f"{last.text} {law}", law=law)]
+
+
+def _is_law(text: str) -> bool:
+    """Whether *text* can be the name of a law: it starts with a capital ("Awb", "Wet op de
+    expertisecentra") and names no part of an article ("eerste lid", "onder a")."""
+    return text[:1].isupper() and not _PART_WORDS.search(text)
 
 
 def _place(reference: Reference) -> Place:

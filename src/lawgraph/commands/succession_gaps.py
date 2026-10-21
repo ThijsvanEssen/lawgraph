@@ -8,9 +8,12 @@ the tables between them
 - the rows of each table that do not hold: a place that does not read, an article the old
   law does not have, an article or lid the new law does not have;
 - the articles of the old law in force without a place in an article of the new law in any
-  of the tables: no row for it, a row that places it in no article ("vervallen", "Besluit
-  B2", "—"), or rows none of which hold; "no row" only of an old law that goes (expired in the
-  BWB, recodified under its own name, or repealed by the EU act of the table).
+  of the tables: no row for it, a row that places it in no article ("Besluit B2") or in a
+  division of the new law only ("B6H3": the graph has no node of a division), or rows none
+  of which hold; "no row" only of an old law that goes (as ``semantic
+  tk-transposition-tables`` reads it) and that no table to another new law has a row for;
+- what the tables say instead of a place ("vervallen", "niet overgenomen", "–", "Blijft in
+  Wm"): no gap, counted per outcome.
 
 Nothing is filled in: these are what is left to decide. Each line names where in its table
 it is (the page of a PDF, the row of a table in XML), so it can be looked up. A table that
@@ -20,8 +23,10 @@ the end, no gap.
 
 from __future__ import annotations
 
+from collections import Counter
+
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.succession import ROW_GAPS, Gap
+from lawgraph.core.succession import GAP, ROW_GAPS, Gap
 from lawgraph.db import GraphStore
 from lawgraph.pipelines.command import command_parser, docstring_title
 from lawgraph.pipelines.semantic._transposition_tables import (
@@ -35,8 +40,11 @@ LABELS = {
     "no_old_article": "the old law has no such article",
     "no_new_article": "the new law has no such article",
     "no_lid": "the article of the new law has no such lid",
+    "no_law": "no such law in the graph",
+    "no_division": "the new law has no such division",
     "no_row": "no row",
     "no_article": "placed in no article",
+    "in_division": "placed in a division only",
     "not_placed": "no row of it holds",
 }
 
@@ -80,7 +88,11 @@ def report(succession: Succession) -> list[str]:
         f"{succession.old_law} -> {succession.new_law}",
         f"  {len({old for old, _ in placed.pairs})} articles placed in "
         f"{len({new for _, new in placed.pairs})} articles, {len(placed.gaps)} gaps"
-        + ("" if succession.replaced else " (the old law stays: no row is no gap)"),
+        + (
+            ""
+            if succession.replaced
+            else " (the old law is not replaced: no row is no gap)"
+        ),
     ]
     for table in succession.tables:
         rows = [
@@ -92,6 +104,17 @@ def report(succession: Succession) -> list[str]:
         lines += [f"    {_line(g)}" for g in rows]
     lines.append(f"  Articles of the old law without a place ({len(articles)})")
     lines += [f"    {_line(g, source=len(succession.tables) > 1)}" for g in articles]
+    said = Counter(
+        part["outcome"]
+        for unplaced in placed.unplaced.values()
+        for part in unplaced.parts
+        if part["outcome"] != GAP
+    )
+    if said:
+        lines.append(
+            "  What the tables say instead of a place (no gap): "
+            + ", ".join(f"{outcome} {count}" for outcome, count in sorted(said.items()))
+        )
     return [*lines, ""]
 
 

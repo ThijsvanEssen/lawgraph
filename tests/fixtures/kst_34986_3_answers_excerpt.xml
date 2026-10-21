@@ -1,0 +1,169 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-34986-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>34 986</dossiernr>
+      </dossiernummer>
+      <titel>Aanvulling en wijziging van de Omgevingswet, intrekking van enkele wetten over de fysieke leefomgeving, wijziging van andere wetten en regeling van overgangsrecht voor de invoering van de Omgevingswet (Invoeringswet Omgevingswet)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <bijlage status="goed">
+          <kop kopopmaak="vet">
+            <label>BIJLAGE</label>
+            <nr status="officieel">2</nr>
+            <titel>TRANSPONERINGSTABELLEN</titel>
+          </kop>
+          <table tabstyle="xml2" frame="all" pgwide="2" rowsep="0" colsep="0">
+            <title>h. Transponeringstabel Waterwet</title>
+            <tgroup tgroupstyle="xml2" cols="4" colsep="1" rowsep="1" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="1*" />
+              <colspec colnum="2" colname="col2" colwidth="1*" />
+              <colspec colnum="3" colname="col3" colwidth="1*" />
+              <colspec colnum="4" colname="col4" colwidth="1*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Onderwerp / Hoofdstuk</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel</nadruk>
+                    </al>
+                    <al>
+                      <nadruk type="halfvet">Wtw</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel</nadruk>
+                    </al>
+                    <al>
+                      <nadruk type="halfvet">Omgevingswet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Toelichting</nadruk>
+                    </al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>Deltacommissaris</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>3.6a t/m 3.6e</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>Blijft in Waterwet</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>–</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                    <al>Toezicht Minister Infrastructuur en Waterstaat op kosten hoogwaterbescherming</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                    <al>3.14</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>–</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+          <table tabstyle="xml2" frame="all" pgwide="2" rowsep="0" colsep="0">
+            <title>l. Transponeringstabel Wet milieubeheer</title>
+            <tgroup tgroupstyle="xml2" cols="4" colsep="1" rowsep="1" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="1*" />
+              <colspec colnum="2" colname="col3" colwidth="1*" />
+              <colspec colnum="3" colname="col4" colwidth="1*" />
+              <colspec colnum="4" colname="col5" colwidth="1*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="1" valign="top" align="left" rowsep="1" colname="col1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Onderwerp / Hoofdstuk</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel Wm</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Artikel Omgevingswet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col5" rowsep="1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="halfvet">Toelichting</nadruk>
+                    </al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="1">
+                  <entry valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>Zorgplicht</al>
+                  </entry>
+                  <entry valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>artikel 1.1a</al>
+                  </entry>
+                  <entry valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>afdeling 1.3</al>
+                  </entry>
+                  <entry valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>Vervalt.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" rowsep="1" colname="col1" morerows="0" rotate="0">
+                    <al>De provinciale milieuverordening</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>§ 1.2</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>2.6, 2.18, 2.22, 2.23, 2.32 en § 16.3.5</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col5" rowsep="1" morerows="0" rotate="0">
+                    <al>Vervalt. De provinciale milieuverordening integreert in de omgevingsverordening. In de omgevingsverordening moeten regels worden opgenomen ter bescherming van de kwaliteit van het grondwater en ter voorkoming of beperking van geluidshinder. Deze verplichting vloeit voort uit het Besluit kwaliteit leefomgeving. Afdeling 4.1 voorziet in overgangsrecht voor ontheffingen van regels in een provinciale milieuverordening die voor de inwerkingtreding van de Omgevingswet zijn aangevraagd. Daarnaast voorziet artikel 4.13, eerste lid, in overgangsrecht voor ontheffingen die op het tijdstip van inwerkingtreding van de Omgevingswet onherroepelijk zijn of na dat tijdstip onherroepelijk worden.</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="1" valign="top" align="left" rowsep="1" colname="col1" morerows="0" rotate="0">
+                    <al>De provinciale milieucommissie</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                    <al>§ 2.4</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                    <al>–</al>
+                  </entry>
+                  <entry colsep="1" valign="top" align="left" colname="col5" rowsep="1" morerows="0" rotate="0">
+                    <al>Vervalt.</al>
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+        </bijlage>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>
