@@ -163,13 +163,20 @@ class BWBSemanticPipeline(SemanticPipelineBase):
 
     @staticmethod
     def _edge_meta(hit: ArticleReferenceHit) -> dict[str, Any]:
+        """Where the reference stands (``start``/``end`` in the text; ``footnote`` instead
+        for one of a footnote, which is no span of the text), its words and its parts."""
+        place = (
+            {"start": hit.start, "end": hit.end}
+            if hit.footnote is None
+            else {"footnote": hit.footnote}
+        )
         meta: dict[str, Any] = {
-            "start": hit.start,
-            "end": hit.end,
+            **place,
             "text": hit.text,
             "reference_kind": hit.kind,
             **hit.qualifier.to_dict(),
         }
+
         if hit.reason:
             meta["reason"] = hit.reason
         return meta

@@ -58,10 +58,10 @@ def get_annex_detail(
     doc = require(get_annex(store, key), "Annex", key)
     rows = get_annex_referenced_by(store, key)
     props = doc.get("props") or {}
+    present = present_targets(store, reference_targets(props.get("references")))
     return AnnexDetailResponse(
         annex=AnnexDTO.from_document(doc),
-        references=references_from_props(
-            props, present_targets(store, reference_targets(props.get("references")))
-        ),
+        references=references_from_props(props, present),
+        footnote_references=references_from_props(props, present, footnotes=True),
         referenced_by=_referenced_by_items(rows),
     )
