@@ -1273,6 +1273,13 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_DECISIONS: (
         "CREATE INDEX IF NOT EXISTS decisions_list_date"
         " ON decisions (date DESC NULLS LAST, key)",
+        # the votes on a motion of censure or of no confidence (``motion_kind``): a few
+        # hundred of them
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS decisions_motion_kind"
+            " ON decisions (public.lg_str(props -> 'motion_kind'))"
+            " WHERE public.lg_str(props -> 'motion_kind') IS NOT NULL"
+        ),
     ),
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
     # what the judgments citing a law or an article are sorted and filtered on, from the

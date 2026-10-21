@@ -254,6 +254,13 @@ _ITEM = f"""json_build_object(
     'coalition', {coalition_object("c")}
 )"""
 
+# The decisions on a motion of the kinds asked (``%(motion_kinds)s``), by the partial index
+# ``decisions_motion_kind``.
+_OF_MOTION_KINDS = (
+    "SELECT m.id FROM decisions m"
+    " WHERE lg_str(m.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[])"
+)
+
 # The order of the list: newest first, the key settling a day.
 _ORDER = "r.date DESC NULLS LAST, r.key ASC"
 
@@ -434,6 +441,12 @@ def _page(
     }
     common = _common_filters(filters, bind)
     own = _own_filters(filters, bind)
+    if filters.motion_kinds:
+        # the few votes of the kind first, by their partial index, then each by its id: a
+        # rare kind beside the order of the list let the planner walk every decision
+        # newest first and test its props (prod: 9 s cold). The counts read every decision
+        # for the facet of the kind.
+        common.append(f"d.id = ANY(ARRAY({_OF_MOTION_KINDS}))")
     statement = f"""
     WITH r AS (
         SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind,
