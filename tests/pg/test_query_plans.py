@@ -147,6 +147,8 @@ URLS = [
     "/api/documents/d1/passages?bwb_id=BWBR0001&article=1",
     "/api/documents",
     "/api/documents?dossier=36000",
+    # the motions of censure and of no confidence: by the partial index on their light row
+    "/api/documents?motion_kind=censure,no_confidence",
     "/api/decisions?facets=false",
     "/api/decisions/b1",
     "/api/decisions/b1/document",

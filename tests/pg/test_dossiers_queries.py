@@ -1293,6 +1293,7 @@ def test_the_documents_of_a_dossier_page_newest_first_and_by_key(
         "decided_on",
         "tally",
         "decision",
+        "motion_kind",
         "labels",
     ]
     assert (a["id"], a["title"], a["sequence"], a["labels"]) == (

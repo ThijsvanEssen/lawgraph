@@ -328,6 +328,7 @@
   "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
   "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
   "CREATE INDEX IF NOT EXISTS lg_authored_member_date ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
+  "CREATE INDEX IF NOT EXISTS lg_document_light_motion_kind ON lg_document_light (lg_str(props -> 'motion_kind')) WHERE lg_str(props -> 'motion_kind') IS NOT NULL",
   "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light (lg_str(props -> 'dossier_number'), upper(coalesce(lg_str(props -> 'dossier_suffix'), '')), lg_num(props -> 'sequence'))",
   "CREATE INDEX IF NOT EXISTS lg_faction_votes_decision ON lg_faction_votes (decision_id)",
   "CREATE INDEX IF NOT EXISTS lg_faction_votes_period ON lg_faction_votes (faction_id, date DESC, decision_key ASC)",

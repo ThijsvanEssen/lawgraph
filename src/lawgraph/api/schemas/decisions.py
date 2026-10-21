@@ -18,12 +18,18 @@ from lawgraph.config.constants import Collection
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.documents import chamber_of, number_in_dossier, numbered_in
 from lawgraph.core.models import key_of
+from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.votes import VoteChoice
 
 _KIND = (
     "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), "
     "or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, "
     "``Amendement``, ``Wetgeving``, ``Begroting``, ...; null when neither tells."
+)
+_MOTION_KIND = (
+    "Of a vote on a motion of censure (motie van afkeuring) ``censure``, of no confidence "
+    "(motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says "
+    "(``core/motion_kinds.py``); null for any other vote."
 )
 _EK = (
     "Of a vote of the Eerste Kamer (``chamber`` ``EK``), as eerstekamer.nl writes it; null "
@@ -192,6 +198,7 @@ class DecisionDTO(WithKindGroup, WithPath):
         "(``Stemmen - uitstellen``).",
     )
     kind: str | None = Field(None, description=_KIND)
+    motion_kind: MotionKind | None = Field(None, description=_MOTION_KIND)
     decision_kind: str | None = Field(None, description=_DECISION_KIND)
     primary_case_kind: str | None = Field(
         None,
@@ -268,6 +275,7 @@ class DecisionDTO(WithKindGroup, WithPath):
             external_id=props.get("decision_id"),
             passed=props.get("passed"),
             kind=props.get("kind"),
+            motion_kind=props.get("motion_kind"),
             decision_kind=props.get("decision_kind"),
             primary_case_kind=props.get("primary_case_kind"),
             dossier_numbers=props.get("dossier_numbers") or [],
@@ -324,6 +332,7 @@ class DecisionSummaryDTO(WithKindGroup, WithPath):
         "``short_title``, ``title`` as ``/api/dossiers`` gives them.",
     )
     kind: str | None = Field(None, description=_KIND)
+    motion_kind: MotionKind | None = Field(None, description=_MOTION_KIND)
     primary_case_kind: str | None = Field(
         None,
         description="The ``Zaak.Soort`` of the case the vote singled out (``Motie``, "
@@ -350,6 +359,16 @@ class DecisionKindCount(StrictModel):
     not (the rest have no outcome)."""
 
     value: str | None
+    count: int
+    passed: int = 0
+    rejected: int = 0
+
+
+class DecisionMotionKindCount(StrictModel):
+    """How many of the decisions are votes on a motion of one kind, and how many of those
+    carried and did not."""
+
+    value: MotionKind
     count: int
     passed: int = 0
     rejected: int = 0
@@ -460,6 +479,11 @@ class DecisionFacets(StrictModel):
         default_factory=list,
         description="Under every filter (a topic of the Overzicht: its words, Kamer and "
         "period): per cabinet, newest first, what its coalition did on those votes.",
+    )
+    motion_kind: list[DecisionMotionKindCount] = Field(
+        default_factory=list,
+        description="Under every filter but `motion_kind`: the votes on a motion of censure "
+        "or of no confidence per kind, and how many carried and did not; most first.",
     )
 
 

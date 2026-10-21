@@ -5274,7 +5274,7 @@
           "documents"
         ],
         "summary": "The papers of the chambers",
-        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
+        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``; of a motion or an amendment how it ended (``outcome``) and of a motion of censure or of no confidence ``motion_kind``. ``motion_kind=censure,no_confidence`` keeps those motions: one open while its ``outcome`` is null. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
         "operationId": "list_chamber_documents_api_documents_get",
         "parameters": [
           {
@@ -5373,6 +5373,24 @@
               "title": "To"
             },
             "description": "On or before, YYYY-MM-DD."
+          },
+          {
+            "name": "motion_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions.",
+              "title": "Motion Kind"
+            },
+            "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions."
           },
           {
             "name": "facets",
@@ -5820,7 +5838,7 @@
           "decisions"
         ],
         "summary": "Decision browser",
-        "description": "A page of decisions — one per Besluit — newest first, optionally filtered by kind, outcome, party (and how it voted), chamber, dossier, date and subject. ``total`` is the absolute count, independent of ``limit``. ``facets`` counts the decisions under the filters: per ``kind`` (without the kind filter; with how many carried and did not), per outcome ``passed`` (without the passed filter), per day and per year (under all filters), and with ``party_votes`` how the factions asked voted on them. ``facets=false`` gives null for ``total`` and ``facets`` and counts nothing: the pages after the first need neither.\n\ndecisions with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text. The list filters on `kind` (comma-separated: the `Zaak.Soort` of the case decided as the Kamer writes it, `Motie`, `Amendement`, `Wetgeving`, `Begroting`, …; see data model (docs/data-model.md)), `passed`, `party` (the decisions its faction voted on; with `vote` `voor`/`tegen` the ones it voted that way on; a roll-call has no faction vote), `chamber` `TK`/`EK` (the votes of the Eerste Kamer: a decision per vote of its list, with `result` `Aangenomen`/`Verworpen` as it shows it, `method` as its report names it, `bill_decision` (whether it is the vote that decided the bill: the list names a vote on a motion by its bill too), `kind` (of the vote that decided the bill: the kind of its dossier, `Wetgeving`, …; null for a vote on a motion, which the list names no kind of), and in the detail `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; no votes per faction, so no `tally`), `dossier` number, `from` and `to` (the date of the vote, YYYY-MM-DD) and `q` (words of the subject, in any case, as the feed matches them: each from the start of a word, one of at most four characters as a whole word: `ai` finds AI-modellen, not AIV or universitaire; `algoritme` algoritmes, not rekenalgoritme; repeated, any of them: `q=AI&q=kunstmatige intelligentie`, each decision once). The list holds the decisions with an outcome (`passed` set), and its facets count those; `unvoted=true` also those that never came to a vote: a motion or amendment withdrawn, postponed, held or lapsed (`decision_kind` `Stemmen - ingetrokken`, `- uitstellen`, `- aangehouden`, `- vervallen`), `passed` null. Each item has `kind` and `decision_kind` (the `BesluitSoort`: `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a hamerstuk without votes, `Stemmen - uitstellen`, whose `passed` is null); `total` is the matches, independent of `limit`. `facets` counts the decisions under the filters: `kind` (`value`, `count`, how many `passed` and `rejected` (the rest have no outcome), most first; without the `kind` filter), `passed` (`value` `true`/`false`/null, `count`; without the `passed` filter), `days` (`date`, `count`, how many `passed`, oldest first) and `years` (`year`, `count`, `passed`, `rejected`, oldest first) under every filter, and `party_votes`: with `party_votes` (comma-separated faction keys, or `all` for every faction that voted on one of them; it keeps no decision out, unlike `party`), per faction by key (`party`, `name` its abbreviation) how it voted on the decisions under every filter, `voor`, `tegen` and `none` (another choice, or no vote of the faction: a roll-call vote is one of members), in all, per `kind` and per `years`; `[]` without it. They are counted on demand and kept an hour under each filter, whatever the data does; a request waits for them 3 s at most, then the page comes with `[]` and `partial` true, and a request after the count has them. The page is read first and alone (in the order of the list, as far as it goes: `decisions_list_date`); `total` and the other facets are counted per filter and kept until the decisions change (an hour at most): a request waits for them 3 s at most, then the page comes whole with `total` null, empty facets and `partial` true, and a request after the count has them (the lists the explorer opens, of both Kamers and of the Tweede Kamer, are counted in the warm-up); `facets=false` gives null for `total` and `facets` and counts nothing (not `party_votes` either), the choice for the pages after the first. An item has `display_name` (the heading of the vote, distinct per motion on one agenda item: `Motie 2024Z17945: …`); list and detail have `primary_case_kind`, `dossier_numbers` and `chamber` A vote on a motion has `dictum`, what the motion asks or says as it writes it (from `verzoekt`, `roept … op`, `spreekt uit`, `draagt … op` or `vraagt` to `en gaat over tot de orde van de dag`), in the list and the detail; null for any other vote and for a motion without text. List and detail have `motion` (`collection`, `key`, `path`), the motion or amendment the vote was taken on: the oldest paper of the case the vote singled out (`primary_case_kind` `Motie` or `Amendement`; the paper `/{key}/document` and the dictum come from), else, for a vote whose `kind` is one, the Kamerstuk it is `ABOUT` (a vote of the Eerste Kamer on a motion); null for any other vote and for a case without a paper. The detail has `primary_document` (`id`, `key`, `kind`, `title`, `number`, `dossier_number`, `date`, `path`), the Kamerstuk the vote was taken on as `/{key}/document` finds it (of the case it singled out, then of its other cases, the oldest paper; else the Kamerstuk it is `ABOUT`): the motion, the amendment or the bill; null without one. A vote of the Tweede Kamer under a cabinet carries `coalition` (on the list and the detail; `semantic tk-coalition-votes`): the `cabinet`, the seats `coalition_for`, `coalition_against`, `opposition_for`, `opposition_against` (a faction with its seats that day, a member of a roll call as one), `pattern` (`together`, `split`, `wissel`: split, and the side with the most coalition seats lost, a wisselmeerderheid), `carried` (passed with the coalition's seats alone more than half cast) and `decisive` (the opposition alone would have decided otherwise); null without a cabinet or a coalition vote and in the Eerste Kamer. `coalition=together|split|wissel|carried|decisive` filters on it, and `facets.coalition` counts each under every filter but its own; `facets.coalition_cabinets` gives per cabinet (`cabinet`, `name`, newest first) under every filter, a topic of the Overzicht being its words, Kamer and period, its `votes` and how many were `together`, `split`, `wissel`, `carried` and `decisive`",
+        "description": "A page of decisions — one per Besluit — newest first, optionally filtered by kind, outcome, party (and how it voted), chamber, dossier, date and subject. ``total`` is the absolute count, independent of ``limit``. ``facets`` counts the decisions under the filters: per ``kind`` (without the kind filter; with how many carried and did not), per outcome ``passed`` (without the passed filter), per day and per year (under all filters), and with ``party_votes`` how the factions asked voted on them. ``facets=false`` gives null for ``total`` and ``facets`` and counts nothing: the pages after the first need neither.\n\ndecisions with every vote cast — per member on a roll-call, per faction otherwise; the decided motion, amendment or bill with text. The list filters on `kind` (comma-separated: the `Zaak.Soort` of the case decided as the Kamer writes it, `Motie`, `Amendement`, `Wetgeving`, `Begroting`, …; see data model (docs/data-model.md)), `passed`, `party` (the decisions its faction voted on; with `vote` `voor`/`tegen` the ones it voted that way on; a roll-call has no faction vote), `chamber` `TK`/`EK` (the votes of the Eerste Kamer: a decision per vote of its list, with `result` `Aangenomen`/`Verworpen` as it shows it, `method` as its report names it, `bill_decision` (whether it is the vote that decided the bill: the list names a vote on a motion by its bill too), `kind` (of the vote that decided the bill: the kind of its dossier, `Wetgeving`, …; null for a vote on a motion, which the list names no kind of), and in the detail `factions_for`, `factions_against`, `factions_noted`, `bill_url`, `source_url`, `retrieved_on`; no votes per faction, so no `tally`), `dossier` number, `from` and `to` (the date of the vote, YYYY-MM-DD) and `q` (words of the subject, in any case, as the feed matches them: each from the start of a word, one of at most four characters as a whole word: `ai` finds AI-modellen, not AIV or universitaire; `algoritme` algoritmes, not rekenalgoritme; repeated, any of them: `q=AI&q=kunstmatige intelligentie`, each decision once). The list holds the decisions with an outcome (`passed` set), and its facets count those; `unvoted=true` also those that never came to a vote: a motion or amendment withdrawn, postponed, held or lapsed (`decision_kind` `Stemmen - ingetrokken`, `- uitstellen`, `- aangehouden`, `- vervallen`), `passed` null. Each item has `kind` and `decision_kind` (the `BesluitSoort`: `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a hamerstuk without votes, `Stemmen - uitstellen`, whose `passed` is null); `total` is the matches, independent of `limit`. `facets` counts the decisions under the filters: `kind` (`value`, `count`, how many `passed` and `rejected` (the rest have no outcome), most first; without the `kind` filter), `passed` (`value` `true`/`false`/null, `count`; without the `passed` filter), `days` (`date`, `count`, how many `passed`, oldest first) and `years` (`year`, `count`, `passed`, `rejected`, oldest first) under every filter, and `party_votes`: with `party_votes` (comma-separated faction keys, or `all` for every faction that voted on one of them; it keeps no decision out, unlike `party`), per faction by key (`party`, `name` its abbreviation) how it voted on the decisions under every filter, `voor`, `tegen` and `none` (another choice, or no vote of the faction: a roll-call vote is one of members), in all, per `kind` and per `years`; `[]` without it. They are counted on demand and kept an hour under each filter, whatever the data does; a request waits for them 3 s at most, then the page comes with `[]` and `partial` true, and a request after the count has them. The page is read first and alone (in the order of the list, as far as it goes: `decisions_list_date`); `total` and the other facets are counted per filter and kept until the decisions change (an hour at most): a request waits for them 3 s at most, then the page comes whole with `total` null, empty facets and `partial` true, and a request after the count has them (the lists the explorer opens, of both Kamers and of the Tweede Kamer, are counted in the warm-up); `facets=false` gives null for `total` and `facets` and counts nothing (not `party_votes` either), the choice for the pages after the first. An item has `display_name` (the heading of the vote, distinct per motion on one agenda item: `Motie 2024Z17945: …`); list and detail have `primary_case_kind`, `dossier_numbers` and `chamber` A vote on a motion has `dictum`, what the motion asks or says as it writes it (from `verzoekt`, `roept … op`, `spreekt uit`, `draagt … op` or `vraagt` to `en gaat over tot de orde van de dag`), in the list and the detail; null for any other vote and for a motion without text. List and detail have `motion` (`collection`, `key`, `path`), the motion or amendment the vote was taken on: the oldest paper of the case the vote singled out (`primary_case_kind` `Motie` or `Amendement`; the paper `/{key}/document` and the dictum come from), else, for a vote whose `kind` is one, the Kamerstuk it is `ABOUT` (a vote of the Eerste Kamer on a motion); null for any other vote and for a case without a paper. The detail has `primary_document` (`id`, `key`, `kind`, `title`, `number`, `dossier_number`, `date`, `path`), the Kamerstuk the vote was taken on as `/{key}/document` finds it (of the case it singled out, then of its other cases, the oldest paper; else the Kamerstuk it is `ABOUT`): the motion, the amendment or the bill; null without one. A vote of the Tweede Kamer under a cabinet carries `coalition` (on the list and the detail; `semantic tk-coalition-votes`): the `cabinet`, the seats `coalition_for`, `coalition_against`, `opposition_for`, `opposition_against` (a faction with its seats that day, a member of a roll call as one), `pattern` (`together`, `split`, `wissel`: split, and the side with the most coalition seats lost, a wisselmeerderheid), `carried` (passed with the coalition's seats alone more than half cast) and `decisive` (the opposition alone would have decided otherwise); null without a cabinet or a coalition vote and in the Eerste Kamer. `coalition=together|split|wissel|carried|decisive` filters on it, and `facets.coalition` counts each under every filter but its own; `facets.coalition_cabinets` gives per cabinet (`cabinet`, `name`, newest first) under every filter, a topic of the Overzicht being its words, Kamer and period, its `votes` and how many were `together`, `split`, `wissel`, `carried` and `decisive`. A vote on a motion of censure (motie van afkeuring) or of no confidence (motie van wantrouwen) has `motion_kind` `censure` or `no_confidence` (on the list and the detail; `semantic tk-motion-kinds`, from the fixed wording of its subject), null for any other; `motion_kind=censure,no_confidence` keeps those votes, and `facets.motion_kind` counts them per kind (`value`, `count`, `passed`, `rejected`) under every filter but its own",
         "operationId": "list_decisions_api_decisions_get",
         "parameters": [
           {
@@ -6037,6 +6055,24 @@
               "title": "Coalition"
             },
             "description": "Only the votes of the Tweede Kamer on which the coalition voted `together`, `split` (no wisselmeerderheid) or as a `wissel`, or which it `carried` or was `decisive` on."
+          },
+          {
+            "name": "motion_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only the votes on such a motion.",
+              "title": "Motion Kind"
+            },
+            "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only the votes on such a motion."
           },
           {
             "name": "unvoted",
@@ -6620,7 +6656,7 @@
           "feed"
         ],
         "summary": "News feed summary",
-        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements.",
+        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements; and ``chamber_schedule``: when the Tweede Kamer last met and voted in the plenary hall and when it meets and votes next (``last_sitting``, ``last_votes``, ``next_sitting``, ``next_votes``), as of today, from its activities (``Activiteit``): the latest held (``Uitgevoerd``) and the first planned (``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week the one planned for a day before one planned for the week (``precision`` ``Weeknummer``, dated on its Monday); each null when there is none. The Kamer publishes no recess as data: no sitting planned for days is what tells.",
         "operationId": "get_feed_summary_route_api_feed_summary_get",
         "parameters": [
           {
@@ -13523,6 +13559,64 @@
         "title": "ChamberColorsDTO",
         "description": "The colours a Kamer draws its factions in."
       },
+      "ChamberScheduleDTO": {
+        "properties": {
+          "last_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The latest plenary activity held, on or before today."
+          },
+          "last_votes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The latest ``Stemmingen`` held, on or before today."
+          },
+          "next_sitting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first plenary activity planned (``Gepland``) on or after today."
+          },
+          "next_votes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduledActivityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The first ``Stemmingen`` planned on or after today."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "last_sitting",
+          "last_votes",
+          "next_sitting",
+          "next_votes"
+        ],
+        "title": "ChamberScheduleDTO",
+        "description": "When the Tweede Kamer last met and voted in the plenary hall, and when it meets and\nvotes next, as its activities say (``Activiteit``); each null when it has none."
+      },
       "ChangeSource": {
         "properties": {
           "id": {
@@ -15725,6 +15819,22 @@
             "title": "Kind",
             "description": "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, ``Amendement``, ``Wetgeving``, ``Begroting``, ...; null when neither tells."
           },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a vote on a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says (``core/motion_kinds.py``); null for any other vote."
+          },
           "decision_kind": {
             "anyOf": [
               {
@@ -15995,6 +16105,7 @@
           "external_id",
           "passed",
           "kind",
+          "motion_kind",
           "decision_kind",
           "primary_case_kind",
           "dossier_numbers",
@@ -16112,6 +16223,14 @@
             "type": "array",
             "title": "Coalition Cabinets",
             "description": "Under every filter (a topic of the Overzicht: its words, Kamer and period): per cabinet, newest first, what its coalition did on those votes."
+          },
+          "motion_kind": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionMotionKindCount"
+            },
+            "type": "array",
+            "title": "Motion Kind",
+            "description": "Under every filter but `motion_kind`: the votes on a motion of censure or of no confidence per kind, and how many carried and did not; most first."
           }
         },
         "additionalProperties": false,
@@ -16123,7 +16242,8 @@
           "years",
           "party_votes",
           "coalition",
-          "coalition_cabinets"
+          "coalition_cabinets",
+          "motion_kind"
         ],
         "title": "DecisionFacets",
         "description": "The decisions under the filters, counted.\n\n``kind`` is counted without the ``kind`` filter and ``passed`` without the ``passed``\nfilter, so each shows what choosing another value would give; ``days`` is counted\nunder every filter."
@@ -16265,6 +16385,42 @@
         ],
         "title": "DecisionMotionDTO",
         "description": "The paper a decision was taken on: its node and readable address."
+      },
+      "DecisionMotionKindCount": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "censure",
+              "no_confidence"
+            ],
+            "title": "Value"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "passed": {
+            "type": "integer",
+            "title": "Passed",
+            "default": 0
+          },
+          "rejected": {
+            "type": "integer",
+            "title": "Rejected",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "count",
+          "passed",
+          "rejected"
+        ],
+        "title": "DecisionMotionKindCount",
+        "description": "How many of the decisions are votes on a motion of one kind, and how many of those\ncarried and did not."
       },
       "DecisionOutcomeCount": {
         "properties": {
@@ -16493,6 +16649,22 @@
             "title": "Kind",
             "description": "What was decided on: the ``Zaak.Soort`` of the case it decided (``primary_case_kind``), or the one Soort of the cases on its agenda item, as the Kamer writes it: ``Motie``, ``Amendement``, ``Wetgeving``, ``Begroting``, ...; null when neither tells."
           },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a vote on a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says (``core/motion_kinds.py``); null for any other vote."
+          },
           "primary_case_kind": {
             "anyOf": [
               {
@@ -16680,6 +16852,7 @@
           "dossier_numbers",
           "dossiers",
           "kind",
+          "motion_kind",
           "primary_case_kind",
           "decision_kind",
           "passed",
@@ -17620,6 +17793,22 @@
             "title": "Decision",
             "description": "The key of that decision (``/api/decisions/{key}``); null without one."
           },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says (``semantic tk-motion-kinds``, ``core/motion_kinds.py``); null for any other paper. Open while ``outcome`` is null."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -17795,6 +17984,7 @@
           "decided_on",
           "tally",
           "decision",
+          "motion_kind",
           "id",
           "key",
           "chamber",
@@ -18042,6 +18232,22 @@
             ],
             "title": "Decision",
             "description": "The key of that decision (``/api/decisions/{key}``); null without one."
+          },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says (``semantic tk-motion-kinds``, ``core/motion_kinds.py``); null for any other paper. Open while ``outcome`` is null."
           },
           "key": {
             "type": "string",
@@ -18299,6 +18505,7 @@
           "decided_on",
           "tally",
           "decision",
+          "motion_kind",
           "key",
           "document_id",
           "title",
@@ -19198,6 +19405,22 @@
             "title": "Decision",
             "description": "The key of that decision (``/api/decisions/{key}``); null without one."
           },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its subject says (``semantic tk-motion-kinds``, ``core/motion_kinds.py``); null for any other paper. Open while ``outcome`` is null."
+          },
           "display_name": {
             "anyOf": [
               {
@@ -19282,6 +19505,7 @@
           "decided_on",
           "tally",
           "decision",
+          "motion_kind",
           "display_name",
           "replaces",
           "replaced_by",
@@ -22973,6 +23197,22 @@
             "title": "Dictum",
             "description": "Of a motion: what it asks or says (``verzoekt de regering …``), as ``GET /api/documents/{key}`` gives it; null for the other kinds and a motion without text."
           },
+          "motion_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "censure",
+                  "no_confidence"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motion Kind",
+            "description": "Of a motion of censure (motie van afkeuring) ``censure``, of no confidence (motie van wantrouwen) ``no_confidence``, and of a vote on one, as ``GET /api/documents/{key}`` and ``GET /api/decisions/{key}`` give it; null for the other events."
+          },
           "subkind": {
             "anyOf": [
               {
@@ -23225,6 +23465,7 @@
           "summary",
           "has_text",
           "dictum",
+          "motion_kind",
           "subkind",
           "node",
           "dossier",
@@ -24213,6 +24454,10 @@
             "type": "object",
             "title": "Data As Of",
             "description": "Per source: how current the graph is, as in `GET /api/stats`."
+          },
+          "chamber_schedule": {
+            "$ref": "#/components/schemas/ChamberScheduleDTO",
+            "description": "When the Tweede Kamer last met and voted and when it meets and votes next, as of today whatever ``until`` and the filters."
           }
         },
         "additionalProperties": false,
@@ -24224,7 +24469,8 @@
           "days",
           "items",
           "items_truncated",
-          "data_as_of"
+          "data_as_of",
+          "chamber_schedule"
         ],
         "title": "FeedSummaryResponse",
         "description": "A few days of the feed in one answer."
@@ -34147,6 +34393,117 @@
         ],
         "title": "ResolveResponse",
         "description": "The best match for a query and the others that fit; ``kind`` ``none`` when nothing does."
+      },
+      "ScheduledActivityDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "``Activiteit.Nummer``."
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "``Activiteit.Soort``: ``Stemmingen``, ``Vragenuur``."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision",
+            "description": "``Activiteit.DatumSoort``, how precise ``date`` is: ``Dag``; ``Weeknummer``, planned for the week of that Monday, not yet for a day; ``Meerdaags``, its first day."
+          },
+          "agenda_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agenda Title",
+            "description": "``Activiteit.Onderwerp``: ``Stemmingen over alle begrotingen``."
+          },
+          "tk_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tk Url",
+            "description": "Its page on tweedekamer.nl."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "number",
+          "kind",
+          "date",
+          "precision",
+          "agenda_title",
+          "tk_url",
+          "path"
+        ],
+        "title": "ScheduledActivityDTO",
+        "description": "A plenary activity of the Tweede Kamer, held or planned."
       },
       "ScopeArticleReference": {
         "properties": {

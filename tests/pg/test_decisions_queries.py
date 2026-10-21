@@ -104,6 +104,7 @@ def test_the_decisions_of_a_dossier_are_read_from_an_index(
         "party_votes": [],
         "coalition": [],
         "coalition_cabinets": [],
+        "motion_kind": [],
     }
     together = get_decisions(
         store, DecisionFilters(dossier_number="36000", passed=True)
@@ -234,6 +235,7 @@ def test_the_list_newest_first_the_key_settling_a_day_undated_last(
             "external_id": "b1",
             "dossier_numbers": ["36000"],
             "kind": "Motie",
+            "motion_kind": None,
             "primary_case_kind": "Motie",
             "decision_kind": None,
             "passed": True,
@@ -268,6 +270,7 @@ def test_the_facets_count_without_their_own_filter(votes: GraphStore) -> None:
         "party_votes",
         "coalition",
         "coalition_cabinets",
+        "motion_kind",
     ]
     # by count, most first, then by value (null first); per kind how many carried, not
     assert facets["kind"] == [

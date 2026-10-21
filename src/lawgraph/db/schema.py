@@ -1625,6 +1625,9 @@ DOCUMENT_LIGHT_PROPS = (
     # how a motion or an amendment ended (``core/votes.py``), which a row of it
     # shows and ``semantic tk-paper-outcomes`` compares with
     *DOCUMENT_OUTCOME_PROPS,
+    # of a motion of censure or of no confidence its kind (``core/motion_kinds.py``), which
+    # the list of papers filters on and ``semantic tk-motion-kinds`` compares with
+    "motion_kind",
 )
 # ... and, after them, ``has_text``: whether the document's text is in the data (a string, not
 # empty), which a row of the feed opens on; read from the same pass over the props.
@@ -1637,6 +1640,15 @@ _DOCUMENT_LIGHT_BY_NUMBER = built_beforehand(
     " (lg_str(props -> 'dossier_number'),"
     " upper(coalesce(lg_str(props -> 'dossier_suffix'), '')),"
     " lg_num(props -> 'sequence'))"
+)
+
+
+# the motions of censure and of no confidence (``GET /api/documents?motion_kind=``): a few
+# hundred rows of the light row of every paper
+_DOCUMENT_LIGHT_BY_MOTION_KIND = built_beforehand(
+    "CREATE INDEX IF NOT EXISTS lg_document_light_motion_kind ON lg_document_light"
+    " (lg_str(props -> 'motion_kind'))"
+    " WHERE lg_str(props -> 'motion_kind') IS NOT NULL"
 )
 
 
@@ -1679,7 +1691,7 @@ BEGIN
 END $$""",
         *_after_each_statement("documents", "light", "lg_keep_document_light"),
     ]
-    statements.append(_DOCUMENT_LIGHT_BY_NUMBER)
+    statements += [_DOCUMENT_LIGHT_BY_NUMBER, _DOCUMENT_LIGHT_BY_MOTION_KIND]
     return statements
 
 
