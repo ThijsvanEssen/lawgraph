@@ -260,3 +260,65 @@ def test_the_title_of_the_act_as_printed() -> None:
     old = parse_act(fixture_text("eurlex_31995l0046.html"))
     (description,) = old.title
     assert description.startswith("Richtlijn 95/46/EG van het Europees Parlement")
+
+
+def test_an_inserted_article_has_a_number_of_its_own() -> None:
+    """ "Artikel 9 bis" is article "9bis", as a citation names it ("artikel 9bis van
+    Richtlijn …"), and so is "Artikel 9bis"; it does not fall into article 9."""
+    journal = parse_act(
+        _journal("9", "Negen", '<p class="oj-normal">Tekst van 9.</p>')
+        + _journal("9\xa0bis", "Negen bis", '<p class="oj-normal">Tekst van 9 bis.</p>')
+        + _journal("9 ter", "Negen ter", '<p class="oj-normal">Tekst van 9 ter.</p>')
+        + _journal("9quater", "Vier", '<p class="oj-normal">Tekst van 9 quater.</p>')
+    ).articles
+    flat = parse_act(
+        _flat(["Artikel 9", "Tekst van 9.", "Artikel 9 bis", "Tekst van 9 bis."])
+    ).articles
+
+    assert [a.number for a in journal] == ["9", "9bis", "9ter", "9quater"]
+    assert journal[0].text == "Tekst van 9."
+    assert [(a.number, a.text) for a in flat] == [
+        ("9", "Tekst van 9."),
+        ("9bis", "Tekst van 9 bis."),
+    ]
+    # Richtlijn 84/450/EEG as amended by 97/55/EG (the consolidated text, old format)
+    amended = parse_act(fixture_text("eurlex_01984l0450_20050612.html")).articles
+    assert [a.number for a in amended][:5] == ["1", "2", "3", "3bis", "4"]
+    assert amended[3].text.startswith("1. Vergelijkende reclame is")
+    assert "Vergelijkende reclame" not in amended[2].text
+
+
+def test_the_old_format_keeps_an_inserted_article_it_quotes_in_the_amending_one() -> (
+    None
+):
+    """An amending act of the old format inserts "Artikel 3 bis" into another act: the
+    article it quotes is text of its own article 1 (Richtlijn 97/55/EG)."""
+    act = parse_act(fixture_text("eurlex_31997l0055.html"))
+
+    assert [a.number for a in act.articles] == ["1", "2", "3", "4"]
+    assert "Artikel 3 bis" in act.articles[0].text
+    # quoted without a quotation mark, after an article of another number
+    flat = parse_act(
+        _flat(
+            [
+                "Artikel 1",
+                "Wordt ingevoegd:",
+                "Artikel 3 bis",
+                "Nieuw.",
+                "Artikel 2",
+                "Slot.",
+            ]
+        )
+    ).articles
+    assert [a.number for a in flat] == ["1", "2"]
+
+
+def test_an_article_printed_without_its_number_is_the_next_one() -> None:
+    """Richtlijn 89/104/EEG prints its first article as "Artikel " without the 1."""
+    act = parse_act(fixture_text("eurlex_31989l0104.html"))
+
+    numbers = [a.number for a in act.articles]
+    assert numbers == [str(n) for n in range(1, 18)]
+    first = act.articles[0]
+    assert first.heading == "Toepassing"
+    assert first.text.startswith("Deze richtlijn is van toepassing op ieder merk")
