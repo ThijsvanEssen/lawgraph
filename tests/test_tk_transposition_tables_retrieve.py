@@ -261,7 +261,7 @@ def test_a_staatsblad_is_stored_with_its_xml_when_a_table_is_read_in_it(
         "identifier": "stb-2020-400",
         "title": INVOERINGSBESLUIT["title"],
         "modified": "2020-10-28",
-        "tables": 4,  # a., b., r. and cc.; bb. is of another layout
+        "tables": 6,  # a. and b., a table per law each: Ow, Bal, Bkl, AMvB; Ow, Bbl
     }
     assert stored["stb-2024-12"].get("payload_text") is None
     assert stored["stb-2024-12"]["meta"]["tables"] == 0

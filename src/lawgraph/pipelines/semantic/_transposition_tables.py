@@ -3,10 +3,12 @@
 
 A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
 of its own (read by ``core.transposition_tables``), or a Kamerstuk or a Staatsblad with a
-table in its XML (read by ``core.transposition_xml``); or it is the concordance table of an
-EU act that codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
-``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
-them:
+table in its XML (read by ``core.transposition_xml``; a Staatsblad has no dossier); or it
+is the concordance table of an EU act that codifies or recasts others (its HTML as
+``retrieve eurlex`` stored it, read by ``core.concordance_html``). The laws of a
+Kamerstuk's table are found by the names it gives them. The one law of the BWB of a name is
+the one of that citation title, else the one of that abbreviation (the WTI's, as the
+citation extractor reads "artikel 1 WVO", "artikel 1 Bal"):
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
@@ -24,10 +26,7 @@ them:
 
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
-articles in, else the one the title does not name. A table of the Staatsblad that places an
-old regulation in the new law and in further ones (``Artikel | Artikel Omgevingswet |
-Artikel AMvB``) is such a table: its places in a further column are of the law the cell or
-the column names. A table whose laws are not found places
+articles in, else the one the title does not name. A table whose laws are not found places
 nothing and says why (``Table.problem``). The tables between the same two laws are checked
 together (``Succession``): an article of the old law one table leaves out may be in another.
 A place that names another law ("afdeling 3.5 Awb", "16.52 Omgevingswet") is of the law of
@@ -39,7 +38,9 @@ under its own name, or the EU act of the table repeals it; of a law that stays (
 milieubeheer after the Omgevingswet), or that went only after the new law came into force
 (the Wet op het voortgezet onderwijs after the Wet register onderwijsdeelnemers), a table
 names only what moves. Nor is it a gap when a table of the old law to another new law has a
-row for it (the Monumentenwet 1988 to the Erfgoedwet and to the Omgevingswet).
+row for it (the Monumentenwet 1988 to the Erfgoedwet and to the Omgevingswet); one no table
+names is one gap, of the pair that places the most (the Activiteitenbesluit milieubeheer to
+the Omgevingswet, the Bal, the Bkl, the Bbl and the Omgevingsbesluit).
 
 The acts of an EU table are its own (the new act) and the one its column names by CELEX
 (``core.concordance_html``), each as ``normalize eurlex`` made it; an old act the graph does
@@ -90,8 +91,8 @@ from lawgraph.pipelines.semantic._detection import build_extractor
 class Table:
     """One table of a source: its laws and rows, or why it places nothing."""
 
-    identifier: str  # the source: blg-1081574, kst-34986-3, stb-2020-400, 32017R1001
-    dossier: str  # empty for an EU act and a Staatsblad
+    identifier: str  # the source: blg-1081574, kst-34986-3, 32017R1001
+    dossier: str  # empty for an EU act
     name: str = ""  # the table in its source: "h. Transponeringstabel Waterwet"
     problem: str | None = None
     old_law: str | None = None  # instruments/bwbr0001903
@@ -124,13 +125,13 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
     """The tables that place nothing, and per pair of laws what the others place."""
     problems: list[Table] = []
     by_laws: dict[tuple[str, str], list[Table]] = {}
-    for table in _tables(store):
+    other_laws = _OtherLaws(store)
+    for table in _tables(store, other_laws):
         if table.old_law and table.new_law:
             by_laws.setdefault((table.old_law, table.new_law), []).append(table)
         else:
             problems.append(table)
     successions = []
-    other_laws = _OtherLaws(store)
     for (old, new), own in by_laws.items():
         laws = {str(law["id"]): law for law in queries.law_titles(store, [old, new])}
         rows = [row for table in own for row in table.rows]
@@ -164,15 +165,24 @@ def _replaced(laws: dict[str, dict[str, Any]], old: str, new: str) -> bool:
 
 def _rows_of_other_new_laws(successions: list[Succession]) -> list[Succession]:
     """*successions* without the gap "no row" of an old article a table of the same old law
-    to another new law has a row for."""
+    to another new law has a row for; of an old law with tables to more new laws, such a gap
+    of an article no table names is one, of the pair that places the most articles."""
     named: dict[str, set[str]] = {}
+    first: dict[str, Succession] = {}
     for succession in successions:
         named.setdefault(succession.old_law, set()).update(succession.placed.named)
+        own = first.get(succession.old_law)
+        if own is None or len(succession.placed.pairs) > len(own.placed.pairs):
+            first[succession.old_law] = succession
     for succession in successions:
         succession.placed.gaps = [
             gap
             for gap in succession.placed.gaps
-            if gap.kind != "no_row" or gap.old_article not in named[succession.old_law]
+            if gap.kind != "no_row"
+            or (
+                gap.old_article not in named[succession.old_law]
+                and first[succession.old_law] is succession
+            )
         ]
     return successions
 
@@ -182,9 +192,10 @@ class _OtherLaws:
 
     def __init__(self, store: Store) -> None:
         self.store = store
-        self._ids: dict[str, str | None] = {}
+        self._ids: dict[str, list[str]] = {}
         self._articles: dict[str, dict[str, LawArticle]] = {}
         self._extractor: DutchCitationExtractor | None = None
+        self._codes: tuple[dict[str, str], dict[str, dict[str, str]]] | None = None
 
     def named(
         self,
@@ -200,7 +211,7 @@ class _OtherLaws:
             law = (
                 str(new["id"])
                 if _same(new.get("citation_title"), name)
-                else self._law(name)
+                else self.law(name)
             )
             if law in own:
                 found[name] = own[law]
@@ -212,33 +223,64 @@ class _OtherLaws:
                 found[name] = None
         return found
 
-    def _law(self, name: str) -> str | None:
-        """The one law of the BWB of the citation title *name*, else the law the citation
-        extractor reads in "artikel 1 <name>"."""
+    def law(self, name: str) -> str | None:
+        """The one law of *name* (``laws``), None for none or more."""
+        found = self.laws(name)
+        return found[0] if len(found) == 1 else None
+
+    def laws(self, name: str) -> list[str]:
+        """The laws of the BWB of the citation title *name*, unless there is not one: those
+        of that abbreviation of the WTI ("WVO BES", "Bal"), else the one the citation
+        extractor reads in "artikel 1 <name>" ("Awb"), of the whole name, not of a part of
+        it ("WVO" of "WVO-BES", "Waterleidingwet" of "Waterleidingwet of
+        Waterleidingbesluit")."""
         if name not in self._ids:
             named = queries.bwb_laws_named(self.store, name)
-            if len(named) != 1:
+            if len(named) != 1 and (bwb_ids := self.abbreviated(name)):
+                named = list(
+                    queries.laws_of_bwb_ids(self.store, sorted(bwb_ids)).values()
+                )
+            if not named:
+                text = f"artikel 1 {name.strip()}"
                 bwb_ids = {
                     hit.bwb_id
-                    for hit in self.extractor().extract(f"artikel 1 {name}")
-                    if hit.bwb_id
+                    for hit in self.extractor().extract(text)
+                    if hit.bwb_id and hit.end == len(text)
                 }
                 named = list(
                     queries.laws_of_bwb_ids(self.store, sorted(bwb_ids)).values()
                 )
-            self._ids[name] = named[0] if len(named) == 1 else None
+            self._ids[name] = named
         return self._ids[name]
+
+    def abbreviated(self, name: str) -> set[str]:
+        """The BWB ids of the laws of the abbreviation *name* (``code_choices``: the short
+        titles and abbreviations of the WTI, and the curated ones; also one several laws
+        have), compared as ``successions.folded``."""
+        codes, shared = self.codes()
+        key = queries.folded(name)
+        found = {law for code, law in codes.items() if queries.folded(code) == key}
+        for code, laws in shared.items():
+            if queries.folded(code) == key:
+                found.update(laws)
+        return found
+
+    def codes(self) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+        """The abbreviations of the laws of the graph (``code_choices``)."""
+        if self._codes is None:
+            self._codes = code_choices(
+                instrument_name_queries.code_alias_rows(self.store),
+                curated_abbreviations(),
+            )
+        return self._codes
 
     def extractor(self) -> DutchCitationExtractor:
         """The citation extractor of running text, with the abbreviations and names of the
         laws of the graph."""
         if self._extractor is None:
-            codes, _ = code_choices(
-                instrument_name_queries.code_alias_rows(self.store),
-                curated_abbreviations(),
-            )
             self._extractor = build_extractor(
-                codes, instrument_names(semantic_bwb.instrument_alias_rows(self.store))
+                self.codes()[0],
+                instrument_names(semantic_bwb.instrument_alias_rows(self.store)),
             )
         return self._extractor
 
@@ -247,14 +289,14 @@ class _OtherLaws:
 _XML_KINDS = (RAW_KIND_TK_TRANSPOSITION_DOCUMENT, RAW_KIND_STAATSBLAD_TRANSPOSITION)
 
 
-def _tables(store: Store) -> Iterator[Table]:
+def _tables(store: Store, laws: _OtherLaws) -> Iterator[Table]:
     """Every stored table: of each PDF, and of each Kamerstuk and Staatsblad stored with its
     XML."""
     for record in queries.transposition_tables(store):
         if record.get("kind") not in _XML_KINDS:
             yield _pdf_table(store, record)
         elif payload_text(record):
-            yield from _xml_tables(store, record)
+            yield from _xml_tables(store, record, laws)
     for record in queries.eu_acts_with_concordance(store):
         yield from _eu_tables(store, record)
 
@@ -302,7 +344,10 @@ def _pdf_table(store: Store, record: dict[str, Any]) -> Table:
     return _with_laws(store, replace(found, rows=rows), table.old_law, table.new_law)
 
 
-def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
+def _xml_tables(
+    store: Store, record: dict[str, Any], laws: _OtherLaws | None = None
+) -> Iterator[Table]:
+    laws = laws or _OtherLaws(store)
     identifier = str(record.get("external_id") or "")
     match = KST_ID_PATTERN.fullmatch(identifier)
     dossier = str(meta(record).get("dossier") or (match.group(1) if match else ""))
@@ -318,11 +363,11 @@ def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
         if table.problem:
             yield found
         elif table.proposed is not None:
-            yield _with_proposal(store, found, table)
+            yield _with_proposal(store, found, table, laws)
         elif table.columns is None:
             yield _with_laws(store, replace(found, rows=table.rows()), None, None)
         else:
-            yield _with_columns(store, found, table)
+            yield _with_columns(store, found, table, laws)
 
 
 def _dossier_laws(store: Store, dossier: str) -> list[dict[str, Any]]:
@@ -364,9 +409,12 @@ def _with_laws(
     return replace(table, old_law=old[0], new_law=new_id)
 
 
-def _with_proposal(store: Store, table: Table, xml: XmlTable) -> Table:
+def _with_proposal(
+    store: Store, table: Table, xml: XmlTable, laws: _OtherLaws
+) -> Table:
     """*table* with the law the paper proposes and the old law of *xml*, its rows read from
-    the old law's column to the proposed law's, or with the reason they are not found."""
+    the old law's column to the proposed law's, or with the reason they are not found. The
+    old law of a name: of that citation title, else of that abbreviation (``_OtherLaws``)."""
     assert xml.columns is not None and xml.proposed is not None
     new = _proposed_law(store, _dossier_laws(store, table.dossier), xml.proposed)
     if new is None:
@@ -377,10 +425,30 @@ def _with_proposal(store: Store, table: Table, xml: XmlTable) -> Table:
     names = tuple(dict.fromkeys(n for n in (xml.columns[0], xml.title_law) if n))
     for name in names:
         old = [law for law in queries.bwb_laws_named(store, name) if law != new]
+        if len(old) != 1:
+            old = [law for law in laws.laws(name) if law != new]
+        if len(old) > 1:
+            old = _in_force_when(store, old, new)
         if len(old) == 1:
             return replace(table, old_law=old[0], new_law=new, rows=xml.rows())
     named = " or ".join(repr(name) for name in names)
     return replace(table, problem=f"no one law of the BWB named {named}")
+
+
+def _in_force_when(store: Store, laws: list[str], new: str) -> list[str]:
+    """Of *laws* of one name, those that had not expired when the *new* law came into force
+    (the Wet voortgezet onderwijs BES of 2011, not the one of its first months); all of them
+    when the BWB has no such date of the new law."""
+    titles = {str(law["id"]): law for law in queries.law_titles(store, [*laws, new])}
+    in_force = (titles.get(new) or {}).get("date_in_force")
+    if not in_force:
+        return laws
+    return [
+        law
+        for law in laws
+        if not (expired := (titles.get(law) or {}).get("date_expired"))
+        or str(expired) >= str(in_force)
+    ]
 
 
 def _proposed_law(
@@ -403,14 +471,13 @@ def _proposed_law(
     return None
 
 
-def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
+def _with_columns(store: Store, table: Table, xml: XmlTable, laws: _OtherLaws) -> Table:
     """*table* with the laws of the two columns of *xml*, its rows read from the old law's
-    column to the new law's (``new_column``) and its further columns, or with the reason they
-    are not found. A table with further columns reads from its first column only."""
+    column to the new law's (``new_column``), or with the reason they are not found."""
     assert xml.columns is not None
-    laws = _dossier_laws(store, table.dossier)
-    found = [_named_law(store, laws, name) for name in xml.columns]
-    titled = _named_law(store, laws, xml.title_law) if xml.title_law else None
+    dossier = _dossier_laws(store, table.dossier)
+    found = [_named_law(dossier, name, laws) for name in xml.columns]
+    titled = _named_law(dossier, xml.title_law, laws) if xml.title_law else None
     if titled is not None:
         # the column the title names by an abbreviation ("Artikel Wabo")
         found = [
@@ -420,8 +487,8 @@ def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
     first, second = found
     if first is None or second is None or first == second:
         return replace(table, problem=f"no two laws named {xml.columns!r}")
-    new = new_column((first, second), {str(law["id"]) for law in laws}, titled)
-    if new is None or (new == 0 and xml.further):
+    new = new_column((first, second), {str(law["id"]) for law in dossier}, titled)
+    if new is None:
         return replace(
             table, problem=f"which of {xml.columns!r} is the new law is not known"
         )
@@ -448,11 +515,13 @@ def new_column(
     return None
 
 
-def _named_law(store: Store, dossier: list[dict[str, Any]], name: str) -> str | None:
-    """The one law of *name*: of the laws of the dossier, else of the BWB."""
+def _named_law(
+    dossier: list[dict[str, Any]], name: str, laws: _OtherLaws
+) -> str | None:
+    """The one law of *name*: of the laws of the dossier, else of the BWB by its citation
+    title or abbreviation (``_OtherLaws.law``)."""
     own = [str(law["id"]) for law in dossier if _same(law.get("citation_title"), name)]
-    found = own or queries.bwb_laws_named(store, name)
-    return found[0] if len(found) == 1 else None
+    return own[0] if len(own) == 1 else laws.law(name)
 
 
 def _same(title: Any, name: str) -> bool:
