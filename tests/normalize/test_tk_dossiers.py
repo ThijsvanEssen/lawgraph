@@ -8,6 +8,7 @@ items.
 from __future__ import annotations
 
 import inspect
+import json
 from typing import Any, cast
 
 import pytest
@@ -35,6 +36,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import FactionProps, MemberProps
 from lawgraph.core.relations import BY_NAME
+from lawgraph.core.tk_records.activities import activity as read_activity
+from lawgraph.core.tk_records.commitments import commitment as read_commitment
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
@@ -47,6 +50,7 @@ from lawgraph.pipelines.normalize import _tk_votes as tk_votes
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from tests.fakes import InMemoryStore, count_calls
 from tests.optional import present
+from tests.paths import fixture_text
 
 SOURCE = "test"
 
@@ -318,6 +322,68 @@ def test_a_commitment_of_a_moved_activity_is_about_the_dossiers_of_its_replaceme
             f"{COLLECTION_ACTIVITIES}/loop",
         ),
     }
+
+
+def test_a_fulfilled_commitment_is_about_the_dossier_of_its_letter() -> None:
+    # Commissiedebat 2025A04175 had eight dossiers on its agenda. TZ202603-117 was
+    # fulfilled by 2026D35523, Kamerstuk 29389 nr. 186: about 29389, which was not on the
+    # agenda. TZ202603-106 is open, no letter: about the agenda of the debate.
+    fixture = json.loads(fixture_text("tk_commitments_2025a04175.json"))
+    agenda = ["22112", "27926", "29453", "29861", "32847", "33104", "36496", "36512"]
+    store = _store(existing={COLLECTION_DOSSIERS: {*agenda, "29389"}})
+    activity = present(read_activity(fixture["Activiteit"]))
+    activities = {
+        "a": tk_cases.link_node(Node.skeleton(COLLECTION_ACTIVITIES, *activity))
+    }
+    commitments = {
+        number: tk_cases.link_node(Node.skeleton(COLLECTION_COMMITMENTS, *record))
+        for payload in fixture["Toezegging"]
+        if (record := present(read_commitment(payload)))
+        and (number := payload["Nummer"])
+    }
+    fulfilled = commitments["TZ202603-117"].node_id
+    open_ = commitments["TZ202603-106"].node_id
+
+    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+
+    about = {
+        (from_id, to_id): meta
+        for (from_id, relation, to_id), meta in _edge_meta(store).items()
+        if relation == RELATION_ABOUT
+    }
+    assert about == {
+        (fulfilled, f"{COLLECTION_DOSSIERS}/29389"): {"basis": "nakoming"},
+        **{
+            (open_, f"{COLLECTION_DOSSIERS}/{number}"): {"basis": "agenda"}
+            for number in agenda
+        },
+    }
+
+
+def test_a_commitment_whose_letter_dossier_is_not_stored_stays_on_the_agenda() -> None:
+    store = _store(existing={COLLECTION_DOSSIERS: {"36000"}})
+    activities = {
+        "a1": _node(
+            COLLECTION_ACTIVITIES,
+            NodeType.ACTIVITY,
+            "a1",
+            number="2024A05766",
+            dossier_numbers=["36000"],
+        )
+    }
+    commitments = {
+        "t1": _node(
+            COLLECTION_COMMITMENTS,
+            NodeType.COMMITMENT,
+            "t1",
+            activity_number="2024A05766",
+            letter_dossiers=["99999"],
+        )
+    }
+    tk_cases.link_commitments(store, commitments, activities, source=SOURCE)
+    assert _edge_meta(store)[
+        (f"{COLLECTION_COMMITMENTS}/t1", RELATION_ABOUT, f"{COLLECTION_DOSSIERS}/36000")
+    ] == {"basis": "agenda"}
 
 
 # ── authorship ───────────────────────────────────────────────────────────────

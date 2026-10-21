@@ -12,8 +12,8 @@ import pytest
 from pydantic import BaseModel
 
 from lawgraph.config.constants import (
-    RELATION_ABOUT,
     RELATION_EXPLAINS,
+    RELATION_LED_BY,
     RELATION_REFERS_TO,
     RELATION_VOTED,
 )
@@ -62,7 +62,7 @@ def test_a_key_the_model_lacks_and_a_value_of_another_type_are_found() -> None:
     assert meta_problems(RELATION_VOTED, {"choice": "Voor", "colour": "red"}) == [
         "unknown key colour"
     ]
-    assert meta_problems(RELATION_ABOUT, {"basis": "subject"}) == ["unknown key basis"]
+    assert meta_problems(RELATION_LED_BY, {"basis": "subject"}) == ["unknown key basis"]
     assert meta_problems(
         RELATION_REFERS_TO, {"mentions": [{"paragraph_id": "p1", "page": 3}]}
     ) == [

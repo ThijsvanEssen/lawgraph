@@ -4568,6 +4568,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -4575,6 +4576,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -4608,6 +4610,7 @@
         "number": "36000-VII",
         "title": "T2",
         "short_title": null,
+        "basis": "nakoming",
         "path": "/dossiers/36000-VII"
        }
       ],
@@ -4634,6 +4637,7 @@
         "number": "36001",
         "title": null,
         "short_title": null,
+        "basis": null,
         "path": "/dossiers/36001"
        }
       ],
@@ -4728,6 +4732,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -4735,6 +4740,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -4805,6 +4811,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -4812,6 +4819,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -4896,6 +4904,7 @@
         "number": "36000-VII",
         "title": "T2",
         "short_title": null,
+        "basis": "nakoming",
         "path": "/dossiers/36000-VII"
        }
       ],
@@ -4955,6 +4964,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -4962,6 +4972,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -4995,6 +5006,7 @@
         "number": "36000-VII",
         "title": "T2",
         "short_title": null,
+        "basis": "nakoming",
         "path": "/dossiers/36000-VII"
        }
       ],
@@ -5035,6 +5047,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -5042,6 +5055,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -5075,6 +5089,7 @@
         "number": "36001",
         "title": null,
         "short_title": null,
+        "basis": null,
         "path": "/dossiers/36001"
        }
       ],
@@ -5189,6 +5204,7 @@
         "number": null,
         "title": null,
         "short_title": null,
+        "basis": "agenda",
         "path": null
        },
        {
@@ -5196,6 +5212,7 @@
         "number": "36000",
         "title": "T1",
         "short_title": null,
+        "basis": "agenda",
         "path": "/dossiers/36000"
        }
       ],
@@ -5271,6 +5288,7 @@
       "number": null,
       "title": null,
       "short_title": null,
+      "basis": "agenda",
       "path": null
      },
      {
@@ -5278,6 +5296,7 @@
       "number": "36000",
       "title": "T1",
       "short_title": null,
+      "basis": "agenda",
       "path": "/dossiers/36000"
      }
     ],

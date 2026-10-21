@@ -1213,6 +1213,9 @@ class CommitmentProps(_CommonProps):
     letter_ids: list[str] | None = None
     """`Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one
     `ANSWERS` it."""
+    letter_dossiers: list[str] | None = None
+    """The dossiers those letters are numbered in (`37020`, `36600-VII`): it is `ABOUT` the
+    stored ones, before the agenda of its debate."""
     member_key: str | None = None
     """Who made it (`semantic tk-government`; also an `AUTHORED` edge, `role`
     `toezegger`)."""

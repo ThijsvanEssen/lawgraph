@@ -246,7 +246,7 @@ it fetched and of the cases that name a dossier it wrote, which may be new.
 Miljoenennota itself, so each record links to the dossier node with that key.
 
 Edges: `PART_OF` (Document to Case and Dossier, Case to Dossier), `ABOUT` (Activity, Decision
-to Case and Dossier; Commitment to the dossiers of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`), `LED_BY` (Activity and Case to
+to Case and Dossier; Commitment to the stored dossiers of the letters that fulfil it, `letter_dossiers`, `meta.basis` `nakoming`, else to the dossiers on the agenda of its activity, or, when that activity was moved (`Verplaatst`) and kept no agenda, of the activity that replaced it: `replaced_by`, `meta.basis` `agenda`; derived in full, so a commitment leaves the agenda once a letter in a dossier fulfils it), `LED_BY` (Activity and Case to
 Committee from `committee_id`; none for a plenary activity), `MADE_IN` (Commitment to Activity;
 Decision to the activity of its agenda item, `activity_id`; Document to the activity it records),
 `ANSWERS` (the letter that fulfils a commitment, `letter_ids`, to it),

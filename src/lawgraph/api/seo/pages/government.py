@@ -36,6 +36,7 @@ from lawgraph.core.names import (
     text_of,
 )
 from lawgraph.core.official_urls import instrument_url, publication_url
+from lawgraph.core.provenance import BASIS_AGENDA
 from lawgraph.core.publications import instrument_key, publication_indexed
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records.commitments import due_date
@@ -185,6 +186,7 @@ def commitment_page(row: dict[str, Any]) -> Page:
         else "",
         f"Verwachte afdoening: {escape(expected)}" if expected else "",
     ]
+    about = row.get("dossiers") or []
     dossiers = bullets(
         [
             link(
@@ -197,14 +199,16 @@ def commitment_page(row: dict[str, Any]) -> Page:
                     text_of(d.get("title")),
                 ),
             )
-            for d in row.get("dossiers") or []
+            for d in about
         ]
     )
+    # on the agenda of its debate alone: discussed there, not what it is about
+    on_agenda = bool(about) and all(d.get("basis") == BASIS_AGENDA for d in about)
     body = (
         f"<h1>Toezegging {escape(number)}</h1>"
         + (f"<p>{escape(text)}</p>" if text else "")
         + "".join(f"<p>{fact}</p>" for fact in facts if fact)
-        + section("Dossiers", dossiers)
+        + section("Besproken in het debat over" if on_agenda else "Dossiers", dossiers)
         + section("Brieven die haar nakomen", document_links(row.get("letters") or []))
     )
     minister = text_of(member.get("name")) or text_of(props.get("minister_name"))

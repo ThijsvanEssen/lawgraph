@@ -34,6 +34,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.batching import chunked
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
+from lawgraph.core.provenance import BASIS_AGENDA, BASIS_FULFILMENT, Basis
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.tk_records.activities import activity as read_activity
 from lawgraph.core.tk_records.commitments import commitment as read_commitment
@@ -262,11 +263,16 @@ def link_commitments(
     *,
     source: str,
 ) -> None:
-    """MADE_IN edges to the activity, and ABOUT edges to that activity's dossiers.
+    """MADE_IN edges to the activity, and ABOUT edges to the dossiers the commitment is
+    about, derived in full: an ABOUT edge of *source* to a dossier it is no longer about
+    goes.
 
-    A Toezegging names no dossier of its own; the activity it was made in does, or, when
-    that one was moved and kept no agenda, the activity that replaced it
-    (``_dossiers_of``).
+    A Toezegging names no dossier of its own. The letter that fulfils it is numbered in
+    one (``letter_dossiers``): it is about the stored ones, ``meta.basis`` ``nakoming``.
+    Without such a letter it is about the dossiers on the agenda of the activity it was
+    made in, or, when that one was moved and kept no agenda, of the activity that replaced
+    it (``_dossiers_of``), ``agenda``. A commitment leaves the agenda the day a letter in
+    a dossier fulfils it.
     """
     activity_by_number = {
         number: node
@@ -274,20 +280,60 @@ def link_commitments(
         if (number := node.props.get("number"))
     }
 
-    writer = EdgeWriter(store, what="commitment edges")
-    dossier_pairs: list[tuple[str, str, str]] = []
+    writer = EdgeWriter(store, what="commitment edges", remembers=True)
+    candidates: dict[str, tuple[list[str], list[str]]] = {}
     for node in commitment_nodes.values():
-        activity = activity_by_number.get(node.props.get("activity_number"))
-        if activity is None or not node.node_id:
+        if not node.node_id:
             continue
-        writer.add(node.node_id, activity.node_id, RELATION_MADE_IN, source=source)
-        dossier_pairs += [
-            (node.node_id, COLLECTION_DOSSIERS, make_node_key(str(number)))
-            for number in _dossiers_of(activity, activity_by_number)
-        ]
-    _queue_existing(store, dossier_pairs, RELATION_ABOUT, writer, source=source)
+        activity = activity_by_number.get(node.props.get("activity_number"))
+        agenda: list[str] = []
+        if activity is not None:
+            writer.add(node.node_id, activity.node_id, RELATION_MADE_IN, source=source)
+            agenda = _dossiers_of(activity, activity_by_number)
+        candidates[node.node_id] = (
+            list(node.props.get("letter_dossiers") or []),
+            agenda,
+        )
+
+    stored = store.existing_keys(
+        COLLECTION_DOSSIERS,
+        {
+            make_node_key(str(number))
+            for numbers in candidates.values()
+            for number in (*numbers[0], *numbers[1])
+        },
+    )
+    for commitment, numbers in candidates.items():
+        basis, keys = _commitment_dossiers(numbers, stored)
+        for key in keys:
+            writer.add(
+                commitment,
+                node_id(COLLECTION_DOSSIERS, key),
+                RELATION_ABOUT,
+                source=source,
+                meta={"basis": basis},
+            )
     writer.flush()
-    logger.info("Wrote %d commitment edges.", writer.added)
+    removed = writer.remove_stale(
+        RELATION_ABOUT, source, list(candidates), to_collections=[COLLECTION_DOSSIERS]
+    )
+    logger.info(
+        "Wrote %d commitment edges; %d ABOUT a dossier no longer theirs went.",
+        writer.added,
+        removed,
+    )
+
+
+def _commitment_dossiers(
+    numbers: tuple[list[str], list[str]], stored: set[str]
+) -> tuple[Basis, list[str]]:
+    """The basis and the stored dossier keys a commitment is about, of its
+    ``(letter dossiers, agenda dossiers)``: those of its letters, else the agenda."""
+    letters, agenda = (
+        list(dict.fromkeys(k for n in side if (k := make_node_key(str(n))) in stored))
+        for side in numbers
+    )
+    return (BASIS_FULFILMENT, letters) if letters else (BASIS_AGENDA, agenda)
 
 
 def authored_edge(
@@ -398,7 +444,7 @@ LINK_READS: dict[str, tuple[str, ...]] = {
     "link_letters_to_commitments": ("letter_ids",),
     "link_decisions_to_activities": ("activity_id",),
     "link_activities_to_committees": ("committee_id",),
-    "link_commitments": ("number", "activity_number"),
+    "link_commitments": ("number", "activity_number", "letter_dossiers"),
     "_dossiers_of": ("dossier_numbers", "replaced_by"),
     "link_authors": ("actors",),
     "link_documents": ("activity_ids", "attachment_ids", "attached_to_ids"),

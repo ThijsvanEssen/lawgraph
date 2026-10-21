@@ -14762,6 +14762,22 @@
             "title": "Short Title",
             "description": "The name it goes by, as ``/api/dossiers`` gives it."
           },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "nakoming",
+                  "agenda"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis",
+            "description": "Why it is this dossier: `nakoming`, the dossier of a letter that fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of the debate it was made in, where it was discussed (a commitment no letter in a dossier fulfils yet)."
+          },
           "path": {
             "anyOf": [
               {
@@ -14783,6 +14799,7 @@
           "number",
           "title",
           "short_title",
+          "basis",
           "path"
         ],
         "title": "CommitmentDossierDTO"
