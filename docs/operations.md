@@ -467,6 +467,7 @@ Dag check: mislukt, db-weg [herhaalt]
 Dag semantic tk-government: mislukt, onverwacht KeyError 'ministry' [actie]
 Poll tk: 3x overgeslagen, lock-bezet [actie]
 Dag retrieve tk +2: mislukt, db-weg [herhaalt]; Dag sitemaps: mislukt, exit-1 [actie]
+Dag retrieve tk-content: mislukt, download geen-pdf [herhaalt]
 ```
 
 The step is the address of the pipeline or command without its options (`check`, `semantic tk-government`); of a
@@ -512,6 +513,7 @@ Causes:
 | `challenge` | the source answered with a challenge page |
 | `geweigerd` | the source refused us otherwise |
 | `geen-voortgang` | a slice named the same key again, or there were too many |
+| `download <oorzaak>` | downloads failed; the cause of the first in fixed words (`download http-500`, `download time-out`, `download geen-pdf`) |
 | `exit-<N>` | the command ended with this exit code without saying why |
 | `onverwacht <Type> <tekst>` | any other failure: its exception and its first 60 characters |
 | `server-ongewijzigd` | the deploy failed before it changed the server |

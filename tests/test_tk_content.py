@@ -10,7 +10,7 @@ from typing import Any, cast
 import pytest
 import requests
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.config.constants import (
     RAW_KIND_MISSING_SUFFIX,
@@ -321,12 +321,10 @@ def test_a_repository_that_is_down_fails_the_step() -> None:
 
 
 def test_an_error_page_that_answered_200_is_an_error_not_a_stored_paper() -> None:
-    page = UnexpectedAnswer("an HTML page: kst-36867-3")
+    page = UnexpectedAnswer(Unexpected.HTML_PAGE, "kst-36867-3")
     result, store, _ = _run([_document("36867", 3)], {"kst-36867-3": page})
     assert store.raw == {}
-    assert result.errors == [
-        "1 x download failed (UnexpectedAnswer) (first: kst-36867-3)"
-    ]
+    assert result.errors == ["1 x download failed (HTML-pagina) (first: kst-36867-3)"]
 
 
 def test_a_paper_whose_number_makes_no_kamerstuk_identifier_is_no_gap() -> None:

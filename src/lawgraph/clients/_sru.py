@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
 from typing import Any
 
-from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, UnexpectedAnswer
+from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, Unexpected, UnexpectedAnswer
 from lawgraph.core.logging import get_logger
 from lawgraph.core.xml import find_own_text, first_named, iter_named, local_name
 
@@ -55,15 +55,15 @@ def parse_response(content: bytes, *, context: str) -> ET.Element:
     try:
         root = ET.fromstring(content)
     except ET.ParseError as exc:
-        raise UnexpectedAnswer(f"not an SRU response ({context}): {exc}") from exc
+        raise UnexpectedAnswer(Unexpected.NOT_SRU, f"{context}: {exc}") from exc
     diagnostic = first_named(root, "diagnostic")
     if diagnostic is not None:
         message = find_own_text(diagnostic, "message") or "unknown SRU error"
-        raise UnexpectedAnswer(f"SRU error ({context}): {message}")
+        raise UnexpectedAnswer(Unexpected.SRU_ERROR, f"{context}: {message}")
     # After the diagnostics: BWB answers an error as a bare <diagnostics>.
     if local_name(root.tag) != "searchRetrieveResponse":
         raise UnexpectedAnswer(
-            f"not an SRU response ({context}): the page is a <{local_name(root.tag)}>"
+            Unexpected.NOT_SRU, f"{context}: the page is a <{local_name(root.tag)}>"
         )
     return root
 
@@ -182,7 +182,7 @@ def fetch_publication_xml(
     for, and a page that is not XML (``UnexpectedAnswer``).
     """
     if not id_pattern.search(identifier) or not _IDENTIFIER_RE.fullmatch(identifier):
-        raise UnexpectedAnswer(f"not a {kind} identifier: {identifier!r}")
+        raise UnexpectedAnswer(Unexpected.BAD_ID, f"{kind} {identifier!r}")
     group = group or identifier.split("-")[1]
     url = (
         f"{client.base_url.rstrip('/')}/frbr/officielepublicaties/{kind}/{group}/"

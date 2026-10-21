@@ -8,7 +8,12 @@ from typing import TypedDict
 from requests import Session
 
 from lawgraph.clients._sru import number_of_records, parse_response, records, sru_params
-from lawgraph.clients.base import QUERY_TIMEOUT, BaseClient, UnexpectedAnswer
+from lawgraph.clients.base import (
+    QUERY_TIMEOUT,
+    BaseClient,
+    Unexpected,
+    UnexpectedAnswer,
+)
 from lawgraph.config.constants import BWB_INSTRUMENT_TYPES
 from lawgraph.config.sources import BWB_SEARCH, BWB_SRU
 from lawgraph.core.bwb_wti import GENERAL_INFO_END, extract_general_info
@@ -248,7 +253,8 @@ class BWBClient(BaseClient):
         if total > TOESTANDEN_PAGE_SIZE:
             # One page is asked for; more toestanden than that would be cut silently.
             raise UnexpectedAnswer(
-                f"BWB {bwb_id} has {total} toestanden, more than one page"
+                Unexpected.TOO_MANY,
+                f"BWB {bwb_id} has {total} toestanden, more than one page",
             )
         return [meta for meta in map(self._parse_record, records(root)) if meta]
 

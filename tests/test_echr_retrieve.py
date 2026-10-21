@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 import requests
 
-from lawgraph.clients.base import ATTEMPTS, UnexpectedAnswer
+from lawgraph.clients.base import ATTEMPTS, Unexpected, UnexpectedAnswer
 from lawgraph.clients.echr import EchrClient
 from lawgraph.config.constants import (
     RAW_KIND_ECHR_JUDGMENT,
@@ -262,7 +262,7 @@ def test_a_text_hudoc_has_no_document_for_is_remembered_as_missing() -> None:
     client = _client([{"results": []}], [])
 
     def no_docx(item_id: str) -> str:
-        raise UnexpectedAnswer(f"HUDOC {item_id}: no DOCX")
+        raise UnexpectedAnswer(Unexpected.NOT_DOCX, f"HUDOC {item_id}")
 
     client.fetch_document_xml = no_docx
     texts = _texts_of(_stored_before(), client)
