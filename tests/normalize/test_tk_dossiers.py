@@ -36,6 +36,8 @@ from lawgraph.config.constants import (
 from lawgraph.core.models import Node, NodeType, PipelineResult
 from lawgraph.core.props import FactionProps, MemberProps
 from lawgraph.core.relations import BY_NAME
+from lawgraph.core.tk_records.activities import activity as read_activity
+from lawgraph.core.tk_records.commitments import commitment as read_commitment
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
@@ -329,14 +331,14 @@ def test_a_fulfilled_commitment_is_about_the_dossier_of_its_letter() -> None:
     fixture = json.loads(fixture_text("tk_commitments_2025a04175.json"))
     agenda = ["22112", "27926", "29453", "29861", "32847", "33104", "36496", "36512"]
     store = _store(existing={COLLECTION_DOSSIERS: {*agenda, "29389"}})
-    activity = present(tk_cases.read_activity(fixture["Activiteit"]))
+    activity = present(read_activity(fixture["Activiteit"]))
     activities = {
         "a": tk_cases.link_node(Node.skeleton(COLLECTION_ACTIVITIES, *activity))
     }
     commitments = {
         number: tk_cases.link_node(Node.skeleton(COLLECTION_COMMITMENTS, *record))
         for payload in fixture["Toezegging"]
-        if (record := present(tk_cases.read_commitment(payload)))
+        if (record := present(read_commitment(payload)))
         and (number := payload["Nummer"])
     }
     fulfilled = commitments["TZ202603-117"].node_id
