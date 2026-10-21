@@ -11291,7 +11291,7 @@
       "ArticlePassagesDTO": {
         "properties": {
           "document": {
-            "$ref": "#/components/schemas/DocumentEntryDTO"
+            "$ref": "#/components/schemas/PassageDocumentDTO"
           },
           "target": {
             "type": "string",
@@ -17579,210 +17579,6 @@
         "title": "DelegationClauseDTO",
         "description": "A delegation formula in the text of an article (\"bij of krachtens algemene maatregel\nvan bestuur\"), as a span of its `text`."
       },
-      "DocumentEntryDTO": {
-        "properties": {
-          "chamber": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "TK",
-                  "EK"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Chamber",
-            "description": "'TK' or 'EK'; null for a document that belongs to neither chamber, such as a Staatsblad or Staatscourant publication."
-          },
-          "source": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source",
-            "description": "Source, e.g. 'tk', 'eerstekamer', 'staatsblad'."
-          },
-          "is_explanatory": {
-            "type": "boolean",
-            "title": "Is Explanatory",
-            "description": "An explanatory memorandum (memorie of nota van toelichting): a document of this kind explains the articles it introduces or changes.",
-            "default": false
-          },
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "key": {
-            "type": "string",
-            "title": "Key"
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kind"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "sequence": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sequence",
-            "description": "The number of the paper in ``dossier_number``."
-          },
-          "number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Number",
-            "description": "Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``)."
-          },
-          "dossier_number": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Dossier Number",
-            "description": "The dossier the paper is numbered in (``31058``, ``37020-XV``): a paper is part of every dossier of its cases and a Kamerstuk of one. Null for a paper that is no Kamerstuk, such as a nader rapport sent along with a bill."
-          },
-          "session_year": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session Year",
-            "description": "Parliamentary year."
-          },
-          "date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "tk_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tk Url"
-          },
-          "sender": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SenderDTO"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste Kamer paper and a paper without a signature."
-          },
-          "path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Path",
-            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
-            "readOnly": true
-          },
-          "kind_group": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "motie",
-                  "amendement",
-                  "wetsvoorstel",
-                  "brief",
-                  "overig"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kind Group",
-            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
-            "readOnly": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "chamber",
-          "source",
-          "is_explanatory",
-          "id",
-          "key",
-          "kind",
-          "title",
-          "sequence",
-          "number",
-          "dossier_number",
-          "session_year",
-          "date",
-          "tk_url",
-          "sender",
-          "path",
-          "kind_group"
-        ],
-        "title": "DocumentEntryDTO",
-        "description": "A document as it is named from another node: identity and paper number, never text."
-      },
       "DocumentFacetsDTO": {
         "properties": {
           "kind": {
@@ -22133,7 +21929,7 @@
               }
             ],
             "title": "Dossier Short Title",
-            "description": "The name that dossier goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it; null without one."
+            "description": "The name the dossier goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it; null without one."
           },
           "sequence": {
             "anyOf": [
@@ -26916,7 +26712,7 @@
               }
             ],
             "title": "Completeness",
-            "description": "Of a law of the Staatsblad the BWB does not hold (yet): `references` of all its articles (`partial`: `missing` not linked) and `definitions`. Of a publication the BWB names (`kind` `publicatie`): `text` `not_fetched` (its text is on officielebekendmakingen.nl; what it changes is read from the BWB). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null for any other instrument."
+            "description": "Of a law of the Staatsblad the BWB does not hold (yet): `references` of all its articles (`partial`: `missing` not linked or linked to a stub) and `definitions`. Of a publication the BWB names (`kind` `publicatie`): `text` `not_fetched` (its text is on officielebekendmakingen.nl; what it changes is read from the BWB). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null for any other instrument."
           },
           "path": {
             "anyOf": [
@@ -33795,6 +33591,223 @@
         ],
         "title": "PassageDTO",
         "description": "The passage of a memorandum that explains an article."
+      },
+      "PassageDocumentDTO": {
+        "properties": {
+          "chamber": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "TK",
+                  "EK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chamber",
+            "description": "'TK' or 'EK'; null for a document that belongs to neither chamber, such as a Staatsblad or Staatscourant publication."
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Source, e.g. 'tk', 'eerstekamer', 'staatsblad'."
+          },
+          "is_explanatory": {
+            "type": "boolean",
+            "title": "Is Explanatory",
+            "description": "An explanatory memorandum (memorie of nota van toelichting): a document of this kind explains the articles it introduces or changes.",
+            "default": false
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence",
+            "description": "The number of the paper in ``dossier_number``."
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "Its number in the dossier as its chamber numbers it: the nr. of a Tweede Kamer paper (``12``), the letter of an Eerste Kamer one (``A``)."
+          },
+          "dossier_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Number",
+            "description": "The dossier the paper is numbered in (``31058``, ``37020-XV``): a paper is part of every dossier of its cases and a Kamerstuk of one. Null for a paper that is no Kamerstuk, such as a nader rapport sent along with a bill."
+          },
+          "session_year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Year",
+            "description": "Parliamentary year."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "tk_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tk Url"
+          },
+          "sender": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SenderDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who sent a Tweede Kamer paper (``SenderDTO``); null for an Eerste Kamer paper and a paper without a signature."
+          },
+          "dossier_short_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Short Title",
+            "description": "The name the dossier goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it; null without one."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "chamber",
+          "source",
+          "is_explanatory",
+          "id",
+          "key",
+          "kind",
+          "title",
+          "sequence",
+          "number",
+          "dossier_number",
+          "session_year",
+          "date",
+          "tk_url",
+          "sender",
+          "dossier_short_title",
+          "path",
+          "kind_group"
+        ],
+        "title": "PassageDocumentDTO",
+        "description": "A paper that explains an article in a passage, as it is named."
       },
       "PathDTO": {
         "properties": {

@@ -302,6 +302,9 @@ RAW_KIND_BWB_WTI_GENERAL = "bwb-wti-algemene-informatie-xml"
 RAW_KIND_STAATSBLAD_AMVB = "stb-amvb-xml"
 # A law of the Staatsblad (``DC.type`` ``Wet``) of a dossier the graph holds as adopted.
 RAW_KIND_STAATSBLAD_LAW = "stb-wet-xml"
+# The XML of a Staatsblad publication whose text names a transposition table (external id
+# ``stb-<year>-<n>``): with its XML when a table is read in it, without it otherwise.
+RAW_KIND_STAATSBLAD_TRANSPOSITION = "stb-transposition-xml"
 RAW_KIND_STAATSCOURANT_REGELING = "stcrt-regeling-xml"
 # How many publications of each ministry name a cabinet post (external id: the query).
 RAW_KIND_STAATSCOURANT_POST_CREATORS = "stcrt-post-creators-json"
@@ -381,7 +384,11 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_BWB_TOESTAND_ALL,
         RAW_KIND_BWB_WTI_GENERAL,
     ),
-    SOURCE_STAATSBLAD: (RAW_KIND_STAATSBLAD_AMVB, RAW_KIND_STAATSBLAD_LAW),
+    SOURCE_STAATSBLAD: (
+        RAW_KIND_STAATSBLAD_AMVB,
+        RAW_KIND_STAATSBLAD_LAW,
+        RAW_KIND_STAATSBLAD_TRANSPOSITION,
+    ),
     SOURCE_STAATSCOURANT: (
         RAW_KIND_STAATSCOURANT_REGELING,
         RAW_KIND_STAATSCOURANT_POST_CREATORS,
@@ -436,6 +443,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_BWB_WTI_GENERAL: 1000,
     RAW_KIND_STAATSBLAD_AMVB: 20,
     RAW_KIND_STAATSBLAD_LAW: 5,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION: 1,
     RAW_KIND_STAATSCOURANT_REGELING: 20,
     RAW_KIND_STAATSCOURANT_POST_CREATORS: 200,
     RAW_KIND_ECHR_JUDGMENT: 20,

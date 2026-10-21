@@ -205,7 +205,34 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
     )
     store.bulk_insert_or_update_nodes(
         "instruments",
-        [node("stb_2026_1", "instrument", kind="publicatie", official_id="stb-2026-1")],
+        [
+            node(
+                "stb_2026_1", "instrument", kind="publicatie", official_id="stb-2026-1"
+            ),
+            # a law of the Staatsblad the BWB does not hold, and an article of it: what
+            # ``semantic staatsblad-law-references`` could not link, and the edges to a stub
+            node(
+                "wet_stb_2026_1",
+                "instrument",
+                kind="wet",
+                source="staatsblad",
+                official_id="stb-2026-1",
+                unlinked_references=0,
+            ),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            node(
+                "stb_2026_1_1",
+                "article",
+                official_id="stb-2026-1",
+                article_number="1",
+                source="staatsblad",
+                unlinked_references=0,
+            )
+        ],
     )
     membership = {
         "faction_id": "factions/f1",
@@ -293,6 +320,9 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
         [
             edge("p1", article, "instruments/bwbr0001", "PART_OF"),
             edge("p2", f"articles/{BWB.lower()}_2", "instruments/bwbr0001", "PART_OF"),
+            edge(
+                "p3", "articles/stb_2026_1_1", "instruments/wet_stb_2026_1", "PART_OF"
+            ),
             edge(
                 "r1",
                 article,

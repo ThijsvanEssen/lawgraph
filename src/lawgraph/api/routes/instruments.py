@@ -52,6 +52,7 @@ from lawgraph.api.schemas.instruments import (
     LinkedInstrumentDTO,
 )
 from lawgraph.core.division_anchor import as_anchor
+from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import get_law_annexes
@@ -84,6 +85,7 @@ from lawgraph.db.queries.instruments import (
     get_instruments_list,
 )
 from lawgraph.db.queries.not_found import NotFound, require
+from lawgraph.db.queries.unlinked_references import law_reference_counts
 
 router = APIRouter()
 
@@ -224,7 +226,14 @@ def get_instrument(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> InstrumentDetailDTO:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
-    return InstrumentDetailDTO.from_document(doc, same_treaty=same_treaty(store, doc))
+    references = (
+        law_reference_counts(store, doc["id"])
+        if is_law(doc.get("props") or {})
+        else None
+    )
+    return InstrumentDetailDTO.from_document(
+        doc, same_treaty=same_treaty(store, doc), references=references
+    )
 
 
 @router.get(
