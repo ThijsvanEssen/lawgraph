@@ -136,7 +136,7 @@ def test_a_dossier_without_links_has_an_empty_hub(
 def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    enacted = [
+    enacted: list[dict[str, Any]] = [
         {
             "key": "stb_2024_193",
             "cite": "Stb. 2024, 193",
