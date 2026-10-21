@@ -23,7 +23,12 @@ where there is markup:
   BEPALINGEN", "Afdeling 1: Vestiging") or in the next paragraph; a kind of division that
   is open ends there and the divisions inside it too, another kind nests in the open ones.
   A heading in capitals without a label right before an article ("SLOTBEPALINGEN") stands
-  at the top level.
+  at the top level. An article inserted later ("Artikel 9 bis") counts only right after
+  the article of its number, else it is one an amendment quotes; "Artikel" printed without
+  its number is the article after the last one.
+
+An article inserted later has a number of its own, written as a citation names it:
+"Artikel 9 bis" and "Artikel 9bis" are article "9bis".
 
 A division is a ``Crumb`` as for BWB: its ``type`` is the first word of the label in lower
 case ("hoofdstuk"), its label is written "Hoofdstuk III", its title as printed.
@@ -61,7 +66,15 @@ _DIVISION_TITLE_CLASSES = frozenset({"oj-ti-section-2", "ti-section-2"})
 # The description of a page of the old format is the title of the act.
 _DESCRIPTION_META = "DC.description"
 
-_ARTICLE_RE = re.compile(r"(?:Artikel|Article)\s+(\d+[a-z]*)", re.IGNORECASE)
+# "Artikel 9", "Artikel 12a", and an article inserted later: "Artikel 9 bis", "Artikel
+# 9bis", "Artikel 74 duodecies". Its number is written as a citation names it: "9bis".
+_LATIN = r"(?:bis|ter|quater|[a-z]+ies)"
+_ARTICLE_RE = re.compile(
+    rf"(?:Artikel|Article)\s+(\d+(?:\s+{_LATIN}|[a-z]*))", re.IGNORECASE
+)
+_INSERTED_RE = re.compile(rf"(\d+){_LATIN}", re.IGNORECASE)
+# An article heading of the old format printed without its number ("Artikel ").
+_UNNUMBERED_RE = re.compile(r"(?:Artikel|Article)", re.IGNORECASE)
 # A lid: "1.   Deze verordening bevat:"; old acts also print "1 . Het recht".
 _LID_RE = re.compile(r"(\d+[a-z]?) ?\.\s+(\S.*)", re.DOTALL)
 # The marker of a point in a cell of its own: "a)", "(a)", "1)", "1.", "iv)", "—"; in the
@@ -259,7 +272,7 @@ def _journal_articles(root: ET.Element, titles: list[ET.Element]) -> list[EuArti
     in a table cell is an article quoted in an amendment, not one of the act."""
     parents = {child: parent for parent in root.iter() for child in parent}
     numbered = {
-        title: match[1]
+        title: _number(match)
         for title in titles
         if (match := _ARTICLE_RE.fullmatch(_text(title)))
         and not _in_cell(title, parents)
@@ -321,6 +334,11 @@ def _journal_division(element: ET.Element) -> Crumb | None:
                 None,
             )
     return _crumb(label, title) if label else None
+
+
+def _number(match: re.Match[str]) -> str:
+    """The number of an article heading, without the space before "bis": "9bis"."""
+    return "".join(match[1].split())
 
 
 def _in_cell(element: ET.Element, parents: dict[ET.Element, ET.Element]) -> bool:
@@ -476,13 +494,34 @@ class _FlatReader:
         self.number, self.body = None, []
 
     def _new_article(self, text: str) -> str | None:
-        """The number of the article *text* starts, None for one taken before."""
+        """The number of the article *text* starts, None for one taken before.
+
+        An inserted article ("Artikel 9 bis") follows the article of its number; after
+        another one it is an article an amendment quotes. A heading printed without its
+        number is the article after the last one.
+        """
         match = _ARTICLE_RE.fullmatch(text)
-        if not match or match[1] == self.number:
+        if match:
+            number = _number(match)
+        elif _UNNUMBERED_RE.fullmatch(text):
+            number = self._next_number()
+        else:
             return None
-        if any(article.number == match[1] for article in self.articles):
+        if number is None or number == self.number:
             return None
-        return match[1]
+        inserted = _INSERTED_RE.fullmatch(number)
+        last = self.number or (self.articles[-1].number if self.articles else None)
+        if inserted and not (last and re.match(rf"{inserted[1]}(?!\d)", last)):
+            return None
+        if any(article.number == number for article in self.articles):
+            return None
+        return number
+
+    def _next_number(self) -> str | None:
+        """The number after the last article (1 for the first); None after a number that
+        does not count on."""
+        last = self.number or (self.articles[-1].number if self.articles else "0")
+        return str(int(last) + 1) if last.isdigit() else None
 
     def _is_untitled_heading(self, text: str, following: str) -> bool:
         """A heading in capitals without a label between two articles."""
