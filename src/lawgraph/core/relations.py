@@ -128,8 +128,8 @@ class TranspositionPart(_Meta):
     """The leden of it the place names; empty for the whole (an edge to an article)."""
     outcome: str | None = None
     """What the source says of a part it places in no article (an edge to the new law):
-    `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`; `gat` for a part that
-    does not hold."""
+    `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`, `naar:<law as written>`
+    (to another law, no article of it named); `gat` for a part that does not hold."""
     via: str | None = None
     """The division of the old law the source names for the old article: `§ 1.2`."""
 
@@ -547,9 +547,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "article of another law the source names (`afdeling 3.5 Awb`) is one too. An "
         "article of the old law → the new law (Instrument): what the source says of the "
         "parts it places in no article (`parts[].outcome`: `vervallen`, "
-        "`niet_overgenomen`, `blijft_in:<law>`), and of an old article no source places, "
-        "its parts as the source writes them (`meta.outcome` `gat`). A row the source "
-        "gives that the text of the laws does not hold is no edge to an article: "
+        "`niet_overgenomen`, `blijft_in:<law>`, `naar:<law>`), and of an old article no "
+        "source places, its parts as the source writes them (`meta.outcome` `gat`). A row "
+        "the source gives that the text of the laws does not hold is no edge to an article: "
         "`lawgraph succession-gaps` lists it.",
         meta=TransposedToMeta,
     ),

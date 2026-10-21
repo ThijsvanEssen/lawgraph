@@ -118,7 +118,7 @@ documents, dossiers, activities, votes, commitments, committees, persons, factio
 | `retrieve tk-document-links` | the links of every Document modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: its `Activiteit` (the debate a stenogram is the record of), `BijlageDocument` (its attachments) and `BronDocument` (the letters it is an attachment of), as ids. A few hundred bytes a paper, so the links of all of them can be fetched again; `retrieve tk-dossiers` asks for the same three with every Document | `tk-document-links` |
 | `retrieve tk-case-actors` | the actors of every Zaak modified since `--since` (default `1d`; `--mode full` all of them) and nothing else: per `ZaakActor` its `Relatie`, `Functie`, `ActorAfkorting` and the ids of its person, faction or committee. A few hundred bytes a case, so the actors of all of them can be fetched again; a change of an actor moves the `ApiGewijzigdOp` of its Zaak | `tk-case-actors` |
 | `retrieve tk-content` | the XML of every document numbered in a dossier (a Kamerstuk: a letter as much as a motie or a memorandum; with `--kind`, repeatable, only those whose `kind` contains it), at the address of the dossier it is numbered in (`dossier_number`; of a Rijkswet without its addition `(R2222)`) of which none is stored, so a second run asks only for the new papers; `--limit N` (at most N papers, the rest in the next run), `--dry-run` | `tk-kamerstuk-xml`, `tk-kamerstuk-xml-missing` |
-| `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF (the `itemUrl` of the manifestation `pdf`: the SRU's `url` is the XML of the few that have one); and the Kamerstukken whose full text names one (`cql.textAndIndexes`) and that are published as XML (the `itemUrl` of the manifestation `xml`); those not stored yet or modified since. The PDF stored as it is (base64); the XML of a paper as it is when `core/transposition_xml.py` reads a table in it, else the paper without it (so it is not fetched again until it changes) | `tk-transposition-table-pdf`, `tk-transposition-document-xml` |
+| `retrieve tk-transposition-tables` | the attachments of Kamerstukken (`dt.type` `Bijlage`) whose title names a transposition or concordance table, as the KOOP SRU lists them, each with its dossier, the paper it belongs to and the URL of its PDF (the `itemUrl` of the manifestation `pdf`: the SRU's `url` is the XML of the few that have one); and the Kamerstukken whose full text names one (`cql.textAndIndexes`) and that are published as XML (the `itemUrl` of the manifestation `xml`); those not stored yet or modified since. The PDF stored as it is (base64); the XML of a paper as it is when `core/transposition_xml.py` reads a table in it, else the paper without it (so it is not fetched again until it changes). A download that fails is skipped and asked for again the next run | `tk-transposition-table-pdf`, `tk-transposition-document-xml` |
 | `retrieve tk-dossiers --mode gaps` | the dossiers the graph names and lacks, each with its documents: those that the publications amending or bringing into force a version of an article name (`origin_publication.dossiers`, `commencement_publication.dossiers`) or a regulation or publication names (`dossier_numbers`), the first reading that the memorandum of a second reading of a change in the Grondwet refers to ("Kamerstukken 35 418", `core/dossier_numbers.first_reading_dossiers`), and the dossiers a Tweede Kamer paper or case is part of (`dossier_numbers`); and the dossiers that lack a paper below the highest number the graph has of them (per suffix) | `tk-dossier`, `tk-document`, `tk-dossier-missing`, `tk-document-missing` (the Tweede Kamer has not all papers of that number either) |
 
 `retrieve tk-dossiers` without `--since` fetches everything, some 400K documents among it. `--dossier-number N` fetches that one dossier and its documents, whatever the dates. The
@@ -605,8 +605,10 @@ reported.
   resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
   anything else (`–`, `niet overgenomen`: no article; `2.21,eerste lid, … 16.89. 20.7`: does
   not read). A law after the last reference is the law of that one (`5.45, 16.7 en afdeling
-  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`): a name that
-  starts with a capital and names no part of an article. A cell in prose reads the references
+  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`, `art. 1a WED
+  (door artikel 2.46 IwOw)`): a name that starts with a capital and names no part of an
+  article. The word `besluit` there names no law: the references are of the new law, worked
+  out in an AMvB under them (`20, derde lid, besluit`, kst-36440-3). A cell in prose reads the references
   after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
   Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
   above it, in both columns; a cell over more rows holds for each. A run of articles stands
@@ -666,7 +668,9 @@ reported.
 - What a table answers instead of a place is an outcome: `vervallen` (`vervallen (mvt)`,
   `vervalt`, `Vervallen.`, also `vervalllen`), `niet_overgenomen` (`–`, `—`, `niet
   overgenomen`, `keert niet terug`), `blijft_in:<law as written>` (`Blijft in Waterwet`,
-  `Blijft in Wm 10.6, tweede lid`). An old article with an outcome has an edge to the new law
+  `Blijft in Wm 10.6, tweede lid`), `naar:<law as written>` (to another law, no article of it
+  named: `naar de Gratiewet (via de invoeringswet)`, `Wordt later ingevoegd in de
+  Omgevingswet`). An old article with an outcome has an edge to the new law
   (Instrument): `meta.parts` `[{from, to, outcome, via}]`, `meta.outcome` the outcome its
   parts share; of an article placed elsewhere only the parts with an outcome. An outcome is no
   gap.
