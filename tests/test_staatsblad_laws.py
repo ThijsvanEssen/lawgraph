@@ -11,7 +11,7 @@ import pytest
 
 from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.core.bwb_definitions import TermMatcher
-from lawgraph.core.completeness import Part, ReferenceCounts
+from lawgraph.core.completeness import ReferenceCounts
 from lawgraph.core.staatsblad_laws import (
     LawPublication,
     article_props,
@@ -261,50 +261,66 @@ def test_the_stored_records_read_as_publications() -> None:
 
 
 @pytest.mark.parametrize(
-    ("article", "law", "expected"),
+    ("references", "law", "expected"),
     [
         (
-            {},
+            None,
             {},
             {"references": {"state": "pending"}, "definitions": {"state": "pending"}},
         ),
         (
-            {"unlinked_references": 0},
+            ReferenceCounts(0),
             {"definitions_found": 0},
             {"references": {"state": "done"}, "definitions": {"state": "done"}},
         ),
         (
-            {"unlinked_references": 2},
+            ReferenceCounts(2),
             {"definitions_found": 29},
             {
                 "references": {"state": "partial", "missing": 2},
                 "definitions": {"state": "done"},
             },
         ),
+        # a reference linked to a stub (an article not loaded) is missing, as of any record
+        (
+            ReferenceCounts(2, 3),
+            {"definitions_found": 29},
+            {
+                "references": {"state": "partial", "missing": 5},
+                "definitions": {"state": "done"},
+            },
+        ),
+        (
+            ReferenceCounts(0, 3),
+            {"definitions_found": 29},
+            {
+                "references": {
+                    "state": "partial",
+                    "missing": 3,
+                    "reason": "target_not_loaded",
+                },
+                "definitions": {"state": "done"},
+            },
+        ),
     ],
 )
 def test_what_the_pipeline_made_of_a_law(
-    article: dict[str, int], law: dict[str, int], expected: dict[str, Any]
+    references: ReferenceCounts | None, law: dict[str, int], expected: dict[str, Any]
 ) -> None:
     props = {"source": "staatsblad", "kind": "wet", **law}
-    assert law_completeness(article, props) == expected
-    assert law_completeness({**props, **article}) == expected
-
-
-def test_links_laid_before_the_count_leave_the_references_pending() -> None:
-    """An article with references linked (here to stubs) but no count of its text by the
-    step: what it lacks is not known, so ``pending``, not ``partial`` without a
-    ``missing``."""
-    law = {"source": "staatsblad", "kind": "wet"}
-    found = completeness_dto({}, law, ReferenceCounts(0, 3))
+    assert law_completeness(props, references) == expected
+    found = completeness_dto({}, props, references)
     assert found is not None
-    assert found[Part.REFERENCES].model_dump(exclude_none=True) == {"state": "pending"}
+    assert {
+        part.value: state.model_dump(mode="json", exclude_none=True)
+        for part, state in found.items()
+    } == expected
 
 
 def test_a_law_of_the_bwb_has_no_completeness_of_the_staatsblad() -> None:
-    assert law_completeness({"source": "bwb", "kind": "wet"}) is None
+    assert law_completeness({"source": "bwb", "kind": "wet"}, None) is None
     publication = {"source": "staatsblad", "kind": "publicatie"}
-    assert law_completeness(publication) is None
+    assert law_completeness(publication, ReferenceCounts(1)) is None
 
 
 @pytest.mark.parametrize("series", ["Stb", "Stcrt", "Trb"])

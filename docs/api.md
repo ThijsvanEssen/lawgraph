@@ -44,7 +44,7 @@ staatsblad-law-references` and `semantic bwb-definitions` kept. A dossier `numbe
 matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220)`), otherwise 422. A budget chapter is a dossier
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
-or a `dossier` filter as it is. Next to bare numbers stand their names as `/api/dossiers` gives them: `dossiers` (`{number, short_title, title}` per number, once each, in their order; null names for a number no dossier has) on a decision (list and detail), a paper of `/api/documents` (of `dossier_numbers`, else of `dossier_number`), a vote of an Eerste Kamer faction and an activity of a committee; `dossier_short_title` in the props of a paper, an activity or a decision among the neighbours of a node (of its first dossier); `short_title` on the dossier of a commitment and of a publication, in the props of a dossier node (`/api/nodes`, as the node, a neighbour and in a neighbourhood, also with `props=canvas`) and on each dossier of a law (`/api/instruments/{identifier}/dossiers`); `dossier_short_title` on each entry of an article's legislative history. List parameters `limit` and `offset` have the bounds shown in
+or a `dossier` filter as it is. Next to bare numbers stand their names as `/api/dossiers` gives them: `dossiers` (`{number, short_title, title}` per number, once each, in their order; null names for a number no dossier has) on a decision (list and detail), a paper of `/api/documents` (of `dossier_numbers`, else of `dossier_number`), a vote of an Eerste Kamer faction and an activity of a committee; `dossier_short_title` in the props of a paper, an activity or a decision among the neighbours of a node (of its first dossier); `short_title` on the dossier of a commitment and of a publication, in the props of a dossier node (`/api/nodes`, as the node, a neighbour and in a neighbourhood, also with `props=canvas`) and on each dossier of a law (`/api/instruments/{identifier}/dossiers`); `dossier_short_title` on each entry of an article's legislative history and on the paper of each of its explanations (`explained-by`) and passages (`explanations`). List parameters `limit` and `offset` have the bounds shown in
 `/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
 that orders ties by key), so walking its pages gives each row once.
 
@@ -311,7 +311,8 @@ A part left out is not known to lack anything. Every state is derived from what 
 or a run recorded, never set by hand.
 
 Of a record: a law of the Staatsblad the BWB does not hold (yet) and each of its articles
-(`references`, `definitions`; see "Paths, parameters and periods"); an article of the BWB or of
+(`references`, `definitions`; see "Paths, parameters and periods"; `references` as below, of
+what `semantic staatsblad-law-references` could not link, of the law over all its articles); an article of the BWB or of
 an EU act (`/api/articles/...`), a judgment (`/api/judgments/{ecli}`) and a paper
 (`/api/documents/{key}`, `/api/decisions/{key}/document`) `references`: `done` (every
 reference its text makes that the step recognized is linked to a loaded record) or `partial`

@@ -73,6 +73,7 @@ def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]]]:
     stub("get_article_legislative_history", [])
     stub("get_article_explanations", {"total": 0, "items": []})
     stub("get_article_explanation_passages", [])
+    stub("load_dossier_names", {})
     stub("get_delegated_regulations", [])
     app.dependency_overrides[get_store] = _Store
     yield seen

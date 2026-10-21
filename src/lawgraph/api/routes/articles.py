@@ -48,6 +48,7 @@ from lawgraph.core.models import (
     node_id,
 )
 from lawgraph.core.reference_targets import reference_targets
+from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
     get_article_citations,
@@ -65,7 +66,10 @@ from lawgraph.db.queries.delegations import get_delegated_regulations
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import NotFound, require_node
 from lawgraph.db.queries.relationships import get_article_relationship_data
-from lawgraph.db.queries.unlinked_references import reference_counts
+from lawgraph.db.queries.unlinked_references import (
+    law_reference_counts,
+    reference_counts,
+)
 
 router = APIRouter()
 
@@ -107,15 +111,13 @@ def get_article_detail(
     upstream, downstream, scope = _build_relationship_dtos(relationship_data)
     props = data.article.get("props") or {}
     present = present_targets(store, reference_targets(props.get("references")))
+    law = (data.instrument.get("props") or {}) if data.instrument is not None else {}
+    counts = law_reference_counts if is_law(law) else reference_counts
 
     return ArticleDetailResponse(
         article=ArticleSummaryDTO.from_document(data.article),
         instrument=instrument,
-        completeness=completeness_dto(
-            props,
-            (data.instrument.get("props") or {}) if data.instrument is not None else {},
-            reference_counts(store, data.article["id"]),
-        ),
+        completeness=completeness_dto(props, law, counts(store, data.article["id"])),
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],
         definitions=[DefinitionDTO.from_definition(d) for d in used],
@@ -401,10 +403,11 @@ def get_explanations(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> ArticlePassagesResponse:
     rows = get_article_explanation_passages(store, article.bwb_id, article.number)
+    names = load_dossier_names(store)
     return ArticlePassagesResponse(
         article_id=article.id,
         total=len(rows),
-        items=[ArticlePassagesDTO.from_row(row) for row in rows],
+        items=[ArticlePassagesDTO.from_row(row, names) for row in rows],
     )
 
 

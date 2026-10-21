@@ -78,10 +78,12 @@ def completeness_dto(
     """The ``completeness`` of a record with these *props*: of a law of the Staatsblad the
     BWB does not hold (yet) or of an article of one (*law* the props of its law) as
     ``core.staatsblad_laws.law_completeness`` says it, of a publication as
-    ``publication_completeness`` does; of any other its ``references``, as
-    *references* counts them (``db.queries.unlinked_references``). None when
-    no step derived any part."""
-    found = law_completeness(props, law) or publication_completeness(props)
+    ``publication_completeness`` does; of any other its ``references``. *references*
+    counts those (``db.queries.unlinked_references``). None when no step derived any
+    part."""
+    found = law_completeness(
+        props if law is None else law, references
+    ) or publication_completeness(props)
     if found is None and (part := references_part(references)) is not None:
         found = {Part.REFERENCES.value: part}
     return _COMPLETENESS.validate_python(found) if found is not None else None
