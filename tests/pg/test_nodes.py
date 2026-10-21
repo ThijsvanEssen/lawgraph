@@ -10,7 +10,7 @@ import pytest
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import nodes as node_queries
 from lawgraph.db.queries.not_found import NotFound
-from tests.asserts import show_items
+from tests.asserts import assert_status, show_items
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -21,6 +21,8 @@ def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
         "members": "member",
         "cases": "case",
         "cabinets": "cabinet",
+        "factions": "faction",
+        "committees": "committee",
     }[collection]
     return collection, {
         "key": key,
@@ -169,6 +171,110 @@ def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
     nothing = node_queries.NeighborFilter(relations=())
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", filters=nothing)
     assert hood["nodes"] == [] and hood["edges"] == []
+
+
+@pytest.fixture()
+def paper(store: GraphStore) -> GraphStore:
+    """A paper of a dossier of ten papers (``x01``..``x10``), signed by two members who
+    signed twenty papers more each (``a…``, ``b…``, before the dossier's in id order); the
+    one member sits in a faction, a cabinet and a committee."""
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("documents", key)[1]
+            for key in [
+                "p53",
+                *(f"x{n:02}" for n in range(1, 11)),
+                *(f"{m}{n:03}" for m in "ab" for n in range(1, 21)),
+            ]
+        ],
+    )
+    for collection, key in [
+        ("dossiers", "37020_x"),
+        ("members", "m1"),
+        ("members", "m2"),
+        ("factions", "f1"),
+        ("cabinets", "c1"),
+        ("committees", "k1"),
+    ]:
+        store.bulk_insert_or_update_nodes(collection, [_node(collection, key)[1]])
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("d53", "documents/p53", "dossiers/37020_x", "PART_OF"),
+            *(
+                _edge(f"dx{n}", f"documents/x{n:02}", "dossiers/37020_x", "PART_OF")
+                for n in range(1, 11)
+            ),
+            _edge("s1", "members/m1", "documents/p53", "AUTHORED"),
+            _edge("s2", "members/m2", "documents/p53", "AUTHORED"),
+            *(
+                _edge(f"s{m}{n}", f"members/m{i}", f"documents/{m}{n:03}", "AUTHORED")
+                for i, m in ((1, "a"), (2, "b"))
+                for n in range(1, 21)
+            ),
+            _edge("f", "members/m1", "factions/f1", "MEMBER_OF"),
+            _edge("c", "members/m1", "cabinets/c1", "SERVED_IN"),
+            _edge("k", "members/m1", "committees/k1", "MEMBER_OF"),
+        ]
+    )
+    return store
+
+
+_ACTORS = ("members", "factions", "committees", "cabinets")
+
+
+def test_a_walk_that_stops_at_the_actors_keeps_the_papers_of_the_dossier(
+    paper: GraphStore,
+) -> None:
+    """Without ``stop_at`` the papers the signers signed elsewhere fill the cap and none of
+    the dossier's is kept; with it a member is reached but not walked through, but for the
+    step to the faction and the cabinet it sits in."""
+
+    def hood(**kwargs: Any) -> dict[str, list[str]]:
+        return _kept(
+            node_queries.get_node_neighborhood(
+                paper, "documents", "p53", depth=2, cap=20, **kwargs
+            )
+        )
+
+    every = hood()
+    assert [k for k in every["documents"] if k.startswith("x")] == []
+    assert hood(stop_at=_ACTORS) == {
+        "cabinets": ["c1"],
+        "documents": [f"x{n:02}" for n in range(1, 11)],
+        "dossiers": ["37020_x"],
+        "factions": ["f1"],
+        "members": ["m1", "m2"],
+    }
+
+
+def test_the_focal_node_is_walked_through_whatever_it_stops_at(
+    paper: GraphStore,
+) -> None:
+    hood = node_queries.get_node_neighborhood(
+        paper, "members", "m1", depth=2, stop_at=_ACTORS
+    )
+    found = _kept(hood)
+    assert len(found["documents"]) == 21  # its own papers
+    assert found["dossiers"] == ["37020_x"]  # through p53, a paper of it
+
+
+def test_stop_at_on_the_route(paper: GraphStore) -> None:
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    app.dependency_overrides[get_store] = lambda: paper
+    try:
+        client = TestClient(app)
+        path = "/api/nodes/documents/p53/neighborhood?depth=2&cap=20"
+        stopped = client.get(f"{path}&stop_at={','.join(_ACTORS)}").json()
+        assert sum(n["id"].startswith("documents/x") for n in stopped["nodes"]) == 10
+        unknown = client.get(f"{path}&stop_at=members,raw_sources")
+        assert_status(unknown, 422)
+    finally:
+        app.dependency_overrides.pop(get_store, None)
 
 
 def test_a_neighbor_carries_no_text_and_the_node_itself_does(

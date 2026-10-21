@@ -170,7 +170,11 @@ def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> N
     node = "/api/nodes/{collection}/{key}"
     views = {"props", "edge_meta"}
     assert _parameters(node) == filters | views | {"limit", "offset"}
-    assert _parameters(f"{node}/neighborhood") == filters | views | {"depth", "cap"}
+    assert _parameters(f"{node}/neighborhood") == filters | views | {
+        "depth",
+        "cap",
+        "stop_at",
+    }
     assert "edge_meta" in _parameters("/api/paths")
     assert "passages" in _properties("NodeNeighborhoodEdge")
 
