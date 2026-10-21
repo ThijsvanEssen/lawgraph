@@ -605,8 +605,10 @@ reported.
   resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
   anything else (`–`, `niet overgenomen`: no article; `2.21,eerste lid, … 16.89. 20.7`: does
   not read). A law after the last reference is the law of that one (`5.45, 16.7 en afdeling
-  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`): a name that
-  starts with a capital and names no part of an article. A cell in prose reads the references
+  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`, `art. 1a WED
+  (door artikel 2.46 IwOw)`): a name that starts with a capital and names no part of an
+  article. The word `besluit` there names no law: the references are of the new law, worked
+  out in an AMvB under them (`20, derde lid, besluit`, kst-36440-3). A cell in prose reads the references
   after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
   Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
   above it, in both columns; a cell over more rows holds for each. A run of articles stands
@@ -666,7 +668,9 @@ reported.
 - What a table answers instead of a place is an outcome: `vervallen` (`vervallen (mvt)`,
   `vervalt`, `Vervallen.`, also `vervalllen`), `niet_overgenomen` (`–`, `—`, `niet
   overgenomen`, `keert niet terug`), `blijft_in:<law as written>` (`Blijft in Waterwet`,
-  `Blijft in Wm 10.6, tweede lid`). An old article with an outcome has an edge to the new law
+  `Blijft in Wm 10.6, tweede lid`), `naar:<law as written>` (to another law, no article of it
+  named: `naar de Gratiewet (via de invoeringswet)`, `Wordt later ingevoegd in de
+  Omgevingswet`). An old article with an outcome has an edge to the new law
   (Instrument): `meta.parts` `[{from, to, outcome, via}]`, `meta.outcome` the outcome its
   parts share; of an article placed elsewhere only the parts with an outcome. An outcome is no
   gap.
