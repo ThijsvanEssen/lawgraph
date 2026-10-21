@@ -1,6 +1,7 @@
 """``lg_unlinked_references``: per node a step read the references of, how many its text
-makes that the step recognized and could not link; with the ``REFERS_TO`` edges of the node
-that go to a stub, what ``core.completeness.references_part`` says of its references. Of a
+makes that the step recognized and could not link (of a judgment with the LJNs it cites that
+no judgment in the graph has, ``ljns``); with the ``REFERS_TO`` edges of the node that go to a
+stub, what ``core.completeness.references_part`` says of its references. Of a
 law of the Staatsblad and its articles the same, the count a prop of each
 (``law_reference_counts``).
 """
@@ -63,6 +64,25 @@ def keep_unlinked(
     return written
 
 
+_KEEP_LJNS_SQL = f"""
+UPDATE {UNLINKED_TABLE} u SET ljns = r.ljns
+FROM json_to_recordset(%(rows)s::json) AS r(id text, ljns integer)
+WHERE u.id = r.id AND u.ljns IS DISTINCT FROM r.ljns
+RETURNING 1
+"""
+
+
+def keep_unlinked_ljns(store: Store, counts: dict[str, int]) -> int:
+    """Keep *counts* (judgment id -> how many LJNs its text cites that no one judgment in the
+    graph has) on the row of each judgment ``semantic rechtspraak`` read, null for none; a
+    judgment without a row is left. How many rows changed."""
+    written = 0
+    for chunk in chunked(sorted(counts.items()), CHUNK):
+        rows = [{"id": node, "ljns": count or None} for node, count in chunk]
+        written += len(store.execute(_KEEP_LJNS_SQL, {"rows": json.dumps(rows)}))
+    return written
+
+
 def _stub(collection: str) -> str:
     """Whether a row ``t`` of *collection* is a stub: by its column where it has one, so
     the props (a judgment's whole text) are not read."""
@@ -85,7 +105,7 @@ def _to_stubs(source: str) -> str:
 
 
 _COUNT_SQL = f"""
-SELECT u.count AS unlinked, {_to_stubs("u.id")} AS unloaded
+SELECT u.count + coalesce(u.ljns, 0) AS unlinked, {_to_stubs("u.id")} AS unloaded
 FROM {UNLINKED_TABLE} u WHERE u.id = %(id)s
 """
 

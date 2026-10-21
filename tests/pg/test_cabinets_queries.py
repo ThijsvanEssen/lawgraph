@@ -284,11 +284,12 @@ def test_the_commitments_newest_first_with_their_facets(
     assert json.dumps(k1["member"]) == json.dumps(
         {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
     )
-    # by label, null first; the first activity by id that is there
+    # by label, null first, each with the basis of its edge; the first activity by id
+    # that is there
     assert json.dumps(k1["dossiers"]) == json.dumps(
         [
-            {"key": "d3", "number": None, "title": None},
-            {"key": "d1", "number": "36000", "title": "T1"},
+            {"key": "d3", "number": None, "title": None, "basis": "agenda"},
+            {"key": "d1", "number": "36000", "title": "T1", "basis": "agenda"},
         ]
     )
     assert json.dumps(k1["activity"]) == json.dumps(

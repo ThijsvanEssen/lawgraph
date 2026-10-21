@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -17,6 +17,9 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_records.commitments import due_date
+
+# Why a commitment is about a dossier: ``meta.basis`` of its ``ABOUT`` edge.
+CommitmentBasis = Literal["nakoming", "agenda"]
 
 # The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
 COMMITMENT_STATUS_DESCRIPTION = (
@@ -34,6 +37,13 @@ class CommitmentDossierDTO(WithPath):
     title: str | None = None
     short_title: str | None = Field(
         None, description="The name it goes by, as ``/api/dossiers`` gives it."
+    )
+    basis: CommitmentBasis | None = Field(
+        None,
+        description="Why it is this dossier: `nakoming`, the dossier of a letter that "
+        "fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of "
+        "the debate it was made in, where it was discussed (a commitment no letter in a "
+        "dossier fulfils yet).",
     )
 
 

@@ -48,6 +48,7 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_PART_OF,
+    RELATION_TRANSPOSED_TO,
     RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
@@ -301,7 +302,8 @@ $$;
 -- outside w_collections (when given) or w_tables is neither kept nor walked through. A node
 -- of w_stop (when given) but the focal one is kept but not walked through, but for its
 -- seats: an edge out of it whose relation and collection of its other end are one of
--- w_seats ('MEMBER_OF factions').
+-- w_seats ('MEMBER_OF factions'). A law is not walked back to the old articles whose
+-- outcome it holds (lg_transposition_outcome).
 -- Whether a neighbour is there is asked of its own table only, w_chunk at a time, so a
 -- capped walk does not look up the neighbours it will never keep.
 CREATE OR REPLACE FUNCTION lg_walk(
@@ -354,6 +356,7 @@ BEGIN
                 WHERE w_inbound AND e.to_id = ANY(free)
                   AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                   AND (w_status IS NULL OR e.status = w_status)
+                  AND NOT public.lg_transposition_outcome(e.relation, e.to_id)
                 UNION
                 SELECT e.to_id FROM public.edges e
                 WHERE w_outbound AND e.from_id = ANY(stopped)
@@ -414,6 +417,19 @@ BEGIN
 END
 $$;
 
+"""
+
+# Whether an edge tells what became of an article of an old law that no article of the new
+# law takes the place of: TRANSPOSED_TO the new law itself (an instrument, ``meta.outcome``).
+# It is read from the old article; the new law neither walks (``lg_walk``) nor counts it as a
+# neighbour (db/queries/nodes.py): a recodification leaves some 1,300 of them on its law.
+TRANSPOSITION_OUTCOME = f"""
+CREATE OR REPLACE FUNCTION lg_transposition_outcome(relation text, to_id text)
+RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT relation = '{RELATION_TRANSPOSED_TO}'
+       AND split_part(to_id, '/', 1) = '{COLLECTION_INSTRUMENTS}'
+$$;
 """
 
 SEARCH_FUNCTIONS = r"""
@@ -2092,15 +2108,21 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 # when the step has not read it (``core.completeness.references_part``). Kept by ``semantic
 # bwb`` (an article of the BWB), ``semantic eurlex`` (an EU article), ``semantic rechtspraak``
 # (a judgment) and ``semantic tk`` (a paper of the Tweede Kamer), each under its own
-# ``step``. Apart from the props, so a run that counts every judgment rewrites no texts. Not
-# a table of the graph, but the detail routes serve it: writing it raises the data version.
+# ``step``. Of a judgment also ``ljns``: how many LJNs its text cites that no one judgment in
+# the graph has, kept by ``semantic rechtspraak-citations`` on the row ``semantic rechtspraak``
+# wrote; null when it cites none such. Apart from the props, so a run that counts every
+# judgment rewrites no texts. Not a table of the graph, but the detail routes serve it:
+# writing it raises the data version. ``ljns`` is added to a table built before it (nullable:
+# a version without it starts on it).
 UNLINKED_TABLE = "lg_unlinked_references"
 UNLINKED_REFERENCES = f"""
 CREATE TABLE IF NOT EXISTS {UNLINKED_TABLE} (
     id text PRIMARY KEY,
     step text NOT NULL,
-    count integer NOT NULL
+    count integer NOT NULL,
+    ljns integer
 );
+ALTER TABLE {UNLINKED_TABLE} ADD COLUMN IF NOT EXISTS ljns integer;
 CREATE INDEX IF NOT EXISTS lg_unlinked_references_step ON {UNLINKED_TABLE} (step)
 """
 
@@ -2327,7 +2349,14 @@ def node_exists(id_sql: str, collection_sql: str) -> str:
 
 def statements() -> list[str]:
     """The whole schema, in the order it is created."""
-    found = [DICTIONARY, FUNCTIONS, SEARCH_FUNCTIONS, DATA_VERSION, TRIGRAMS]
+    found = [
+        DICTIONARY,
+        FUNCTIONS,
+        TRANSPOSITION_OUTCOME,
+        SEARCH_FUNCTIONS,
+        DATA_VERSION,
+        TRIGRAMS,
+    ]
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)
         found += data_version_triggers(collection)

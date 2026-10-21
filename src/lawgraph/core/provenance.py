@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     CHANGE_RELATIONS,
     IMPLEMENTS_BASIS_CONSIDERANS,
     IMPLEMENTS_BASIS_NIM,
+    RELATION_ABOUT,
     RELATION_ADVISES_ON,
     RELATION_ANSWERS,
     RELATION_APPEAL_OF,
@@ -47,6 +48,8 @@ Basis = Literal[
     "text",
     "footnote",
     "transposition_table",
+    "nakoming",
+    "agenda",
 ]
 Reason = Literal[
     "bwb_article",
@@ -75,6 +78,8 @@ BASIS_SUBJECT: Final[Basis] = "subject"
 BASIS_TEXT: Final[Basis] = "text"
 BASIS_FOOTNOTE: Final[Basis] = "footnote"
 BASIS_TRANSPOSITION_TABLE: Final[Basis] = "transposition_table"
+BASIS_FULFILMENT: Final[Basis] = "nakoming"
+BASIS_AGENDA: Final[Basis] = "agenda"
 
 REASON_BWB_ARTICLE: Final[Reason] = "bwb_article"
 REASON_CELEX_ARTICLE: Final[Reason] = "celex_article"
@@ -201,6 +206,21 @@ PROVENANCE: tuple[Provenance, ...] = (
         "transposition table sent with the bill, a bijlage of its memorie van toelichting "
         "or a table in it; the concordance table of an EU act that codifies or recasts "
         "others), and the text of the new law holds that article and lid.",
+    ),
+    Provenance(
+        "basis",
+        BASIS_FULFILMENT,
+        (RELATION_ABOUT,),
+        "A commitment and the dossier of the letter that fulfils it "
+        "(`Toezegging.KamerbriefNakoming`, its `Kamerstukdossier`): the dossier the Kamer "
+        "files its answer in.",
+    ),
+    Provenance(
+        "basis",
+        BASIS_AGENDA,
+        (RELATION_ABOUT,),
+        "A commitment no letter in a stored dossier fulfils, and a dossier on the agenda "
+        "of the debate it was made in: discussed there, not necessarily its subject.",
     ),
     Provenance(
         "bases",

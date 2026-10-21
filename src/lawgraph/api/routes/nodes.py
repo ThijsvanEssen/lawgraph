@@ -229,7 +229,9 @@ NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
         "(`limit` neighbors from `offset`, in the same order on every request), "
         "its `total`, and the `next_offset` of the following page (null on the "
         "last). `relations`, `node_types`, `direction` and `status` narrow the "
-        "edges; the totals count what remains."
+        "edges; the totals count what remains. What became of an old article no new "
+        "article takes the place of (`TRANSPOSED_TO` the new law, `meta.outcome`) is a "
+        "neighbour of the old article, not of the law."
         "\n\n"
         "a node (any node collection) with its neighbours in buckets of one relation, "
         "direction and neighbour collection, a page of `limit` (at most 200; 500 with "
@@ -457,7 +459,9 @@ def get_node_graph(
         "and the cabinet it sits in, `MEMBER_OF` and `SERVED_IN`), so the cap goes "
         "to what the node itself touches: `stop_at=members,factions,committees,"
         "cabinets` keeps the papers of a paper's dossier, not those its signers "
-        "signed elsewhere."
+        "signed elsewhere. A law is not walked back to the old articles whose outcome "
+        "in a recodification it holds (`TRANSPOSED_TO` the law, `meta.outcome`), nor "
+        "are they counted in its `buckets`."
     ),
     tags=["nodes"],
 )

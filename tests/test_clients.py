@@ -249,9 +249,17 @@ def test_the_actors_of_cases_are_asked_for_alone() -> None:
     assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
 
 
-def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it() -> None:
+def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it_and_their_dossiers() -> (
+    None
+):
     client, session = _tk(EMPTY)
     list(client.fetch_toezeggingen())
     assert _asked(session) == [
-        ("Toezegging", {"$expand": "KamerbriefNakoming($select=Id)"})
+        (
+            "Toezegging",
+            {
+                "$expand": "KamerbriefNakoming($select=Id;"
+                "$expand=Kamerstukdossier($select=Nummer,Toevoeging))"
+            },
+        )
     ]

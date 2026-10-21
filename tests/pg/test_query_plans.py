@@ -148,6 +148,10 @@ URLS = [
     f"/api/nodes/articles/{BWB.lower()}_1?props=canvas",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
+    # a law: its buckets and its neighbourhood without the outcomes of the old articles
+    # (``lg_transposition_outcome``), from the edges' covering index still
+    f"/api/nodes/instruments/{BWB.lower()}?limit=1",
+    f"/api/nodes/instruments/{BWB.lower()}/neighborhood?depth=2&props=canvas",
     # a walk that reaches the members, factions, committees and cabinets but goes through
     # none of them
     "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",

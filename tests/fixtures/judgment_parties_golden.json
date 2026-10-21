@@ -1,4 +1,11 @@
 {
+ "rechtspraak_crvb_2011_bp0671.xml": {
+  "administrative": "98362e501b6e6a966045ef783c2e0a912316cf76ff9cd070a3eeea9bfdd5a3a5",
+  "civil": "5f24fb5f542ab59123afe156dac0e5bc68f6ff686f38fb320df133f6ed2fa59b",
+  "criminal": "5f24fb5f542ab59123afe156dac0e5bc68f6ff686f38fb320df133f6ed2fa59b",
+  "none": "5f24fb5f542ab59123afe156dac0e5bc68f6ff686f38fb320df133f6ed2fa59b",
+  "own": "98362e501b6e6a966045ef783c2e0a912316cf76ff9cd070a3eeea9bfdd5a3a5"
+ },
  "rechtspraak_crvb_2025_1295.xml": {
   "administrative": "26b08869994fa689a4a540de729e0f33f9d53ffd356632888a788ca523d06595",
   "civil": "ce40f52f705897daab19812d58d398b7ce83aa52283217f95cc3fa5aff8722c9",

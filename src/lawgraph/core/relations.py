@@ -321,6 +321,11 @@ class AnswersMeta(_Meta):
     """The reference as written."""
 
 
+class AboutMeta(_Meta):
+    basis: Basis | None = None
+    """Of a commitment: `nakoming` or `agenda` (core/provenance.py)."""
+
+
 class SameAsMeta(_Meta):
     basis: Basis | None = None
     """What makes the two the same (core/provenance.py)."""
@@ -553,7 +558,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`lawgraph succession-gaps` lists it. In a table of an old regulation, the column "
         "of a law beside the regulations under it (`Artikel Omgevingswet` beside `Artikel "
         "AMvB`, Stb. 2020, 400) names their delegation basis, no place: no edge (the basis "
-        "is the new regulation's `BASED_ON`).",
+        "is the new regulation's `BASED_ON`). An edge to the new law is read from the old "
+        "article: the neighbours, the neighbourhood and the buckets of the law leave it "
+        "out (`lg_transposition_outcome`).",
         meta=TransposedToMeta,
     ),
     RelationSpec(
@@ -732,7 +739,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Case and Dossier; Commitment → Dossier. A vote of the Eerste Kamer on a motion → "
         "the motion, its Kamerstuk with that letter (`Kamerstuk I 37020, M`): a paper of the "
         "Eerste Kamer has no case, where a decision of the Tweede Kamer is about the case of "
-        "its motion.",
+        "its motion. A commitment fulfilled by a letter in a dossier is about that dossier "
+        "(`meta.basis` `nakoming`), one without is about the dossiers on the agenda of its "
+        "debate (`agenda`).",
+        meta=AboutMeta,
     ),
     RelationSpec(
         "LED_BY",
