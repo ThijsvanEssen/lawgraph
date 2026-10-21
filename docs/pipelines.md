@@ -604,7 +604,8 @@ reported.
   Transponeringstabel Bouwbesluit 2012` over `Artikel | Artikel Omgevingswet | Artikel AMvB`,
   Stb. 2020, 400), is a table of the old law to each; a column whose cells mostly name their
   law at their end (`1.1 Bbl`, `2.13 Bal en 8.28 Bkl`) a table per law its cells name, and
-  one under the column's name (`AMvB`) of the cells with a figure that name none. Any other
+  one under the column's name (`AMvB`) of the cells with a figure that name none; a cell
+  without a figure (`–`) stands with the cells of the law the column names most. Any other
   head with more than two columns of articles places nothing (`columns not recognised`). A
   cell holds references as written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`,
   `2.31, eerste lid, onder a`), joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo.
@@ -637,7 +638,10 @@ reported.
   `Bal`), else the one the citation extractor reads in `artikel 1 <name>`, of the whole name
   (`WVO-BES` is not `WVO`). Names compare in any case, without spaces and marks
   (`Omgevings-wet`, `WVO-BES`), a year still open for any (`Mediawet 20..` is `Mediawet
-  2008`).
+  2008`). In a table of an old regulation (a BWB kind other than `wet`), the column of a law
+  in a head of more new laws (`Artikel Omgevingswet` beside `Artikel AMvB`, Stb. 2020, 400:
+  `4.3, eerste lid` beside `1.3 Bal`) names the delegation basis of the places beside it, no
+  place: it places nothing (the basis is the new regulation's `BASED_ON`).
   Of a table with a column per law, which is the new law is read from the sources, not from
   the order of the columns: the one of the two the dossier enacted or put articles in, else
   the one the title does not name; when neither tells, the table places nothing. The rows run

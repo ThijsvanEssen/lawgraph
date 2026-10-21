@@ -550,7 +550,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`niet_overgenomen`, `blijft_in:<law>`, `naar:<law>`), and of an old article no "
         "source places, its parts as the source writes them (`meta.outcome` `gat`). A row "
         "the source gives that the text of the laws does not hold is no edge to an article: "
-        "`lawgraph succession-gaps` lists it.",
+        "`lawgraph succession-gaps` lists it. In a table of an old regulation, the column "
+        "of a law beside the regulations under it (`Artikel Omgevingswet` beside `Artikel "
+        "AMvB`, Stb. 2020, 400) names their delegation basis, no place: no edge (the basis "
+        "is the new regulation's `BASED_ON`).",
         meta=TransposedToMeta,
     ),
     RelationSpec(

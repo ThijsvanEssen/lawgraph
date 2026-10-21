@@ -455,18 +455,19 @@ def test_a_column_of_the_old_regulation_and_one_per_new_law() -> None:
     """The Invoeringsbesluit Omgevingswet (Stb. 2020, 400): ``Onderwerp | Artikel | Artikel
     Omgevingswet | Artikel AMvB | Toelichting`` under the old regulation's name. The AMvB's
     cell names its law (``1.1 Bbl``, ``2.13 Bal en 8.28 Bkl``): a table per law it names,
-    and one of the cells that name none."""
+    and one of the cells that name none; the answer ``–`` stands with the law it names most
+    (Bal, Bbl). The tables of one head share their group."""
     tables = read_tables(
         (FIXTURES / "stb_2020_400_excerpt.xml").read_text(), "stb-2020-400"
     )
     activiteiten = "Activiteitenbesluit milieubeheer"
-    assert [(t.columns, t.title_law, t.problem) for t in tables] == [
-        ((activiteiten, "Omgevingswet"), activiteiten, None),
-        ((activiteiten, "Bal"), activiteiten, None),
-        ((activiteiten, "Bkl"), activiteiten, None),
-        ((activiteiten, "AMvB"), activiteiten, None),
-        (("Bouwbesluit 2012", "Omgevingswet"), "Bouwbesluit 2012", None),
-        (("Bouwbesluit 2012", "Bbl"), "Bouwbesluit 2012", None),
+    assert [(t.columns, t.title_law, t.problem, t.group) for t in tables] == [
+        ((activiteiten, "Omgevingswet"), activiteiten, None, 0),
+        ((activiteiten, "Bal"), activiteiten, None, 0),
+        ((activiteiten, "Bkl"), activiteiten, None, 0),
+        ((activiteiten, "AMvB"), activiteiten, None, 0),
+        (("Bouwbesluit 2012", "Omgevingswet"), "Bouwbesluit 2012", None, 4),
+        (("Bouwbesluit 2012", "Bbl"), "Bouwbesluit 2012", None, 4),
     ]
     ow, bal, bkl, amvb, _, bbl = tables
     assert _rows(ow) == [
@@ -478,6 +479,7 @@ def test_a_column_of_the_old_regulation_and_one_per_new_law() -> None:
     ]
     assert _rows(bal) == [
         ("1.3", "", "1.3 Bal", "1.3"),
+        ("1.3a", "", "–", None),
         ("2.7", "", "2.13 Bal", "2.13"),
     ]
     assert _rows(bkl) == [("2.7", "", "8.28 Bkl", "8.28")]
@@ -492,6 +494,7 @@ def test_a_column_of_the_old_regulation_and_one_per_new_law() -> None:
         ("1.3", "", "2.4", "2.4"),
         ("1.3", "", "2.5 Bbl", "2.5"),
         ("1.4", "", "2.7 Bbl", "2.7"),
+        ("1.5", "", "–", None),
         ("1.6", "", "2.13 Bbl", "2.13"),
         ("5.10", "", "5.4, tweede lid Bbl", "5.4"),
     ]
