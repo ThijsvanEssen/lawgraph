@@ -21,7 +21,7 @@ from typing import Any
 import requests
 
 from lawgraph.clients._sru import fetch_publication_xml, iter_publications, record_dicts
-from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, UnexpectedAnswer
+from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, Unexpected, UnexpectedAnswer
 from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.transposition_xml import TABLE_WORDS
@@ -50,7 +50,7 @@ class KamerstukClient(BaseClient):
         """The XML of ``kst-<dossier>-<number>`` (``_sru.fetch_publication_xml``)."""
         match = KST_ID_PATTERN.fullmatch(identifier)
         if not match:
-            raise UnexpectedAnswer(f"not a Kamerstuk identifier: {identifier!r}")
+            raise UnexpectedAnswer(Unexpected.BAD_ID, f"Kamerstuk {identifier!r}")
         return fetch_publication_xml(
             self, "kst", KST_ID_PATTERN, identifier, group=match.group(1)
         )
@@ -94,7 +94,7 @@ class KamerstukClient(BaseClient):
         """The PDF at *url*; raises when the answer is no PDF."""
         content = self.get(url, timeout=PAGE_TIMEOUT).content
         if not content.startswith(b"%PDF"):
-            raise UnexpectedAnswer(f"not a PDF: {url}")
+            raise UnexpectedAnswer(Unexpected.NOT_PDF, url)
         return content
 
     @staticmethod

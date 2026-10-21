@@ -53,7 +53,10 @@ by a comma, ``en``, a semicolon, a paragraph of their own or a word that joins t
 in samenhang met 16.40``, ``5.33 jo. 16.15``, ``3.89 i.c.m. 3.10``, ``5.1 resp. 5.3``); in
 the new law's cell also a division (``afdeling 15.2``, ``bijlage A``), a place that is no
 article. A law named after the last reference of a cell of the new law is the law of that one
-(``12 en 47b WEC``, ``afdeling 3.5 Awb``, ``16.52, eerste lid, Omgevingswet``: ``Place.law``);
+(``12 en 47b WEC``, ``afdeling 3.5 Awb``, ``16.52, eerste lid, Omgevingswet``, with a note
+after it: ``art. 1a WED (door artikel 2.46 IwOw)``: ``Place.law``); the word ``besluit``
+there is none: the references are of the new law, worked out in an AMvB under them (``20,
+derde lid, besluit``);
 a cell in prose gives the references after ``komt/keert … terug in`` (``Komt inhoudelijk
 gewijzigd terug in artikel 10.23.``). A cell of the new law that does not read as such is a
 place that is no article when it has no figure (``–``, ``niet overgenomen``), and does not
@@ -154,13 +157,18 @@ _SEPARATOR = re.compile(
     re.IGNORECASE,
 )
 # A cell whose references name a law at their end ("16.52, eerste lid, Omgevingswet",
-# "afdeling 3.5 Awb", "5.20, derde lid, Awb (nieuw)", "16.75 (Aanvullingswet grondeigendom
-# Omgevingswet)", "10.25 van de Omgevingswet"): the references and the law.
+# "afdeling 3.5 Awb", "16.75 (Aanvullingswet grondeigendom Omgevingswet)", "10.25 van de
+# Omgevingswet"), with a note after it ("5.20, derde lid, Awb (nieuw)", "art. 1a WED (door
+# artikel 2.46 IwOw)"): the references, the law and the note.
 _LAW_AT_END = re.compile(
     r"^(?P<references>.*?\d[^\s,]*(?:,\s*[^,]*?)*?)\s*,?\s+(?:van\s+(?:de|het)\s+)?"
-    r"\(?(?P<law>[^\W\d][^\d,;()]*?)\)?(?:\s*\((?:nieuw)\))?\s*\.?$",
+    r"\(?(?P<law>[^\W\d][^\d,;()]*?)\)?(?:\s*(?P<note>\((?:nieuw|door\s[^()]*)\)))?"
+    r"\s*\.?$",
     re.IGNORECASE,
 )
+# The word after the references of the new law that says an AMvB under them works them out
+# ("20, derde lid, besluit": kst-36440-3): no law of its own.
+_UNDER_THEM = re.compile(r"besluit", re.IGNORECASE)
 # A word that names a part of an article, never a law.
 _PART_WORDS = re.compile(
     rf"\b(?:lid|leden|onder(?:deel|delen)?|aanhef|(?:vol)?zin(?:nen)?|{ORDINAL})\b",
@@ -283,17 +291,25 @@ def places(text: str) -> list[Place]:
 def _with_law(text: str) -> list[Place] | None:
     """The places of a cell whose last reference names a law at its end ("12 en 47b WEC":
     12 of the new law, 47b of the WEC), that one of the law (``Place.law`` as written, its
-    text with the law after it); None for any other cell. A cell of only a part ("Tweede
-    lid") names no law."""
+    text with the law and its note after it); None for any other cell. A cell of only a
+    part ("Tweede lid") names no law. The word ``besluit`` after the references names none
+    either: they are of the new law, worked out in an AMvB under them (the last one's text
+    as the cell ends)."""
     match = _LAW_AT_END.fullmatch(text)
-    if match is None or not _is_law(match["law"]):
+    if match is None:
+        return None
+    law = match["law"].strip()
+    under = _UNDER_THEM.fullmatch(law) is not None and not match["note"]
+    if not (under or _is_law(law)):
         return None
     found = references(match["references"].rstrip(" ,"), divisions=True)
     if found is None:
         return None
-    law = match["law"].strip()
     *first, last = [_place(r) for r in found]
-    return [*first, replace(last, text=f"{last.text} {law}", law=law)]
+    if under:
+        return [*first, replace(last, text=last.text + text[match.end("references") :])]
+    note = f" {match['note']}" if match["note"] else ""
+    return [*first, replace(last, text=f"{last.text} {law}{note}", law=law)]
 
 
 def _is_law(text: str) -> bool:

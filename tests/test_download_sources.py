@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pytest
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer
 from lawgraph.clients.eu import EUClient
 from lawgraph.clients.koop_publications import KoopPublicationClient
 from lawgraph.config.constants import (
@@ -210,7 +210,9 @@ def test_hudoc_has_no_text_for_a_5xx_but_many_in_a_row_are_the_host() -> None:
 
 def test_hudoc_answer_that_is_no_docx_is_missing_and_a_bug_ends_the_step() -> None:
     store = InMemoryStore()
-    result = _echr(store, {"doc-01": UnexpectedAnswer("HUDOC doc-01: no DOCX")})
+    result = _echr(
+        store, {"doc-01": UnexpectedAnswer(Unexpected.NOT_DOCX, "HUDOC doc-01")}
+    )
     assert result.errors == []
     ((_, kind),) = [r for r in _kinds(store) if r[1].startswith(RAW_KIND_ECHR_TEXT)]
     assert kind.endswith(RAW_KIND_MISSING_SUFFIX)

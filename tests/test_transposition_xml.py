@@ -152,7 +152,27 @@ def test_the_references_of_a_cell(text: str, expected: list[Reference] | None) -
         ),
         (
             "5.20, derde lid, Awb (nieuw)",
-            [Place("5.20, derde lid Awb", "5.20", ("3",), law="Awb")],
+            [Place("5.20, derde lid Awb (nieuw)", "5.20", ("3",), law="Awb")],
+        ),
+        # kst-34986-3, Wbr 11: the law that puts it there, after the law
+        (
+            "art. 1a WED (door artikel 2.46 IwOw)",
+            [Place("art. 1a WED (door artikel 2.46 IwOw)", "1a", (), law="WED")],
+        ),
+        # kst-36440-3, Wet zeevarenden 6 and 20: an article of the new law, worked out in
+        # an AMvB under it
+        (
+            "20, derde lid, besluit",
+            [Place("20, derde lid, besluit", "20", ("3",))],
+        ),
+        (
+            "23 tot en met 26, besluit",
+            [Place("23 tot en met 26, besluit", "23", (), through="26")],
+        ),
+        # kst-36636-3, Sv 6:7:1: no article, an outcome (``core.succession.outcome``)
+        (
+            "naar de Gratiewet (via de invoeringswet)",
+            [Place("naar de Gratiewet (via de invoeringswet)", None, ())],
         ),
         (
             "16.75 (Aanvullingswet grondeigendom Omgevingswet)",
@@ -228,6 +248,7 @@ def test_the_half_huidig_naar_nieuw_of_one_law() -> None:
         ("6:1:1", "derde lid", "7.1.1, tweede lid", "rij 8"),
         ("6:1:2", "", "1.10.2, eerste lid", "rij 9"),
         ("6:1:5", "derde lid", "niet overgenomen", "rij 10"),
+        ("6:7:1", "", "naar de Gratiewet (via de invoeringswet)", "rij 12"),
     ]
     assert table.rows()[2].source == "kst-36636-3"
 

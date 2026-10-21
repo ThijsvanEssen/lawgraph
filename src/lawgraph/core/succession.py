@@ -18,8 +18,11 @@ keeps the place as the source writes it (``to``), read: the number of the articl
 
 What the source answers instead of a place is an outcome (``outcome``): the part lapses
 (``vervallen``), is not taken over (``niet_overgenomen``: "niet overgenomen", "keert niet
-terug", "–") or stays in a law (``blijft_in:<law as written>``: "Blijft in Wm"; a place in
-the old law itself, "12 en 47b WEC" in a table of the WEC). Such a part is no gap.
+terug", "–"), stays in a law (``blijft_in:<law as written>``: "Blijft in Wm"; a place in
+the old law itself, "12 en 47b WEC" in a table of the WEC) or goes to another law it names
+without an article of it (``naar:<law as written>``: "naar de Gratiewet (via de
+invoeringswet)", "Wordt later ingevoegd in de Omgevingswet"). Such a part is no gap. A
+besluit the source names by no name ("Besluit B2") is no law: a gap.
 
 Nothing is filled in or corrected: a row that does not hold, and an article of the old law in
 force for which no row of any source gives an article or an outcome, is a ``Gap``, with what
@@ -65,6 +68,7 @@ ROW_GAPS: tuple[GapKind, ...] = (
 LAPSES = "vervallen"
 NOT_TAKEN_OVER = "niet_overgenomen"
 STAYS_IN = "blijft_in"
+MOVES_TO = "naar"
 GAP = "gat"
 
 _LAPSES = re.compile(
@@ -80,6 +84,13 @@ _NOT_TAKEN_OVER = re.compile(
 _STAYS_IN = re.compile(
     r"^blijft\s+(?:bestaan\s+)?in\s+(?:de\s+|het\s+)?"
     r"(?P<law>[^\W\d][^\d,;.()]*?)\s*(?:[\d,;.(].*)?$",
+    re.IGNORECASE,
+)
+# "naar de Gratiewet (via de invoeringswet)", "Wordt later ingevoegd in de Omgevingswet": a
+# law by its name (a capital), a note between brackets after it.
+_MOVES_TO = re.compile(
+    r"^(?:naar|wordt\s+(?:later\s+)?ingevoegd\s+in)\s+(?:de\s+|het\s+)?"
+    r"(?P<law>[^\W\d][^\d,;.()]*?)\s*(?:\([^()]*\))?\.?$",
     re.IGNORECASE,
 )
 
@@ -212,7 +223,7 @@ class Placed:
 
 def outcome(text: str) -> str | None:
     """The outcome a place that is no article says: ``vervallen``, ``niet_overgenomen``,
-    ``blijft_in:<law>``; None for any other place."""
+    ``blijft_in:<law>``, ``naar:<law>``; None for any other place."""
     text = collapse_ws(text)
     if _LAPSES.match(text):
         return LAPSES
@@ -220,6 +231,8 @@ def outcome(text: str) -> str | None:
         return NOT_TAKEN_OVER
     if match := _STAYS_IN.match(text):
         return f"{STAYS_IN}:{match['law'].strip()}"
+    if (match := _MOVES_TO.match(text)) and match["law"][:1].isupper():
+        return f"{MOVES_TO}:{match['law'].strip()}"
     return None
 
 
@@ -509,10 +522,10 @@ def _unplaced(said: list[tuple[SourceRow, str]], *, gap: bool) -> Unplaced:
 
 
 def _without_law(place_: Place) -> str:
-    """The text of *place_* without the other law it names at its end."""
+    """The text of *place_* without the other law it names at its end, and its note."""
     text = collapse_ws(place_.text)
-    if place_.law and text.endswith(place_.law):
-        return text[: -len(place_.law)].rstrip(" ,(")
+    if place_.law and (at := text.rfind(place_.law)) > 0:
+        return text[:at].rstrip(" ,(")
     return text
 
 

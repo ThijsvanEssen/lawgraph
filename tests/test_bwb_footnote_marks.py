@@ -84,7 +84,10 @@ def test_the_marks_are_props_and_fields_of_the_api() -> None:
     props = article_props(article, "BWBR0002226", "Successiewet 1956", 0)
     (mark,) = props["footnote_marks"]
     assert mark == {"at": article.footnote_marks[0].at, "number": "1"}
-    assert [m.model_dump() for m in footnote_marks_from_props(props)] == [mark]
+    # a ``<sup>`` marks a paragraph of the text, no footnote of ``footnotes``
+    assert [m.model_dump() for m in footnote_marks_from_props(props)] == [
+        {**mark, "footnote": None}
+    ]
     # a mark past the text is left out
     assert footnote_marks_from_props({"text": "ab", "footnote_marks": [mark]}) == []
     assert "footnote_marks" not in article_props(

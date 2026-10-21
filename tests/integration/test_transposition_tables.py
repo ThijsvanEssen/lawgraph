@@ -19,9 +19,13 @@ articles of the laws of the BWB, through ``semantic tk-transposition-tables``, t
   ``normalize bwb-history``: Woningwet 101a, moved into the Omgevingswet) is one too.
 - The API reads it both ways: on the old article where it went, on the new one where it came
   from.
-- What a table answers instead of a place ("vervallen", "–", "Blijft in Waterwet") is an edge
-  to the new law, no gap; of an old article that is a gap, the edge keeps what the table
-  writes. A division of the old law ("§ 1.2") is each article of it.
+- What a table answers instead of a place ("vervallen", "–", "Blijft in Waterwet", "naar de
+  Gratiewet (via de invoeringswet)") is an edge to the new law, no gap; of an old article
+  that is a gap, the edge keeps what the table writes. A division of the old law ("§ 1.2")
+  is each article of it.
+- An article of the new law worked out in an AMvB under it ("20, derde lid, besluit",
+  kst-36440-3) is a place in the new law; an article of another law with the law that puts
+  it there ("art. 1a WED (door artikel 2.46 IwOw)", kst-34986-3) one of that law.
 - A row that does not hold, and an old article without a place, is a gap in the report; an
   old article without a row only of a law that expired no later than the new law came into
   force.
@@ -77,6 +81,7 @@ _OLD_ARTICLES = {
     "6:1:1": (("1", "2", "3"), False),
     "6:1:2": ((), False),
     "10": (("1", "2", "3"), False),  # lapses (p. 4: "vervalllen", "vervallen")
+    "6:7:1": ((), False),  # to the Gratiewet (kst-36636-3)
 }
 _NONE: tuple[tuple[str, ...], bool] = ((), False)
 _WATERWET = dict.fromkeys(
@@ -132,6 +137,12 @@ _MEDIAWET_2008 = {
 }
 _UNESCO = dict.fromkeys(("1", "2", "3", "4", "5", "6"), _NONE)
 _ERFGOEDWET = dict.fromkeys(("1.1", "3.13", "6.1", "6.3", "6.7"), _NONE)
+# kst-36440-3: the Wet zeevarenden to the Wet bemanning zeeschepen
+_WET_ZEEVARENDEN = dict.fromkeys(("5", "6", "20"), _NONE)
+_WET_BEMANNING_ZEESCHEPEN: dict[str, tuple[tuple[str, ...], bool]] = {
+    "20": (("1", "2", "3", "4", "5", "6"), False),
+    **dict.fromkeys(("23", "24", "25", "26"), _NONE),
+}
 
 
 def _historical(store: GraphStore, bwb_id: str, numbers: tuple[str, ...]) -> None:
@@ -274,6 +285,24 @@ def _seed(store: GraphStore) -> None:
     _bwb_law(store, "BWBR0024186", "Uitvoeringswet UNESCO-verdrag 1970", _UNESCO)
     _bwb_law(store, "BWBR0037521", "Erfgoedwet", _ERFGOEDWET)
     _bwb_law(
+        store, "BWBR0009124", "Wet zeevarenden", _WET_ZEEVARENDEN, expired="2025-07-01"
+    )
+    _bwb_law(
+        store,
+        "BWBR0050681",
+        "Wet bemanning zeeschepen",
+        _WET_BEMANNING_ZEESCHEPEN,
+        in_force="2025-07-01",
+    )
+    _bwb_law(store, "BWBR0008331", "Wet beheer rijkswaterstaatswerken", {"11": _NONE})
+    _bwb_law(
+        store,
+        "BWBR0002063",
+        "Wet op de economische delicten",
+        {"1a": _NONE},
+        short_title="WED",
+    )
+    _bwb_law(
         store,
         ACTIVITEITENBESLUIT,
         "Activiteitenbesluit milieubeheer",
@@ -321,7 +350,10 @@ def _seed(store: GraphStore) -> None:
                 meta={"identifier": "stb-2020-400", "tables": 4},
             )
         )
-    for document in ("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"):
+    for document in (
+        *("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"),
+        "kst-36440-3",
+    ):
         _paper(store, document)
     _paper(store, "kst-34986-99", _REVERSED)
     # rows of the tables of the Waterwet and the Wet milieubeheer in kst-34986-3 the table
@@ -330,6 +362,10 @@ def _seed(store: GraphStore) -> None:
         store,
         "kst-34986-98",
         (FIXTURES / "kst_34986_3_answers_excerpt.xml").read_text(),
+    )
+    # the row of the Wet beheer rijkswaterstaatswerken in kst-34986-3 with the WED
+    _paper(
+        store, "kst-34986-97", (FIXTURES / "kst_34986_3_wbr_excerpt.xml").read_text()
     )
 
 
@@ -444,6 +480,15 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
                 ("4", "6_7"),
             )
         ),
+        # Wet zeevarenden | Wetsvoorstel: the Wet bemanning zeeschepen
+        ("articles/bwbr0009124_5", "articles/bwbr0050681_20"),
+        ("articles/bwbr0009124_6", "articles/bwbr0050681_20"),
+        *(
+            ("articles/bwbr0009124_20", f"articles/bwbr0050681_{new}")
+            for new in ("23", "24", "25", "26")
+        ),
+        # a place in another law: the WED
+        ("articles/bwbr0008331_11", "articles/bwbr0002063_1a"),
     }
     assert edges[("articles/bwbr0024186_1", "articles/bwbr0037521_6_1")] == {
         "basis": "transposition_table",
@@ -573,6 +618,45 @@ def test_what_a_table_answers_is_an_edge_to_the_new_law(store: GraphStore) -> No
         if old.startswith("articles/bwbr0003245_")
         for part in meta["parts"]
     } == {"§ 1.2"}
+
+
+def test_a_place_in_an_amvb_or_in_another_law_by_its_note(store: GraphStore) -> None:
+    """kst-36440-3: "20, derde lid, besluit" is 20, third lid, of the new law (it delegates
+    to the AMvB); kst-34986-3, Wbr 11: "art. 1a WED (door artikel 2.46 IwOw)" is 1a of the
+    WED; kst-36636-3, Sv 6:7:1: "naar de Gratiewet (via de invoeringswet)" an outcome."""
+    edges = _transposed(store)
+    wzv, wbz = "articles/bwbr0009124", "articles/bwbr0050681"
+    assert edges[(f"{wzv}_6", f"{wbz}_20")]["parts"] == [
+        {"from": "", "to": "20, derde lid, besluit", "article": "20", "leden": ["3"]}
+    ]
+    assert {new for old, new in edges if old == f"{wzv}_20"} == {
+        f"{wbz}_{n}" for n in ("23", "24", "25", "26")
+    }
+    assert edges[(f"{wzv}_20", f"{wbz}_24")]["parts"] == [
+        {"from": "", "to": "23 tot en met 26, besluit", "article": "24", "leden": []}
+    ]
+    assert edges[("articles/bwbr0008331_11", "articles/bwbr0002063_1a")]["parts"] == [
+        {
+            "from": "",
+            "to": "art. 1a WED (door artikel 2.46 IwOw)",
+            "article": "1a",
+            "leden": [],
+        }
+    ]
+    answers = _transposed(store, "instruments")
+    gratie = f"articles/{article_key('BWBR0001903', '6:7:1', None)}"
+    assert answers[(gratie, "instruments/wet_stb_2026_56")] == {
+        "basis": "transposition_table",
+        "source": "kst-36636-3",
+        "outcome": "naar:Gratiewet",
+        "parts": [
+            {
+                "from": "",
+                "to": "naar de Gratiewet (via de invoeringswet)",
+                "outcome": "naar:Gratiewet",
+            }
+        ],
+    }
 
 
 def test_the_api_reads_it_both_ways(api: Api) -> None:

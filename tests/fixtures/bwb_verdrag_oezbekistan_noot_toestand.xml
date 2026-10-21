@@ -1,0 +1,219 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBV0007162/2025-10-24/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBV0007162" inwerkingtreding="2025-10-24"><bwb-inputbestand /><bwb-wijzigingen /><redactionele-correcties /><wetgeving dtdversie="2.0" soort="verdrag" verdragnummer="013618" stam-id="10005734113" versie-id="10006344512" id="C10010283231" label-id="10005720454">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="10005734133" versie-id="10006339242" id="C10010288501" label-id="10005715184" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">Versterkte Partnerschaps- en Samenwerkingsovereenkomst tussen de Europese Unie en haar lidstaten, enerzijds, en de Republiek Oezbekistan, anderzijds<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="redactioneel" stam-id="10005734143" versie-id="10006339252" id="C10010288491" label-id="10005715194" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07">Versterkte Partnerschaps- en Samenwerkingsovereenkomst tussen de Europese Unie en haar lidstaten, enerzijds, en de Republiek Oezbekistan, anderzijds<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></citeertitel>
+  <verdrag bwb-ng-variabel-deel="/Verdrag" tekst="authentiek" xml:lang="nl" stam-id="10005739393" versie-id="10006344502" id="C10010283241" label-id="10005720444" status="nogniet">
+  <verdragtekst bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1" cms-nr="B1" stam-id="10005738293" versie-id="10006343402" id="C10010284341" label-id="10005719344" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <titel status="officieel">Versterkte Partnerschaps- en Samenwerkingsovereenkomst tussen de Europese Unie en haar lidstaten, enerzijds, en de Republiek Oezbekistan, anderzijds</titel>
+  </kop><aanhef bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/Aanhef" stam-id="10005734153" versie-id="10006339262" id="C10010288481" label-id="10005715204" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <preambule>
+    <al> Preambule </al>
+    <al>Het Koninkrijk België,</al>
+    <al>de Republiek Bulgarije,</al>
+    <al>de Tsjechische Republiek,</al>
+    <al>het Koninkrijk Denemarken,</al>
+    <al>de Bondsrepubliek Duitsland,</al>
+    <al>de Republiek Estland,</al>
+    <al>Ierland,</al>
+    <al>de Helleense Republiek,</al>
+    <al>het Koninkrijk Spanje,</al>
+    <al>de Franse Republiek,</al>
+    <al>de Republiek Kroatië,</al>
+    <al>de Italiaanse Republiek,</al>
+    <al>de Republiek Cyprus,</al>
+    <al>de Republiek Letland,</al>
+    <al>de Republiek Litouwen,</al>
+    <al>het Groothertogdom Luxemburg,</al>
+    <al>Hongarije,</al>
+    <al>de Republiek Malta,</al>
+    <al>het Koninkrijk der Nederlanden,</al>
+    <al>de Republiek Oostenrijk,</al>
+    <al>de Republiek Polen,</al>
+    <al>de Portugese Republiek,</al>
+    <al>Roemenië,</al>
+    <al>de Republiek Slovenië,</al>
+    <al>de Slowaakse Republiek,</al>
+    <al>de Republiek Finland,</al>
+    <al>het Koninkrijk Zweden,</al>
+    <al>Verdragsluitende partijen bij het Verdrag betreffende de Europese Unie en het Verdrag betreffende de werking van de Europese Unie, hierna „de lidstaten” genoemd,</al>
+    <al>en</al>
+    <al>de Europese Unie,</al>
+    <al>enerzijds,</al>
+    <al>en de Republiek Oezbekistan,</al>
+    <al>anderzijds,</al>
+    <al>hierna gezamenlijk „de Partijen” genoemd,</al>
+    <al>Gezien hun sterke banden en hun gemeenschappelijke waarden,</al>
+    <al>Gezien hun wens om de tot wederzijds voordeel strekkende samenwerking te versterken die is aangegaan met de Partnerschaps- en Samenwerkingsovereenkomst tussen de Europese Gemeenschappen en hun lidstaten, enerzijds, en de Republiek Oezbekistan, anderzijds, ondertekend in Florence op 21 juni 1996,</al>
+    <al>Gezien hun wens om hun betrekkingen naar een hoger niveau te tillen om rekening te houden met de nieuwe politieke en economische realiteit en de voortgang van hun partnerschap,</al>
+    <al>Uiting gevend aan hun gemeenschappelijke voornemen om hun samenwerking inzake bilaterale, regionale en internationale kwesties van wederzijds belang op alle niveaus te consolideren, te verdiepen en te diversifiëren,</al>
+    <al>Opnieuw bevestigend dat zij vastbesloten zijn de bevordering, bescherming en uitvoering van de rechten van de mens en de fundamentele vrijheden, de eerbiediging van de democratische beginselen, de rechtsstaat en goed bestuur te versterken,</al>
+    <al>Bevestigend dat zij gehecht zijn aan de beginselen die zijn neergelegd in het Handvest van de Verenigde Naties (hierna het „Handvest van de VN” genoemd), de Universele Verklaring van de Rechten van de Mens, aangenomen bij Resolutie A/RES/217 (III) A van de Algemene Vergadering van de VN op 10 december 1948, de Organisatie voor Veiligheid en Samenwerking in Europa (hierna „OVSE” genoemd), met name de Slotakte van Helsinki die op 1 augustus 1975 is aangenomen tijdens de Conferentie over veiligheid en samenwerking in Europa (hierna de „Slotakte van Helsinki van de OVSE” genoemd), het Internationaal Verdrag inzake burgerrechten en politieke rechten, aangenomen bij Resolutie 2200A (XXI) van de Algemene Vergadering van de VN op 16 december 1966, het Internationaal Verdrag inzake economische, sociale en culturele rechten, aangenomen bij Resolutie 2200A (XXI) van de Algemene Vergadering van de VN op 16 december 1966, alsmede andere universele beginselen en normen van het internationale recht,</al>
+    <al>Herhalend dat zij vastbesloten zijn de internationale vrede en veiligheid actief te bevorderen en zich in te zetten voor effectief multilateralisme en de vreedzame regeling van geschillen, met name door samen te werken in het kader van de VN en de OVSE,</al>
+    <al>Gezien hun wens om de regelmatige politieke dialoog over bilaterale en internationale vraagstukken van wederzijds belang verder te ontwikkelen,</al>
+    <al>Gezien hun gehechtheid aan internationale verplichtingen ter bestrijding van de verspreiding van massavernietigingswapens en de overbrengingsmiddelen daarvoor,</al>
+    <al>Gezien hun toezegging om de samenwerking op het gebied van justitie, vrijheid en veiligheid te versterken, onder meer bij de bestrijding van corruptie,</al>
+    <al>Gezien hun engagement om via hun samenwerking bij te dragen tot duurzame politieke, sociaal-economische en institutionele ontwikkeling,</al>
+    <al>Overwegende dat zij bereid zijn hun economische betrekkingen te versterken op basis van de beginselen van een vrijemarkteconomie en een klimaat te scheppen dat bevorderlijk is voor de uitbreiding van de bilaterale handels- en investeringsbetrekkingen en van wederzijds tot voordeel strekkende connectiviteit,</al>
+    <al>Ondersteunende de prestaties en inspanningen van de Republiek Oezbekistan om het ondernemingsklimaat te verbeteren, corruptie te bestrijden en economische groei en werkgelegenheid te creëren,</al>
+    <al>Bepleitend de toetreding van de Republiek Oezbekistan tot de Wereldhandelsorganisatie (hierna „WTO” genoemd) en de transparante en niet-discriminerende uitvoering van rechten en verplichtingen in het kader van de WTO, en bevestigend het voornemen van de Europese Unie om in dit proces technische bijstand te verlenen, onder meer op het gebied van de certificering van normen en standaarden, wetgeving inzake de bescherming van intellectuele eigendom en rechtshandhavingspraktijken,</al>
+    <al>Gezien hun gehechtheid aan het beginsel van duurzame ontwikkeling en hun engagement om samen te werken om de doelstellingen van de Agenda 2030 voor duurzame ontwikkeling van de VN te verwezenlijken,</al>
+    <al>Gezien hun toezegging om ecologische duurzaamheid en milieubescherming te waarborgen, onder meer door grensoverschrijdende samenwerking en te werken aan de uitvoering van multilaterale milieuovereenkomsten waarbij zij partij zijn en de samenwerking op alle gebieden van klimaatactie te versterken overeenkomstig de Overeenkomst van Parijs in het kader van het Raamverdrag van de Verenigde Naties inzake de klimaatverandering, aangenomen op 12 december 2015 (hierna de „Overeenkomst van Parijs inzake de klimaatverandering” genoemd),</al>
+    <al>Erkennende dat alle samenwerking inzake het vreedzame gebruik van kernenergie tussen de Partijen bij deze Overeenkomst valt onder de Overeenkomst betreffende samenwerking inzake het vreedzame gebruik van kernenergie tussen de Europese Gemeenschap voor Atoomenergie (Euratom) en de regering van de Republiek Oezbekistan, die op 6 oktober 2003 in Brussel is ondertekend, en niet onder deze Overeenkomst valt,</al>
+    <al>Overwegende hun wens om de samenwerking en uitwisseling op het gebied van wetenschap en technologie, innovatie en onderwijs, cultuur en sport uit te breiden,</al>
+    <al>Gezien hun engagement om grensoverschrijdende en regionale samenwerking te bevorderen,</al>
+    <al>Wijzende op het feit dat, als de Partijen in het kader van deze Overeenkomst specifieke overeenkomsten sluiten op het gebied van vrijheid, veiligheid en recht, die door de Europese Unie zijn gesloten krachtens titel V van het derde deel van het Verdrag betreffende de werking van de Europese Unie (VWEU) na de inwerkingtreding van deze Overeenkomst, de bepalingen van dergelijke toekomstige overeenkomsten niet bindend zijn voor Ierland, tenzij de Europese Unie, samen met Ierland wat betreft zijn respectieve eerdere bilaterale betrekkingen, de Republiek Oezbekistan ervan in kennis stelt dat Ierland gebonden is door dergelijke toekomstige specifieke overeenkomsten als deel van de Europese Unie, overeenkomstig Protocol nr. 21 betreffende de positie van Ierland ten aanzien van de ruimte van vrijheid, veiligheid en recht, dat aan het Verdrag betreffende de Europese Unie (VEU) en het VWEU is gehecht; evenzo wijzende op het feit dat latere interne maatregelen van de Europese Unie die met het oog op de uitvoering van deze Overeenkomst op grond van titel V van het derde deel van het VWEU worden genomen, niet bindend zijn voor Ierland, tenzij Ierland zijn wens te kennen heeft gegeven deel te nemen aan die maatregelen of die te aanvaarden overeenkomstig Protocol nr. 21; en voorts nota nemend van het feit dat dergelijke toekomstige overeenkomsten of dergelijke latere interne maatregelen van de Europese Unie zouden komen te vallen onder Protocol nr. 22 betreffende de positie van Denemarken dat gehecht is aan voornoemde Verdragen,</al>
+  </preambule>
+  <afkondiging>
+    <al>zijn het volgende overeengekomen:</al>
+  </afkondiging>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></aanhef><wettekst><titeldeel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII" stam-id="10005734393" versie-id="10006339502" id="C10010288241" label-id="10005715444" label="TITEL III" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>TITEL</label>
+    <nr status="officieel">III</nr>
+    <titel status="officieel">JUSTITIE, VRIJHEID EN VEILIGHEID</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15" stam-id="10005734323" versie-id="10006339432" id="C10010288311" label-id="10005715374" label="Artikel 15" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">15</nr>
+    <titel status="officieel">Overname en de strijd tegen irreguliere migratie</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid1" label-id="10005715374L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>In het kader van hun samenwerking ter voorkoming en bestrijding van irreguliere migratie komen de Partijen het volgende overeen:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de Republiek Oezbekistan neemt al haar onderdanen die niet of niet langer aan de geldende voorwaarden voor binnenkomst, aanwezigheid of verblijf op het grondgebied van een lidstaat voldoen, op verzoek van die lidstaat zonder onnodige vertraging over;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=1&amp;o=a&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>elke lidstaat neemt al zijn onderdanen die niet of niet langer aan de geldende voorwaarden voor binnenkomst, aanwezigheid of verblijf op het grondgebied van de Republiek Oezbekistan voldoen, op verzoek van laatstgenoemde zonder onnodige vertraging over; en</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=1&amp;o=b&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid1/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>de lidstaten en de Republiek Oezbekistan verstrekken hun onderdanen daartoe passende reisdocumenten binnen dertig dagen na de datum van indiening, ook langs elektronische weg, van het overnameverzoek van de verzoekende Partij, opgesteld overeenkomstig het model in bijlage 3 (zo mogelijk met inbegrip van documenten waaruit het staatsburgerschap blijkt).</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=1&amp;o=c&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=c" /></jcis></meta-data></li>
+    </lijst>
+    <al>Wanneer het reisdocument niet binnen deze termijn is afgegeven, kunnen de Partijen gebruikmaken van het „Europees reisdocument voor de terugkeer van illegaal verblijvende onderdanen van derde landen” dat is opgenomen in de bijlage bij <extref doc="32016R1953" label="verordening" reeks="Celex">Verordening (EU) 2016/1953</extref> van het Europees Parlement en de Raad<noot id="N2e5715374_10005715374" type="voet"><noot.nr>1)</noot.nr><noot.al><extref doc="32016R1953" label="verordening" reeks="Celex">Verordening (EU) 2016/1953</extref> van het Europees Parlement en de Raad van 26 oktober 2016 betreffende de vaststelling van een Europees reisdocument voor de terugkeer van illegaal verblijvende onderdanen van derde landen en tot intrekking van de aanbeveling van de Raad van 30 november 1994 (PB EU L 311 van 17.11.2016, blz. 13, ELI: <extref doc="http://data.europa.eu/eli/reg/2016/1953/oj">http://data.europa.eu/eli/reg/2016/1953/oj</extref>).</noot.al></noot>, of van een soortgelijk reisdocument van de Republiek Oezbekistan.</al>
+    <al>Wanneer een over te nemen persoon geen documenten of andere bewijzen van nationaliteit bezit, biedt de bevoegde diplomatieke en consulaire vertegenwoordiging van de betrokken lidstaat of van de Republiek Oezbekistan op verzoek van de Republiek Oezbekistan of van de betrokken lidstaat volledige samenwerking om de nationaliteit van de over te nemen persoon vast te stellen.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=1&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid2" label-id="10005715374L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De Partijen kunnen mogelijke onderhandelingen openen over:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>een overeenkomst tussen de Europese Unie en de Republiek Oezbekistan waarin specifieke overnameprocedures en -verplichtingen voor de lidstaten en de Republiek Oezbekistan zijn vastgelegd;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=2&amp;o=a&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIII/Artikel15/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>een overeenkomst inzake versoepeling van de visumplicht voor burgers van de Europese Unie en de Republiek Oezbekistan.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=2&amp;o=b&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=b" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;lid=2&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=2" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;artikel=15&amp;g=2025-10-24" onderdeel="artikel=15" korte-verwijzing="1.0:c:BWBV0007162&amp;artikel=15" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;artikel=15&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="artikel=15" korte-verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;titeldeel=III&amp;g=2025-10-24" onderdeel="titeldeel=III" korte-verwijzing="1.0:c:BWBV0007162&amp;titeldeel=III" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="titeldeel=III" korte-verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=III" /></jcis></meta-data></titeldeel><titeldeel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV" stam-id="10005737423" versie-id="10006342532" id="C10010285211" label-id="10005718474" label="TITEL IV" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>TITEL</label>
+    <nr status="officieel">IV</nr>
+    <titel status="officieel">HANDEL EN DAARMEE VERBAND HOUDENDE AANGELEGENHEDEN</titel>
+  </kop><hoofdstuk bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2" stam-id="10005734653" versie-id="10006339762" id="C10010287981" label-id="10005715704" label="HOOFDSTUK 2" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>HOOFDSTUK</label>
+    <nr status="officieel">2</nr>
+    <titel status="officieel">HANDEL IN GOEDEREN</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44" stam-id="10005734633" versie-id="10006339742" id="C10010288001" label-id="10005715684" label="Artikel 44" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">44</nr>
+    <titel status="officieel">Uitvoervergunningsprocedures<noot id="n101e5715684_10005715684" type="voet"><noot.nr>4)</noot.nr><noot.al>Ter verduidelijking: geen van de bepalingen van dit artikel verplicht een Partij een uitvoervergunning te verlenen of belet een Partij haar verplichtingen of verbintenissen uit hoofde van resoluties van de VN-Veiligheidsraad of multilaterale regelingen inzake non-proliferatie en uitvoercontrole na te komen.</noot.al></noot></titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid1" label-id="10005715684L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Elke Partij maakt nieuwe uitvoervergunningsprocedures of enige wijziging van een bestaande uitvoervergunningsprocedure op zodanige wijze bekend dat overheden, handelaren en andere belanghebbenden daarvan kennis kunnen nemen. Deze bekendmaking vindt, voor zover uitvoerbaar, plaats uiterlijk 45 dagen voordat een nieuwe uitvoervergunningsprocedure of een wijziging van een bestaande procedure voor uitvoervergunningen van kracht wordt, en in elk geval uiterlijk op de datum waarop een dergelijke procedure of wijziging van kracht wordt.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=1&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2" label-id="10005715684L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De bekendmaking van uitvoervergunningsprocedures omvat de volgende informatie:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de tekst van de uitvoervergunningsprocedures of wijzigingen daarin;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=a&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>de goederen die het voorwerp zijn van elke uitvoervergunningsprocedure;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=b&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>voor elke procedure, een beschrijving van de procedure voor het aanvragen van een uitvoervergunning en alle criteria waaraan een aanvrager moet voldoen om een uitvoervergunning te kunnen aanvragen, zoals het bezitten van een activiteitenvergunning, het opzetten of handhaven van een investering of het actief zijn via een bepaalde vorm van vestiging op het grondgebied van een Partij;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=c&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=c" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>een contactpunt of contactpunten waar belanghebbenden nadere inlichtingen kunnen verkrijgen over de voorwaarden voor het verkrijgen van een uitvoervergunning;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=d&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=d" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>de administratieve instantie(s) waarbij een aanvraag of andere relevante documenten moeten worden ingediend;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=e&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=e" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeelf">
+        <li.nr>f.</li.nr>
+        <al>een beschrijving van alle maatregelen waaraan de uitvoervergunningsprocedure uitvoering beoogt te geven;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=f&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=f" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeelg">
+        <li.nr>g.</li.nr>
+        <al>de periode waarin elke uitvoervergunningsprocedure van kracht zal zijn, tenzij de procedure van kracht blijft tot de intrekking of herziening ervan in een nieuwe bekendmaking;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=g&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=g" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeelh">
+        <li.nr>h.</li.nr>
+        <al>als de Partij voornemens is van een uitvoervergunningsprocedure gebruik te maken voor het beheer van een uitvoercontingent, de totale omvang, en indien van toepassing, de waarde van het contingent alsmede de openings- en sluitingsdata van het contingent; en</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=h&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=h" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid2/Onderdeeli">
+        <li.nr>i.</li.nr>
+        <al>alle vrijstellingen van of uitzonderingen op het vereiste een uitvoervergunning te verkrijgen, hoe die vrijstellingen of uitzonderingen kunnen worden aangevraagd of gebruikt, en de criteria voor het verlenen of toekennen ervan.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;o=i&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="o=i" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=2&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel44/Lid3" label-id="10005715684L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Binnen 30 dagen na de inwerkingtreding van deze Overeenkomst stelt elke Partij de andere Partij in kennis van haar bestaande uitvoervergunningsprocedures. Een Partij die een nieuwe uitvoervergunningsprocedure vaststelt of een bestaande uitvoervergunningsprocedure wijzigt, stelt de andere Partij daarvan binnen 90 dagen na de bekendmaking van de procedure of de wijziging in kennis. De kennisgeving omvat een verwijzing naar de bron of bronnen waar de op grond van lid 2 vereiste informatie wordt bekendgemaakt en, indien van toepassing, het adres van de desbetreffende officiële website.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;lid=3&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=3" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;artikel=44&amp;g=2025-10-24" onderdeel="artikel=44" korte-verwijzing="1.0:c:BWBV0007162&amp;artikel=44" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=44&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="artikel=44" korte-verwijzing="jci1.3:c:BWBV0007162&amp;artikel=44" /></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/TiteldeelIV/Hoofdstuk2/Artikel45" stam-id="10005734643" versie-id="10006339752" id="C10010287991" label-id="10005715694" label="Artikel 45" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">45</nr>
+    <titel status="officieel">Handel in kernmateriaal</titel>
+  </kop>
+  <al>De samenwerking met betrekking tot de handel in kernmateriaal wordt geregeld bij de Overeenkomst betreffende samenwerking op het gebied van het vreedzame gebruik van kernenergie tussen de Europese Gemeenschap voor Atoomenergie (Euratom) en de regering van de Republiek Oezbekistan<noot id="N5e5715694_10005715694" type="voet"><noot.nr>5)</noot.nr><noot.al>PB EU L 269 van 21.10.2003, blz. 9, ELI: <extref doc="http://data.europa.eu/eli/agree_internation/2003/744/oj">http://data.europa.eu/eli/agree_internation/2003/744/oj</extref>.</noot.al></noot>, gedaan te Brussel op 6 oktober 2003.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;artikel=45&amp;g=2025-10-24" onderdeel="artikel=45" korte-verwijzing="1.0:c:BWBV0007162&amp;artikel=45" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;artikel=45&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="artikel=45" korte-verwijzing="jci1.3:c:BWBV0007162&amp;artikel=45" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;hoofdstuk=2&amp;g=2025-10-24" onderdeel="hoofdstuk=2" korte-verwijzing="1.0:c:BWBV0007162&amp;hoofdstuk=2" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;hoofdstuk=2&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="hoofdstuk=2" korte-verwijzing="jci1.3:c:BWBV0007162&amp;hoofdstuk=2" /></jcis></meta-data></hoofdstuk><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;titeldeel=IV&amp;g=2025-10-24" onderdeel="titeldeel=IV" korte-verwijzing="1.0:c:BWBV0007162&amp;titeldeel=IV" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="titeldeel=IV" korte-verwijzing="jci1.3:c:BWBV0007162&amp;titeldeel=IV" /></jcis></meta-data></titeldeel></wettekst><wetsluiting bwb-ng-variabel-deel="/Verdrag/Verdragtekst_1/SlotformulierEnOndertekening" stam-id="10005738283" versie-id="10006343392" id="C10010284351" label-id="10005719334" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <slotformulering>
+    <al>TEN BLIJKE WAARVAN de ondergetekende gevolmachtigden, daartoe naar behoren gemachtigd, deze Overeenkomst hebben ondertekend.</al>
+  </slotformulering>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></wetsluiting><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></verdragtekst>
+  <verdragtekst bwb-ng-variabel-deel="/Verdrag/Verdragtekst_2" cms-nr="B19" stam-id="10005739383" versie-id="10006344492" id="C10010283251" label-id="10005720434" label="Protocol" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>Protocol</label>
+    <titel status="officieel"> wederzijdse administratieve bijstand in douanezaken</titel>
+  </kop>
+  <wettekst><artikel bwb-ng-variabel-deel="/Verdrag/Verdragtekst_2/Artikel15" stam-id="10005739353" versie-id="10006344462" id="C10010283281" label-id="10005720404" label="Artikel 15" bron="Trb.2026-73" effect="nieuwe-regeling" publicatie_bron="2026-07-07" status="nogniet">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">15</nr>
+    <titel status="officieel">Uitvoering</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_2/Artikel15/Lid1" label-id="10005720404L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Dit protocol wordt ten uitvoer gelegd door de douaneautoriteiten van de Republiek Oezbekistan, enerzijds, en de bevoegde diensten van de Europese Commissie en de douaneautoriteiten van de lidstaten, anderzijds. Zij stellen alle voor de toepassing van dit protocol noodzakelijke praktische maatregelen en regelingen vast, rekening houdend met de wederzijdse toepasselijke wet- en regelgeving, met name op het gebied van de gegevensbescherming.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15&amp;lid=1&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_2/Artikel15/Lid2" label-id="10005720404L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De Partijen houden elkaar zo nodig geïnformeerd over de nadere uitvoeringsmaatregelen die elk van de Partijen overeenkomstig dit protocol vaststelt, met name ten aanzien van de bevoegde diensten en de als bevoegd voor het verzenden en ontvangen van de in dit protocol bedoelde mededelingen aangewezen ambtenaren.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15&amp;lid=2&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Verdrag/Verdragtekst_2/Artikel15/Lid3" label-id="10005720404L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>In de Europese Unie doet dit protocol geen afbreuk aan de doorgifte, tussen de bevoegde diensten van de Europese Commissie en de douaneautoriteiten van de lidstaten, van gegevens die op grond van dit protocol zijn verkregen.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15&amp;lid=3&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="lid=3" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="artikel=15" korte-verwijzing="jci1.3:c:BWBV0007162&amp;artikel=15" /></jcis></meta-data></artikel></wettekst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata></meta-data></verdragtekst>
+</verdrag>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Trb" urlidentifier="trb-2026-73"><publicatiejaar>2026</publicatiejaar><publicatienr>73</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum><rectificatie><publicatie soort="Trb" urlidentifier="trb-2026-73-n1"><publicatiejaar /><publicatienr>73-n1</publicatienr><uitgiftedatum isodatum="2026-07-07">07-07-2026</uitgiftedatum></publicatie></rectificatie></publicatie></oorspronkelijk></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBV0007162&amp;g=2025-10-24" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBV0007162" /><jci versie="1.3" verwijzing="jci1.3:c:BWBV0007162&amp;z=2025-10-24&amp;g=2025-10-24" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBV0007162" /></jcis></meta-data></wetgeving></toestand>

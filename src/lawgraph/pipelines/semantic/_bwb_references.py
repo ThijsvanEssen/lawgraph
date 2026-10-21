@@ -52,6 +52,9 @@ class ArticleReferenceHit:
     # ``(bwb_id, article_number)`` the link of the XML points at, when the text names
     # another article (``text_target``)
     linked: tuple[str, str] | None = None
+    # the footnote of the article it stands in (its place in ``footnotes``): ``start`` and
+    # ``end`` are offsets into that footnote, no span of the text
+    footnote: int | None = None
 
 
 def _books_of(law_id: str) -> dict[str, str]:
@@ -150,6 +153,9 @@ def hits_from_references(
                 kind=ref.get("kind"),
                 qualifier=Qualifier.from_dict(ref),
                 linked=(str(linked_id), str(linked_number)) if changed else None,
+                footnote=footnote
+                if isinstance(footnote := ref.get("footnote"), int)
+                else None,
             )
         )
     return hits

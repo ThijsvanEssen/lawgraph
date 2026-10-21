@@ -7,7 +7,7 @@ from __future__ import annotations
 import base64
 from typing import Any
 
-from lawgraph.clients.base import UnexpectedAnswer
+from lawgraph.clients.base import Unexpected, UnexpectedAnswer
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.clients.koop_publications import STAATSBLAD, KoopPublicationClient
 from lawgraph.config.constants import (
@@ -215,7 +215,7 @@ def test_a_failed_download_is_a_skip_and_the_next_run_asks_again(
     store = InMemoryStore()
     client = _client(_documents(), asked)
     client.fetch_pdf = lambda url: (_ for _ in ()).throw(
-        UnexpectedAnswer(f"not a PDF: {url}")
+        UnexpectedAnswer(Unexpected.NOT_PDF, url)
     )
 
     result = TKTranspositionTablesRetrievePipeline(

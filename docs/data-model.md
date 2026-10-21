@@ -140,7 +140,7 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
-| `TRANSPOSED_TO` | Article → Article, Article → Instrument | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole; `via` the division of the old law the source names: `§ 1.2`) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). The article of another law the source names (`afdeling 3.5 Awb`) is one too. An article of the old law → the new law (Instrument): what the source says of the parts it places in no article (`parts[].outcome`: `vervallen`, `niet_overgenomen`, `blijft_in:<law>`), and of an old article no source places, its parts as the source writes them (`meta.outcome` `gat`). A row the source gives that the text of the laws does not hold is no edge to an article: `lawgraph succession-gaps` lists it. |
+| `TRANSPOSED_TO` | Article → Article, Article → Instrument | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole; `via` the division of the old law the source names: `§ 1.2`) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). The article of another law the source names (`afdeling 3.5 Awb`) is one too. An article of the old law → the new law (Instrument): what the source says of the parts it places in no article (`parts[].outcome`: `vervallen`, `niet_overgenomen`, `blijft_in:<law>`, `naar:<law>`), and of an old article no source places, its parts as the source writes them (`meta.outcome` `gat`). A row the source gives that the text of the laws does not hold is no edge to an article: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
 | `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (the `dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`). |
@@ -294,7 +294,7 @@ its keys to the model of `REFERS_TO`.
 |  | `parts[].to` | `str` | The place in the new law as the source writes it: `2.8.6, 1`, `vervallen (mvt)`. |
 |  | `parts[].article` | `str` | The number of the new article of the edge (an edge to an article). |
 |  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole (an edge to an article). |
-|  | `parts[].outcome` | `str` | What the source says of a part it places in no article (an edge to the new law): `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`; `gat` for a part that does not hold. |
+|  | `parts[].outcome` | `str` | What the source says of a part it places in no article (an edge to the new law): `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`, `naar:<law as written>` (to another law, no article of it named); `gat` for a part that does not hold. |
 |  | `parts[].via` | `str` | The division of the old law the source names for the old article: `§ 1.2`. |
 |  | `outcome` | `str` | Of an edge to the new law: the outcome of the old article its parts share, `gat` for an old article no source places (`lawgraph succession-gaps`). |
 | `BASED_ON` | `text` | `str` | The reference without list word and law: `16, eerste en zevende lid`. |
@@ -316,6 +316,7 @@ its keys to the model of `REFERS_TO`.
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
 |  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`, `tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
+|  | `footnote` | `int` | The footnote of the citing article it stands in, its place in `footnotes` (`bwb-article-references`); it then has no `start` and `end` in the text. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |
 |  | `raw_match` | `str` | The citation as written. |
@@ -711,6 +712,18 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   (`1 Richtlijn (EU) 2019/944 van het Europees Parlement …`). A `<sup>` is a marker when the
   article or annex holds such a paragraph of its number; else it is text (`m3` of `m<sup>3</sup>`).
   The site prints a mark as a superscript at `at`, linked to that paragraph.
+- The BWB also writes a footnote where its marker stands: `<noot>` with its number
+  (`<noot.nr>1)</noot.nr>`) and its text (`<noot.al>`), mostly in treaties and annexes
+  (Bijlage I of BWBR0004054: `Dalfsen 1)`). Neither is text: the marker is a mark of
+  `footnote_marks` with `footnote`, the place of the footnote in `footnotes` (absent without
+  one), which lists them as `{number, text}` in text order, a paragraph of the footnote a
+  line. Numbers can repeat within one article or annex; `footnote` says which is meant. A
+  footnote in the title of the `<kop>` (BWBV0007162 art. 44) is left out of `heading` and
+  listed first, without a mark. A link in a footnote is one of `references` with `footnote`,
+  its `start` and `end` offsets into the text of that footnote; the API gives those as
+  `footnote_references` beside `references`, and the `REFERS_TO` edge it makes has
+  `footnote` instead of `start` and `end`. The titles of divisions, the `entries` and the
+  `description` of an annex leave a `<noot>` out.
 - An EU article (`celex`, `article_number`) has the same `heading`, `text` and `parts`, read
   from the CELLAR HTML (`core/eurlex_html.py`): `heading` is the line under "Artikel N"
   (`Onderwerp en toepassingsgebied`; null when the act prints none), a lid is `1. text`, a
@@ -735,7 +748,7 @@ hoofdstuk is renamed; null for most), which its schema does not name.
   `instrument_citation_title` and `instrument_abbreviation` (its law's name, which its title
   cites; `normalize bwb` keeps them in step with the instrument) and `entries`, its list: `{index, name, description, heading, parent_index}` (`heading` the paragraph that
   introduces a list, `parent_index` the entry it is nested in). Its `text`, `parts`, `tables`,
-  `headings`, `footnote_marks` and `references` are read as those of an article (one reader,
+  `headings`, `footnote_marks`, `footnotes` and `references` are read as those of an article (one reader,
   `core/bwb_xml.py`), without the articles of the annex, which are articles of their own; the
   heading of a division of the annex (`1.1 Structuurelement A`) is a heading of the text.
 - `references` holds every `extref`/`intref` of the text that names a regulation, an annex or
@@ -775,8 +788,9 @@ Articles:
 | `parts` | `list[object]` | The structure of its text: `{id, kind, number, start, end, term}`, offsets into `text`. |
 | `tables` | `list[object]` | The tables in its text: `{start, end, head_rows, columns, spans}`, offsets into `text`, a row a line and its cells separated by a tab; absent without tables. |
 | `headings` | `list[object]` | The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a table): `{start, end}`, offsets into `text`; absent without headings. |
-| `footnote_marks` | `list[object]` | Where the marker of a footnote (`<sup>1</sup>`) stood in its text, which leaves it out: `{at, number}`, `text[:at]` the words before it; the footnote itself is a paragraph of `text` that opens with its number. Absent without footnotes. |
-| `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to. |
+| `footnote_marks` | `list[object]` | Where the marker of a footnote (`<sup>1</sup>`, a `<noot>`) stood in its text, which leaves it out: `{at, number}`, `text[:at]` the words before it; the footnote itself is a paragraph of `text` that opens with its number, or, with `footnote`, the one of `footnotes` at that place. Absent without footnotes. |
+| `footnotes` | `list[object]` | The footnotes its source writes where their marker stands (`<noot>`), not in `text`: `{number, text}`, in text order, those of its heading (without a marker) first; their links are `references` with `footnote`. Absent without one. |
+| `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to; one of a footnote with `footnote`, its place in `footnotes`, `start` and `end` offsets into that footnote's text. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
 
@@ -806,6 +820,7 @@ Article versions:
 | `tables` | `list[object]` | As on Article: offsets into `text`. |
 | `headings` | `list[object]` | As on Article: offsets into `text`. |
 | `footnote_marks` | `list[object]` | As on Article: offsets into `text`. |
+| `footnotes` | `list[object]` | As on Article. |
 | `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
 | `source_publication` | `str` | `bron`: "Stb.2019-33". |
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
@@ -852,6 +867,7 @@ Annexes:
 | `tables` | `list[object]` | The tables in its text, as of an article: `{start, end, head_rows, columns, spans}`. |
 | `headings` | `list[object]` | The headings in its text (of a division, a table), as of an article: `{start, end}`. |
 | `footnote_marks` | `list[object]` | Where the markers of its footnotes stood in its text, as of an article: `{at, number}`. |
+| `footnotes` | `list[object]` | Its `<noot>` footnotes, not in its text, as of an article: `{number, text}`. |
 | `references` | `list[object]` | The links of its text to a regulation, an annex or an EU act, as of an article. |
 | `instrument_id` | `str` | Its instrument. |
 | `instrument_citation_title` | `str` | The citation title of its law, which its title cites (`Bijlage 1 Awb`; `normalize bwb` keeps it in step with the instrument). |

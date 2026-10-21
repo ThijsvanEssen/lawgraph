@@ -184,7 +184,7 @@ def test_service_error_raises_instead_of_returning_nothing() -> None:
 def test_a_page_that_is_no_sru_response_is_not_an_empty_type() -> None:
     """A maintenance page sent with HTTP 200 parses as XML and holds no records."""
     page = '<html xmlns="http://www.w3.org/1999/xhtml"><body>Onderhoud</body></html>'
-    with pytest.raises(RuntimeError, match="not an SRU response"):
+    with pytest.raises(RuntimeError, match="geen SRU-antwoord"):
         _client([page], []).enumerate_toestanden(types=("wet",))
 
 
