@@ -215,6 +215,9 @@ from lawgraph.pipelines.semantic.tk_dossier_titles import (
     TKDossierTitlesSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
+from lawgraph.pipelines.semantic.tk_motion_kinds import (
+    TKMotionKindsSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_mvt import TKMvtSemanticPipeline
 from lawgraph.pipelines.semantic.tk_mvt_articles import (
     TKMvtArticlesSemanticPipeline,
@@ -1129,6 +1132,11 @@ SEMANTIC: list[Pipeline] = [
         TKPaperOutcomesSemanticPipeline,
         "How each motion and amendment ended (aangenomen, verworpen, ingetrokken, "
         "aangehouden, vervallen, vervangen), when, and by how many seats.",
+    ),
+    _pipeline(
+        TKMotionKindsSemanticPipeline,
+        "Which motions, and which votes on them, are of censure or of no confidence: the "
+        "fixed wording of their subject.",
     ),
     _pipeline(
         GraphDeriveSemanticPipeline,

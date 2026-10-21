@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -482,6 +482,15 @@ on it, the status the page of a motion of the Eerste Kamer states, and `REVISES`
 newer one replaces. A decision comes days after its paper and can change it again (held, then
 voted), so every run reads every decision on a motion or an amendment and writes only the
 papers whose outcome changed against `lg_document_light`.
+
+**Semantic `tk-motion-kinds`.** Which motions are of censure (`censure`, motie van afkeuring) or
+of no confidence (`no_confidence`, motie van wantrouwen), and which votes are on one
+(`core/motion_kinds.py`, data model, Document and Decision): `motion_kind` from the fixed wording
+of the subject the Kamer gives the motion ("… over afkeuring uitspreken over …", "… over het
+opzeggen van het vertrouwen in …"), of a motion its title (its own `Onderwerp`), of a decision its
+subject (the `Onderwerp` of its case); null for any other. Writes only what changed, against
+`lg_document_light` for a motion. With `--since` the motions and decisions dated from then on (the
+`tk` poll, so a new one is marked within the hour); without it every one.
 
 <a id="semantic-tk-dossier-relations"></a>
 **Semantic `tk-dossier-relations`.** Edges between dossiers, which the Kamerstukdossier record
@@ -2123,6 +2132,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
+| semantic `tk-motion-kinds` | `normalize tk-dossiers` (the motions and the decisions with their subject) |
 | semantic `tk-paper-outcomes` | `normalize tk-dossiers` (the decisions, the papers and their `PART_OF` cases), `normalize eerstekamer-votes` and `normalize eerstekamer-motions` (the votes and the status of a motion of the Eerste Kamer) and `tk-dossier-relations` (`REVISES`) |
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |

@@ -60,6 +60,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
         "semantic tk-cited-papers",
+        "semantic tk-motion-kinds",
     ]
     since = {argv[-1] for _, argv in ran}
     assert len(since) == 1  # the window starts at one moment for every step
@@ -72,6 +73,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     for step in ("semantic tk-dossier-outcomes", "semantic tk-government"):
         assert dict(ran)[step] == ["--touched-since", touched]
     assert dict(ran)["semantic tk-cited-papers"] == ["--since", touched]
+    assert dict(ran)["semantic tk-motion-kinds"] == ["--since", touched]
 
 
 def _nightly(monkeypatch, store: PipelineStateFake, state: State) -> None:

@@ -594,6 +594,7 @@ _ITEM_KEYS = [
     "decided_on",
     "tally",
     "decision",
+    "motion_kind",
 ]
 
 
@@ -655,6 +656,7 @@ def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
         "decided_on": None,
         "tally": None,
         "decision": None,
+        "motion_kind": None,
     }
     assert (bare["key"], bare["chamber"], bare["title"], bare["dossier_numbers"]) == (
         "bare",

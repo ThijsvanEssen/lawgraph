@@ -50,6 +50,7 @@ class DecisionFilters:
     ``wissel``, or ``carried`` or ``decisive`` the vote. Without *unvoted* only the
     decisions with an outcome (``passed`` set); with it also those that never came to a
     vote (``Stemmen - ingetrokken``, ``- uitstellen``, ``- aangehouden``, ``- vervallen``).
+    *motion_kinds* keeps the votes on a motion of those kinds (``core/motion_kinds.py``).
     """
 
     kinds: tuple[str, ...] | None = None
@@ -64,6 +65,7 @@ class DecisionFilters:
     faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
     unvoted: bool = False
+    motion_kinds: tuple[str, ...] | None = None
 
 
 EMPTY_FACETS: dict[str, list[Any]] = {
@@ -74,6 +76,7 @@ EMPTY_FACETS: dict[str, list[Any]] = {
     "party_votes": [],
     "coalition": [],
     "coalition_cabinets": [],
+    "motion_kind": [],
 }
 
 # What the coalition did on a vote, as ``coalition`` filters and counts it: a pattern of
@@ -142,12 +145,15 @@ def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
 
 
 def _own_filters(filters: DecisionFilters, bind: dict[str, Any]) -> FacetFilters:
-    """The filters on the kind, the outcome and what the coalition did (on the row ``r``),
-    each a facet's own."""
+    """The filters on the kind, the kind of motion, the outcome and what the coalition did
+    (on the row ``r``), each a facet's own."""
     own: dict[str, str] = {}
     if filters.kinds:
         bind["kinds"] = list(filters.kinds)
         own["kind"] = "r.kind = ANY(%(kinds)s)"
+    if filters.motion_kinds:
+        bind["motion_kinds"] = list(filters.motion_kinds)
+        own["motion_kind"] = "r.motion_kind = ANY(%(motion_kinds)s)"
     if filters.passed is not None:
         bind["passed"] = filters.passed
         own["passed"] = "r.passed = %(passed)s"
@@ -233,6 +239,7 @@ _ITEM = f"""json_build_object(
     'external_id', d.props -> 'decision_id',
     'dossier_numbers', d.props -> 'dossier_numbers',
     'kind', d.props -> 'kind',
+    'motion_kind', d.props -> 'motion_kind',
     'primary_case_kind', d.props -> 'primary_case_kind',
     'decision_kind', d.props -> 'decision_kind',
     'passed', d.props -> 'passed',
@@ -259,9 +266,9 @@ _OUTCOMES = (
 )
 
 
-def _kind_facet(condition: str) -> str:
-    """SQL: ``[{value, count, passed, rejected}]`` of the filtered decisions per kind,
-    most first, then by kind."""
+def _kind_facet(condition: str, column: str = "r.kind") -> str:
+    """SQL: ``[{value, count, passed, rejected}]`` of the filtered decisions per kind (the
+    value of *column*), most first, then by kind."""
     return f"""(
         SELECT coalesce(json_agg(
             json_build_object(
@@ -270,7 +277,7 @@ def _kind_facet(condition: str) -> str:
             ORDER BY count DESC, value ASC NULLS FIRST
         ), '[]'::json)
         FROM (
-            SELECT r.kind AS value, {_OUTCOMES}
+            SELECT {column} AS value, {_OUTCOMES}
             FROM filtered r {condition}
             GROUP BY 1
         ) facet
@@ -429,8 +436,8 @@ def _page(
     own = _own_filters(filters, bind)
     statement = f"""
     WITH r AS (
-        SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind, d.passed,
-               c.pattern AS coalition_pattern, c.carried AS coalition_carried,
+        SELECT d.id, d.key, d.date, lg_str(d.props -> 'kind') AS kind,
+               lg_str(d.props -> 'motion_kind') AS motion_kind, d.passed, c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
         LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}
@@ -482,9 +489,12 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
     kind how many carried and how many did not), ``passed`` without the outcome filter,
     ``days`` (per date, how many and how many passed) and ``years`` (per year, how many,
     carried, not) under all of them. There is one decision per Besluit, so the filtered ones
-    are read once, three fields each, and every count is made from that."""
+    are read once, three fields each, and every count is made from that. ``motion_kind``
+    counts the votes on a motion of censure or of no confidence per kind, without its own
+    filter."""
     bind: dict[str, Any] = {"chambers": [CHAMBER_TK, CHAMBER_EK]}
     own = _own_filters(filters, bind)
+    motion_kinds = where([*own.clauses("motion_kind"), "r.motion_kind IS NOT NULL"])
     statement = f"""
     {_matching(filters, bind)}
     SELECT json_build_object(
@@ -520,7 +530,8 @@ def _counts(store: GraphStore, filters: DecisionFilters) -> dict[str, Any]:
             ),
             'party_votes', '[]'::json,
             'coalition', {_coalition_facet(own.where("coalition"))},
-            'coalition_cabinets', {_COALITION_CABINETS}
+            'coalition_cabinets', {_COALITION_CABINETS},
+            'motion_kind', {_kind_facet(motion_kinds, "r.motion_kind")}
         )
     )
     """
@@ -625,8 +636,8 @@ def _matching(filters: DecisionFilters, bind: dict[str, Any]) -> str:
     common = _common_filters(filters, bind)
     own = _own_filters(filters, bind)
     return f"""WITH filtered AS MATERIALIZED (
-        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind, d.passed, d.date,
-               c.pattern AS coalition_pattern, c.carried AS coalition_carried,
+        SELECT d.id, d.key, lg_str(d.props -> 'kind') AS kind,
+               lg_str(d.props -> 'motion_kind') AS motion_kind, d.passed, d.date, c.pattern AS coalition_pattern, c.carried AS coalition_carried,
                c.decisive AS coalition_decisive
         FROM decisions d
         LEFT JOIN lg_decision_coalition c ON c.id = d.id {where(common)}

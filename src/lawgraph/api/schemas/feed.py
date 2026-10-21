@@ -49,6 +49,7 @@ from lawgraph.core.feed import (
     person_role,
 )
 from lawgraph.core.models import node_id, parse_node_id
+from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.publications import (
     PublicationSeries,
@@ -461,6 +462,13 @@ class FeedItemDTO(WithPath):
         "``GET /api/documents/{key}`` gives it; null for the other kinds and a motion "
         "without text.",
     )
+    motion_kind: MotionKind | None = Field(
+        None,
+        description="Of a motion of censure (motie van afkeuring) ``censure``, of no "
+        "confidence (motie van wantrouwen) ``no_confidence``, and of a vote on one, as "
+        "``GET /api/documents/{key}`` and ``GET /api/decisions/{key}`` give it; null for "
+        "the other events.",
+    )
     subkind: str | None = Field(
         None,
         description="What the source calls it: the document kind (``Motie (gewijzigd/"
@@ -561,6 +569,9 @@ class FeedItemDTO(WithPath):
             summary=_summary(kind, props, row),
             has_text=row.get("has_text") if kind in DOCUMENT_EVENTS else None,
             dictum=row.get("dictum") if kind in DOCUMENT_EVENTS else None,
+            motion_kind=props.get("motion_kind")
+            if kind in DOCUMENT_EVENTS or kind == EVENT_VOTE
+            else None,
             subkind=_subkind(kind, props),
             node=FeedNodeDTO(collection=as_collection(collection), key=key),
             dossier=(

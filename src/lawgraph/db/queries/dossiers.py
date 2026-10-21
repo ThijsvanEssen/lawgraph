@@ -504,6 +504,7 @@ _DOSSIER_DOCUMENT_KEYS = [
     "dossier_suffix",
     "explanation",
     "kind",
+    "motion_kind",
     "number",
     "outcome",
     "sequence",
@@ -535,6 +536,7 @@ _DOSSIER_DOCUMENT_ROW = f"""json_build_object(
             'decided_on', dp.props -> 'decided_on',
             'tally', dp.props -> 'tally',
             'decision', dp.props -> 'decision',
+            'motion_kind', dp.props -> 'motion_kind',
             'labels', to_json(d.labels)
         )"""
 

@@ -746,6 +746,10 @@ class DocumentProps(_CommonProps):
     """The seats per choice of that decision."""
     decision: str | None = None
     """The key of that decision."""
+    motion_kind: str | None = None
+    """Of a motion of censure `censure` (motie van afkeuring), of no confidence
+    `no_confidence` (motie van wantrouwen), from the fixed wording of its subject
+    (`semantic tk-motion-kinds`, ``core/motion_kinds.py``); absent for any other paper."""
     summary: str | None = None
     """Of a motion of the Eerste Kamer (`normalize eerstekamer-motions`): what it asks as
     its page opens."""
@@ -1131,6 +1135,10 @@ class DecisionProps(_CommonProps):
     the kind of the bill's dossier, or `Motie`. Never read from the subject."""
     chamber: str | None = None
     """`TK`, or `EK` for a vote of the Eerste Kamer (`normalize eerstekamer-votes`)."""
+    motion_kind: str | None = None
+    """Of a vote on a motion of censure `censure`, of no confidence `no_confidence`, from
+    the fixed wording of its subject (`semantic tk-motion-kinds`, ``core/motion_kinds.py``);
+    absent for any other decision."""
     result: str | None = None
     """Of a vote of the Eerste Kamer: the outcome eerstekamer.nl shows (`Aangenomen`,
     `Verworpen`)."""
