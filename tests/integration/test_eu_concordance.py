@@ -8,7 +8,8 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   CELEX number of the new act; a run placed in a run as long pairs them one by one.
 - An article the table names that the old act does not have (one inserted later: "Artikel 9
   bis"), and an article of the repealed act without a row, is a gap in the report.
-- An old act the graph does not hold places nothing and says which retrieve fetches it.
+- An old act the graph does not hold places nothing and says which retrieve fetches it;
+  ``retrieve eurlex --mode gaps`` (and ``lawgraph gaps``) lists it.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.models import make_node_key
 from lawgraph.db import EdgeWriter, GraphStore, RawSourceWriter, raw_source_doc
+from lawgraph.pipelines.retrieve import _gaps
 from tests.databases import Api, ModuleStore, module_store
 from tests.paths import FIXTURES
 
@@ -234,3 +236,23 @@ def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
         f"{CODE} BIJLAGE XIII CONCORDANTIETABEL, Richtlijn 2002/19/EG: places nothing: "
         "the act 32002L0019 is not in the graph (retrieve eurlex --celex 32002L0019)."
     ) in out
+
+
+def test_the_gaps_mode_fetches_an_old_act_the_graph_does_not_hold(
+    store: GraphStore,
+) -> None:
+    # 2002/19 is named by the table of 2018/1972 and not in the graph; the other old acts
+    # are, and an act stored but not normalized yet is not fetched again
+    assert _gaps.concordance_gaps(store) == ["32002L0019"]
+    assert "32002L0019" in _gaps.eurlex_gaps(store)
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_EURLEX,
+                kind=RAW_KIND_EURLEX_CELEX,
+                external_id="32002L0019",
+                payload_text="<html></html>",
+                meta={"celex": "32002L0019", "lang": "NL"},
+            )
+        )
+    assert _gaps.concordance_gaps(store) == []

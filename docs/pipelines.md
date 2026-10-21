@@ -622,7 +622,7 @@ reported.
   column of an old act is a table of its own (a codification of six directives, Richtlijn
   (EU) 2017/1132, gives six), between the instruments of the two acts as `normalize eurlex`
   made them; an old act the graph does not hold places nothing (`the act 32002L0019 is not in
-  the graph`; `retrieve eurlex --celex` fetches it), as does a heading without a table (an old
+  the graph`; `retrieve eurlex --mode gaps` fetches it), as does a heading without a table (an old
   page with the table as an image). A head cell over more columns reads their cells as one.
   A cell holds `Artikel 9`, `Artikel 9 bis`, `Artikelen 1 tot en met 7`, `Artikelen 3 en 4`,
   `Artikel 8, leden 1 tot en met 4`, `Artikel 2, punt 8 bis`, `Artikel 16, leden 1 en 2, en
@@ -1017,7 +1017,7 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 |------|-----------------------|
 | `incremental` (default) | those of instruments in the graph that are not stored or that CELLAR changed since they were, or `--celex` (repeatable) |
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
-| `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`) that were not retrieved |
+| `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`), and the old acts the concordance table of a stored act names that the graph does not hold, that were not retrieved. An old act fetched this way may have a table of its own: the next run after `normalize eurlex` fetches its old acts |
 | `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
 | `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments referred from a court of `--country` |
 | `com` | Commission proposals for acts in the graph |

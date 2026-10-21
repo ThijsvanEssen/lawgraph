@@ -374,7 +374,9 @@ def retrieve_eurlex(args: argparse.Namespace) -> PipelineResult:
         )
     if args.mode is RetrieveMode.NIM:
         return pipeline.run_nim(country_code=args.country, lang=args.lang)
-    if args.mode is RetrieveMode.GAPS:  # the acts BWB regulations name
+    if (
+        args.mode is RetrieveMode.GAPS
+    ):  # acts BWB regulations or concordance tables name
         return pipeline.run(celex_ids=_gaps.eurlex_gaps(store), lang=args.lang)
 
     known_celex = args.celex or list(gap_queries.known_celex_ids(store))

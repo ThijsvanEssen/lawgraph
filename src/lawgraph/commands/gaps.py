@@ -149,7 +149,8 @@ def _print_celex_stub_report(celex_ids: list[str]) -> None:
         "EU CELEX STUB GAPS",
         celex_ids,
         "No EU stub instruments found.",
-        f"{len(celex_ids)} EU instrument(s) named by BWB regulations but not yet loaded",
+        f"{len(celex_ids)} EU act(s) named by BWB regulations or concordance tables "
+        "but not yet loaded",
     )
 
 
