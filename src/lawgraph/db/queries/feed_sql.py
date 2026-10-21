@@ -212,21 +212,27 @@ COMMITMENT_PERSONS = f"""json_build_array(json_build_object(
             'capacity', {lit(CAPACITY_GOVERNMENT)}::text
         ))"""
 
-# The signatures of the document a vote decided: a document of the case it singled out, the
-# newest that has signatures. A case key is its TK GUID made a node key.
-_CASE_ID = as_text("n.props -> 'primary_case_id'")
-DECIDED_PERSONS = f"""coalesce((
+
+def decided_persons(row: str) -> str:
+    """SQL: the signatures of the document the vote *row* (a row of ``decisions``) decided:
+    a document of the case it singled out, the newest that has signatures. A case key is
+    its TK GUID made a node key."""
+    case_id = as_text(f"{row}.props -> 'primary_case_id'")
+    return f"""coalesce((
             SELECT {truthy_or(_ACTORS_OF_DOCUMENT, EMPTY_ARRAY)}
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOCUMENTS} paper ON paper.id = e.from_id
             WHERE e.to_id = {lit(COLLECTION_CASES + "/")}
-                            || lg_node_key({_CASE_ID})
+                            || lg_node_key({case_id})
               AND e.relation = {lit(RELATION_PART_OF)}
               AND e.from_collection = {lit(COLLECTION_DOCUMENTS)}
               AND {has_length(_ACTORS_OF_DOCUMENT)}
             ORDER BY paper.date DESC NULLS LAST, paper.key DESC
             LIMIT 1
         ), {EMPTY_ARRAY})"""
+
+
+DECIDED_PERSONS = decided_persons("n")
 
 
 def bill_persons(label: str) -> str:

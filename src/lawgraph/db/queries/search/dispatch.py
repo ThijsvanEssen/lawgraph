@@ -14,6 +14,7 @@ from lawgraph.db.queries._helpers import side_by_side
 from lawgraph.db.queries.search.clause import NO_PERIOD, Period, tokenize_search_query
 from lawgraph.db.queries.search.parser import notation
 from lawgraph.db.queries.search.ranking import rank_hits
+from lawgraph.db.queries.search.signers import Signed, signed_for
 from lawgraph.db.queries.search.spec import Asked, Hit
 from lawgraph.db.queries.search.types import SEARCHES
 from lawgraph.db.store import read_budget
@@ -34,6 +35,15 @@ LIVE_BUDGET = 0.25
 LIVE_STALE_WAIT = 0.05
 
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
+
+
+def signed_of(store: GraphStore, q: str, types: list[str]) -> Signed | None:
+    """The factions *q* names (``signers.signed_for``), when a type of *types* is kept to
+    the hits signed for them: what a search of *q* filters on, and its answer says."""
+    tokens = tokenize_search_query(q)
+    if not tokens or not any(t in SEARCHES and SEARCHES[t].signatures for t in types):
+        return None
+    return signed_for(store, tokens)
 
 
 def _searches(asked: Asked, types: list[str], live: bool) -> Searches:
@@ -58,6 +68,7 @@ def search_all(
     kinds: list[str] | None = None,
     limit: int = 20,
     period: Period = NO_PERIOD,
+    signed: Signed | None = None,
 ) -> dict[str, list[Hit]]:
     """Full-text search across requested entity types (of *period*: ``Period``).
 
@@ -65,12 +76,23 @@ def search_all(
     {id, key, collection, type, display_name, snippet, extra, score}, best score first.
 
     Every token must appear — AND semantics: in the searched fields of the indexed types,
-    in the names of members and factions.
+    in the names of members and factions; of the papers and the votes but those that name
+    a faction (*signed*, ``signed_of``; found here without it), whose hits are signed for
+    it.
     """
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}
-    asked = Asked(store, q, tokens, notation(store, q, types), kinds, limit, period)
+    asked = Asked(
+        store,
+        q,
+        tokens,
+        notation(store, q, types),
+        kinds,
+        limit,
+        period,
+        signed or signed_of(store, q, types),
+    )
     found = _heavy_first(_searches(asked, types, live=False))
     return {t: rank_hits(q, hits) for t, hits in found.items()}
 
@@ -83,6 +105,7 @@ def search_full(
     kinds: list[str] | None = None,
     limit: int = 20,
     period: Period = NO_PERIOD,
+    signed: Signed | None = None,
 ) -> tuple[dict[str, list[Hit]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
@@ -92,7 +115,16 @@ def search_full(
     tokens = tokenize_search_query(q)
     if not tokens:
         return {t: [] for t in types}, set()
-    asked = Asked(store, q, tokens, notation(store, q, types), kinds, limit, period)
+    asked = Asked(
+        store,
+        q,
+        tokens,
+        notation(store, q, types),
+        kinds,
+        limit,
+        period,
+        signed or signed_of(store, q, types),
+    )
     full = _searches(asked, types, live=False)
     live = _searches(asked, types, live=True)
     found = _heavy_first(
@@ -135,6 +167,7 @@ def search_live(
     kinds: list[str] | None = None,
     limit: int = 10,
     period: Period = NO_PERIOD,
+    signed: Signed | None = None,
 ) -> tuple[dict[str, list[Hit]], set[str]]:
     """``search_all`` while typing: all types within ``LIVE_BUDGET``, nothing ranked by
     its words (``text.live_query``), and the judgments without their summaries: an ECLI,
@@ -154,6 +187,7 @@ def search_live(
             kinds,
             limit,
             period,
+            signed or signed_of(store, q, types),
         )
         searches = _searches(asked, types, live=True)
         # one budget for them all: a type that waited for a thread (``side_by_side`` runs
