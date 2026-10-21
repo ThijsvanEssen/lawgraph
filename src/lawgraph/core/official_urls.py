@@ -34,7 +34,7 @@ from lawgraph.config.constants import SOURCE_CJEU, SOURCE_ECHR
 from lawgraph.config.sources import EERSTEKAMER_SITE
 from lawgraph.core.document_completeness import document_address
 from lawgraph.core.document_xml import TEXT_SOURCE
-from lawgraph.core.identifiers import parse_celex
+from lawgraph.core.identifiers import is_bwb_id, parse_celex
 from lawgraph.core.publications import parse_koop_id
 
 WETTEN = "https://wetten.overheid.nl"
@@ -48,8 +48,6 @@ VERDRAGENBANK_RESERVATIONS = "https://verdragenbank.overheid.nl/nl/Verdrag/Detai
 # The first year zoek.officielebekendmakingen.nl holds.
 FIRST_PUBLICATION_YEAR = 1995
 
-# A regulation or treaty of the BWB.
-_BWB_ID = re.compile(r"^BWB[RV]\d{7}$")
 # An article number the JCI can address: "7", "7:658", "1.1", "12a", "5.2.3a".
 _JCI_NUMBER = re.compile(r"^[0-9][0-9A-Za-z.:]*$")
 
@@ -58,7 +56,7 @@ def instrument_url(props: dict[str, Any], *, on: str | None = None) -> str | Non
     """The official page of an instrument (its props), the version valid *on* that day
     for a BWB regulation; None for one without a page."""
     bwb_id = props.get("bwb_id")
-    if isinstance(bwb_id, str) and _BWB_ID.match(bwb_id):
+    if isinstance(bwb_id, str) and is_bwb_id(bwb_id):
         return f"{WETTEN}/{bwb_id}/{on}" if on else f"{WETTEN}/{bwb_id}"
     if props.get("celex"):
         return EUR_LEX.format(celex=props["celex"])
@@ -78,7 +76,7 @@ def article_url(
     """The official page of article *number* of the BWB regulation *bwb_id*, of the
     version valid *on* that day; the regulation's page for an article the JCI cannot
     address; None outside the BWB."""
-    if not bwb_id or not _BWB_ID.match(bwb_id):
+    if not bwb_id or not is_bwb_id(bwb_id):
         return None
     if not number or not _JCI_NUMBER.match(number):
         return instrument_url({"bwb_id": bwb_id}, on=on)
