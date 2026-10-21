@@ -564,6 +564,18 @@ _DOSSIER_FILTER = (
     " WHERE json_typeof(x.v) IN ('string', 'number', 'boolean')"
     f" AND starts_with(x.v {JSON_TEXT}, %(dossier)s))"
 )
+# The labels a ``dossier`` filter may find (``dossier_labels``, read once): those of the
+# dossiers that start with it (a few thousand dossiers, read whole), and itself. A kind
+# finds its rows of them by index (``Source.dossier_found``) before the filter on its
+# labels decides: a paper of a chapter the graph has no dossier of (``36600-XX`` under
+# ``36600``) is found under its own label alone.
+_DOSSIER_LABELS_CTE = f""",
+    dossier_labels AS MATERIALIZED (
+        SELECT d.label FROM {COLLECTION_DOSSIERS} d
+        WHERE starts_with(d.label, %(dossier)s)
+        UNION SELECT %(dossier)s::text
+    )"""
+_DOSSIER_LABELS = "SELECT label FROM dossier_labels"
 _MEMBER_FILTER = (
     f"EXISTS (SELECT 1 FROM {elements('p.persons')}"
     " WHERE lg_str(x.v -> 'member_key') = %(member)s)"
@@ -625,6 +637,8 @@ def kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[Source]:
         sources = [replace(s, parts=parts) for s in judgments]
     if filters.member or filters.faction:
         sources = [s for s in sources if s.persons is not None]
+    if filters.dossier:
+        sources = [s for s in sources if s.dossiers is not None]
     if filters.faction:
         sources = [s for s in sources if s.kind != EVENT_COMMITMENT]
     if facets:  # every chamber is counted; ``chamber`` keeps the one asked for
@@ -846,6 +860,14 @@ class Kind:
             )
         return f"({found})"
 
+    def of_dossier(self) -> str | None:
+        """With ``dossier``, the rows of its dossiers, found by index; None without the
+        filter, or for a kind without that index."""
+        found = self.source.dossier_found
+        if not self.plan.filters.dossier or found is None:
+            return None
+        return found(_DOSSIER_LABELS)
+
     def select(self) -> str:
         """The columns of the light row (``_ROW_COLUMNS``)."""
         vote = self.source.kind == EVENT_VOTE
@@ -901,6 +923,11 @@ def _rows_query(source: Source, plan: Plan) -> str:
     if words_of(plan.filters):
         tail.append(kind.words())
     table, order = f"{source.collection} n", ""
+    of_dossier = kind.of_dossier()
+    if of_dossier:
+        # the rows of the dossier first, by its index, then their order: the few rows of a
+        # dossier are not looked for among every row in date order
+        table = f"(SELECT * FROM {table} WHERE {of_dossier} OFFSET 0) n"
     if not plan.facets:
         tail += kind.page_filters()
         if plan.filters.cabinet:
@@ -990,6 +1017,8 @@ def rows_of(filters: FeedFilters, plan: Plan, *, facets: bool) -> str:
         ctes += CABINET_PERIOD
     if filters.member:
         ctes += _MEMBER_PERSON
+    if filters.dossier:
+        ctes += _DOSSIER_LABELS_CTE
     if filters.instrument:
         ctes += followed_ctes(article=bool(filters.article))
     sources = kinds_to_read(filters, facets=facets)
