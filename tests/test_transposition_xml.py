@@ -1,7 +1,8 @@
 """The transposition tables in the XML of a Kamerstuk: excerpts of the second table of the new
 Wetboek van Strafvordering (kst-36636-3, "Huidig naar nieuw"), of the Omgevingswet's table of
-the Waterwet (kst-34986-3, Bijlage 2), of the Wet voortgezet onderwijs 2020 (kst-35297-3), of
-the Invoeringsbesluit Omgevingswet (Stb. 2020, 400), of the tables of a proposed law (the
+the Waterwet (kst-34986-3, Bijlage 2), of the Wet voortgezet onderwijs 2020 (kst-35297-3, a
+column of leden beside each law's), of the Invoeringsbesluit Omgevingswet (Stb. 2020, 400, a
+column per new law), of the tables of a proposed law (the
 Energiewet, the Wet dieren, the Mediawet 2008, the Waarborgwet 2019, the Wet op de Nederlandse
 identiteitskaart, the Erfgoedwet and the Wet natuurbescherming), and the layouts a table
 holds."""
@@ -14,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from lawgraph.core.succession import Place, SourceRow
+from lawgraph.core.succession import Gap, Place, Placed, SourceRow
 from lawgraph.core.transposition_xml import (
     Reference,
     XmlTable,
@@ -26,7 +27,9 @@ from lawgraph.core.transposition_xml import (
 )
 from lawgraph.db.queries.successions import folded, name_pattern
 from lawgraph.pipelines.semantic._transposition_tables import (
+    Succession,
     Table,
+    _rows_of_other_new_laws,
     _xml_tables,
     in_law_order,
     new_column,
@@ -400,30 +403,148 @@ def test_a_memorandum_whose_xml_does_not_read_is_a_table_that_says_so() -> None:
     ]
 
 
-@pytest.mark.parametrize(
-    ("fixture", "source", "problem"),
-    [
-        # a column per law, each with a column of its leden: two old laws are no pair
-        (
-            "kst_35297_3_excerpt.xml",
-            "kst-35297-3",
-            "columns not recognised: 3 of articles "
-            "(artikel WVO | artikel WVO-BES | artikel WVO 20xx)",
-        ),
-        # the old regulation's article and its places in the Omgevingswet and an AMvB
-        (
-            "stb_2020_400_excerpt.xml",
-            "stb-2020-400",
-            "columns not recognised: 3 of articles "
-            "(Artikel | Artikel Omgevingswet | Artikel AMvB)",
-        ),
-    ],
-)
-def test_a_head_with_more_than_two_columns_of_articles_is_not_read(
-    fixture: str, source: str, problem: str
-) -> None:
-    (table,) = read_tables((FIXTURES / fixture).read_text(), source)
-    assert (table.columns, table.cells, table.problem) == (None, (), problem)
+def test_a_column_per_law_each_with_a_column_of_its_leden() -> None:
+    """The Wet voortgezet onderwijs 2020 (kst-35297-3): ``artikel WVO | lid/onderdeel |
+    artikel WVO-BES | lid/onderdeel | artikel WVO 20xx | lid/onderdeel | …``, and back in its
+    second table. Each old law's column with its leden is a table to the proposed law's; a
+    lid of the new law is checked, a remark in brackets (``(deels)``) is no lid."""
+    wvo, bes, back_wvo, back_bes = _read("kst_35297_3")
+    assert (wvo.columns, wvo.proposed) == (
+        ("WVO", "artikel WVO 20xx"),
+        ("WVO 20xx", "Wet voortgezet onderwijs 20xx"),
+    )
+    assert (bes.columns, back_wvo.columns, back_bes.columns) == (
+        ("WVO-BES", "artikel WVO 20xx"),
+        ("WVO", "artikel WVO 20xx"),
+        ("WVO BES", "artikel WVO 20xx"),
+    )
+    assert _rows(wvo) == [
+        ("1", "(deels)", "1.1", "1.1"),
+        ("1", "(deels)", "2.13", "2.13"),
+        ("2", "", "1.4", "1.4"),
+        ("2a", "", "7.9, lid 1", "7.9"),
+        ("4", "lid 1 (deels)", "8.28", "8.28"),
+        ("10", "lid 4 t/m 8 (deels) en 10 (deels)", "2.24, lid 1 t/m 5", "2.24"),
+        ("15", "aanhef en onderdelen a t/m c", "2.26", "2.26"),
+        ("33", "lid 1, onderdeel b, 1b, 1c, onderdeel b, 2 en 16", "7.11", "7.11"),
+        ("42", "lid 1 en 3", "2.3 (1e en 2e volzin)", "2.3"),
+        ("118u", "", "12.*", None),  # does not read
+    ]
+    assert [r.place.leden for r in wvo.rows()[3:6]] == [
+        ("1",),
+        (),
+        ("1", "2", "3", "4", "5"),
+    ]
+    assert not wvo.rows()[-1].place.readable
+    assert _rows(bes)[2:4] == [
+        ("1", "(deels)", "11.1", "11.1"),
+        ("2", "", "1.4", "1.4"),
+    ]
+    assert _rows(back_wvo) == [
+        ("1", "(deels)", "1.1", "1.1"),
+        ("119", "lid 2", "1.3", "1.3"),
+        ("7", "lid 1 (deels)", "2.2", "2.2"),
+    ]
+    assert _rows(back_bes) == [
+        ("1", "(deels)", "1.1", "1.1"),
+        ("13", "lid 1 (deels)", "2.2", "2.2"),
+    ]
+
+
+def test_a_column_of_the_old_regulation_and_one_per_new_law() -> None:
+    """The Invoeringsbesluit Omgevingswet (Stb. 2020, 400): ``Onderwerp | Artikel | Artikel
+    Omgevingswet | Artikel AMvB | Toelichting`` under the old regulation's name. The AMvB's
+    cell names its law (``1.1 Bbl``, ``2.13 Bal en 8.28 Bkl``): a table per law it names,
+    and one of the cells that name none."""
+    tables = read_tables(
+        (FIXTURES / "stb_2020_400_excerpt.xml").read_text(), "stb-2020-400"
+    )
+    activiteiten = "Activiteitenbesluit milieubeheer"
+    assert [(t.columns, t.title_law, t.problem) for t in tables] == [
+        ((activiteiten, "Omgevingswet"), activiteiten, None),
+        ((activiteiten, "Bal"), activiteiten, None),
+        ((activiteiten, "Bkl"), activiteiten, None),
+        ((activiteiten, "AMvB"), activiteiten, None),
+        (("Bouwbesluit 2012", "Omgevingswet"), "Bouwbesluit 2012", None),
+        (("Bouwbesluit 2012", "Bbl"), "Bouwbesluit 2012", None),
+    ]
+    ow, bal, bkl, amvb, _, bbl = tables
+    assert _rows(ow) == [
+        ("1.3", "", "4.3, eerste lid", "4.3"),
+        ("1.3a", "", "–", None),
+        ("1.21a", "", "4.3, eerste lid", "4.3"),
+        ("2.7", "", "4.3, eerste lid", "4.3"),
+        ("2.7", "", "2.24", "2.24"),
+    ]
+    assert _rows(bal) == [
+        ("1.3", "", "1.3 Bal", "1.3"),
+        ("2.7", "", "2.13 Bal", "2.13"),
+    ]
+    assert _rows(bkl) == [("2.7", "", "8.28 Bkl", "8.28")]
+    assert _rows(amvb) == [
+        ("1.21a", "", "2.17", "2.17"),
+        ("1.21a", "", "4.1136", "4.1136"),
+        ("1.21a", "", "4.1137", "4.1137"),
+    ]
+    assert _rows(bbl) == [
+        ("1.1", "", "1.1 Bbl", "1.1"),
+        ("1.2", "", "2.11 Bbl", "2.11"),
+        ("1.3", "", "2.4", "2.4"),
+        ("1.3", "", "2.5 Bbl", "2.5"),
+        ("1.4", "", "2.7 Bbl", "2.7"),
+        ("1.6", "", "2.13 Bbl", "2.13"),
+        ("5.10", "", "5.4, tweede lid Bbl", "5.4"),
+    ]
+    assert bbl.rows()[-1].place == Place(
+        "5.4, tweede lid Bbl", "5.4", ("2",), law="Bbl"
+    )
+
+
+def test_a_head_with_more_columns_of_articles_than_it_names_laws_for() -> None:
+    """Three columns of laws and none without: which is the old law is not read."""
+    head = (
+        "<thead><row><entry colname='col1'><al>Artikel Wet x</al></entry>"
+        "<entry colname='col2'><al>Artikel Wet y</al></entry>"
+        "<entry colname='col3'><al>Artikel Wet z</al></entry></row></thead>"
+    )
+    xml = _xml(_row("1", "2", "3")).replace(
+        _xml("").split("<tgroup>")[1].split("<tbody>")[0], head
+    )
+    (table,) = read_tables(xml, "kst-1-3")
+    assert table.problem == (
+        "columns not recognised: 3 of articles (Artikel Wet x | Artikel Wet y | "
+        "Artikel Wet z)"
+    )
+
+
+def test_an_article_no_table_names_is_one_gap_of_its_old_law() -> None:
+    """The Activiteitenbesluit milieubeheer has a table to the Omgevingswet and to each
+    AMvB: an article no table names is a gap once, of the pair that places the most; one a
+    table of another pair names is none."""
+
+    def succession(new: str, pairs: int, named: set[str]) -> Succession:
+        placed = Placed(
+            pairs={(f"old {n}", f"{new} {n}"): [] for n in range(pairs)},
+            gaps=[Gap("no_row", "1"), Gap("no_row", "2"), Gap("no_new_article", "3")],
+            named=named,
+        )
+        return Succession("activiteitenbesluit", new, (), placed, True)
+
+    ow, bal, ob = _rows_of_other_new_laws(
+        [
+            succession("omgevingswet", 2, {"3"}),
+            succession("bal", 5, {"2", "3"}),
+            succession("omgevingsbesluit", 1, {"3"}),
+        ]
+    )
+    assert [(g.kind, g.old_article) for g in bal.placed.gaps] == [
+        ("no_row", "1"),
+        ("no_new_article", "3"),
+    ]
+    assert [g.kind for s in (ow, ob) for g in s.placed.gaps] == [
+        "no_new_article",
+        "no_new_article",
+    ]
 
 
 def test_a_historical_identity_stands_where_its_number_does() -> None:

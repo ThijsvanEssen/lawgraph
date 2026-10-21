@@ -578,53 +578,66 @@ reported.
   is no part of its number. A line that ends in a space runs on into the next unlabelled line.
 - A table in the XML of a Kamerstuk (`core/transposition_xml.py`), as `retrieve
   tk-transposition-tables` stored it. A `<table>` with a column of the law the paper proposes
-  (`Wetsvoorstel`, `Wetsvoorstel Energiewet`, `Plaats wetsvoorstel`, `Mediawet 20..`, `nieuw`)
-  beside a column of the old law, the other column whose cells read as articles, is read
-  wherever it stands (the Wet dieren's tables, kst-31389-3, stand under no heading that names
-  them): `Elektriciteitswet 1998 | Onderwerp | Wetsvoorstel Energiewet | Opmerking`
+  (`Wetsvoorstel`, `Wetsvoorstel Energiewet`, `Plaats wetsvoorstel`, `Mediawet 20..`,
+  `nieuw`) beside a column of the old law, the other column whose cells read as articles, is
+  read wherever it stands (the Wet dieren's tables, kst-31389-3, stand under no heading that
+  names them): `Elektriciteitswet 1998 | Onderwerp | Wetsvoorstel Energiewet | Opmerking`
   (kst-36378-3), `Huidige Mediawet | Mediawet 20..` (kst-31356-3), `oud | nieuw | opmerking`
   and `Onderwerp | Plaats | Plaats wetsvoorstel` under the old law's name (`Monumentenwet
   1988`, kst-34109-3; `Tabel 3. Boswet`, kst-33348-3), and pairs side by side either way
   (`Wetsvoorstel | Paspoortwet | Wetsvoorstel | Paspoortwet`, kst-36644-3). The proposed law
   is named by its column or by the dossier's title (`… (Wet dieren)`). A cell of the new law
-  in parts (`Eerste lid: 3.1 Tweede lid: 3.2`, `Onder a: 1.1 Onder b-d: 6.1`) places each part
-  of the old article; an old cell `Lid 1` continues the article above it, also one without a
-  place; an old cell without a letter or figure (`–`) is no row. Another `<table>` whose
-  title, a heading above it or the `<tussenkop>` before it names a table is read when it has a
-  head row with a column per law
-  (`Artikel Wabo | Artikel Omgevingswet`, the title naming one of them, `i.
-  Transponeringstabel Wet algemene bepalingen omgevingsrecht`, kst-34986-3), or two columns
-  under `Huidig naar nieuw` (the current and the new text of one law, kst-36636-3); the half
-  `Nieuw naar huidig` is not read, another table places nothing. So does a head with more
-  than two columns of articles (`columns not recognised`): a column per law with its own
-  column of leden (`artikel WVO | lid/onderdeel | artikel WVO-BES | … | artikel WVO 20xx`,
-  kst-35297-3), or an old article with its places in two new laws (`Artikel | Artikel
-  Omgevingswet | Artikel AMvB`, Stb. 2020, 400). A cell holds references as
-  written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
-  joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo. 16.15`, `3.89 i.c.m. 3.10`, `5.1
-  resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
-  anything else (`–`, `niet overgenomen`: no article; `2.21,eerste lid, … 16.89. 20.7`: does
-  not read). A law after the last reference is the law of that one (`5.45, 16.7 en afdeling
-  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`, `art. 1a WED
-  (door artikel 2.46 IwOw)`): a name that starts with a capital and names no part of an
-  article. The word `besluit` there names no law: the references are of the new law, worked
-  out in an AMvB under them (`20, derde lid, besluit`, kst-36440-3). A cell in prose reads the references
-  after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
-  Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
-  above it, in both columns; a cell over more rows holds for each. A run of articles stands
-  for each article of the law from the first to the last, in its order. An old cell that is
-  a division of the old law (`§ 1.2`, `titel 10.5`) stands for each article of it, by the
-  divisions of its `props.breadcrumb` (also an article repealed since).
+  in parts (`Eerste lid: 3.1 Tweede lid: 3.2`, `Onder a: 1.1 Onder b-d: 6.1`) places each
+  part of the old article; an old cell `Lid 1` continues the article above it, also one
+  without a place; an old cell without a letter or figure (`–`) is no row. Another `<table>`
+  whose title, a heading above it or the `<tussenkop>` before it names a table is read when
+  it has a head row with a column per law (`Artikel Wabo | Artikel Omgevingswet`, the title
+  naming one of them, `i. Transponeringstabel Wet algemene bepalingen omgevingsrecht`,
+  kst-34986-3), or two columns under `Huidig naar nieuw` (the current and the new text of one
+  law, kst-36636-3); the half `Nieuw naar huidig` is not read, another table places nothing.
+  Columns of articles may stand in groups. A column of articles with a column of leden beside
+  it (`artikel WVO | lid/onderdeel`) reads the leden there (`lid 1 t/m 3 en 5`; a remark in
+  brackets, `(deels)`, is no lid). One column of a proposed law beside more columns that each
+  name an old law (`artikel WVO | lid/onderdeel | artikel WVO-BES | lid/onderdeel | artikel
+  WVO 20xx | lid/onderdeel`, kst-35297-3, and back) is a table per old law. One column of
+  articles that names no law beside more that do, under a title that names the old law (`b.
+  Transponeringstabel Bouwbesluit 2012` over `Artikel | Artikel Omgevingswet | Artikel AMvB`,
+  Stb. 2020, 400), is a table of the old law to each; a column whose cells mostly name their
+  law at their end (`1.1 Bbl`, `2.13 Bal en 8.28 Bkl`) a table per law its cells name, and
+  one under the column's name (`AMvB`) of the cells with a figure that name none. Any other
+  head with more than two columns of articles places nothing (`columns not recognised`). A
+  cell holds references as written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`,
+  `2.31, eerste lid, onder a`), joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo.
+  16.15`, `3.89 i.c.m. 3.10`, `5.1 resp. 5.3`: each a place), divisions (`afdeling 15.2`: a
+  place that is no article) or anything else (`–`, `niet overgenomen`: no article;
+  `2.21,eerste lid, … 16.89. 20.7`: does not read). A law after the last reference is the law
+  of that one (`5.45, 16.7 en afdeling 3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20,
+  derde lid, Awb (nieuw)`, `art. 1a WED (door artikel 2.46 IwOw)`): a name that starts with a
+  capital, names no part of an article and does not start with the number of a division
+  (`4.834, eerste lid Bal`: `Bal`; `5.4 Bijlage VII`: none). The word `besluit` there names
+  no law: the references are of the new law, worked out in an AMvB under them (`20, derde
+  lid, besluit`, kst-36440-3). A cell in prose reads the references after `komt/keert … terug
+  in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de Omgevingswet.`). A row whose
+  old cell names only a part (`onder a`) continues the reference above it, in both columns; a
+  cell over more rows holds for each. A run of articles stands for each article of the law
+  from the first to the last, in its order. An old cell that is a division of the old law (`§
+  1.2`, `titel 10.5`) stands for each article of it, by the divisions of its
+  `props.breadcrumb` (also an article repealed since).
 - The laws: the new law is, of the name the table gives it, the one a publication of the
   table's dossier enacted or put articles in (`LEGISLATED_IN` the dossier, `ESTABLISHES` or
-  `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of that
-  name (`Omgevingswet`); a table that names none, the one law of its dossier. A proposed law is
-  the law of the dossier of a name its column or dossier gives it, else the one law of the
-  dossier, else the one law of the BWB of such a name. The old law is the one law of the BWB of
-  the name the table gives it (in a table of a proposed law its column's, else its title's),
-  not the new law; a table that names none, of the new law's name. Names compare in any case,
-  without spaces and marks (`Omgevings-wet`), a year still open for any (`Mediawet 20..` is
-  `Mediawet 2008`).
+  `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of
+  that name (`Omgevingswet`); a table that names none, the one law of its dossier. A proposed
+  law is the law of the dossier of a name its column or dossier gives it, else the one law of
+  the dossier, else the one law of the BWB of such a name. The old law is the one law of the
+  BWB of the name the table gives it (in a table of a proposed law its column's, else its
+  title's, and of more laws of that name the one that had not expired when the proposed law
+  came into force: the Wet voortgezet onderwijs BES of 2011, not the one of its first
+  months), not the new law; a table that names none, of the new law's name. The law of a name
+  is the one of that citation title, else of that abbreviation of the WTI (`WVO`, `WVO BES`,
+  `Bal`), else the one the citation extractor reads in `artikel 1 <name>`, of the whole name
+  (`WVO-BES` is not `WVO`). Names compare in any case, without spaces and marks
+  (`Omgevings-wet`, `WVO-BES`), a year still open for any (`Mediawet 20..` is `Mediawet
+  2008`).
   Of a table with a column per law, which is the new law is read from the sources, not from
   the order of the columns: the one of the two the dossier enacted or put articles in, else
   the one the title does not name; when neither tells, the table places nothing. The rows run
@@ -685,7 +698,8 @@ reported.
   row" only of an old law that goes: expired in the BWB no later than the new law came into
   force (`date_expired` ≤ `date_in_force`), recodified as a whole under its own name, or
   repealed by the EU act of the table; and only when no table of the old law to another new
-  law has a row for it. A law that stays (the Wet milieubeheer), or that went after the new
+  law has a row for it, then once, under the new law it places the most articles in. A law
+  that stays (the Wet milieubeheer), or that went after the new
   law came into force (the Wet op het voortgezet onderwijs after the Wet register
   onderwijsdeelnemers), has a row only for what moves. Each gap is a note of the run, as is a
   table that places nothing (an EU directive's implementation table in a Kamerstuk);
