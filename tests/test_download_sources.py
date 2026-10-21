@@ -150,7 +150,7 @@ def _run(
     return runs[source](store, answers)
 
 
-FAILED_IS_SKIPPED = {"eurlex"}
+FAILED_IS_SKIPPED = {"eurlex", "tk-transposition-tables"}
 
 
 @pytest.mark.parametrize(
@@ -185,7 +185,8 @@ def test_a_document_a_404_and_a_source_that_goes_down(
         result.errors
     )
     failed = [error for error in result.errors if "download failed (HTTP 500)" in error]
-    # EUR-Lex skips an act it failed to download; the others fail it
+    # EUR-Lex and the transposition tables skip a document they failed to download; the
+    # others fail it
     assert bool(failed) is (source not in FAILED_IS_SKIPPED)
 
 
