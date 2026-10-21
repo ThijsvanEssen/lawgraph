@@ -198,3 +198,19 @@ def test_an_annex_names_its_law_in_its_title_as_its_page_does(
     html = api.get(f"/render{node['path']}").text
     title = re.search(r"<title[^>]*>([^<]*)</title>", html)
     assert title and title[1] == f"{node['title']}, Concordans"
+
+
+def test_the_table_of_contents_of_a_law_holds_its_annexes(api: Api) -> None:
+    """Bijlage 2 is articles only: its articles are items, the annex itself an annex with
+    no text of its own."""
+    listed = api.get_json(f"/api/instruments/{LAW}/articles")
+    (annex,) = listed["annexes"]
+    assert (annex["key"], annex["display_name"], annex["path"]) == (
+        "bwbr0005537_annex_2",
+        "Bijlage 2",
+        f"/wetten/{LAW}/bijlage/2",
+    )
+    assert annex["title"].startswith("Bevoegdheidsregeling bestuursrechtspraak")
+    assert annex["text_preview"] is None
+    numbers = [item["article_number"] for item in listed["items"]]
+    assert numbers[-2:] == ["bijlage 2 artikel 1", "bijlage 2 artikel 4"]

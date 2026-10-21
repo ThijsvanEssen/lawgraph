@@ -20,6 +20,7 @@ from lawgraph.api.schemas.instruments import (
     AmendingInstrumentDTO,
     AmendingProposalDTO,
     EuLinkDTO,
+    InstrumentAnnexDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
     InstrumentArticlesResponse,
@@ -53,6 +54,7 @@ from lawgraph.api.schemas.instruments import (
 from lawgraph.core.division_anchor import as_anchor
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.annexes import get_law_annexes
 from lawgraph.db.queries.articles import get_current_references
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law
@@ -63,6 +65,7 @@ from lawgraph.db.queries.instrument_links import (
 from lawgraph.db.queries.instrument_scope import (
     resolve_instrument,
     same_treaty,
+    scope_of,
     scope_of_node,
 )
 from lawgraph.db.queries.instruments import (
@@ -321,7 +324,8 @@ _DIVISION_HELP = (
     description=(
         "The articles in force of this instrument (BWB id or CELEX number), in the order "
         "of the document: an article with only a heading (the Algemene bepaling of the "
-        "Grondwet) where it stands, an annex after the regulation. `include_repealed` "
+        "Grondwet) where it stands, an article of an annex after the regulation; the "
+        "annexes themselves in ``annexes``. `include_repealed` "
         "adds the repealed identities (last). The text is a short preview; "
         "/api/articles/{bwb_id}/{address} has the full content. ``division`` cuts the "
         "list to the articles of one division (``total`` and the pages count those), "
@@ -365,6 +369,12 @@ def list_articles(
             raise NotFound("Division", division)
         docs, total = part.items, part.total
         shown = InstrumentDivisionDTO.from_path(anchor, part.path, part.start)
+    scope = scope_of(bwb_id)
+    annexes = (
+        get_law_annexes(store, scope.value, text_chars=text_preview_chars)
+        if scope.prop == "bwb_id"
+        else []
+    )
     return InstrumentArticlesResponse(
         bwb_id=bwb_id,
         total=total,
@@ -375,6 +385,7 @@ def list_articles(
             )
             for d in docs
         ],
+        annexes=[InstrumentAnnexDTO.from_document(doc) for doc in annexes],
     )
 
 

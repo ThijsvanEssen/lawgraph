@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Excerpt of the toestand of the Cyberbeveiligingswet (BWBR0052872, 2026-08-15): its citeertitel, its shortest article and its two annexes, verbatim. -->
+<toestand bwb-id="BWBR0052872" inwerkingtreding="2026-08-15"><wetgeving dtdversie="2.0" soort="wet">
+<citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="17921573" versie-id="31705382" id="C45273021" label-id="17817234" inwerking="2026-08-15" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10">Cyberbeveiligingswet<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+<wet-besluit><wettekst><hoofdstuk><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel6" stam-id="17921663" versie-id="31705472" id="C45273111" label-id="17817324" inwerking="2026-08-15" label="Artikel 6" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">6</nr>
+    <titel status="officieel">(root-naamservers)</titel>
+  </kop>
+  <al>Deze wet is niet van toepassing op root-naamservers.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;artikel=6&amp;g=2026-08-15" onderdeel="artikel=6" korte-verwijzing="1.0:c:BWBR0052872&amp;artikel=6"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=3&amp;artikel=6&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=6" korte-verwijzing="jci1.3:c:BWBR0052872&amp;artikel=6"/></jcis></meta-data></artikel></hoofdstuk></wettekst>
+<bijlage bwb-ng-variabel-deel="/Bijlage1" stam-id="17923133" versie-id="31706942" id="C45274581" label-id="17818794" inwerking="2026-08-15" label="Bijlage 1" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Bijlage</label>
+    <nr status="officieel">1</nr>
+  </kop>
+  <table colsep="0" frame="topbot" pgwide="2" rowsep="0" tabstyle="xml2">
+    <tgroup align="left" char="" charoff="50" cols="3" rowsep="1" tgroupstyle="xml2">
+      <colspec colname="col1" colnum="1" colwidth="42*"/>
+      <colspec colname="col2" colnum="2" colwidth="43*"/>
+      <colspec colname="col3" colnum="3" colwidth="86*"/>
+      <thead valign="bottom">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Sector</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Subsector</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Soort entiteit</nadruk>
+            </al>
+          </entry>
+        </row>
+      </thead>
+      <tbody valign="top">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="16" rotate="0" valign="top">
+            <al>Energie</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="4" rotate="0" valign="top">
+            <al>Elektriciteit</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>– Elektriciteitsbedrijven als bedoeld in artikel 2, onderdeel 57, van <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref><sup>1</sup>, die de functie verrichten van «levering» als bedoeld in artikel 2, onderdeel 12, van die richtlijn</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Distributiesysteembeheerders als bedoeld in artikel 2, onderdeel 29, van <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Transmissiesysteembeheerders als bedoeld in artikel 2, onderdeel 35, van <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Producenten als bedoeld in artikel 2, onderdeel 38, van <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref>, voor zover de opwekking van elektriciteit hun belangrijkste commerciële of professionele activiteit vormt, of zij één of meerdere productie-installaties met een cumulatief nominaal vermogen van ten minste 100 megawatt beheren</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Benoemde elektriciteitsmarktbeheerders als bedoeld in artikel 2, onderdeel 8, van <extref doc="32019R0943" label="verordening" reeks="Celex">Verordening (EU) 2019/943</extref><sup>2</sup></al>
+            <al>– Marktdeelnemers als bedoeld in artikel 2, onderdeel 25, van <extref doc="32019R0943" label="verordening" reeks="Celex">Verordening (EU) 2019/943</extref> die aggregatie verrichten of vraagrespons- of energieopslagdiensten verstrekken als bedoeld in artikel 2, onderdelen 18, 20 en 59, van <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref></al>
+            <al>– Exploitanten van een laadpunt die verantwoordelijk zijn voor het beheer en de exploitatie van een laadpunt dat een laaddienst levert aan eindgebruikers, onder meer namens en voor rekening van een aanbieder van mobiliteitsdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Stadsverwarming en -koeling</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van stadsverwarming of stadskoeling als bedoeld in artikel 2, onderdeel 19, van <extref doc="32018L2001" label="richtlijn" reeks="Celex">Richtlijn (EU) 2018/2001</extref><sup>3</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top">
+            <al>Aardolie</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van oliepijpleidingen</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van voorzieningen voor de productie, raffinage en behandeling van olie, opslag en transport</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Centrale entiteiten voor de voorraadvorming als bedoeld in artikel 2, onderdeel f, van <extref doc="32009L0119" label="richtlijn" reeks="Celex">Richtlijn 2009/119/EG</extref><sup>4</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="6" rotate="0" rowsep="1" valign="top">
+            <al>Aardgas</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Leveringsbedrijven als bedoeld in artikel 2, onderdeel 8, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref><sup>5</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Distributiesysteembeheerders als bedoeld in artikel 2, onderdeel 6, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Transmissiesysteembeheerders als bedoeld in artikel 2, onderdeel 4, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Opslagsysteembeheerders als bedoeld in artikel 2, onderdeel 10, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– LNG-systeembeheerders als bedoeld in artikel 2, onderdeel 12, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aardgasbedrijven als bedoeld in artikel 2, onderdeel 1, van <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van voorzieningen voor de raffinage en behandeling van aardgas</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Waterstof</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van voorzieningen voor de productie, opslag en transmissie van waterstof</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="9" rotate="0" rowsep="1" valign="top">
+            <al>Vervoer</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top">
+            <al>Lucht</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Luchtvaartmaatschappijen als bedoeld in artikel 3, onderdeel 4, <extref doc="32008R0300" label="verordening" reeks="Celex">Verordening (EG) nr. 300/2008</extref> die voor commerciële doeleinden worden gebruikt</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Luchthavenbeheerders als bedoeld in artikel 2, onderdeel 2, van <extref doc="32009L0012" label="richtlijn" reeks="Celex">Richtlijn 2009/12/EG</extref><sup>6</sup>, luchthavens als bedoeld in artikel 2, onderdeel 1, van die richtlijn, met inbegrip van de kernluchthavens die in bijlage II, afdeling 2, bij <extref doc="32013R1315" label="verordening" reeks="Celex">Verordening (EU) 1315/2013</extref><sup>7</sup> zijn opgenomen, alsook de entiteiten die bijbehorende installaties bedienen welke zich op luchthavens bevinden</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten op het gebied van verkeersbeheer en -controle die luchtverkeersleidingsdiensten als bedoeld in artikel 2, onderdeel 1, van <extref doc="32004R0549" label="verordening" reeks="Celex">Verordening (EG) nr. 549/2004</extref><sup>8</sup> aanbieden</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="1" rotate="0" rowsep="1" valign="top">
+            <al>Spoor</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Infrastructuurbeheerders als bedoeld in artikel 3, onderdeel 2, van <extref doc="32012L0034" label="richtlijn" reeks="Celex">Richtlijn 2012/34/EU</extref><sup>9</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Spoorwegondernemingen als bedoeld in artikel 3, onderdeel 1, van <extref doc="32012L0034" label="richtlijn" reeks="Celex">Richtlijn 2012/34/EU</extref>, inclusief exploitanten van dienstvoorzieningen als bedoeld in artikel 3, onderdeel 12, van die richtlijn</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top">
+            <al>Water</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Bedrijven voor vervoer over water (binnenvaart, kust- en zeevervoer) van passagiers en vracht zoals voor maritiem transport gedefinieerd in bijlage I bij <extref doc="32004R0725" label="verordening" reeks="Celex">Verordening (EG) nr. 725/2004</extref><sup>10</sup>, met uitzondering van de door deze bedrijven geëxploiteerde individuele vaartuigen</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Beheerders van havens als bedoeld in artikel 3, onderdeel 1, van <extref doc="32005L0065" label="richtlijn" reeks="Celex">Richtlijn 2005/65/EG</extref><sup>11</sup>, inclusief hun havenfaciliteiten als bedoeld in artikel 2, onderdeel 11, van <extref doc="32004R0725" label="verordening" reeks="Celex">Verordening (EG) nr. 725/2004</extref>; alsook entiteiten die werken en uitrusting in havens beheren</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van verkeersbegeleidingssystemen (VBS) als bedoeld in artikel 3, onderdeel o, van <extref doc="32002L0059" label="richtlijn" reeks="Celex">Richtlijn 2002/59/EG</extref><sup>12</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="1" rotate="0" rowsep="1" valign="top">
+            <al>Weg</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Wegenautoriteiten als bedoeld in artikel 2, onderdeel 12, van gedelegeerde <extref doc="32015R0962" label="verordening" reeks="Celex">Verordening (EU) 2015/962</extref><sup>13</sup> die verantwoordelijk zijn voor het verkeersbeheer, met uitzondering van overheidsinstanties waarvoor verkeersbeheer of de exploitatie van intelligente vervoerssystemen slechts een niet-essentieel onderdeel van hun algemene activiteit is</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van intelligente vervoerssystemen als bedoeld in artikel 4, onderdeel 1, van <extref doc="32010L0040" label="richtlijn" reeks="Celex">Richtlijn 2010/40/EU</extref><sup>14</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Bankwezen</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Kredietinstellingen als bedoeld in artikel 4, onderdeel 1, <extref doc="32013R0575" label="verordening" reeks="Celex">Verordening (EU) nr. 575/2013</extref><sup>15</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="1" rotate="0" rowsep="1" valign="top">
+            <al>Infrastructuur voor de financiële markt</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="1" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Exploitanten van handelsplatformen als bedoeld in artikel 4, onderdeel 24, van <extref doc="32014L0065" label="richtlijn" reeks="Celex">Richtlijn 2014/65/EU</extref><sup>16</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Centrale tegenpartijen als bedoeld in artikel 2, onderdeel 1, <extref doc="32012R0648" label="verordening" reeks="Celex">Verordening (EU) nr. 648/2012</extref><sup>17</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top">
+            <al>Gezondheidszorg</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Een zorgaanbieder als bedoeld in artikel 1, eerste lid, van de Wet kwaliteit, klachten en geschillen zorg</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– EU-referentielaboratoria als bedoeld in artikel 15 van <extref doc="32022R2371" label="verordening" reeks="Celex">Verordening (EU) 2022/2371</extref><sup>18</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Entiteiten die onderzoeks- en ontwikkelingsactiviteiten uitvoeren met betrekking tot geneesmiddelen als bedoeld in artikel 1, onderdeel 2, van <extref doc="32001L0083" label="richtlijn" reeks="Celex">Richtlijn 2001/83/EG</extref><sup>19</sup></al>
+            <al>– Entiteiten die farmaceutische basisproducten en farmaceutische bereidingen als bedoeld in sectie C, afdeling 21, van NACE Rev. 2 vervaardigen</al>
+            <al>– Entiteiten die medische hulpmiddelen vervaardigen die in het kader van de noodsituatie op het gebied van de volksgezondheid als kritiek worden beschouwd («de lijst van in een noodsituatie op het gebied van de volksgezondheid kritieke hulpmiddelen») in de zin van artikel 22 van <extref doc="32022R0123" label="verordening" reeks="Celex">Verordening (EU) 2022/123</extref><sup>20</sup></al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Drinkwater</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Leveranciers en distributeurs van voor menselijke consumptie bestemd water als bedoeld in artikel 2, onderdeel 1, subonderdeel a, van <extref doc="32020L2184" label="richtlijn" reeks="Celex">Richtlijn (EU) 2020/2184</extref><sup>21</sup>, met uitzondering van distributeurs waarvoor de distributie van water voor menselijke consumptie een niet-essentieel deel is van hun algemene activiteit van distributie van andere waren en goederen die niet worden beschouwd als essentiële of belangrijke diensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Afvalwater</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die stedelijk afvalwater, huishoudelijk afvalwater of industrieel afvalwater als bedoeld in artikel 2, onderdelen 1, 2 en 3, van <extref doc="31991L0271" label="richtlijn" reeks="Celex">Richtlijn 91/271/EEG</extref><sup>22</sup> opvangen, lozen of behandelen, met uitzondering van ondernemingen waarvoor het opvangen, lozen of behandelen van stedelijk afvalwater, huishoudelijk afvalwater of industrieel afvalwater een niet-essentieel onderdeel van hun algemene activiteit is</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="8" rotate="0" rowsep="1" valign="top">
+            <al>Digitale infrastructuur</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="8" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van internetknooppunten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– DNS-dienstverleners</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Register voor topleveldomeinnamen</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van cloudcomputingdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van datacentrumdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van netwerken voor de levering van inhoud</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Verleners van vertrouwensdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van openbare elektronische communicatienetwerken</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van openbare elektronische communicatiediensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Beheer van ICT-diensten (business-to-business)</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van beheerde diensten</al>
+            <al>– Aanbieders van beheerde beveiligingsdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="5" rotate="0" rowsep="1" valign="top">
+            <al>Overheid</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="1" rotate="0" rowsep="1" valign="top">
+            <al>Centrale overheden</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Ministeries met inbegrip van de daartoe behorende dienstonderdelen doch met uitzondering van de inlichtingen- en veiligheidsdiensten, bedoeld in de Wet op de inlichtingen- en veiligheidsdiensten 2017</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Zelfstandige bestuursorganen, voor zover zij kwalificeren als overheidsinstantie</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="3" rotate="0" rowsep="1" valign="top">
+            <al>Decentrale overheden</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Provincies</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Gemeenten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Waterschappen</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Openbare lichamen, gemeenschappelijke organen en bedrijfsvoeringsorganisaties als bedoeld in artikel 8, eerste, tweede, onderscheidenlijk derde lid, van de Wet gemeenschappelijke regelingen, voor zover deze openbare lichamen, gemeenschappelijke organen en bedrijfsvoeringsorganisaties kwalificeren als overheidsinstantie</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ruimtevaart</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Operators van grondfaciliteiten die in het bezit zijn van of beheerd of geëxploiteerd worden door de lidstaten of door particuliere partijen en die de verlening van vanuit de ruimte opererende diensten ondersteunen, met uitzondering van aanbieders van openbare elektronische communicatienetwerken</al>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+  <al>
+    <sup>1</sup>
+    <extref doc="32019L0944" label="richtlijn" reeks="Celex">Richtlijn (EU) 2019/944</extref> van het Europees Parlement en de Raad van 5 juni 2019 betreffende gemeenschappelijke regels voor de interne markt voor elektriciteit en tot wijziging van <extref doc="32012L0027" label="richtlijn" reeks="Celex">Richtlijn 2012/27/EU</extref><nadruk type="cur">(PbEU</nadruk> 2019, L 158).</al>
+  <al>
+    <sup>2</sup>
+    <extref doc="32019R0943" label="verordening" reeks="Celex">Verordening (EU) 2019/943</extref> van het Europees Parlement en de Raad van 5 juni 2019 betreffende de interne markt voor elektriciteit <nadruk type="cur">(PbEU</nadruk> 2019, L 158).</al>
+  <al>
+    <sup>3</sup>
+    <extref doc="32018L2001" label="richtlijn" reeks="Celex">Richtlijn (EU) 2018/2001</extref> van het Europees Parlement en de Raad van 11 december 2018 ter bevordering van het gebruik van energie uit hernieuwbare bronnen <nadruk type="cur">(PbEU</nadruk> 2018, L 328).</al>
+  <al>
+    <sup>4</sup>
+    <extref doc="32009L0119" label="richtlijn" reeks="Celex">Richtlijn 2009/119/EG</extref> van de Raad van 14 september 2009 houdende verplichting voor de lidstaten om minimumvoorraden ruwe aardolie en/of aardolieproducten in opslag te houden <nadruk type="cur">(PbEU</nadruk> 2009, L 265).</al>
+  <al>
+    <sup>5</sup>
+    <extref doc="32009L0073" label="richtlijn" reeks="Celex">Richtlijn 2009/73/EG</extref> van het Europees Parlement en de Raad van 13 juli 2009 betreffende gemeenschappelijke regels voor de interne markt voor aardgas en tot intrekking van <extref doc="32003L0055" label="richtlijn" reeks="Celex">Richtlijn 2003/55/EG</extref><nadruk type="cur">(PbEU</nadruk> 2009, L 211).</al>
+  <al>
+    <sup>6</sup>
+    <extref doc="32009L0012" label="richtlijn" reeks="Celex">Richtlijn 2009/12/EG</extref> van het Europees Parlement en de Raad van 11 maart 2009 inzake luchthavengelden <nadruk type="cur">(PbEU</nadruk> 2009, L 70).</al>
+  <al>
+    <sup>7</sup>
+    <extref doc="32013R1315" label="verordening" reeks="Celex">Verordening (EU) nr. 1315/2013</extref> van het Europees Parlement en de Raad van 11 december 2013 betreffende richtsnoeren van de Unie voor de ontwikkeling van het trans-Europees vervoersnetwerk en tot intrekking van Besluit nr. 661/2010/EU <nadruk type="cur">(PbEU</nadruk> 2013, L 348).</al>
+  <al>
+    <sup>8</sup>
+    <extref doc="32004R0549" label="verordening" reeks="Celex">Verordening (EG) nr. 549/2004</extref> van het Europees Parlement en de Raad van 10 maart 2004 tot vaststelling van het kader voor de totstandbrenging van het gemeenschappelijke Europese luchtruim (de kaderverordening) <nadruk type="cur">(PbEU</nadruk> 2004, L 96).</al>
+  <al>
+    <sup>9</sup>
+    <extref doc="32012L0034" label="richtlijn" reeks="Celex">Richtlijn 2012/34/EU</extref> van het Europees Parlement en de Raad van 21 november 2012 tot instelling van één Europese spoorwegruimte, <nadruk type="cur">(PbEU</nadruk> 2012, L 343).</al>
+  <al>
+    <sup>10</sup>
+    <extref doc="32004R0725" label="verordening" reeks="Celex">Verordening (EG) nr. 725/2004</extref> van het Europees Parlement en de Raad van 31 maart 2004 betreffende de verbetering van de beveiliging van schepen en havenfaciliteiten <nadruk type="cur">(PbEU</nadruk> 2004, L 129).</al>
+  <al>
+    <sup>11</sup>
+    <extref doc="32005L0065" label="richtlijn" reeks="Celex">Richtlijn 2005/65/EG</extref> van het Europees Parlement en de Raad van 26 oktober 2005 betreffende het verhogen van de veiligheid van havens <nadruk type="cur">(PbEU</nadruk> 2005, L 310).</al>
+  <al>
+    <sup>12</sup>
+    <extref doc="32002L0059" label="richtlijn" reeks="Celex">Richtlijn 2002/59/EG</extref> van het Europees Parlement en de Raad van 27 juni 2002 betreffende de invoering van een communautair monitoring en informatiesysteem voor de zeescheepvaart en tot intrekking van <extref doc="31993L0075" label="richtlijn" reeks="Celex">Richtlijn 93/75/EEG</extref> van de Raad <nadruk type="cur">(PbEU</nadruk> 2002, L 208).</al>
+  <al>
+    <sup>13</sup> Gedelegeerde <extref doc="32015R0962" label="verordening" reeks="Celex">verordening (EU) 2015/962</extref> van de Commissie van 18 december 2014 ter aanvulling van <extref doc="32010L0040" label="richtlijn" reeks="Celex">Richtlijn 2010/40/EU</extref> van het Europees Parlement en de Raad wat de verlening van EU-wijde realtimeverkeersinformatiediensten betreft <nadruk type="cur">(PbEU</nadruk> 2015, L 157).</al>
+  <al>
+    <sup>14</sup>
+    <extref doc="32010L0040" label="richtlijn" reeks="Celex">Richtlijn 2010/40/EU</extref> van het Europees Parlement en de Raad van 7 juli 2010 betreffende het kader voor het invoeren van intelligente vervoerssystemen op het gebied van wegvervoer en voor interfaces met andere vervoerswijzen <nadruk type="cur">(PbEU</nadruk> 2010, L 207).</al>
+  <al>
+    <sup>15</sup>
+    <extref doc="32013R0575" label="verordening" reeks="Celex">Verordening (EU) nr. 575/2013</extref> van het Europees Parlement en de Raad van 26 juni 2013 betreffende prudentiële vereisten voor kredietinstellingen en tot wijziging van <extref doc="32012R0648" label="verordening" reeks="Celex">Verordening (EU) nr. 648/2012</extref><nadruk type="cur">(PbEU </nadruk> 2013, L 176).</al>
+  <al>
+    <sup>16</sup>
+    <extref doc="32014L0065" label="richtlijn" reeks="Celex">Richtlijn 2014/65/EU</extref> van het Europees Parlement en de Raad van 15 mei 2014 betreffende markten voor financiële instrumenten en tot wijziging van <extref doc="32002L0092" label="richtlijn" reeks="Celex">Richtlijn 2002/92/EG</extref> en <extref doc="32011L0061" label="richtlijn" reeks="Celex">Richtlijn 2011/61/EU</extref><nadruk type="cur">(PbEU</nadruk> 2014, L 173).</al>
+  <al>
+    <sup>17</sup>
+    <extref doc="32012R0648" label="verordening" reeks="Celex">Verordening (EU) nr. 648/2012</extref> van het Europees Parlement en de Raad van 4 juli 2012 betreffende otc-derivaten, centrale tegenpartijen en transactieregisters <nadruk type="cur">(PbEU</nadruk> 2012, L 201).</al>
+  <al>
+    <sup>18</sup>
+    <extref doc="32022R2371" label="verordening" reeks="Celex">Verordening (EU) 2022/2371</extref> van het Europees Parlement en de Raad van 23 november 2022 inzake ernstige grensoverschrijdende bedreigingen van de gezondheid en houdende intrekking van Besluit nr. 1082/2013/EU <nadruk type="cur">(PbEU</nadruk> 2022, L 314).</al>
+  <al>
+    <sup>19</sup>
+    <extref doc="32001L0083" label="richtlijn" reeks="Celex">Richtlijn 2001/83/EG</extref> van het Europees Parlement en de Raad van 6 november 2001 tot vaststelling van een communautair wetboek betreffende geneesmiddelen voor menselijk gebruik <nadruk type="cur">(PbEU</nadruk> 2001, L 311).</al>
+  <al>
+    <sup>20</sup>
+    <extref doc="32022R0123" label="verordening" reeks="Celex">Verordening (EU) 2022/123</extref> van het Europees Parlement en de Raad van 25 januari 2022 betreffende een grotere rol van het Europees Geneesmiddelenbureau inzake crisisparaatheid en -beheersing op het gebied van geneesmiddelen en medische hulpmiddelen <nadruk type="cur">(PbEU</nadruk> 2022, L 20).</al>
+  <al>
+    <sup>21</sup>
+    <extref doc="32020L2184" label="richtlijn" reeks="Celex">Richtlijn (EU) 2020/2184</extref> van het Europees Parlement en de Raad van 16 december 2020 betreffende de kwaliteit van voor menselijke consumptie bestemd water <nadruk type="cur">(PbEU</nadruk> 2020, L 435).</al>
+  <al>
+    <sup>22</sup>
+    <extref doc="31991L0271" label="richtlijn" reeks="Celex">Richtlijn 91/271/EEG</extref> van de Raad van 21 mei 1991 inzake de behandeling van stedelijk afvalwater <nadruk type="cur">(PbEU</nadruk> 1991, L 135).</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;bijlage=1&amp;g=2026-08-15" onderdeel="bijlage=1" korte-verwijzing="1.0:c:BWBR0052872&amp;bijlage=1"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;bijlage=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="bijlage=1" korte-verwijzing="jci1.3:c:BWBR0052872&amp;bijlage=1"/></jcis></meta-data></bijlage>
+<bijlage bwb-ng-variabel-deel="/Bijlage2" stam-id="17923143" versie-id="31706952" id="C45274591" label-id="17818804" inwerking="2026-08-15" label="Bijlage 2" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Bijlage</label>
+    <nr status="officieel">2</nr>
+  </kop>
+  <table colsep="0" frame="topbot" pgwide="2" rowsep="0" tabstyle="xml2">
+    <tgroup align="left" char="" charoff="50" cols="3" rowsep="1" tgroupstyle="xml2">
+      <colspec colname="col1" colnum="1" colwidth="42*"/>
+      <colspec colname="col2" colnum="2" colwidth="43*"/>
+      <colspec colname="col3" colnum="3" colwidth="86*"/>
+      <thead valign="bottom">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Sector</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Subsector</nadruk>
+            </al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>
+              <nadruk type="halfvet">Soort entiteit</nadruk>
+            </al>
+          </entry>
+        </row>
+      </thead>
+      <tbody valign="top">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>Post- en koeriersdiensten</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" valign="top">
+            <al>Aanbieders van postdiensten als bedoeld in artikel 2, onderdeel 1 bis, van <extref doc="31997L0067" label="richtlijn" reeks="Celex">Richtlijn 97/67/EG</extref><sup>1</sup>, met inbegrip van aanbieders van koeriersdiensten, voor zover zij ten minste een van de stappen in de postbestelketen verzorgen, met name het ophalen, sorteren, vervoeren en bestellen van postzendingen, met inbegrip van de ophaaldiensten, waarbij rekening moet worden gehouden met de mate waarin zij afhankelijk zijn van netwerk- en informatiesystemen. Uitgezonderd zijn vervoersdiensten die niet in samenhang met een van die stappen worden ondernomen.</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Afvalstoffenbeheer</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die handelingen in het kader van afvalstoffenbeheer uitvoeren als bedoeld in artikel 3, onderdeel 9, van <extref doc="32008L0098" label="richtlijn" reeks="Celex">Richtlijn 2008/98/EG</extref><sup>2</sup>, met uitzondering van ondernemingen waarvoor afvalstoffenbeheer niet de voornaamste economische activiteit is</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging, productie en distributie van chemische stoffen</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die stoffen vervaardigen en stoffen of mengsels distribueren als bedoeld in artikel 3, onderdelen 9 en 14, van <extref doc="32006R1907" label="verordening" reeks="Celex">Verordening (EG) nr. 1907/2006</extref><sup>3</sup> en ondernemingen die voorwerpen als bedoeld in artikel 3, onderdeel 3, van die verordening produceren uit stoffen of mengsels</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Productie, verwerking en distributie van levensmiddelen</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Levensmiddelenbedrijven als bedoeld in artikel 3, onderdeel 2, <extref doc="32002R0178" label="verordening" reeks="Celex">Verordening (EG) nr. 178/2002</extref><sup>4</sup> die zich bezighouden met groothandel en industriële productie en verwerking</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="5" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van medische hulpmiddelen en medische hulpmiddelen voor in-vitrodiagnostiek</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Entiteiten die medische hulpmiddelen als bedoeld in artikel 2, onderdeel 1, van <extref doc="32017R0745" label="verordening" reeks="Celex">Verordening (EU) 2017/745</extref><sup>5</sup> vervaardigen en entiteiten die medische hulpmiddelen voor in-vitrodiagnostiek als bedoeld in artikel 2, onderdeel 2, van <extref doc="32017R0746" label="verordening" reeks="Celex">Verordening (EU) 2017/746</extref><sup>6</sup> vervaardigen, met uitzondering van entiteiten die medische hulpmiddelen vervaardigen als bedoeld in bijlage I, onderdeel 5, vijfde streepje, van deze richtlijn</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van informaticaproducten en van elektronische en optische producten</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 26, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van elektrische apparatuur</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 27, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van machines, apparaten en werktuigen, niet elders geclassificeerd</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 28, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van motorvoertuigen, aanhangers en opleggers</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 29, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Vervaardiging van andere transportmiddelen</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 30, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top">
+            <al>Digitale aanbieders</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="2" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van onlinemarktplaatsen</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van onlinezoekmachines</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>– Aanbieders van platforms voor socialenetwerkdiensten</al>
+          </entry>
+        </row>
+        <row rowsep="0">
+          <entry align="left" colname="col1" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Onderzoek</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top"/>
+          <entry align="left" colname="col3" colsep="0" morerows="0" rotate="0" rowsep="1" valign="top">
+            <al>Onderzoeksorganisaties, met als hoofddoel het verrichten van toegepast onderzoek of experimentele ontwikkeling met het oog op de exploitatie van de resultaten van dat onderzoek voor commerciële doeleinden, met uitsluiting van onderwijsinstellingen.</al>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+  <al>
+    <sup>1</sup>
+    <extref doc="31997L0067" label="richtlijn" reeks="Celex">Richtlijn 97/67/EG</extref> van het Europees Parlement en de Raad van 15 december 1997 betreffende gemeenschappelijke regels voor de ontwikkeling van de interne markt voor postdiensten in de Gemeenschap en de verbetering van de kwaliteit van de dienst <nadruk type="cur">(PbEU</nadruk> 1998, L 15).</al>
+  <al>
+    <sup>2</sup>
+    <extref doc="32008L0098" label="richtlijn" reeks="Celex">Richtlijn 2008/98/EG</extref> van het Europees Parlement en de Raad van 19 november 2008 betreffende afvalstoffen en tot intrekking van een aantal richtlijnen <nadruk type="cur">(PbEU</nadruk> 2008, L 312).</al>
+  <al>
+    <sup>3</sup>
+    <extref doc="32006R1907" label="verordening" reeks="Celex">Verordening (EG) nr. 1907/2006</extref> van het Europees Parlement en de Raad van 18 december 2006 inzake de registratie en beoordeling van en de autorisatie en beperkingen ten aanzien van chemische stoffen (REACH), tot oprichting van een Europees Agentschap voor chemische stoffen, houdende wijziging van <extref doc="31999L0045" label="richtlijn" reeks="Celex">Richtlijn 1999/45/EG</extref> en houdende intrekking van <extref doc="31993R0793" label="verordening" reeks="Celex">Verordening (EEG) nr. 793/93</extref> van de Raad en <extref doc="31994R1488" label="verordening" reeks="Celex">Verordening (EG) nr. 1488/94</extref> van de Commissie alsmede <extref doc="31976L0769" label="richtlijn" reeks="Celex">Richtlijn 76/769/EEG</extref> van de Raad en de <extref doc="31991L0155" label="richtlijn" reeks="Celex">Richtlijnen 91/155/EEG</extref>, <extref doc="31993L0067" label="richtlijn" reeks="Celex">93/67/EEG</extref>, <extref doc="31993L0105" label="richtlijn" reeks="Celex">93/105/EG</extref> en <extref doc="32000L0021" label="richtlijn" reeks="Celex">2000/21/EG</extref> van de Commissie <nadruk type="cur">(PbEU</nadruk> 2006, L 396).</al>
+  <al>
+    <sup>4</sup>
+    <extref doc="32002R0178" label="verordening" reeks="Celex">Verordening (EG) nr. 178/2002</extref> van het Europees Parlement en de Raad van 28 januari 2002 tot vaststelling van de algemene beginselen en voorschriften van de levensmiddelenwetgeving, tot oprichting van een Europese Autoriteit voor voedselveiligheid en tot vaststelling van procedures voor voedselveiligheidsaangelegenheden <nadruk type="cur">(PbEU</nadruk> 2002, L 31).</al>
+  <al>
+    <sup>5</sup>
+    <extref doc="32017R0745" label="verordening" reeks="Celex">Verordening (EU) 2017/745</extref> van het Europees Parlement en de Raad van 5 april 2017 betreffende medische hulpmiddelen, tot wijziging van <extref doc="32001L0083" label="richtlijn" reeks="Celex">Richtlijn 2001/83/EG</extref>, <extref doc="32002R0178" label="verordening" reeks="Celex">Verordening (EG) nr. 178/2002</extref> en <extref doc="32009R1223" label="verordening" reeks="Celex">Verordening (EG) nr. 1223/2009</extref>, en tot intrekking van <extref doc="31990L0385" label="richtlijn" reeks="Celex">Richtlijnen 90/385/EEG</extref> en <extref doc="31993L0042" label="richtlijn" reeks="Celex">93/42/EEG</extref> van de Raad <nadruk type="cur">(PbEU</nadruk> 2017, L 117).</al>
+  <al>
+    <sup>6</sup>
+    <extref doc="32017R0746" label="verordening" reeks="Celex">Verordening (EU) 2017/746</extref> van het Europees Parlement en de Raad van 5 april 2017 betreffende medische hulpmiddelen voor in-vitrodiagnostiek en tot intrekking van <extref doc="31998L0079" label="richtlijn" reeks="Celex">Richtlijn 98/79/EG</extref> en Besluit 2010/227/EU van de Commissie <nadruk type="cur">(PbEU</nadruk> 2017, L 117).</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;bijlage=2&amp;g=2026-08-15" onderdeel="bijlage=2" korte-verwijzing="1.0:c:BWBR0052872&amp;bijlage=2"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;bijlage=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="bijlage=2" korte-verwijzing="jci1.3:c:BWBR0052872&amp;bijlage=2"/></jcis></meta-data></bijlage>
+</wet-besluit></wetgeving></toestand>

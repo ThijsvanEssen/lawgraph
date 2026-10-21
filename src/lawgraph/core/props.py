@@ -1615,11 +1615,25 @@ class AnnexProps(_CommonProps):
     label: str | None = None
     """`I`, `2`, `A`: as cited in article text."""
     title: str | None = None
-    """Its title."""
+    """The title of its heading; absent where it prints none."""
+    position: int | None = None
+    """Its place among the annexes of the toestand: the order of the table of contents."""
     description: str | None = None
-    """Its description."""
+    """Its paragraphs outside its lists, a line each, cut at 2,000 characters."""
     entries: list[AnnexEntry] | None = None
     """Its list."""
+    text: str | None = None
+    """Its text as that of an article, without its articles (articles of their own): a
+    paragraph a line, list items on their own lines, a table a row a line, the heading of a
+    division on a line of its own."""
+    parts: list[dict[str, Any]] | None = None
+    """The structure of its text, as of an article: `{id, kind, number, start, end, term}`."""
+    tables: list[dict[str, Any]] | None = None
+    """The tables in its text, as of an article: `{start, end, head_rows, columns, spans}`."""
+    headings: list[dict[str, Any]] | None = None
+    """The headings in its text (of a division, a table), as of an article: `{start, end}`."""
+    references: list[dict[str, Any]] | None = None
+    """The links of its text to a regulation, an annex or an EU act, as of an article."""
     instrument_id: str | None = None
     """Its instrument."""
     instrument_citation_title: str | None = None
