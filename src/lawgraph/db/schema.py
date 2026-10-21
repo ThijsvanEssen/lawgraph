@@ -298,19 +298,26 @@ $$;
 -- takes up to an equal share of the room, in id order, so a collection with fewer than its
 -- share is kept whole and what it leaves goes to the others (not every case of a minister
 -- before any of his papers, as id order would). A node that is gone is not one; a node
--- outside w_collections (when given) or w_tables is neither kept nor walked through.
+-- outside w_collections (when given) or w_tables is neither kept nor walked through. A node
+-- of w_stop (when given) but the focal one is kept but not walked through, but for its
+-- seats: an edge out of it whose relation and collection of its other end are one of
+-- w_seats ('MEMBER_OF factions').
 -- Whether a neighbour is there is asked of its own table only, w_chunk at a time, so a
 -- capped walk does not look up the neighbours it will never keep.
 CREATE OR REPLACE FUNCTION lg_walk(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
     w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
-    w_chunk int DEFAULT 500
+    w_stop text[], w_seats text[], w_chunk int DEFAULT 500
 ) RETURNS text[]
 LANGUAGE plpgsql STABLE AS $$
 DECLARE
     seen text[] := ARRAY[w_focal];
     kept text[] := '{}';
     frontier text[] := ARRAY[w_focal];
+    -- of the frontier: the nodes walked through, and those walked to their seats only
+    free text[];
+    stopped text[];
+    seat_relations text[] := ARRAY(SELECT split_part(s, ' ', 1) FROM unnest(w_seats) s);
     reached text[];
     chunk text[];
     present text[];
@@ -327,15 +334,31 @@ DECLARE
     n int;
 BEGIN
     FOR step IN 1..w_depth LOOP
+        IF w_stop IS NULL OR step = 1 THEN
+            free := frontier;
+            stopped := '{}';
+        ELSE
+            free := ARRAY(SELECT x FROM unnest(frontier) x
+                          WHERE split_part(x, '/', 1) <> ALL(w_stop));
+            stopped := ARRAY(SELECT x FROM unnest(frontier) x
+                             WHERE split_part(x, '/', 1) = ANY(w_stop));
+        END IF;
         reached := ARRAY(
             SELECT f.id FROM (
                 SELECT e.to_id AS id FROM public.edges e
-                WHERE w_outbound AND e.from_id = ANY(frontier)
+                WHERE w_outbound AND e.from_id = ANY(free)
                   AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                   AND (w_status IS NULL OR e.status = w_status)
                 UNION
                 SELECT e.from_id FROM public.edges e
-                WHERE w_inbound AND e.to_id = ANY(frontier)
+                WHERE w_inbound AND e.to_id = ANY(free)
+                  AND (w_relations IS NULL OR e.relation = ANY(w_relations))
+                  AND (w_status IS NULL OR e.status = w_status)
+                UNION
+                SELECT e.to_id FROM public.edges e
+                WHERE w_outbound AND e.from_id = ANY(stopped)
+                  AND e.relation = ANY(seat_relations)
+                  AND e.relation || ' ' || e.to_collection = ANY(w_seats)
                   AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                   AND (w_status IS NULL OR e.status = w_status)
                 EXCEPT
@@ -1273,6 +1296,13 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_DECISIONS: (
         "CREATE INDEX IF NOT EXISTS decisions_list_date"
         " ON decisions (date DESC NULLS LAST, key)",
+        # the votes on a motion of censure or of no confidence (``motion_kind``): a few
+        # hundred of them
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS decisions_motion_kind"
+            " ON decisions (public.lg_str(props -> 'motion_kind'))"
+            " WHERE public.lg_str(props -> 'motion_kind') IS NOT NULL"
+        ),
     ),
     # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
     # what the judgments citing a law or an article are sorted and filtered on, from the

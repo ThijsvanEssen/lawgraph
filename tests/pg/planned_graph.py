@@ -226,7 +226,16 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
             )
         ],
     )
-    store.bulk_insert_or_update_nodes("factions", [node("f1", "faction", name="F")])
+    store.bulk_insert_or_update_nodes(
+        "factions",
+        [
+            node("f1", "faction", name="F"),
+            # a faction a search names ("motie vvd": the papers signed for it)
+            node(
+                "vvd", "faction", name="VVD", abbreviation="VVD", external_id="fr-vvd"
+            ),
+        ],
+    )
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [

@@ -22,7 +22,7 @@ from lawgraph.config.constants import (
     TOOI_BWB_THEMES,
 )
 from lawgraph.core.aliases import abbreviation_of, curated_abbreviations
-from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key, annex_props
+from lawgraph.core.annex_xml import ANNEX_EDGE_SOURCE, annex_node_key
 from lawgraph.core.batching import chunked
 from lawgraph.core.bwb_wti import (
     Concepts,
@@ -37,6 +37,7 @@ from lawgraph.core.bwb_wti import (
 )
 from lawgraph.core.bwb_xml import (
     annex_keys,
+    annex_props,
     article_key,
     article_props,
     celex_refs,
@@ -138,7 +139,8 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                     writer.add(instrument)
                     written.instruments[bwb_id] = instrument
 
-                for annex in toestand.annexes:
+                annexes = annex_keys(toestand, bwb_id)
+                for place, annex in enumerate(toestand.annexes):
                     key = annex_node_key(bwb_id, annex.label)
                     writer.add(
                         Node(
@@ -146,13 +148,16 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                             key=key,
                             labels=["BWB", "Annex"],
                             props=annex_props(
-                                annex, bwb_id, instrument.props.get("citation_title")
+                                annex,
+                                bwb_id,
+                                instrument.props.get("citation_title"),
+                                place,
+                                annexes=annexes,
                             ),
                         )
                     )
                     written.annexes.setdefault(bwb_id, []).append(key)
 
-                annexes = annex_keys(toestand, bwb_id)
                 for position, article in enumerate(toestand.articles):
                     found_key = article_key(bwb_id, article.number, article.stam_id)
                     if found_key is None or not article.text:

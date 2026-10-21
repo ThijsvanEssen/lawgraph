@@ -465,7 +465,35 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
     entry = {
         link.get("rel"): link.get("href") for link in entries[0].findall("a:link", ns)
     }
-    assert entry == {"alternate": f"{SITE_URL}/explore?focus=decisions/stemming_1"}
+    # the event at its readable address on Concordans
+    assert entry == {"alternate": f"{SITE_URL}/stemmingen/stemming_1"}
+
+
+@ON_THE_GRAPH
+def test_the_atom_feed_of_a_dossier_is_its_events(client: TestClient) -> None:
+    """``feed.atom?dossier=``: what a feed reader follows of one dossier. The events of the
+    feed's page under that filter, newest first, each once at its readable address (else
+    the explorer), the feed ``updated`` on the newest."""
+    feed = _feed(client, dossier="37000", facets="false")
+    response = client.get("/api/feed.atom", params={"dossier": "37000"})
+    assert_status(response, 200)
+    assert response.headers["etag"].startswith('W/"')
+    root = ElementTree.fromstring(response.content)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    assert present(root.find("a:title", ns)).text == "Concordans: dossier 37000"
+    entries = root.findall("a:entry", ns)
+    ids = [present(e.find("a:id", ns)).text for e in entries]
+    assert ids == [f"tag:lawgraph,2026:{item['id']}" for item in feed["items"]]
+    assert len(set(ids)) == len(ids) > 1
+    assert present(root.find("a:updated", ns)).text == (
+        f"{feed['items'][0]['date']}T00:00:00Z"
+    )
+    for entry, item in zip(entries, feed["items"], strict=True):
+        alternate = present(entry.find("a:link[@rel='alternate']", ns)).get("href")
+        expected = item["path"] or f"/explore?focus={item['id']}"
+        assert alternate == f"{SITE_URL}{expected}", item["id"]
+    paths = [item["path"] for item in feed["items"]]
+    assert any(paths), paths
 
 
 @ON_THE_GRAPH
@@ -1793,6 +1821,38 @@ def test_words_are_found_by_index_not_by_reading_every_day(crowded: GraphStore) 
         "decisions_search_words",
         "judgments_s_display_name_g",
     } <= used, used
+
+
+@pytest.mark.xdist_group("feed_busy")
+@pytest.mark.parametrize("facets", [False, True])
+def test_a_dossier_is_found_by_index_not_by_reading_every_day(
+    crowded: GraphStore, facets: bool
+) -> None:
+    """Many papers and votes over the years and a dossier few of them are of: each kind
+    reads the rows of that dossier by the index on their dossier numbers, not every row
+    in date order (over 30 s for ``dossier=36496`` on prod, 21 Oct); a kind without
+    dossiers (a judgment) is not read."""
+    store = crowded
+    sql, bind = feed_query(
+        FeedFilters(dossier="36001", kinds=("Motie", "stemming", "uitspraak")),
+        limit=50,
+        facets=facets,
+    )
+    plan = explain(store, sql, bind)
+    # the labels under the filter are read once from the dossiers (some thousands)
+    assert _seq_scans(plan) == ["dossiers"]
+    for table in ("documents", "decisions"):
+        assert not _limit_over_index(plan, table), table
+    used = {node.get("Index Name") for node in plan_nodes(plan)}
+    assert {"documents_dossier_numbers", "decisions_dossier_numbers"} <= used, used
+    # a judgment is only probed by its id, as the page reads the node of each item
+    read = [
+        node
+        for node in plan_nodes(plan)
+        if node.get("Relation Name") == "judgments"
+        and not re.search(r"\bid = ", node.get("Index Cond") or "")
+    ]
+    assert read == []
 
 
 def test_words_are_found_before_the_index_is_built(store: GraphStore) -> None:

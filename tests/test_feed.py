@@ -300,9 +300,7 @@ def test_a_page_is_an_atom_feed() -> None:
     entry_links = {
         link.get("rel"): link.get("href") for link in entry.findall("a:link", ns)
     }
-    assert entry_links == {
-        "alternate": "https://site/explore?focus=decisions/stemming_1"
-    }
+    assert entry_links == {"alternate": "https://site/stemmingen/stemming_1"}
     assert present(entry.find("a:category", ns)).get("term") == "stemming"
     assert (
         present(entry.find("a:summary", ns)).text == "Verworpen.\n37001-VII Begroting"

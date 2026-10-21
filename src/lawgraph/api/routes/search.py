@@ -12,7 +12,12 @@ from lawgraph.api.params import TopLimit
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
-from lawgraph.api.schemas.search import SearchedDTO, SearchResponse, SearchResultItem
+from lawgraph.api.schemas.search import (
+    SearchedDTO,
+    SearchResponse,
+    SearchResultItem,
+    SignedForDTO,
+)
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -30,10 +35,12 @@ from lawgraph.db.queries.search.dispatch import (
     LIVE_STALE_WAIT,
     search_full,
     search_live,
+    signed_of,
 )
 from lawgraph.db.queries.search.parser import kept_notation_parser
 from lawgraph.db.queries.search.searched import SEARCHED
-from lawgraph.db.queries.search.types import SEARCH_TYPES
+from lawgraph.db.queries.search.signers import Signed
+from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
@@ -92,14 +99,22 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "without accents), with a word in a heading (x4), a division title (x1.5), a "
         "display name (x2), an alias or short title (x3) weighing more than one in a "
         "text; an instrument whose alias or short title is the whole of `q` is always "
-        "fetched. An article is also found by its terms, what the judgments that cite "
+        "fetched. Of the articles the database orders by their tier before BM25, as far "
+        "as the article says it (named by its terms, a heading or display name that "
+        "starts with `q`, every word of `q` in its heading or the title of a division it "
+        "stands in), so that the best tiers are among the hits however few are asked, "
+        "while typing too (`onrechtmatige daad`: art. 6:162 BW, in the title "
+        "Onrechtmatige daad, before the articles of the Wet conflictenrecht onrechtmatige "
+        "daad). An article is also found by its terms, what the judgments that cite "
         "it call it (`noodweer`: art. 41 Sr, whose words do not hold it; "
         "`lg_article_terms`), as a match on words (0.1), ranked above those that only "
         "hold the word; such a hit has `extra.terms`, the words of `q` it was found "
         "by, which come from the case law, not from the law. An article of which every "
         "word of `q` is a strong term (a good share of the judgments that use the word "
         "cite it, and few judgments cite it at all: `verjaring`, art. 3:310 BW) scores "
-        "as a whole name (0.75), the best by its words first. A word of `q` that is the "
+        "as a whole name (0.75), the best by its words first; a word in more than one in "
+        "50 summaries names no article and is left out of that (`ontslag op staande "
+        "voet`: art. 7:677 BW, named by its other words). A word of `q` that is the "
         "short title or an alias of a law (as the instrument has it, whole, any case "
         "and without accents: `Cbw`, `Sr`, `BW` of every book) also matches each of "
         "its articles, as the name of the law in its `display_name` does (`zorgplicht "
@@ -143,7 +158,12 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "on (`subject`) or its `kind` (`Motie`, `Wetgeving`), newest first, with "
         "`date`, `kind`, `passed`, `chamber` and `dossier_numbers` in `extra`; "
         "`stemming`, `stemmingen`, `besluit` and `besluiten` name the type and are "
-        "left out (`stemming abortus` asks for the votes on abortion). A document hit "
+        "left out (`stemming abortus` asks for the votes on abortion). Words of `q` that "
+        "are the abbreviation, name or alias of a faction (of either chamber, past ones "
+        "too; not when they are part of the name of a member, nor all of `q`) are no words "
+        "of the search of the papers and the votes: their hits are signed for it (a paper "
+        "by one of its Kamerleden for it, a vote on such a paper), and "
+        "`searched.<type>.signed_for` names it (`motie stikstof VVD`). A document hit "
         "has in `extra` its `kind`, `external_id`, `dossier_number`, `sequence` (its "
         "number in the dossier: nr. 12), `number` (as above: `12`, the letter `A` of "
         "an Eerste Kamer paper), `date` (as the source gives it; null when it has "
@@ -245,6 +265,7 @@ def search(
         iso_day(date_to),
     )
     search = search_live if mode == "live" else search_full
+    signed = signed_of(store, q, requested_types)
     raw, partial = search(
         store,
         q=q,
@@ -252,6 +273,7 @@ def search(
         kinds=kind_list,
         limit=limit,
         period=period,
+        signed=signed,
     )
 
     grouped: dict[str, list[SearchResultItem]] = {}
@@ -270,9 +292,21 @@ def search(
         total=total,
         results=grouped,
         partial=dict.fromkeys(sorted(partial), True),
-        searched={t: SearchedDTO(**SEARCHED[t]) for t in requested_types},
+        searched={
+            t: SearchedDTO(**SEARCHED[t], signed_for=_signed_for(t, signed))
+            for t in requested_types
+        },
         resolved=_resolved(store, q, mode) if resolve else None,
     )
+
+
+def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:
+    """The factions the query names, of a type kept to the hits signed for them."""
+    if not signed or not SEARCHES[table].signatures:
+        return []
+    return [
+        SignedForDTO(words=s.words, name=s.name, factions=s.factions) for s in signed.by
+    ]
 
 
 def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:

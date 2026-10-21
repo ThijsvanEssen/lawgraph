@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     ENACTING_RELATIONS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
+    RELATION_ESTABLISHES,
     RELATION_EXPLAINS,
     RELATION_IMPLEMENTS,
     RELATION_LED_BY,
@@ -587,7 +588,8 @@ def get_dossier_documents(
     return rows[0] if rows else {"total": 0, "items": []}
 
 
-# ``legislated``: the instruments LEGISLATED_IN the dossier, an amending publication marked;
+# ``legislated``: the instruments LEGISLATED_IN the dossier, a publication marked (``enacted``
+# lists those, with the law whose articles they ESTABLISH and their first effective date);
 # ``changed``: what those publications and the dossier's documents AMEND, INTRODUCE or
 # REPEAL, each (target, relation, status) once; ``links``: the instrument of each, itself or
 # the instrument its article is PART_OF, with a status (canonical when the edge has none).
@@ -665,6 +667,36 @@ SELECT
     ) AS instruments,
     (
         SELECT coalesce(json_agg(json_build_object(
+            'key', p.key,
+            'cite', coalesce(p.citation_title, lg_str(p.props -> 'display_name')),
+            'published_on', lg_str(p.props -> 'date_published'),
+            'first_effective_date', (
+                SELECT min(lg_str(e.doc -> 'meta' -> 'effective_date'))
+                FROM {COLLECTION_EDGES} e
+                WHERE e.from_id = p.id AND e.relation = ANY(%(changes)s)
+            ),
+            'instrument', (
+                SELECT json_build_object(
+                    'key', i.key,
+                    'title', coalesce(i.citation_title, lg_str(i.props -> 'title'),
+                                      lg_str(i.props -> 'display_name'))
+                )
+                FROM {COLLECTION_EDGES} e
+                JOIN {COLLECTION_EDGES} o
+                  ON o.from_id = e.to_id AND o.relation = %(part_of)s
+                 AND o.to_collection = '{COLLECTION_INSTRUMENTS}'
+                JOIN {COLLECTION_INSTRUMENTS} i ON i.id = o.to_id
+                WHERE e.from_id = p.id AND e.relation = %(establishes)s
+                LIMIT 1
+            )
+        ) ORDER BY lg_str(p.props -> 'date_published') ASC NULLS LAST, p.key ASC
+        ), '[]'::json)
+        FROM legislated s
+        JOIN {COLLECTION_INSTRUMENTS} p ON p.id = s.id
+        WHERE s.publication
+    ) AS enacted,
+    (
+        SELECT coalesce(json_agg(json_build_object(
             'id', c.id,
             'key', c.key,
             'slug', c.props -> 'slug',
@@ -708,6 +740,10 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     ``AMENDS`` / ``INTRODUCES`` / ``REPEALS`` (through its articles or directly). *committees* lead an activity about the dossier, directly or through a
     case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``
     (by the kinds in their order); *senate* the Eerste Kamer documents among them.
+    *enacted* are the publications ``LEGISLATED_IN`` the dossier, the earliest published
+    first: ``{key, cite, published_on, first_effective_date, instrument}``, the date the
+    earliest ``effective_date`` of what it enacted, *instrument* ``{key, title}`` of the law
+    whose articles it ``ESTABLISHES`` (null for one that only changes other laws).
     """
     bind = {
         "dossier_id": dossier_id,
@@ -716,6 +752,7 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
         "led_by": RELATION_LED_BY,
         "legislated_in": RELATION_LEGISLATED_IN,
         "changes": list(ENACTING_RELATIONS),
+        "establishes": RELATION_ESTABLISHES,
         "canonical": EDGE_STATUS_CANONIEK,
         "relation_order": [r.lower() for r in HUB_INSTRUMENT_RELATIONS],
     }

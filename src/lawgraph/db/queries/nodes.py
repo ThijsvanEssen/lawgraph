@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_CABINETS,
+    COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
     RELATION_AUTHORED,
+    RELATION_MEMBER_OF,
+    RELATION_SERVED_IN,
 )
 from lawgraph.core.models import (
     COLLECTION_OF_TYPE,
@@ -541,12 +545,25 @@ def _read_pages(
 # once the cap is reached.
 _NEIGHBOR_CHUNK = 500
 
+# The steps a walk still takes out of a node it stops at (``stop_at``): a member to the
+# faction and the cabinet it sits in, as relation and collection of the other end.
+WALK_SEATS = (
+    f"{RELATION_MEMBER_OF} {COLLECTION_FACTIONS}",
+    f"{RELATION_SERVED_IN} {COLLECTION_CABINETS}",
+)
+
 
 def _walk_params(
-    focal_id: str, depth: int, cap: int, filters: NeighborFilter
+    focal_id: str,
+    depth: int,
+    cap: int,
+    filters: NeighborFilter,
+    stop_at: Collection[str] | None = None,
 ) -> dict[str, Any]:
     """The arguments of ``lg_walk`` (``db/schema.py``) for a walk from *focal_id*."""
     return {
+        "stop": sorted(stop_at) if stop_at is not None else None,
+        "seats": list(WALK_SEATS),
         "focal": focal_id,
         "depth": depth,
         "cap": cap,
@@ -571,13 +588,16 @@ def get_node_neighborhood(
     filters: NeighborFilter = NO_FILTER,
     canvas: bool = False,
     passages: bool = False,
+    stop_at: Collection[str] | None = None,
 ) -> dict[str, Any]:
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
     ``cap`` bounds the number of nodes so a hub cannot flood the response. ``filters``
     shape the walk itself: it follows only edges of the given relations and status, in the
     given direction, and goes through nodes of the given types (the focal node is always
-    kept). The result also carries every other edge of those relations and that status
+    kept). A node of a collection in *stop_at* but the focal one is kept but not walked
+    through, but for the step to the faction or cabinet it sits in (``WALK_SEATS``), so the
+    cap goes to what the node itself touches. The result also carries every other edge of those relations and that status
     between two of the nodes kept, so the frontend can render the full subgraph. With
     *canvas* a node carries only the props the canvas of the explorer draws
     (``_rows.CANVAS_PROPS``) and an edge only the keys of its ``meta`` the canvas reads, as a
@@ -598,7 +618,7 @@ def get_node_neighborhood(
             WITH walked AS (
                 SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
                                %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
-                               %(chunk)s) AS ids
+                               %(stop)s, %(seats)s, %(chunk)s) AS ids
             )
             SELECT
                 (SELECT coalesce(json_agg(json_build_array(
@@ -614,7 +634,7 @@ def get_node_neighborhood(
                     AS edges
             FROM walked
             """,
-            _walk_params(focal["id"], depth, cap, filters),
+            _walk_params(focal["id"], depth, cap, filters, stop_at),
         )
     )
     nodes = [dict(zip(_NODE_FIELDS, row, strict=True)) for row in found["nodes"]]

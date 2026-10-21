@@ -283,6 +283,8 @@ def test_a_word_that_points_elsewhere_names_no_article(store: GraphStore) -> Non
 def test_an_article_is_named_by_every_word_of_the_query(store: GraphStore) -> None:
     """A name of every word: an article named by "daad" alone is not named by
     "onrechtmatige daad"."""
+    # how many summaries there are: neither word is in any, so each can name an article
+    store.execute("INSERT INTO lg_summary_stems (stem, judgments) VALUES ('', 1000)")
     store.execute(
         "INSERT INTO lg_article_terms (article_id, terms, strengths) VALUES"
         " ('articles/a', ARRAY['dad'], ARRAY[0.9]),"

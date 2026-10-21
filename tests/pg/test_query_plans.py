@@ -73,6 +73,12 @@ URLS = [
     "/api/search?q=pw+dossier&types=dossiers&mode=live",
     "/api/search?q=stik+wetb&mode=live&types=articles&types=documents&types=instruments",
     # a judgment by a person it names: by the trigram index of lg_judgment_persons
+    # the articles of a search of the papers too, the best tier first (art. 6:162 BW)
+    "/api/search?q=onrechtmatige+daad&types=articles&types=documents&limit=6",
+    "/api/search?q=onrechtmatige+daad&types=articles&types=documents&limit=6&mode=live",
+    # the papers and the votes signed for a faction the query names
+    "/api/search?q=motie+vvd&types=decisions&types=documents",
+    "/api/search?q=motie+vvd&types=decisions&types=documents&mode=live",
     "/api/search?q=R.+van+Gelder&types=judgments",
     "/api/search?q=R.+van+Geld&types=judgments&mode=live",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
@@ -136,6 +142,9 @@ URLS = [
     f"/api/nodes/articles/{BWB.lower()}_1?props=canvas",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
+    # a walk that reaches the members, factions, committees and cabinets but goes through
+    # none of them
+    "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
     f"/api/paths?ids=articles/{BWB.lower()}_1,documents/d1&relations=EXPLAINS,PART_OF",
     "/api/nodes/heat",
@@ -208,6 +217,10 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT DISTINCT ON \(label\) label, lg_str\(pj_title\) AS title"),
     # the slugs of the members, once per data version of them (``load_member_slugs``)
     re.compile(r"SELECT key, lg_str\(props -> 'slug'\) AS slug FROM members"),
+    # the names of the factions and of the members a search may name, once per data
+    # version of them (``search.signers``)
+    re.compile(r"lg_str\(props -> 'chamber'\) AS chamber\s+FROM factions"),
+    re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).
@@ -523,6 +536,8 @@ def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(
         hits = search_all(store, q=q, types=["decisions"], limit=20)["decisions"]
         assert [h["key"] for h in hits] == newest(*words), q
         for call in calls[start:]:
+            if any(pattern.search(call.text) for pattern in _WHOLE_BY_DESIGN):
+                continue
             plan = explain(store, call.statement, call.params, disable=["seqscan"])
             faults += [f"{q}: {fault}" for fault in plan_faults(plan)]
     assert faults == []
@@ -537,3 +552,82 @@ def test_the_law_of_a_day_reads_the_references_of_its_articles_at_once(
     texts = [" ".join(statement_text(s).split()) for u, s, _ in statements if u == url]
     assert sum("FROM articles WHERE key = ANY" in t for t in texts) == 1
     assert sum("e.from_id = ANY(%(ids)s)" in t for t in texts) == 1
+
+
+@pytest.mark.parametrize("marked", [0, 3])
+def test_the_motions_of_a_kind_are_found_by_their_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, marked: int
+) -> None:
+    """A motion of censure or of no confidence is rare (156 of some 600,000 papers): the
+    papers and the votes of one kind are found by the partial index on ``motion_kind``,
+    not by walking the list newest first and testing each row (prod, 0.80.0: the papers
+    timed out after 30 s, with none marked yet). The oldest *marked* are of the kind."""
+    from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
+    from lawgraph.db.queries.documents import list_documents
+
+    count = 3_000
+
+    def date(n: int) -> str:
+        return f"{2026 - n * 20 // count}-{1 + n % 12:02d}-{1 + n % 28:02d}"
+
+    def kind(n: int) -> dict[str, Any]:
+        return {"motion_kind": "censure"} if n >= count - marked else {}
+
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {"key": f"m{n:05d}", "type": "document", "labels": ["TK"],
+             "props": {"kind": "Motie", "date": date(n), "title": f"Motie {n}", **kind(n)}}
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            {"key": f"v{n:05d}", "type": "decision", "labels": ["TK"],
+             "props": {"kind": "Motie", "date": date(n), "passed": n % 2 == 0,
+                       "subject": f"Motie {n}", **kind(n)}}
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    with store.pool.connection() as conn:
+        for table in ("documents", "decisions"):
+            conn.execute(f"ANALYZE {table}")
+
+    calls = recorded(store, monkeypatch)
+    papers = list_documents(store, motion_kinds=("censure",), facets=False)
+    assert len(papers["items"]) == marked
+    votes = get_decisions(
+        store, DecisionFilters(motion_kinds=("censure",)), facets=False
+    )
+    assert len(votes["items"]) == marked
+
+    def first_found(node: dict[str, Any]) -> bool:
+        """Whether an InitPlan of *node* reads the motion_kind index: the ids of the
+        kind are found once, before any row of the list is read."""
+        return any(
+            child.get("Parent Relationship") == "InitPlan"
+            and any(
+                str(n.get("Index Name", "")).endswith("motion_kind")
+                for n in plan_nodes(child)
+            )
+            for n in plan_nodes(node)
+            for child in n.get("Plans", [])
+        )
+
+    shapes = []
+    for call in calls:
+        if "motion_kind" not in call.text or "ANY(%(motion_kinds)s" not in call.text:
+            continue
+        plan = explain(store, call.statement, call.params, disable=["seqscan"])
+        indexes = {node.get("Index Name") for node in plan_nodes(plan)}
+        shapes.append((indexes, _outline(plan), first_found(plan)))
+    assert len(shapes) == 2, show_items([c.text for c in calls])
+    for indexes, outline, first in shapes:
+        assert first, "\n".join(outline)
+        assert indexes & {"lg_document_light_motion_kind", "decisions_motion_kind"}, (
+            "\n".join(outline)
+        )
+        assert not indexes & {"documents_list_date", "decisions_list_date"}, "\n".join(
+            outline
+        )

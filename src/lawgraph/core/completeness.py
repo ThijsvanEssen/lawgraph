@@ -41,7 +41,9 @@ class Coverage(StrEnum):
     DONE = "done"  # the step ran and holds all it found
     PARTIAL = "partial"  # it ran and left some (``missing``: how many)
     NONE = "none"  # it ran and found nothing
-    PENDING = "pending"  # the step has not reached it yet
+    # the step has not reached it yet: what it lacks is not known, so never ``partial``
+    # without a ``missing``, though what it holds may show (links of an earlier read)
+    PENDING = "pending"
     PAUSED = "paused"  # the source or the step is off (``LAWGRAPH_SOURCES_OFF``)
     UNAVAILABLE = "unavailable"  # the source refused the last run (HTTP 401/403)
     NOT_IN_SOURCE = "not_in_source"  # the source does not give it

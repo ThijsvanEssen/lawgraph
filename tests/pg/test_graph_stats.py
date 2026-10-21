@@ -10,7 +10,7 @@ from lawgraph.core.courts import COURT_BY_CODE
 from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _chunks as chunks
-from lawgraph.db.queries import graph_stats
+from lawgraph.db.queries import graph_stats, instrument_scope, instruments
 from tests.pg.plans import explain, plan_nodes, recorded
 
 
@@ -46,14 +46,15 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
             _node("x", "instrument"),
         ],
     )
+    store.bulk_insert_or_update_nodes(
+        "articles", [_node("a1", "article", bwb_id="BWBR1", article_number="1")]
+    )
     store.bulk_insert_or_update_edges(
         [
             _edge("1", "articles/a1", "instruments/w", "PART_OF"),
             _edge("2", "annexes/b1", "instruments/w", "PART_OF"),
             _edge("3", "judgments/j", "instruments/w", "REFERS_TO"),
             _edge("4", "judgments/j", "articles/a1", "REFERS_TO"),
-            # PART_OF points article → instrument: one the other way is no article of it
-            _edge("5", "instruments/w", "articles/a2", "PART_OF"),
         ]
     )
     assert graph_stats.refresh_instruments(store, dry_run=True) == 2
@@ -71,6 +72,56 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     }
     assert list(props) == sorted(props)  # the keys in order after an update
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
+
+
+def test_article_count_is_the_count_of_the_list_of_articles(store: GraphStore) -> None:
+    # in force, repealed (PART_OF it still), a stub (no PART_OF): the count is what
+    # ``/articles`` answers by default, of a BWB regulation, an EU act and a law of the
+    # Staatsblad alike
+    laws = [("BWBR9", {"bwb_id": "BWBR9"}), ("32016L0680", {"celex": "32016L0680"})]
+    for law, ident in laws:
+        key = law.lower()
+        store.bulk_insert_or_update_nodes(
+            "instruments", [_node(key, "instrument", **ident)]
+        )
+        store.bulk_insert_or_update_nodes(
+            "articles",
+            [
+                _node(f"{key}_1", "article", article_number="1", **ident),
+                _node(f"{key}_2", "article", article_number="2", **ident),
+                _node(
+                    f"{key}_3", "article", article_number="3", repealed=True, **ident
+                ),
+                _node(f"{key}_4", "article", article_number="4", stub=True, **ident),
+            ],
+        )
+        store.bulk_insert_or_update_edges(
+            [
+                _edge(
+                    f"{key}_{n}", f"articles/{key}_{n}", f"instruments/{key}", "PART_OF"
+                )
+                for n in (1, 2, 3)
+            ]
+        )
+    official = {"official_id": "stb-2026-56"}
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_node("wet_stb_2026_56", "instrument", **official)]
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("stb_1", "article", article_number="1", **official),
+            _node("stb_2", "article", article_number="2", stub=True, **official),
+        ],
+    )
+    graph_stats.refresh_instruments(store, dry_run=False)
+    for law, _ in [*laws, ("STB-2026-56", {})]:
+        doc = instrument_scope.resolve_instrument(store, law)
+        assert doc is not None
+        _, total = instruments.get_articles(store, law)
+        assert doc["props"]["article_count"] == total, law
+    assert _props(store, "instruments", "bwbr9")["article_count"] == 2
+    assert _props(store, "instruments", "wet_stb_2026_56")["article_count"] == 1
 
 
 def _regulation(

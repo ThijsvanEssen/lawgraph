@@ -217,6 +217,7 @@
   "CREATE INDEX IF NOT EXISTS decisions_date ON decisions (date)",
   "CREATE INDEX IF NOT EXISTS decisions_dossier_numbers ON decisions USING gin (dossier_numbers)",
   "CREATE INDEX IF NOT EXISTS decisions_list_date ON decisions (date DESC NULLS LAST, key)",
+  "CREATE INDEX IF NOT EXISTS decisions_motion_kind ON decisions (public.lg_str(props -> 'motion_kind')) WHERE public.lg_str(props -> 'motion_kind') IS NOT NULL",
   "CREATE INDEX IF NOT EXISTS decisions_passed ON decisions (passed)",
   "CREATE INDEX IF NOT EXISTS decisions_search_words ON decisions USING gin ((lower(coalesce(props ->> 'subject', '') || ' ' || coalesce(props ->> 'kind', ''))) gin_trgm_ops)",
   "CREATE INDEX IF NOT EXISTS documents_date ON documents (date)",

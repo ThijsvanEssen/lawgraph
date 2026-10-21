@@ -145,6 +145,14 @@ took place or decision; `sort=last_activity` lists by it, newest first), and `cl
 `subject` filter takes a number (`37035`: every dossier of that
 number), a dossier (`37035-XXII`, `37035 xxii`) or words of the title.
 
+The detail (`/api/dossiers/{number}`) names in `enacted` the publications its law was enacted
+in: each publication `LEGISLATED_IN` the dossier (the same edges as its `instruments`), the
+earliest published first, with `cite` (`Stb. 2024, 193`), `path`, `published_on`,
+`first_effective_date` (the earliest `effective_date` of what it enacted, as the BWB gives it;
+null for a law of the Staatsblad the BWB does not hold, whose publication names no date it took
+effect) and `instrument` (`{key, title, path}` of the law whose articles it established; null
+for a publication that only changes other laws).
+
 `tk_url` of a Tweede Kamer document or activity, wherever it appears (timeline, document lists and
 detail, node responses), is its page on tweedekamer.nl, made from the number the site knows: the
 document number (`kamerstukken/detail?id=2026D44984&did=2026D44984`) or the activity number
@@ -203,6 +211,11 @@ What was promised and proposed, as one stream of events, newest first. An event 
 of the graph with a date; nothing is stored for the feed. The `kind` of a paper is its
 `Document.Soort` up to ` (` (`Motie (gewijzigd/nader)` is a `Motie`), its `subkind` the whole
 `Soort`.
+
+One dossier is followed by its filter: `GET /api/feed.atom?dossier=36496` is its events as an
+Atom feed for a feed reader (each entry at its readable address on Concordans), and `GET
+/api/feed?dossier=36496&since=<day>&facets=false&limit=1` has an item when anything happened
+in it on or after that day, the newest first.
 
 | `kind` | Event | Node, date |
 |--------|-------|------------|
@@ -280,7 +293,7 @@ completeness: {<part>: {state, as_of, missing, reason}}
 | `done` | the step ran and holds all it found |
 | `partial` | it ran and left some; `missing` how many |
 | `none` | it ran and found nothing |
-| `pending` | the step has not reached it yet |
+| `pending` | the step has not reached it yet: what it lacks is not known (links laid before may show already; without a count of what is missing they are not `partial`) |
 | `paused` | the source or the step is off |
 | `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
 | `not_in_source` | the source does not give it |
@@ -388,7 +401,11 @@ not exist is 422. On the node route they narrow the edges, so totals count what
 remains. On `.../neighborhood` they shape the walk: it follows only edges of those relations
 and status, only in that direction (at every hop), and only through nodes of those types (the
 focal node is always kept); the edges returned between the kept nodes are those of the
-relations and status.
+relations and status. `.../neighborhood` also takes `stop_at`, comma-separated collections
+the walk reaches but does not go through: from such a node (but the focal one) it takes only
+the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in. With
+`stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
+touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
 
 ## Rendered pages
 

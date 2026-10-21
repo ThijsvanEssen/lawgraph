@@ -280,7 +280,10 @@ _Cursor = Annotated[
         "`kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` "
         "(a key: the events from its beëdiging to that of the next cabinet), "
         "`ministry`, `dossier` (the start of a dossier label: `36600` holds "
-        "`36600-VII`, `37020-` the chapters), `member` (a member key: the papers they "
+        "`36600-VII`, `37020-` the chapters; each kind with dossiers finds its events "
+        "of them by the index on their dossier numbers, under the labels of the dossiers "
+        "that start with it and itself; a kind without, a judgment or a commencement, "
+        "has none), `member` (a member key: the papers they "
         "signed, the votes on them, the commitments they made), `faction` (a faction "
         "key: the papers its Kamerleden signed for it and the votes on them; without "
         "`since` its page is read as under `q`), `q` (words of the title or of "
@@ -384,7 +387,7 @@ def get_feed_route(
         "feed reader, named after its filters (``Concordans: moties``): an ``alternate`` "
         "link to the same view on Concordans (``LAWGRAPH_SITE_URL``/actueel), per entry "
         "an ``alternate`` link to the event there and a ``related`` link to its official "
-        "page, and a ``next`` link to the next page."
+        "page, and a ``next`` link to the next page. ``dossier`` follows one dossier."
         "\n\n"
         "the same page under the same parameters (without `facets`) as an Atom 1.0 "
         "feed (`application/atom+xml`), named after its filters (`Concordans`, "
@@ -394,9 +397,9 @@ def get_feed_route(
         "`fractie`, `q` once per word, `kamer`, `coalitie`, `wet`, `artikel`; not the "
         "tier) and a `next` link with the cursor; an entry per event (`id` "
         "`tag:lawgraph,2026:<id>`, `title`, `updated` the date, an `alternate` link to "
-        "the event on Concordans (`/explore?focus=<id>`) and a `related` one to its "
-        "`official_url` or `tk_url`, `category` its kind, an `author` per person, "
-        "`summary` its summary and dossier)"
+        "the event on Concordans (its `path`, else `/explore?focus=<id>`) and a "
+        "`related` one to its `official_url` or `tk_url`, `category` its kind, an "
+        "`author` per person, `summary` its summary and dossier)"
     ),
     responses={
         200: {

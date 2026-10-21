@@ -54,6 +54,7 @@ def test_the_heavy_types_go_to_the_pool(
 ) -> None:
     threads: dict[str, str] = {}
     monkeypatch.setattr(dispatch, "notation", lambda *a, **k: None)
+    monkeypatch.setattr(dispatch, "signed_of", lambda *a, **k: None)
     monkeypatch.setattr(dispatch, "SEARCHES", _recording(threads))
 
     found = getattr(dispatch, entry)(None, q="wet", types=ALL_TYPES)

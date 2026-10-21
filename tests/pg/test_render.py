@@ -377,6 +377,10 @@ def test_the_one_article_of_a_regulation_has_its_page(
         "https://concordans.nl/wetten/BWBR0007846/artikel/enig-artikel"
     )
     assert "Vanaf 1 januari 1996 bedraagt de vergoeding" in page["main"]
+    # the label of the source, not the number the graph keys it by
+    assert page["data"]["@graph"][0]["legislationIdentifier"] == (
+        "BWBR0007846 Enig artikel"
+    )
     law = _head(_get(client, "/wetten/BWBR0007846").text)
     assert 'href="/wetten/BWBR0007846/artikel/enig-artikel"' in law["main"]
     assert f"Enig artikel {title}" in law["main"]
@@ -1599,7 +1603,7 @@ def test_an_article_of_an_eu_act_links_its_act(
     assert page["title"].startswith("Art. 21 Richtlijn (EU) 2022/2555, Maatregelen")
     assert 'href="/wetten/32022L2555"' in page["main"]
     article = page["data"]["@graph"][0]
-    assert article["legislationIdentifier"] == "32022L2555 artikel 21"
+    assert article["legislationIdentifier"] == "32022L2555 Artikel 21"
     assert article["legislationJurisdiction"] == "EU"
     assert article["isPartOf"]["legislationIdentifier"] == "32022L2555"
 

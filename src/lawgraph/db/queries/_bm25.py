@@ -53,6 +53,7 @@ class _Term:
     analyzer: str
     param: str  # the parameter that holds the term (a stem, or the word)
     boost: float
+    word: str = ""  # the parameter of the word of the query it is of
 
 
 def _length(field: str, analyzer: str) -> str:
@@ -360,12 +361,12 @@ def _terms(
             for analyzer in SEARCH_FIELDS[table][field]:
                 boost = boosts.get(field, 1.0)
                 if analyzer != "text":
-                    terms.append(_Term(field, analyzer, word, boost))
+                    terms.append(_Term(field, analyzer, word, boost, word))
                     continue
                 for stem in stems[word]:
                     param = f"_stem_{len(params)}"
                     params[param] = stem
-                    terms.append(_Term(field, analyzer, param, boost))
+                    terms.append(_Term(field, analyzer, param, boost, word))
     return terms, params
 
 
@@ -398,12 +399,17 @@ class Bm25:
     """The BM25 of a row ``r`` (``bm25_sql``): *rank* adds up the frequency and length of
     each term, which *lateral* (``CROSS JOIN LATERAL …``, to follow ``FROM {table} r``)
     reads once per row of the table, and *stored* of a row that holds them in its arrays
-    ``tf`` and ``len`` (``bm25_inputs``)."""
+    ``tf`` and ``len`` (``bm25_inputs``). From the same frequencies: *titled*, whether
+    every word is a word of one of the fields ``bm25_sql`` was given as *titles*;
+    *started*, whether a value of one of its *names* starts with a word (of a query of one
+    word: with the query)."""
 
     rank: str
     lateral: str
     stored: str
     params: dict[str, Any]
+    titled: str = "false"
+    started: str = "false"
 
 
 def bm25_sql(
@@ -412,17 +418,23 @@ def bm25_sql(
     words: dict[str, str],
     fields: list[str],
     boosts: dict[str, float],
+    titles: tuple[str, ...] = (),
+    names: tuple[str, ...] = (),
 ) -> Bm25:
     """The BM25 of a row ``r`` of *table* for the words (parameter name → word) in
-    *fields*."""
+    *fields*, whether every word is in one of *titles* (``Bm25.titled``) and whether a
+    value of one of *names* starts with a word (``Bm25.started``)."""
     terms, params = _terms(store, table, words, fields, boosts)
     if not terms:
         return Bm25("0", "", "", params)
     stats = _stats_now(store, table)
     frequencies = _frequencies(store, table, terms, params, stats["N"])
-    names = {pair: n for n, pair in enumerate(_lengths(terms))}
+    length_of = {pair: n for n, pair in enumerate(_lengths(terms))}
     columns, stored, parts = [], [], []
     lengths: set[int] = set()  # one length per field and analyzer
+    # per word the terms of it in a field of *titles*: a stem of it found there
+    in_titles: dict[str, list[str]] = {word: [] for word in words}
+    started = []
     for n, term in enumerate(terms):
         df = frequencies[n]
         if df == 0:
@@ -433,22 +445,35 @@ def bm25_sql(
         avglen = stats.get(f"{term.field}/{term.analyzer}")
         # without its mean length (an estimate, ``_stats_now``) no length is weighed: b = 0
         b = B if avglen else 0.0
-        k = names[(term.field, term.analyzer)]
+        k = length_of[(term.field, term.analyzer)]
         if k not in lengths:
             lengths.add(k)
             columns.append(f"{_length(term.field, term.analyzer)} AS l{k}")
             stored.append(f"r.len[{k + 1}] AS l{k}")
         columns.append(f"{_tf(term)} AS t{n}")
         stored.append(f"r.tf[{n + 1}] AS t{n}")
+        if term.field in titles and term.analyzer == "text":
+            in_titles[term.word].append(f"f.t{n} > 0")
+        if term.field in names and term.analyzer == "identity":
+            started.append(f"f.t{n} > 0")
         parts.append(
             f"CASE WHEN f.t{n} > 0 THEN {weight * (K1 + 1)} * f.t{n}"
             f" / (f.t{n} + {K1 * (1 - b)} + {K1 * b / (avglen or 1.0)} * f.l{k}) ELSE 0 END"
         )
     if not parts:
         return Bm25("0", "", "", params)
+    titled = (
+        " AND ".join(
+            f"({' OR '.join(held or ['false'])})" for held in in_titles.values()
+        )
+        if titles
+        else "false"
+    )
     return Bm25(
         "(" + " + ".join(parts) + ")",
         f"CROSS JOIN LATERAL (SELECT {', '.join(columns)} OFFSET 0) f",
         f"CROSS JOIN LATERAL (SELECT {', '.join(stored)} OFFSET 0) f",
         params,
+        titled,
+        " OR ".join(started) or "false",
     )
