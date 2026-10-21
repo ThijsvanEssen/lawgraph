@@ -1,7 +1,8 @@
 """Old law to new law for real: excerpts of the transposition tables of the new Wetboek van
 Strafvordering (the PDF blg-1081574 and the XML of its second memorie van toelichting,
 kst-36636-3, as ``retrieve tk-transposition-tables`` stores them), of the Omgevingswet (the
-tables of the Waterwet and the Woningwet in kst-34986-3), of the Mediawet 2008 (kst-31356-3,
+tables of the Waterwet, the Woningwet and the Wet milieubeheer in kst-34986-3), of the
+Mediawet 2008 (kst-31356-3,
 ``Huidige Mediawet | Mediawet 20..``) and of the Erfgoedwet (kst-34109-3, ``oud | nieuw``
 under the old law's name), the new Sv read from its Staatsblad XML (``normalize
 staatsblad-laws``) and a few articles of the laws of the BWB, through ``semantic
@@ -15,7 +16,12 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   ``normalize bwb-history``: Woningwet 101a, moved into the Omgevingswet) is one too.
 - The API reads it both ways: on the old article where it went, on the new one where it came
   from.
-- A row that does not hold, and an old article without a place, is a gap in the report.
+- What a table answers instead of a place ("vervallen", "–", "Blijft in Waterwet") is an edge
+  to the new law, no gap; of an old article that is a gap, the edge keeps what the table
+  writes. A division of the old law ("§ 1.2") is each article of it.
+- A row that does not hold, and an old article without a place, is a gap in the report; an
+  old article without a row only of a law that expired no later than the new law came into
+  force.
 - An edge no table gives any more goes.
 """
 
@@ -66,15 +72,37 @@ _OLD_ARTICLES = {
     "5.1.1": (("1", "2"), False),  # the Vijfde Boek: in kst-36636-3 only
     "6:1:1": (("1", "2", "3"), False),
     "6:1:2": ((), False),
+    "10": (("1", "2", "3"), False),  # lapses (p. 4: "vervalllen", "vervallen")
 }
 _NONE: tuple[tuple[str, ...], bool] = ((), False)
 _WATERWET = dict.fromkeys(
-    ("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2", "3.3"), _NONE
-)
-_OMGEVINGSWET = dict.fromkeys(
-    ("1.3", "1.5", "2.13", "2.19", "2.20", "2.21", "2.21a", "4.23", "19.17", "19.18"),
+    (
+        *("1.1", "1.2", "1.3", "1.4", "2.1", "2.8", "2.9", "3.1", "3.2", "3.3"),
+        *("3.6a", "3.6b", "3.6c", "3.6d", "3.6e", "3.14"),
+    ),
     _NONE,
 )
+_OMGEVINGSWET = dict.fromkeys(
+    (
+        *("1.3", "1.5", "1.6", "2.6", "2.13", "2.18", "2.19", "2.20", "2.21", "2.21a"),
+        *("2.22", "2.23", "2.32", "4.23", "16.25", "19.17", "19.18"),
+    ),
+    _NONE,
+)
+# The Wet milieubeheer (it stays): § 1.2 and § 2.4, each a division of articles.
+_WET_MILIEUBEHEER = dict.fromkeys(("1.1a", "1.2", "1.3", "2.42"), _NONE)
+_DIVISIONS = {
+    "BWBR0003245": {
+        "1.1a": ("Hoofdstuk 1",),
+        "1.2": ("Hoofdstuk 1", "§ 1.2"),
+        "1.3": ("Hoofdstuk 1", "§ 1.2"),
+        "2.42": ("Hoofdstuk 2", "§ 2.4"),
+    },
+    "BWBR0037885": {
+        "1.6": ("Hoofdstuk 1", "Afdeling 1.3"),
+        "16.25": ("Hoofdstuk 16", "Afdeling 16.3", "§ 16.3.5"),
+    },
+}
 # The Woningwet: 101 in its current text, 101a to 103 only in its history.
 _WONINGWET = {"101": _NONE}
 _WONINGWET_LOST = ("101a", "102", "103")
@@ -117,8 +145,10 @@ def _bwb_law(
     title: str,
     articles: dict[str, tuple[tuple[str, ...], bool]],
     expired: str | None = None,
+    in_force: str | None = None,
 ) -> None:
     key = bwb_id.lower()
+    divisions = _DIVISIONS.get(bwb_id, {})
     store.bulk_insert_or_update_nodes(
         "instruments",
         [
@@ -133,6 +163,7 @@ def _bwb_law(
                     "kind": "wet",
                     "in_force": expired is None,
                     "date_expired": expired,
+                    "date_in_force": in_force,
                 },
             }
         ],
@@ -152,6 +183,11 @@ def _bwb_law(
                     "parts": [_lid(n) for n in leden],
                     "repealed": repealed,
                     "position": position,
+                    "breadcrumb": [
+                        {"type": label.split()[0].lower(), "label": label}
+                        for label in divisions.get(number, ())
+                    ]
+                    or None,
                 },
             }
             for position, (number, (leden, repealed)) in enumerate(articles.items())
@@ -206,11 +242,15 @@ def _seed(store: GraphStore) -> None:
     )
     _bwb_law(store, "BWBR0001903", "Wetboek van Strafvordering", _OLD_ARTICLES)
     _bwb_law(store, "BWBR0025458", "Waterwet", _WATERWET, expired="2024-01-01")
-    _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET)
+    _bwb_law(store, "BWBR0037885", "Omgevingswet", _OMGEVINGSWET, in_force="2024-01-01")
     _bwb_law(store, "BWBR0005181", "Woningwet", _WONINGWET)
     _historical(store, "BWBR0005181", _WONINGWET_LOST)
-    _bwb_law(store, "BWBR0004025", "Mediawet", _MEDIAWET, expired="2009-01-01")
-    _bwb_law(store, "BWBR0025028", "Mediawet 2008", _MEDIAWET_2008)
+    _bwb_law(store, "BWBR0003245", "Wet milieubeheer", _WET_MILIEUBEHEER)
+    # expired after the Mediawet 2008 came into force: it does not replace it
+    _bwb_law(store, "BWBR0004025", "Mediawet", _MEDIAWET, expired="2009-01-02")
+    _bwb_law(
+        store, "BWBR0025028", "Mediawet 2008", _MEDIAWET_2008, in_force="2009-01-01"
+    )
     _bwb_law(store, "BWBR0024186", "Uitvoeringswet UNESCO-verdrag 1970", _UNESCO)
     _bwb_law(store, "BWBR0037521", "Erfgoedwet", _ERFGOEDWET)
     with RawSourceWriter(store) as writer:
@@ -240,6 +280,13 @@ def _seed(store: GraphStore) -> None:
     for document in ("kst-36636-3", "kst-34986-3", "kst-31356-3", "kst-34109-3"):
         _paper(store, document)
     _paper(store, "kst-34986-99", _REVERSED)
+    # rows of the tables of the Waterwet and the Wet milieubeheer in kst-34986-3 the table
+    # answers for, or with a division of the old law
+    _paper(
+        store,
+        "kst-34986-98",
+        (FIXTURES / "kst_34986_3_answers_excerpt.xml").read_text(),
+    )
 
 
 # The tests read one database built for them all (``built``), on the worker that built it;
@@ -267,13 +314,14 @@ def store(built: ModuleStore) -> GraphStore:
     return built.store
 
 
-def _transposed(store: GraphStore) -> dict[tuple[str, str], Any]:
+def _transposed(store: GraphStore, to: str = "articles") -> dict[tuple[str, str], Any]:
+    """The ``TRANSPOSED_TO`` edges to an article, or (*to* ``instruments``) to a law."""
     return {
         (row["from_id"], row["to_id"]): row["meta"]
         for row in store.query(
             "SELECT from_id, to_id, doc -> 'meta' AS meta FROM edges "
-            "WHERE relation = %(r)s",
-            {"r": RELATION_TRANSPOSED_TO},
+            "WHERE relation = %(r)s AND to_collection = %(to)s",
+            {"r": RELATION_TRANSPOSED_TO, "to": to},
         )
     }
 
@@ -291,6 +339,9 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
         ("articles/bwbr0025458_1_2", "articles/bwbr0037885_2_21"),
         ("articles/bwbr0025458_1_3", "articles/bwbr0037885_2_21"),
         ("articles/bwbr0025458_1_4", "articles/bwbr0037885_2_21"),
+        # "bijlage A in samenhang met 1.3, 2.17, 4.10, 4.12, 4.23 en 5.9"
+        ("articles/bwbr0025458_1_1", "articles/bwbr0037885_1_3"),
+        ("articles/bwbr0025458_1_1", "articles/bwbr0037885_4_23"),
         ("articles/bwbr0025458_2_1", "articles/bwbr0037885_1_3"),
         ("articles/bwbr0025458_2_1", "articles/bwbr0037885_4_23"),
         ("articles/bwbr0025458_2_8", "articles/bwbr0037885_2_13"),
@@ -300,6 +351,12 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
         ("articles/bwbr0025458_3_1", "articles/bwbr0037885_2_21a"),
         # the table whose columns run from the new law to the old
         ("articles/bwbr0025458_3_2", "articles/bwbr0037885_2_20"),
+        # the Wet milieubeheer's § 1.2: each of its articles
+        *(
+            (f"articles/bwbr0003245_{old}", f"articles/bwbr0037885_{new}")
+            for old in ("1_2", "1_3")
+            for new in ("2_6", "2_18", "2_22", "2_23", "2_32")
+        ),
         # the Woningwet: its current 101 and the 101a to 103 it has lost since
         *(
             (old, f"articles/bwbr0037885_19_{new}")
@@ -375,6 +432,48 @@ def test_a_row_that_holds_is_a_part_of_the_edge_of_its_pair(store: GraphStore) -
     }
 
 
+def test_what_a_table_answers_is_an_edge_to_the_new_law(store: GraphStore) -> None:
+    """blg-1081574 p. 4, art. 10 lapses ("vervalllen", "vervallen"); kst-34986-3: the
+    Waterwet's 3.6a t/m 3.6e stay in it, its 3.14 is not taken over ("–"), the Wet
+    milieubeheer's § 2.4 neither; its 1.1a is placed in "afdeling 1.3" only: a gap, with
+    what the table writes."""
+    answers = _transposed(store, "instruments")
+    new_sv, ow = "instruments/wet_stb_2026_56", "instruments/bwbr0037885"
+    assert answers[("articles/bwbr0001903_10", new_sv)] == {
+        "basis": "transposition_table",
+        "source": TABLE,
+        "outcome": "vervallen",
+        "parts": [
+            {"from": "1", "to": "vervalllen", "outcome": "vervallen"},
+            {"from": "2", "to": "vervallen", "outcome": "vervallen"},
+            {"from": "3", "to": "vervallen", "outcome": "vervallen"},
+        ],
+    }
+    assert (
+        {old: meta["outcome"] for (old, law), meta in answers.items() if law == ow}
+        == {
+            **{f"articles/bwbr0025458_3_6{n}": "blijft_in:Waterwet" for n in "abcde"},
+            "articles/bwbr0025458_3_14": "niet_overgenomen",
+            "articles/bwbr0003245_2_42": "niet_overgenomen",
+            "articles/bwbr0003245_1_1a": "gat",
+            "articles/bwbr0025458_2_9": "gat",  # "2.42": the Omgevingswet has no such article
+        }
+    )
+    assert answers[("articles/bwbr0003245_2_42", ow)]["parts"] == [
+        {"from": "", "to": "–", "outcome": "niet_overgenomen", "via": "§ 2.4"}
+    ]
+    assert answers[("articles/bwbr0003245_1_1a", ow)]["parts"] == [
+        {"from": "", "to": "afdeling 1.3", "outcome": "gat"}
+    ]
+    # each article of the Wet milieubeheer's § 1.2 placed by the row of the division
+    assert {
+        part.get("via")
+        for (old, _), meta in _transposed(store).items()
+        if old.startswith("articles/bwbr0003245_")
+        for part in meta["parts"]
+    } == {"§ 1.2"}
+
+
 def test_the_api_reads_it_both_ways(api: Api) -> None:
     old = api.get_json("/api/articles/BWBR0001903/126ffa")
     (successor,) = old["successors"]
@@ -434,17 +533,36 @@ def test_the_report_lists_what_does_not_hold(built: ModuleStore) -> None:
     )
     # the articles without a place in any table between the two laws
     assert "art. 126zz [no row]" in out
-    assert f"{TABLE} p. 4: art. 126ff [no row of it holds]" in out
-    assert "kst-36636-3 rij 9: art. 6:1:2 [no row of it holds]" in out
+    # with what the table writes for it
+    assert (
+        f"{TABLE} p. 4: art. 126ff: 2.8.5, 1; 2.8.5, 2; Besluit B2; 2.8.5, 3 "
+        "[no row of it holds]"
+    ) in out
+    assert (
+        "kst-36636-3 rij 9: art. 6:1:2: 1.10.2, eerste lid [no row of it holds]" in out
+    )
     assert "art. 127a" not in out  # repealed
     assert "art. 126ffa" not in out
     assert "art. 6:1:1 " not in out
 
     assert "instruments/bwbr0025458 -> instruments/bwbr0037885" in out
-    assert "rij 2: art. 1.1: bijlage A in samenhang met 1.3" in out
+    assert "rij 2: art. 1.1: 2.17 [the new law has no such article]" in out
     assert "rij 6: art. 2.9: 2.42 [the new law has no such article]" in out
-    assert "art. 3.3 [no row]" in out  # the Waterwet expired
+    # the Waterwet expired when the Omgevingswet came into force
+    assert "art. 3.3 [no row]" in out
     assert "art. 3.2 " not in out
+    # what the tables answer is no gap
+    assert "art. 3.14" not in out
+    assert "art. 3.6a" not in out
+    assert (
+        "What the tables say instead of a place (no gap): blijft_in:Waterwet 5, "
+        "niet_overgenomen 1"
+    ) in out
+    # the Wet milieubeheer stays; its 1.1a is placed in a division of the Omgevingswet
+    assert "art. 1.1a: afdeling 1.3 [placed in a division only]" in out
+    # the Mediawet expired after the Mediawet 2008 came into force: no row is no gap
+    assert "instruments/bwbr0004025 -> instruments/bwbr0025028" in out
+    assert "(the old law is not replaced: no row is no gap)" in out
 
     # a table of the Erfgoedwet whose old law the graph does not have
     assert (

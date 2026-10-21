@@ -69,11 +69,12 @@ WHERE celex = ANY(%(celex)s) AND stub IS DISTINCT FROM TRUE
 """
 
 # The articles of a law that are no stub and have a number, in the order of the law, each
-# with the numbers of its leden (``props.parts`` of kind ``lid``); then the historical
+# with the numbers of its leden (``props.parts`` of kind ``lid``) and the labels of the
+# divisions it stands in (``props.breadcrumb``, outermost first); then the historical
 # identities of a law of the BWB when asked for (``normalize bwb-history``: an article no
 # longer in its current toestand), repealed, by their last number.
 _LAW_ARTICLES = f"""
-SELECT id, number, repealed, leden, historical FROM (
+SELECT id, number, repealed, leden, divisions, historical FROM (
     SELECT a.id, a.position, a.article_number AS number,
            coalesce(a.repealed, false) AS repealed,
            ARRAY(
@@ -81,6 +82,11 @@ SELECT id, number, repealed, leden, historical FROM (
                FROM json_array_elements({array_or_empty("a.props -> 'parts'")}) p
                WHERE p ->> 'kind' = 'lid' AND p ->> 'number' IS NOT NULL
            ) AS leden,
+           ARRAY(
+               SELECT c ->> 'label'
+               FROM json_array_elements({array_or_empty("a.props -> 'breadcrumb'")}) c
+               WHERE c ->> 'label' IS NOT NULL
+           ) AS divisions,
            false AS historical
     FROM edges e
     JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
@@ -88,7 +94,8 @@ SELECT id, number, repealed, leden, historical FROM (
       AND e.from_collection = '{COLLECTION_ARTICLES}'
       AND a.article_number IS NOT NULL AND a.stub IS DISTINCT FROM TRUE
     UNION ALL
-    SELECT a.id, NULL, a.props ->> 'last_article_number', true, ARRAY[]::text[], true
+    SELECT a.id, NULL, a.props ->> 'last_article_number', true, ARRAY[]::text[],
+           ARRAY[]::text[], true
     FROM {COLLECTION_INSTRUMENTS} i
     JOIN {COLLECTION_ARTICLES} a ON a.bwb_id = i.bwb_id AND a.article_number IS NULL
     WHERE %(historical)s AND i.id = %(law)s
@@ -127,8 +134,8 @@ def name_pattern(name: str) -> str:
 def law_articles(
     store: Store, law_id: str, *, historical: bool = False
 ) -> list[dict[str, Any]]:
-    """``{id, number, repealed, leden, historical}`` of each numbered article of the law,
-    then, with *historical*, of each historical identity of it."""
+    """``{id, number, repealed, leden, divisions, historical}`` of each numbered article of
+    the law, then, with *historical*, of each historical identity of it."""
     return list(store.query(_LAW_ARTICLES, {"law": law_id, "historical": historical}))
 
 
@@ -145,11 +152,12 @@ def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
-    """``{id, citation_title, date_expired}`` of the laws *law_ids*."""
+    """``{id, citation_title, date_expired, date_in_force}`` of the laws *law_ids*."""
     return list(
         store.query(
             f"""
-            SELECT id, citation_title, lg_str(props -> 'date_expired') AS date_expired
+            SELECT id, citation_title, lg_str(props -> 'date_expired') AS date_expired,
+                   lg_str(props -> 'date_in_force') AS date_in_force
             FROM {COLLECTION_INSTRUMENTS} WHERE id = ANY(%(ids)s)
             """,
             {"ids": law_ids},
@@ -178,4 +186,18 @@ def eu_acts(store: Store, celex: list[str]) -> dict[str, str]:
     return {
         str(row["celex"]): str(row["id"])
         for row in store.query(_EU_ACTS, {"celex": celex})
+    }
+
+
+def laws_of_bwb_ids(store: Store, bwb_ids: list[str]) -> dict[str, str]:
+    """The id of the law of each of *bwb_ids* the graph holds (no stub)."""
+    return {
+        str(row["bwb_id"]): str(row["id"])
+        for row in store.query(
+            f"""
+            SELECT bwb_id, id FROM {COLLECTION_INSTRUMENTS}
+            WHERE bwb_id = ANY(%(ids)s) AND stub IS DISTINCT FROM TRUE
+            """,
+            {"ids": bwb_ids},
+        )
     }
