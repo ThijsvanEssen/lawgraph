@@ -244,8 +244,8 @@ lists those motions, one open while its `outcome` is null), `subkind` (the whole
 `Motie (gewijzigd/nader)`; for a vote what was voted on, the `Zaak.Soort`: `Motie`,
 `Amendement`, `Wetgeving`, …, null when the Kamer names no one Soort), `dossier` short titles: `short_title` the name the dossier goes by and `short_title_basis` where it comes from: `title` (of a budget its chapter and year, else the parentheses that end the title, as in `/api/dossiers`), else official data of its bill: `citation` (the citation title the bill gives itself, "Deze wet wordt aangehaald als: …"), `case` (the citation title the Kamer gives the bill's case), `amended_law` (the citation title of the one Dutch law the bill changes: then it names that law, not the bill); both null when there is none, `headline` (the parts a headline is made of:
 `surname` of the first `indiener`, `subject` the part of the title after its first ` over `,
-`short_title` of its dossier; each null without), `node` (`collection`, `key`), `dossier` (the first:
-`key`, `number`, `title`, `short_title`; null without), `persons` (`key` a member key, `name`
+`short_title` of its dossier; each null without), `node` (`collection`, `key`), `dossier` (the first,
+under `dossier` the first of that filter: `key`, `number`, `title`, `short_title`; null without), `persons` (`key` a member key, `name`
 as the member routes give it, the name they go by and the surname, else as the paper writes
 it, `surname` with its prefix (`van der Plas`), `function` what they signed as, as the source
 writes it (`minister van Financiën`, `Tweede Kamerlid`; of a commitment the role it was made

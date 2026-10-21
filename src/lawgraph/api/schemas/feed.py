@@ -477,7 +477,9 @@ class FeedItemDTO(WithPath):
     )
     node: FeedNodeDTO
     dossier: FeedDossierDTO | None = Field(
-        None, description="Its first dossier; null for an event without one."
+        None,
+        description="Its first dossier, under ``dossier`` the first of that filter; null "
+        "for an event without one.",
     )
     persons: list[FeedPersonDTO] = Field(
         default_factory=list,
@@ -998,7 +1000,8 @@ class FeedDayDTO(StrictModel):
     kinds: list[FacetCountDTO] = Field(default_factory=list)
     dossiers: list[FeedDossierCountDTO] = Field(
         default_factory=list,
-        description="Per kind (in the order of a day) and first dossier of an event, "
+        description="Per kind (in the order of a day) and dossier of an event (as its "
+        "item has it), "
         "most first within a kind.",
     )
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
