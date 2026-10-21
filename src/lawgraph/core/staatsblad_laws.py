@@ -600,26 +600,27 @@ def unread_numbers(text: str, read: Iterable[tuple[int, int]]) -> int:
     return unread
 
 
+def is_law(props: Mapping[str, Any]) -> bool:
+    """Whether *props* are those of a law of the Staatsblad the BWB does not hold (yet)."""
+    return props.get("source") == SOURCE_STAATSBLAD and props.get("kind") == KIND_LAW
+
+
 def law_completeness(
-    props: Mapping[str, Any], law: Mapping[str, Any] | None = None
+    law: Mapping[str, Any], references: ReferenceCounts | None
 ) -> dict[str, dict[str, Any]] | None:
-    """The ``completeness`` of a law of the Staatsblad (*props* its own) or of an article of
-    one (*props* the article's, *law* those of its law): ``references`` from
-    ``unlinked_references`` (``semantic staatsblad-law-references``; ``partial`` with that
-    count as ``missing``), ``definitions`` from ``definitions_found`` of the law (``semantic
-    bwb-definitions``); ``pending`` before the step read it. None for anything else: what
-    the BWB holds is read whole."""
-    law = props if law is None else law
-    if law.get("source") != SOURCE_STAATSBLAD or law.get("kind") != KIND_LAW:
+    """The ``completeness`` of a law of the Staatsblad (*law* its props) or of an article of
+    one: ``references`` as of any record (``references_part`` of *references*, what
+    ``semantic staatsblad-law-references`` counted of it, ``db.queries.unlinked_references``;
+    ``pending`` before the step read it), ``definitions`` from ``definitions_found`` of the
+    law (``semantic bwb-definitions``). None for anything else: what the BWB holds is read
+    whole."""
+    if not is_law(law):
         return None
-    unlinked = props.get("unlinked_references")
-    references = references_part(
-        None if unlinked is None else ReferenceCounts(int(unlinked))
-    ) or {"state": Coverage.PENDING.value}
+    part = references_part(references) or {"state": Coverage.PENDING.value}
     found = law.get("definitions_found") is not None
     definitions = Coverage.DONE if found else Coverage.PENDING
     return {
-        Part.REFERENCES.value: references,
+        Part.REFERENCES.value: part,
         Part.DEFINITIONS.value: {"state": definitions.value},
     }
 

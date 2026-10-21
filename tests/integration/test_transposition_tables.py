@@ -31,6 +31,8 @@ tk-transposition-tables``, the API and ``lawgraph succession-gaps``.
   with a column of its leden, is a table per old law; it names the old laws by their
   abbreviations of the WTI (``WVO``, ``WVO-BES``), of two laws of one name the one in force
   when the new law came into force.
+- The Invoeringsbesluit Omgevingswet (Stb. 2020, 400), an AMvB's table to the Omgevingswet
+  and the AMvB's under it: the column of the Omgevingswet names the basis, no place.
 """
 
 from __future__ import annotations
@@ -43,6 +45,7 @@ import pytest
 
 from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_PART_OF,
@@ -163,6 +166,7 @@ def _bwb_law(
     in_force: str | None = None,
     short_title: str | None = None,
     aliases: tuple[str, ...] = (),
+    kind: str = "wet",
 ) -> None:
     key = bwb_id.lower()
     divisions = _DIVISIONS.get(bwb_id, {})
@@ -178,7 +182,7 @@ def _bwb_law(
                     "title": title,
                     "citation_title": title,
                     "short_title": short_title,
-                    "kind": "wet",
+                    "kind": kind,
                     "in_force": expired is None,
                     "date_expired": expired,
                     "date_in_force": in_force,
@@ -775,3 +779,69 @@ def test_a_column_per_old_law_with_its_leden(database: str, cli: Any) -> None:
     assert "instruments/bwbr0002399 -> instruments/bwbr0044212" in out
     assert "instruments/bwbr0030284 -> instruments/bwbr0044212" in out
     assert "rij 11: art. 118u: 12.* [does not read]" in out
+
+
+def test_the_tables_of_a_staatsblad_as_retrieve_stores_it(
+    database: str, cli: Any
+) -> None:
+    """The Invoeringsbesluit Omgevingswet (Stb. 2020, 400) as ``retrieve
+    tk-transposition-tables`` stores a Staatsblad (``stb-transposition-xml``, no dossier):
+    the Activiteitenbesluit milieubeheer (an AMvB) to the Bal its cells name. Its column
+    ``Artikel Omgevingswet`` beside ``Artikel AMvB`` names the basis of the Bal's articles
+    (``4.3, eerste lid``): no place."""
+    store = GraphStore()
+    _bwb_law(
+        store,
+        "BWBR0022762",
+        "Activiteitenbesluit milieubeheer",
+        dict.fromkeys(("1.3", "1.3a", "1.21a", "2.7"), _NONE),
+        expired="2024-01-01",
+        kind="AMvB",
+    )
+    _bwb_law(
+        store,
+        "BWBR0037885",
+        "Omgevingswet",
+        {"4.3": (("1",), False), "2.24": _NONE},
+        in_force="2024-01-01",
+    )
+    _bwb_law(
+        store,
+        "BWBR0041330",
+        "Besluit activiteiten leefomgeving",
+        dict.fromkeys(("1.3", "2.13"), _NONE),
+        in_force="2024-01-01",
+        short_title="Bal",
+        kind="AMvB",
+    )
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_STAATSBLAD,
+                kind=RAW_KIND_STAATSBLAD_TRANSPOSITION,
+                external_id="stb-2020-400",
+                payload_text=(FIXTURES / "stb_2020_400_excerpt.xml").read_text(),
+                meta={"identifier": "stb-2020-400", "tables": 6},
+            )
+        )
+    cli("semantic", "tk-transposition-tables")
+
+    def article(bwb_id: str, number: str) -> str:
+        return f"articles/{article_key(bwb_id, number, None)}"
+
+    edges = _transposed(store)
+    assert {
+        (old, new) for old, new in edges if new.startswith("articles/bwbr0041330")
+    } == {
+        (article("BWBR0022762", "1.3"), article("BWBR0041330", "1.3")),
+        (article("BWBR0022762", "2.7"), article("BWBR0041330", "2.13")),
+    }
+    assert not [new for _, new in edges if new.startswith("articles/bwbr0037885")]
+    to_laws = _transposed(store, "instruments")
+    assert not [new for _, new in to_laws if new == "instruments/bwbr0037885"]
+    # "1.3a | – | –": the AMvB column's answer, with the law it names most
+    assert (
+        to_laws[(article("BWBR0022762", "1.3a"), "instruments/bwbr0041330")]["outcome"]
+        == "niet_overgenomen"
+    )
+    assert {meta["source"] for meta in edges.values()} == {"stb-2020-400"}

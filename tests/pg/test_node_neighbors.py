@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_PUBLISHED_IN,
     RELATION_REFERS_TO,
+    RELATION_TRANSPOSED_TO,
     RELATION_VERSION_OF,
 )
 from lawgraph.core.models import TYPE_OF_COLLECTION, NodeType
@@ -660,3 +661,68 @@ def test_the_neighborhood_of_a_hub_stops_at_its_cap(store: GraphStore) -> None:
     assert len(filtered["nodes"]) == 50
     assert {n["type"] for n in filtered["nodes"]} == {"judgment"}
     assert {e["relation"] for e in filtered["edges"]} == {RELATION_REFERS_TO}
+
+
+def _seed_recodification(store: GraphStore) -> None:
+    """A new law (``new``) with three articles; of the old law, ``o0`` takes ``n0``'s place
+    (TRANSPOSED_TO an article) and ``o1``..``o5`` lapsed (TRANSPOSED_TO the new law, an
+    outcome). The old ids sort before the new ones, as BWBR before a Staatsblad key."""
+    _write(store, COLLECTION_INSTRUMENTS, [_node(NodeType.INSTRUMENT, "new")])
+    _write(
+        store,
+        COLLECTION_ARTICLES,
+        [_node(NodeType.ARTICLE, f"n{n}") for n in range(3)]
+        + [_node(NodeType.ARTICLE, f"o{n}") for n in range(6)],
+    )
+    new = f"{COLLECTION_INSTRUMENTS}/new"
+    edges = [
+        _edge(f"{COLLECTION_ARTICLES}/n{n}", new, RELATION_PART_OF) for n in range(3)
+    ]
+    edges.append(
+        _edge(
+            f"{COLLECTION_ARTICLES}/o0",
+            f"{COLLECTION_ARTICLES}/n0",
+            RELATION_TRANSPOSED_TO,
+        )
+    )
+    edges += [
+        _edge(
+            f"{COLLECTION_ARTICLES}/o{n}",
+            new,
+            RELATION_TRANSPOSED_TO,
+            meta={"outcome": "vervallen"},
+        )
+        for n in range(1, 6)
+    ]
+    _write(store, "edges", edges)
+
+
+def test_what_became_of_an_old_article_is_read_from_it_not_from_the_new_law(
+    store: GraphStore,
+) -> None:
+    """An outcome (TRANSPOSED_TO an instrument) is neither counted nor walked from the new
+    law, so its cap goes to its own articles; from the old article it is."""
+    _seed_recodification(store)
+    new = f"{COLLECTION_INSTRUMENTS}/new"
+    own = {f"{COLLECTION_ARTICLES}/n{n}" for n in range(3)}
+
+    assert _counts(_facets(store, "new")) == {
+        (RELATION_PART_OF, "inbound", "articles"): 3,
+    }
+
+    hood = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "new", depth=2)
+    # o0 is reached through the article whose place it takes
+    assert _ids(hood["nodes"]) == own | {f"{COLLECTION_ARTICLES}/o0"}
+    assert hood["buckets"] == [{"collection": "articles", "total": 3, "kept": 3}]
+    capped = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "new", cap=3)
+    assert _ids(capped["nodes"]) == own
+
+    old = get_node_with_neighbors(store, COLLECTION_ARTICLES, "o1", limit=1)
+    assert _counts([b.facet for b in old.buckets]) == {
+        (RELATION_TRANSPOSED_TO, "outbound", "instruments"): 1,
+    }
+    hood = get_node_neighborhood(store, COLLECTION_ARTICLES, "o1", depth=2)
+    assert _ids(hood["nodes"]) == {new} | own
+    assert (f"{COLLECTION_ARTICLES}/o1", new, RELATION_TRANSPOSED_TO) in {
+        (e["from_id"], e["to_id"], e["relation"]) for e in hood["edges"]
+    }

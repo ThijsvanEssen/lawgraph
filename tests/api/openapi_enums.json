@@ -222,6 +222,10 @@
   "split",
   "wissel"
  ],
+ "/components/schemas/CommitmentDossierDTO/properties/basis/anyOf/0": [
+  "nakoming",
+  "agenda"
+ ],
  "/components/schemas/CommitmentLetterDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",
@@ -354,17 +358,6 @@
  "/components/schemas/DelegationClauseDTO/properties/kind": [
   "amvb",
   "ministeriele_regeling"
- ],
- "/components/schemas/DocumentEntryDTO/properties/chamber/anyOf/0": [
-  "TK",
-  "EK"
- ],
- "/components/schemas/DocumentEntryDTO/properties/kind_group/anyOf/0": [
-  "motie",
-  "amendement",
-  "wetsvoorstel",
-  "brief",
-  "overig"
  ],
  "/components/schemas/DocumentLineKind": [
   "head",
@@ -1369,6 +1362,17 @@
   "succession",
   "outcome",
   "source"
+ ],
+ "/components/schemas/PassageDocumentDTO/properties/chamber/anyOf/0": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/PassageDocumentDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ],
  "/components/schemas/PathsResponse/properties/expand": [
   "none",

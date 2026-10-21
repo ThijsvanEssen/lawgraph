@@ -1004,7 +1004,7 @@ def _seed_publications(store: GraphStore) -> None:
             _edge("am1", "instruments/stb_2025_263", "articles/bwbr0005289_162",
                   "AMENDS"),
             _edge("am2", "instruments/stb_2025_263", "articles/sr_288_oud", "REPEALS"),
-            _edge("ab1", "commitments/tz_1", "dossiers/36496", "ABOUT"),
+            _edge("ab1", "commitments/tz_1", "dossiers/36496", "ABOUT", basis="nakoming"),
             _edge("an1", "documents/kst_36496_80", "commitments/tz_1", "ANSWERS"),
         ]
     )  # fmt: skip
@@ -1098,6 +1098,14 @@ def test_a_commitment_has_its_text_minister_and_the_letter_that_fulfils_it(
     assert "Openstaand" in page["main"]
     assert "Verwachte afdoening" not in page["main"]  # 0001-01-01: none named
     assert page["data"]["@graph"][0]["identifier"] == "TZ202609-124"
+    assert "<h2>Dossiers</h2>" in page["main"]
+    # one no letter fulfils is about the agenda of its debate: discussed there
+    store.bulk_insert_or_update_edges(
+        [_edge("ab1", "commitments/tz_1", "dossiers/36496", "ABOUT", basis="agenda")]
+    )
+    agenda = _head(_get(client, "/toezeggingen/TZ202609-124").text)["main"]
+    assert "<h2>Besproken in het debat over</h2>" in agenda
+    assert "<h2>Dossiers</h2>" not in agenda
 
 
 def test_a_vote_on_one_motion_is_found_on_the_page_of_the_motion(

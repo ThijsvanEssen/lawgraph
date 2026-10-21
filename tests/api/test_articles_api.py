@@ -259,6 +259,30 @@ def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
     assert body["items"][0]["document"]["dossier_short_title"] == "Wet beter voorbeeld"
 
 
+def test_the_passages_name_the_dossier_of_their_paper(monkeypatch) -> None:
+    row = {
+        "document_id": "documents/mvt",
+        "key": "mvt",
+        "kind": "Memorie van toelichting",
+        "date": "2023-06-01",
+        "source": "tk",
+        "labels": ["TK"],
+        "props": {"dossier_number": "36000", "sequence": 3, "title": "MvT"},
+        "target_id": "articles/bwbr0002_5",
+        "valid_from": None,
+        "passages": [],
+    }
+    stub_route(monkeypatch, "articles", get_article_explanation_passages=[row])
+
+    response = client.get("/api/articles/BWBR0002/5/explanations")
+
+    assert_status(response, 200)
+    (item,) = response.json()["items"]
+    assert item["document"]["dossier_number"] == "36000"
+    # the name the dossier goes by, as /api/dossiers gives it (stubs.DOSSIER_NAMES)
+    assert item["document"]["dossier_short_title"] == "Wet beter voorbeeld"
+
+
 def test_explained_by_of_an_unknown_article_is_an_empty_page_not_a_404(
     monkeypatch,
 ) -> None:

@@ -104,6 +104,10 @@ URLS = [
     "/api/instruments?published_from=2015-01-01",
     "/api/commitments?from=2024-01-01&to=2024-12-31",
     f"/api/instruments/{BWB}",
+    # a law of the Staatsblad and an article of it: the edges of its articles to a stub,
+    # its articles by the index of the law they belong to
+    "/api/instruments/wet_stb_2026_1",
+    "/api/articles/STB-2026-1/1",
     f"/api/instruments/{BWB}/articles",
     f"/api/instruments/{BWB}/articles/at/2020-01-01",
     # with the references and citations of its current articles: the articles by key, the
@@ -131,6 +135,8 @@ URLS = [
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/explained-by",
+    # the passages, with the names of the dossiers (once per data version of them)
+    f"/api/articles/{BWB}/1/explanations",
     f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
     f"/api/articles/{BWB}/1/history/av1",
@@ -142,6 +148,10 @@ URLS = [
     f"/api/nodes/articles/{BWB.lower()}_1?props=canvas",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood",
     f"/api/nodes/articles/{BWB.lower()}_1/neighborhood?depth=2",
+    # a law: its buckets and its neighbourhood without the outcomes of the old articles
+    # (``lg_transposition_outcome``), from the edges' covering index still
+    f"/api/nodes/instruments/{BWB.lower()}?limit=1",
+    f"/api/nodes/instruments/{BWB.lower()}/neighborhood?depth=2&props=canvas",
     # a walk that reaches the members, factions, committees and cabinets but goes through
     # none of them
     "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",
@@ -488,6 +498,40 @@ def test_a_detail_reads_its_unlinked_references_by_its_id(
     assert {f"/api/articles/{BWB}/1", f"/api/judgments/{ECLI}"} <= read, show_items(
         statements
     )
+
+
+def test_a_law_of_the_staatsblad_reads_its_counts_in_one_statement(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """A law of the Staatsblad and an article of it read what the step could not link and
+    their edges to a stub in one statement each: planned above with the rest."""
+    from lawgraph.db.queries.unlinked_references import (
+        _LAW_ARTICLE_COUNT_SQL,
+        _LAW_COUNT_SQL,
+    )
+
+    read = {
+        (url, statement_text(statement))
+        for url, statement, _ in statements
+        if statement_text(statement)
+        in {statement_text(_LAW_COUNT_SQL), statement_text(_LAW_ARTICLE_COUNT_SQL)}
+    }
+    assert read == {
+        ("/api/instruments/wet_stb_2026_1", statement_text(_LAW_COUNT_SQL)),
+        ("/api/articles/STB-2026-1/1", statement_text(_LAW_ARTICLE_COUNT_SQL)),
+    }, show_items(statements)
+
+
+def test_the_passages_name_their_dossiers_without_a_read_per_paper(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """The passages of an article put the name of its dossier next to each paper from the
+    names of the dossiers kept per data version (``load_dossier_names``): no statement of
+    the route reads the dossiers by number."""
+    url = f"/api/articles/{BWB}/1/explanations"
+    texts = [statement_text(s) for u, s, _ in statements if u == url]
+    assert texts, show_items(statements)
+    assert not [t for t in texts if "FROM dossiers" in t and "DISTINCT ON" not in t]
 
 
 def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(

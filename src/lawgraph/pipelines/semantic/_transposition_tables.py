@@ -2,13 +2,13 @@
 ``semantic tk-transposition-tables`` writes and ``lawgraph succession-gaps`` reports.
 
 A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
-of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
-(read by ``core.transposition_xml``); or it is the concordance table of an EU act that
-codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
-``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
-them. The one law of the BWB of a name is the one of that citation title, else the one of
-that abbreviation (the WTI's, as the citation extractor reads "artikel 1 WVO", "artikel 1
-Bal"):
+of its own (read by ``core.transposition_tables``), or a Kamerstuk or a Staatsblad with a
+table in its XML (read by ``core.transposition_xml``; a Staatsblad has no dossier); or it
+is the concordance table of an EU act that codifies or recasts others (its HTML as
+``retrieve eurlex`` stored it, read by ``core.concordance_html``). The laws of a
+Kamerstuk's table are found by the names it gives them. The one law of the BWB of a name is
+the one of that citation title, else the one of that abbreviation (the WTI's, as the
+citation extractor reads "artikel 1 WVO", "artikel 1 Bal"):
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
@@ -27,8 +27,10 @@ Bal"):
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
 articles in, else the one the title does not name. A table whose laws are not found places
-nothing and says why (``Table.problem``). The tables between the same two laws are checked
-together (``Succession``): an article of the old law one table leaves out may be in another.
+nothing and says why (``Table.problem``); so does the column of a law beside the regulations
+under it in a table of an old regulation, which names their basis (``_without_basis``). The
+tables between the same two laws are checked together (``Succession``): an article of the
+old law one table leaves out may be in another.
 A place that names another law ("afdeling 3.5 Awb", "16.52 Omgevingswet") is of the law of
 that name: the new law when it is its name, else the one law of the BWB of that citation
 title, else the law the citation extractor reads in "artikel 1 <name>" ("Awb", "WED").
@@ -53,6 +55,7 @@ import base64
 import binascii
 import re
 import xml.etree.ElementTree as ET
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Any
@@ -61,6 +64,7 @@ from pypdf.errors import PyPdfError
 
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
+    RAW_KIND_STAATSBLAD_TRANSPOSITION,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
 )
 from lawgraph.core.aliases import code_choices, curated_abbreviations, instrument_names
@@ -84,6 +88,9 @@ from lawgraph.db.queries import instrument_names as instrument_name_queries
 from lawgraph.db.queries import successions as queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._detection import build_extractor
+
+# The BWB kinds (``wetgeving@soort``) of a law; any other is a regulation under one.
+_LAW_KINDS = frozenset({"wet", "rijkswet"})
 
 
 @dataclass(frozen=True)
@@ -284,10 +291,15 @@ class _OtherLaws:
         return self._extractor
 
 
+# The kinds of a stored source with its tables in its XML.
+_XML_KINDS = (RAW_KIND_TK_TRANSPOSITION_DOCUMENT, RAW_KIND_STAATSBLAD_TRANSPOSITION)
+
+
 def _tables(store: Store, laws: _OtherLaws) -> Iterator[Table]:
-    """Every stored table: of each PDF, and of each Kamerstuk stored with its XML."""
+    """Every stored table: of each PDF, and of each Kamerstuk and Staatsblad stored with its
+    XML."""
     for record in queries.transposition_tables(store):
-        if record.get("kind") != RAW_KIND_TK_TRANSPOSITION_DOCUMENT:
+        if record.get("kind") not in _XML_KINDS:
             yield _pdf_table(store, record)
         elif payload_text(record):
             yield from _xml_tables(store, record, laws)
@@ -352,16 +364,56 @@ def _xml_tables(
     except ET.ParseError:
         yield Table(identifier, dossier, problem="the XML does not read")
         return
-    for table in tables:
-        found = Table(identifier, dossier, table.name, table.problem)
-        if table.problem:
-            yield found
-        elif table.proposed is not None:
-            yield _with_proposal(store, found, table, laws)
-        elif table.columns is None:
-            yield _with_laws(store, replace(found, rows=table.rows()), None, None)
+    read = [
+        (table, _xml_table(store, identifier, dossier, table, laws)) for table in tables
+    ]
+    yield from _without_basis(store, read)
+
+
+def _xml_table(
+    store: Store, identifier: str, dossier: str, table: XmlTable, laws: _OtherLaws
+) -> Table:
+    found = Table(identifier, dossier, table.name, table.problem)
+    if table.problem:
+        return found
+    if table.proposed is not None:
+        return _with_proposal(store, found, table, laws)
+    if table.columns is None:
+        return _with_laws(store, replace(found, rows=table.rows()), None, None)
+    return _with_columns(store, found, table, laws)
+
+
+def _without_basis(store: Store, read: list[tuple[XmlTable, Table]]) -> Iterator[Table]:
+    """The tables *read*, the column of a law in a head of more new laws, of a table of an
+    old regulation (a BWB kind other than a law), placing nothing: it names the basis of the
+    places of the regulations beside it (the Omgevingswet beside the AMvB's of Stb. 2020,
+    400: ``4.3, eerste lid`` beside ``1.3 Bal``). Such a head is read as a table per new law
+    (``XmlTable.group``); a table of a proposed law is none."""
+    heads = Counter(xml.group for xml, _ in read if xml.proposed is None)
+    ids = sorted({law for _, t in read for law in (t.old_law, t.new_law) if law})
+    kinds = {
+        str(law["id"]): str(law.get("kind") or "").lower()
+        for law in (queries.law_titles(store, ids) if ids else [])
+    }
+    for xml, table in read:
+        old, new = kinds.get(table.old_law or ""), kinds.get(table.new_law or "")
+        if (
+            xml.proposed is None
+            and heads[xml.group] > 1
+            and old
+            and old not in _LAW_KINDS
+            and new in _LAW_KINDS
+        ):
+            yield replace(
+                table,
+                problem="the column of a law beside the regulations under it names "
+                "their basis, no place",
+                old_law=None,
+                new_law=None,
+                rows=(),
+            )
         else:
-            yield _with_columns(store, found, table, laws)
+            yield table
 
 
 def _dossier_laws(store: Store, dossier: str) -> list[dict[str, Any]]:

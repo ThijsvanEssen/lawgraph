@@ -1,0 +1,79 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0030111/2026-08-15/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0030111" inwerkingtreding="2026-08-15"><wetgeving dtdversie="2.0" soort="AMvB" stam-id="11353593" versie-id="18630352" id="C26031171" label-id="11328284" inwerkingtredingsdatum="2011-07-01">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="11353623" versie-id="18629282" id="C26030101" label-id="11327214" inwerking="2011-07-01" bron="Stb.2011-293" effect="nieuwe-regeling" ondertekening_bron="2011-05-23" publicatie_bron="2011-06-21" publicatie_iwt="2011-06-27" status="goed">Besluit van 23 mei 2011, houdende bepalingen inzake de productie en distributie van drinkwater en de organisatie van de openbare drinkwatervoorziening (Drinkwaterbesluit)<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2011-293"><publicatiejaar>2011</publicatiejaar><publicatienr>293</publicatienr><uitgiftedatum isodatum="2011-06-21">21-06-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-05-23">23-05-2011</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2011-313"><publicatiejaar>2011</publicatiejaar><publicatienr>313</publicatienr><uitgiftedatum isodatum="2011-06-27">27-06-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-06-14">14-06-2011</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2011-07-01">01-07-2011</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Drinkwaterwet in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="11353633" versie-id="18629292" id="C26030111" label-id="11327224" inwerking="2011-07-01" bron="Stb.2011-293" effect="nieuwe-regeling" ondertekening_bron="2011-05-23" publicatie_bron="2011-06-21" publicatie_iwt="2011-06-27">Drinkwaterbesluit<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2011-293"><publicatiejaar>2011</publicatiejaar><publicatienr>293</publicatienr><uitgiftedatum isodatum="2011-06-21">21-06-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-05-23">23-05-2011</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2011-313"><publicatiejaar>2011</publicatiejaar><publicatienr>313</publicatienr><uitgiftedatum isodatum="2011-06-27">27-06-2011</uitgiftedatum><ondertekeningsdatum isodatum="2011-06-14">14-06-2011</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2011-07-01">01-07-2011</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Drinkwaterwet in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></citeertitel>
+  <wet-besluit>
+    <wettekst>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk5" stam-id="11354423" versie-id="31711702" id="C45279411" label-id="11328014" inwerking="2026-07-08" label="Hoofdstuk 5" bron="Stb.2026-189" effect="structuurwijziging" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">5</nr>
+    <titel status="officieel">Leveringszekerheid en continuïteit</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47" stam-id="11354343" versie-id="31711652" id="C45279341" label-id="11327934" inwerking="2026-08-15" label="Artikel 47" bron="Stb.2026-189" effect="wijziging" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">47</nr>
+    <titel status="officieel">Verstorings-risicoanalyse en -beheer</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid1" label-id="11327934L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Een verstorings-risicoanalyse omvat het inventariseren en analyseren van de voor het leveringsgebied van een drinkwaterbedrijf bestaande en te verwachten dreigingen voor de openbare drinkwatervoorziening. Van de verstorings-risicoanalyse maken in elk geval deel uit:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de risicobeoordeling, bedoeld in <extref doc="jci1.3:c:BWBR0052871&amp;artikel=14" label-id="17816684" verwijzing-id="3457595" bwb-id="BWBR0052871">artikel 14 van de Wet weerbaarheid kritieke entiteiten</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=1&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>de benadering die alle gevaren omvat, bedoeld in <extref doc="jci1.3:c:BWBR0052872&amp;artikel=21" label-id="17817534" verwijzing-id="3457596" bwb-id="BWBR0052872">artikel 21, derde lid, van de Cyberbeveiligingswet</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=1&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid1/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>nationale dreigingen en scenario’s als bedoeld in het tweede lid.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=1&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c" /></jcis></meta-data></li>
+    </lijst>
+    <al>De verstorings-risicoanalyse wordt met het oog op goedkeuring van het leveringsplan, bedoeld in <extref doc="jci1.3:c:BWBR0026338&amp;artikel=37" label-id="10144344" verwijzing-id="3457597" bwb-id="BWBR0026338">artikel 37, derde lid, van de wet</extref>, voorafgaand aan de indiening van het leveringsplan aan de inspecteur ter beoordeling voorgelegd.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid2" label-id="11327934L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Onze Minister kan nationale dreigingen vaststellen en deze nader uitwerken in scenario’s. Hij kan de eigenaar van een drinkwaterbedrijf verplichten deze nationale dreigingen en scenario’s op te nemen in zijn verstorings-risicoanalyse.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid3" label-id="11327934L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Indien de inspecteur van oordeel is dat de verstorings-risicoanalyse, bedoeld in het eerste lid, onjuist of onvolledig is uitgevoerd dan wel anderszins niet voldoet aan de in <intref doc="jci1.3:c:BWBR0030111&amp;bijlage=B&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11328264" verwijzing-id="2442421" bwb-id="BWBR0030111" bwb-ng-variabel-deel="/BijlageB">bijlage B</intref>, behorende bij dit besluit, opgenomen vereisten voor de verstoringsparagraaf van het leveringsplan, bedoeld in het vijfde lid, kan hij de eigenaar van het drinkwaterbedrijf verzoeken om wijziging, aanvulling of het opnieuw uitvoeren van de verstorings-risicoanalyse binnen een daarbij aangegeven termijn.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=3" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid4" label-id="11327934L4">
+    <lidnr status="officieel">4</lidnr>
+    <al>
+      <intref doc="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=46a&amp;z=2026-08-15&amp;g=2026-08-15" label-id="16486704" verwijzing-id="3197059" bwb-id="BWBR0030111" bwb-ng-variabel-deel="/Hoofdstuk5/Artikel46a">Artikel 46a, derde lid</intref>, is van overeenkomstige toepassing.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=4" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid5" label-id="11327934L5">
+    <lidnr status="officieel">5</lidnr>
+    <al>Aan de hand van de uitkomsten van de verstorings-risicoanalyse stelt de eigenaar van een drinkwaterbedrijf als onderdeel van het leveringsplan een verstoringsparagraaf op.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=5&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=5" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid6" label-id="11327934L6">
+    <lidnr status="officieel">6</lidnr>
+    <al>In de verstoringsparagraaf worden in elk geval opgenomen:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid6/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de maatregelen, bedoeld in <extref doc="jci1.3:c:BWBR0052871&amp;artikel=15" label-id="17816704" verwijzing-id="3457598" bwb-id="BWBR0052871">artikel 15 van de Wet weerbaarheid kritieke entiteiten</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=6&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid6/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>de maatregelen, bedoeld in <extref doc="jci1.3:c:BWBR0052872&amp;artikel=21" label-id="17817534" verwijzing-id="3457599" bwb-id="BWBR0052872">artikel 21 van de Cyberbeveiligingswet</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=6&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid6/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>maatregelen in verband met de dreigingen en scenario’s, bedoeld in het tweede lid.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=6&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=6&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=6" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk5/Artikel47/Lid7" label-id="11327934L7">
+    <lidnr status="officieel">7</lidnr>
+    <al>De vereisten, opgenomen in <intref doc="jci1.3:c:BWBR0030111&amp;bijlage=B&amp;z=2026-08-15&amp;g=2026-08-15" label-id="11328264" verwijzing-id="3457600" bwb-id="BWBR0030111" bwb-ng-variabel-deel="/BijlageB">bijlage B, onderdeel 3, behorende bij dit besluit</intref>, zijn van toepassing op de verstoringsparagraaf.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;lid=7&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=7" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="wijziging" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0030111&amp;artikel=47&amp;g=2026-08-15" onderdeel="artikel=47" korte-verwijzing="1.0:c:BWBR0030111&amp;artikel=47" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;artikel=47&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=47" korte-verwijzing="jci1.3:c:BWBR0030111&amp;artikel=47" /></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="structuurwijziging" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-07-08">08-07-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0030111&amp;hoofdstuk=5&amp;g=2026-08-15" onderdeel="hoofdstuk=5" korte-verwijzing="1.0:c:BWBR0030111&amp;hoofdstuk=5" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="hoofdstuk=5" korte-verwijzing="jci1.3:c:BWBR0030111&amp;hoofdstuk=5" /></jcis></meta-data></hoofdstuk>
+      </wettekst>
+    </wet-besluit>
+</wetgeving></toestand>

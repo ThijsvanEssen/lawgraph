@@ -52,8 +52,12 @@ Columns of articles may stand in groups:
   A column whose cells name their law at their end (``1.1 Bbl``, ``2.13 Bal en 8.28 Bkl``;
   at least half of those with a figure) holds the places of more laws: a table per law its
   cells name, of the part of each cell that names it, and one under the column's name of the
-  cells with a figure that name none. Any other head with more than two columns of articles
-  places nothing: which are the old and the new law is not read from it.
+  cells with a figure that name none; a cell without one (``–``) stands with the cells of the
+  law the column names most. Any other head with more than two columns of articles
+  places nothing: which are the old and the new law is not read from it. The tables of one
+  head share their ``group``: whether a column names a law beside the regulations under it
+  (``Artikel Omgevingswet`` beside ``Artikel AMvB``), its cells their basis in that law and
+  no place, the caller reads from the kinds of the laws.
 
 Each cell holds one or more references as the source writes them (``8.2.26, vierde lid``,
 ``2.1 en 2.2``, ``5.8 t/m 5.14``, ``2.31, eerste lid, onder a``, ``art. 1.1, lid 1``), apart
@@ -420,7 +424,10 @@ class XmlTable:
     try in order (its column's ``Energiewet``, the dossier's ``Wet dieren``; none when
     neither names it: the law of the dossier); its ``columns`` are the old law's column and
     the proposed law's, and its ``cells`` run from the old law to the new one. None for a
-    table whose head names both laws."""
+    table whose head names both laws.
+
+    ``group``: the tables read from one ``<table>`` share it (the tables of a head of more
+    new laws: ``Artikel | Artikel Omgevingswet | Artikel AMvB``)."""
 
     name: str
     source: str
@@ -429,6 +436,7 @@ class XmlTable:
     cells: tuple[Cells, ...] = ()
     problem: str | None = None
     proposed: tuple[str, ...] | None = None
+    group: int = 0
 
     def rows(self, *, reverse: bool = False) -> tuple[SourceRow, ...]:
         """Each place of each row: from the first column to the second, or the other way."""
@@ -497,7 +505,11 @@ def _walk(
             before = _text(child)
             continue
         elif name == "table":
-            tables += _tables(child, (*own, before), document)
+            group = len(tables)
+            tables += [
+                replace(t, group=group)
+                for t in _tables(child, (*own, before), document)
+            ]
         else:
             _walk(child, own, tables, document)
         before = ""
@@ -654,19 +666,25 @@ def _of_laws(cells: tuple[Cells, ...], law: str) -> list[tuple[str, tuple[Cells,
     """The cells of a column of the *law* its head names, or of a column of more laws (at
     least half its cells with a figure name their law at their end: "1.1 Bbl", "2.13 Bal en
     8.28 Bkl") the part of each cell of each law it names, by law, then under the head's
-    name those with a figure that name none."""
+    name those with a figure that name none. A cell without a figure ("–") answers for the
+    column: it stands with the cells of the law the column names most, in its row's order."""
     figures = [c for c in cells if re.search(r"\d", c.second)]
     parts = {id(c): law_parts(c.second) for c in figures}
     named = [c for c in figures if any(law for _, law in parts[id(c)])]
     if not figures or 2 * len(named) < len(figures):
         return [(law, cells)]
-    by_law: dict[str, list[Cells]] = {}
-    for cell in figures:
-        for text, own in parts[id(cell)]:
-            by_law.setdefault(own or law, []).append(replace(cell, second=text))
+    by_law: dict[str, list[tuple[int, Cells]]] = {}
+    for index, cell in enumerate(cells):
+        for text, own in parts.get(id(cell), ()):
+            by_law.setdefault(own or law, []).append(
+                (index, replace(cell, second=text))
+            )
+    most = max((n for n in by_law if n != law), key=lambda n: len(by_law[n]))
+    answers = [(i, c) for i, c in enumerate(cells) if id(c) not in parts]
+    by_law[most] = sorted(by_law[most] + answers, key=lambda found: found[0])
     if law in by_law:  # the cells that name no law last
         by_law[law] = by_law.pop(law)
-    return [(name, tuple(found)) for name, found in by_law.items()]
+    return [(name, tuple(c for _, c in found)) for name, found in by_law.items()]
 
 
 def _rows(table: ET.Element, part: str, separator: str) -> list[dict[str, str]]:

@@ -15,6 +15,7 @@ from lawgraph.core.tk_records._payload import (
     first_text,
     id_of,
 )
+from lawgraph.core.tk_records.cases import dossier_numbers
 
 # Toezegging.Status of a commitment still to be kept (the others: Afgedaan, Nagekomen, Niet
 # nagekomen, Deels Afgedaan, Vervallen). A commitment keeps the Status the Kamer gives it.
@@ -40,6 +41,7 @@ def commitment(payload: Payload) -> Record | None:
         return None
 
     text = first_text(payload, *_COMMITMENT_TEXT_FIELDS)
+    letters = list(dicts(payload.get("KamerbriefNakoming")))
     raw_status = first_text(payload, "Status") or None
     return make_node_key(external_id), {
         "external_id": external_id,
@@ -55,7 +57,7 @@ def commitment(payload: Payload) -> Record | None:
         "number": first_text(payload, "Nummer") or None,
         "display_name": shorten(text, 80),
         # the letters that fulfil it (``KamerbriefNakoming``): ANSWERS
-        "letter_ids": distinct(
-            [str(d.get("Id") or "") for d in dicts(payload.get("KamerbriefNakoming"))]
-        ),
+        "letter_ids": distinct([str(d.get("Id") or "") for d in letters]),
+        # the dossiers those letters are numbered in: ABOUT, before the agenda
+        "letter_dossiers": dossier_numbers(letters),
     }

@@ -335,6 +335,42 @@ def test_an_article_refers_to_the_articles_of_the_bwb_it_cites(
     assert body["completeness"]["references"]["missing"] > 0
 
 
+def test_a_reference_to_a_stub_is_missing_as_on_a_law_of_the_bwb(
+    store: GraphStore, api: Api
+) -> None:
+    """``references`` counts, beside what the step could not link, the references linked
+    to a stub (an article not loaded), as of a law of the BWB: of an article its own, of
+    the law those of all its articles."""
+    stubs = {
+        row["from_id"]: row["n"]
+        for row in store.query(
+            "SELECT e.from_id, count(*) AS n FROM edges e"
+            " JOIN articles t ON t.id = e.to_id"
+            " WHERE e.relation = 'REFERS_TO' AND t.stub GROUP BY e.from_id"
+        )
+    }
+    unlinked = {
+        row["id"]: int(row["n"])
+        for row in store.query(
+            "SELECT id, props ->> 'unlinked_references' AS n FROM articles"
+            " WHERE official_id = 'stb-2026-56'"
+        )
+    }
+    article = "articles/stb_2026_56_2_8_16"
+    assert stubs[article] > 0  # 138ab of the Wetboek van Strafrecht, among others
+    body = api.get_json("/api/articles/STB-2026-56/2.8.16")
+    assert body["completeness"]["references"] == {
+        "state": "partial",
+        "missing": unlinked[article] + stubs[article],
+        "as_of": None,
+        "reason": None,
+    }
+    law = api.get_json("/api/instruments/wet_stb_2026_56")["completeness"]
+    assert law["references"]["missing"] == sum(unlinked.values()) + sum(
+        n for node, n in stubs.items() if node in unlinked
+    )
+
+
 def test_a_term_the_law_defines_is_marked_where_it_holds(api: Api) -> None:
     body = api.get_json("/api/articles/STB-2026-56/1.1.4")
     (span,) = body["term_spans"]

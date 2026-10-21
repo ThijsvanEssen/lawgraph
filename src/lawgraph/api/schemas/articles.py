@@ -910,6 +910,12 @@ class ArticleCitedByResponse(StrictModel):
     )
 
 
+DOSSIER_SHORT_TITLE = (
+    "The name the dossier goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives "
+    "it; null without one."
+)
+
+
 class LegislativeHistoryEntry(StrictModel):
     """One change of an article in one dossier: the dossier, and the amending publication
     (enacted) or the bill (proposed) that made or proposes the change."""
@@ -921,11 +927,7 @@ class LegislativeHistoryEntry(StrictModel):
     )
     dossier_number: str
     dossier_title: str | None = None
-    dossier_short_title: str | None = Field(
-        None,
-        description="The name the dossier goes by (``Cyberbeveiligingswet``), as "
-        "``/api/dossiers`` gives it; null without one.",
-    )
+    dossier_short_title: str | None = Field(None, description=DOSSIER_SHORT_TITLE)
     date: str | None = Field(
         None, description="Of the bill, or the publication date of the publication."
     )
@@ -969,11 +971,7 @@ class ExplainingDocumentDTO(WithKindGroup, DocumentOrigin, WithPath):
         None,
         description="The dossier the document is PART_OF (the lowest, if several).",
     )
-    dossier_short_title: str | None = Field(
-        None,
-        description="The name that dossier goes by (``Cyberbeveiligingswet``), as "
-        "``/api/dossiers`` gives it; null without one.",
-    )
+    dossier_short_title: str | None = Field(None, description=DOSSIER_SHORT_TITLE)
     sequence: int | None = Field(
         None, description="Its number in its own dossier (nr. 3); null for none."
     )
@@ -1098,10 +1096,16 @@ class ArticleExplanationsResponse(StrictModel):
     items: list[ArticleExplanationDTO]
 
 
+class PassageDocumentDTO(DocumentEntryDTO):
+    """A paper that explains an article in a passage, as it is named."""
+
+    dossier_short_title: str | None = Field(None, description=DOSSIER_SHORT_TITLE)
+
+
 class ArticlePassagesDTO(StrictModel):
     """A paper that explains an article in a passage, and its passages."""
 
-    document: DocumentEntryDTO
+    document: PassageDocumentDTO
     target: ExplanationTarget = Field(
         ...,
         description="What the paper explains: one of the versions of the article "
@@ -1121,12 +1125,15 @@ class ArticlePassagesDTO(StrictModel):
     )
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> ArticlePassagesDTO:
-        """Build from a row of ``get_article_explanation_passages``."""
+    def from_row(
+        cls, row: dict[str, Any], names: dict[str, dict[str, Any]]
+    ) -> ArticlePassagesDTO:
+        """Build from a row of ``get_article_explanation_passages`` and the names of the
+        dossiers (``load_dossier_names``)."""
         collection, key = parse_node_id(row["target_id"])
         target = _TARGET_OF_COLLECTION[collection]
         return cls(
-            document=_entry(row),
+            document=_entry(row, names),
             target=target,
             target_id=row["target_id"],
             article_version_key=key if target == "article_version" else None,
@@ -1149,20 +1156,21 @@ class ArticlePassagesDTO(StrictModel):
         )
 
 
-def _entry(row: dict[str, Any]) -> DocumentEntryDTO:
-    """The paper of a row of ``get_article_explanation_passages``, as it is named."""
+def _entry(row: dict[str, Any], names: dict[str, dict[str, Any]]) -> PassageDocumentDTO:
+    """The paper of a row of ``get_article_explanation_passages``, as it is named, with the
+    name its dossier goes by (*names*, ``load_dossier_names``)."""
     props = row["props"]
     origin = origin_fields(row.get("labels"), row.get("source"), row.get("kind"))
-    return DocumentEntryDTO(
+    dossier = numbered_in(props.get("dossier_number"), props.get("dossier_suffix"))
+    return PassageDocumentDTO(
         id=row["document_id"],
         key=row["key"],
         kind=row.get("kind"),
         title=props.get("title"),
         sequence=props.get("sequence"),
         number=number_in_dossier(origin["chamber"], props),
-        dossier_number=numbered_in(
-            props.get("dossier_number"), props.get("dossier_suffix")
-        ),
+        dossier_number=dossier,
+        dossier_short_title=(names.get(dossier or "") or {}).get("short_title"),
         session_year=props.get("session_year"),
         date=strip_time_component(row.get("date")),
         tk_url=tk_url("document", props),
