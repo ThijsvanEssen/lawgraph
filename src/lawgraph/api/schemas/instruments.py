@@ -13,7 +13,9 @@ from lawgraph.api.schemas.articles import (
     ArticlePartSpanDTO,
     ArticleReferenceDTO,
     DelegatedArticleDTO,
+    FootnoteMarkDTO,
     basis_kind_of,
+    footnote_marks_from_props,
     headings_from_props,
     parts_from_props,
     references_from_props,
@@ -960,6 +962,11 @@ class InstrumentArticleVersionDTO(StrictModel):
         description="The headings in the text as spans of it; empty when the text was "
         "not asked for.",
     )
+    footnote_marks: list[FootnoteMarkDTO] = Field(
+        [],
+        description="Where the markers of its footnotes stood in the text; empty when "
+        "the text was not asked for.",
+    )
     text_preview: str | None = Field(
         None, description="The first ``text_preview_chars`` characters of the text."
     )
@@ -1029,6 +1036,7 @@ class InstrumentArticleVersionDTO(StrictModel):
             ),
             tables=tables_from_props(props) if include_text else [],
             headings=headings_from_props(props) if include_text else [],
+            footnote_marks=footnote_marks_from_props(props) if include_text else [],
             text_preview=text[:text_preview_chars] if text else None,
         )
 

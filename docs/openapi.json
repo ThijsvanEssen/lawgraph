@@ -10107,6 +10107,14 @@
             "title": "Headings",
             "description": "The headings in `text` (of a division, a table), as spans of it."
           },
+          "footnote_marks": {
+            "items": {
+              "$ref": "#/components/schemas/FootnoteMarkDTO"
+            },
+            "type": "array",
+            "title": "Footnote Marks",
+            "description": "Where the markers of its footnotes stood in `text`, as on an article."
+          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/AnnexEntryDTO"
@@ -10134,6 +10142,7 @@
           "parts",
           "tables",
           "headings",
+          "footnote_marks",
           "entries",
           "stub"
         ],
@@ -11995,6 +12004,14 @@
             "title": "Headings",
             "description": "The headings in `text`, as spans of it."
           },
+          "footnote_marks": {
+            "items": {
+              "$ref": "#/components/schemas/FootnoteMarkDTO"
+            },
+            "type": "array",
+            "title": "Footnote Marks",
+            "description": "Where the markers of its footnotes stood in `text`, in text order."
+          },
           "path": {
             "anyOf": [
               {
@@ -12027,6 +12044,7 @@
           "parts",
           "tables",
           "headings",
+          "footnote_marks",
           "path"
         ],
         "title": "ArticleSummaryDTO",
@@ -12235,6 +12253,14 @@
             "type": "array",
             "title": "Headings",
             "description": "As on the article: spans of `text`."
+          },
+          "footnote_marks": {
+            "items": {
+              "$ref": "#/components/schemas/FootnoteMarkDTO"
+            },
+            "type": "array",
+            "title": "Footnote Marks",
+            "description": "As on the article: offsets into `text`."
           }
         },
         "additionalProperties": false,
@@ -12255,7 +12281,8 @@
           "text",
           "parts",
           "tables",
-          "headings"
+          "headings",
+          "footnote_marks"
         ],
         "title": "ArticleVersionDTO",
         "description": "One dated version of an article with its text, and the publication that\nproduced it."
@@ -22021,6 +22048,18 @@
             "title": "Dossier Number",
             "description": "The dossier the document is PART_OF (the lowest, if several)."
           },
+          "dossier_short_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Short Title",
+            "description": "The name that dossier goes by (``Cyberbeveiligingswet``), as ``/api/dossiers`` gives it; null without one."
+          },
           "sequence": {
             "anyOf": [
               {
@@ -22079,6 +22118,7 @@
           "title",
           "date",
           "dossier_number",
+          "dossier_short_title",
           "sequence",
           "path",
           "kind_group"
@@ -24905,6 +24945,28 @@
         "title": "FeedVoteDTO",
         "description": "The outcome of a ``stemming``."
       },
+      "FootnoteMarkDTO": {
+        "properties": {
+          "at": {
+            "type": "integer",
+            "title": "At",
+            "description": "Offset into `text` where the marker stood: `text[:at]` the words before it."
+          },
+          "number": {
+            "type": "string",
+            "title": "Number",
+            "description": "Its number, without brackets: `1`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "at",
+          "number"
+        ],
+        "title": "FootnoteMarkDTO",
+        "description": "The marker of a footnote in the text of an article (``<sup>1</sup>`` after\n\"Richtlijn (EU) 2019/944\"): no character of `text`, but where it stood. The footnote\nitself is a paragraph of `text` that opens with its number."
+      },
       "GovernmentFunctionDTO": {
         "properties": {
           "function": {
@@ -25927,6 +25989,15 @@
             "description": "The headings in the text as spans of it; empty when the text was not asked for.",
             "default": []
           },
+          "footnote_marks": {
+            "items": {
+              "$ref": "#/components/schemas/FootnoteMarkDTO"
+            },
+            "type": "array",
+            "title": "Footnote Marks",
+            "description": "Where the markers of its footnotes stood in the text; empty when the text was not asked for.",
+            "default": []
+          },
           "text_preview": {
             "anyOf": [
               {
@@ -25987,6 +26058,7 @@
           "parts",
           "tables",
           "headings",
+          "footnote_marks",
           "text_preview",
           "references",
           "citations"
