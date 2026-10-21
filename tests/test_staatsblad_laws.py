@@ -11,6 +11,7 @@ import pytest
 
 from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.core.bwb_definitions import TermMatcher
+from lawgraph.core.completeness import Part, ReferenceCounts
 from lawgraph.core.staatsblad_laws import (
     LawPublication,
     article_props,
@@ -288,6 +289,16 @@ def test_what_the_pipeline_made_of_a_law(
     props = {"source": "staatsblad", "kind": "wet", **law}
     assert law_completeness(article, props) == expected
     assert law_completeness({**props, **article}) == expected
+
+
+def test_links_laid_before_the_count_leave_the_references_pending() -> None:
+    """An article with references linked (here to stubs) but no count of its text by the
+    step: what it lacks is not known, so ``pending``, not ``partial`` without a
+    ``missing``."""
+    law = {"source": "staatsblad", "kind": "wet"}
+    found = completeness_dto({}, law, ReferenceCounts(0, 3))
+    assert found is not None
+    assert found[Part.REFERENCES].model_dump(exclude_none=True) == {"state": "pending"}
 
 
 def test_a_law_of_the_bwb_has_no_completeness_of_the_staatsblad() -> None:

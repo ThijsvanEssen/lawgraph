@@ -33230,7 +33230,7 @@
         "properties": {
           "state": {
             "$ref": "#/components/schemas/Coverage",
-            "description": "`done` (the step ran and holds all it found), `partial` (it left some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet), `paused` (the source or the step is off), `unavailable` (the source refused the last run), `not_in_source` (the source does not give it), `not_fetched` (the source gives it, the graph does not take it in)."
+            "description": "`done` (the step ran and holds all it found), `partial` (it left some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet: what it lacks is not known, though links laid before may show), `paused` (the source or the step is off), `unavailable` (the source refused the last run), `not_in_source` (the source does not give it), `not_fetched` (the source gives it, the graph does not take it in)."
           },
           "as_of": {
             "anyOf": [

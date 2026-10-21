@@ -119,6 +119,43 @@ def law_of_article(instrument: str, article: str) -> str:
     )
 
 
+def listed_article(
+    article: str, *, include_stubs: bool = False, include_repealed: bool = False
+) -> list[str]:
+    """SQL conditions: the articles (alias *article*) the list of the articles of a law
+    holds. By default those in force (no historical identity, no article its current
+    version repeals) and no stub; ``article_count`` counts these."""
+    conditions = []
+    if not include_stubs:
+        conditions.append(f"{article}.stub IS NOT TRUE")
+    if not include_repealed:
+        conditions.append(f"{article}.repealed IS NOT TRUE")
+    return conditions
+
+
+def article_count(instrument: str) -> str:
+    """SQL: how many articles the list of the articles of the instrument (alias
+    *instrument*) holds by default (``listed_article``), read by the column that names
+    its articles, as ``scope_of_node`` does; 0 for an instrument whose articles carry no
+    identifier."""
+    i = instrument
+    listed = " AND ".join(listed_article("a"))
+
+    def count(column: str, value: str) -> str:
+        return (
+            f"(SELECT count(*)::int FROM articles a"
+            f" WHERE a.{column} = {value} AND {listed})"
+        )
+
+    official = f"lg_str({i}.props -> 'official_id')"
+    return (
+        f"CASE WHEN {i}.bwb_id <> '' THEN {count('bwb_id', f'{i}.bwb_id')}"
+        f" WHEN {i}.celex <> '' THEN {count('celex', f'{i}.celex')}"
+        f" WHEN {is_staatsblad_law(i)} THEN {count('official_id', official)}"
+        " ELSE 0 END"
+    )
+
+
 def is_staatsblad_law(instrument: str) -> str:
     """SQL: whether the instrument (alias *instrument*) is a law of the Staatsblad the BWB
     does not hold (yet): its key is that of the law of its publication

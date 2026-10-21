@@ -126,11 +126,17 @@ ENIG_ARTIKEL_LABEL = "Enig artikel"
 ARTICLE_ELEMENTS = frozenset({"artikel", ENIG_ARTIKEL})
 
 
+def named_number(number: str) -> str | None:
+    """The label of an article whose number is a name, as the source prints it: ``Enig
+    artikel`` for ``enig-artikel``; None for a number."""
+    return ENIG_ARTIKEL_LABEL if number == ENIG_ARTIKEL else None
+
+
 def article_label(number: str) -> str:
     """``Artikel 287``; ``Artikel 9 van bijlage 2`` for an article of an annex; ``Enig
-    artikel`` for the one article of a regulation."""
-    if number == ENIG_ARTIKEL:
-        return ENIG_ARTIKEL_LABEL
+    artikel`` for the one article of a regulation (``named_number``)."""
+    if named := named_number(number):
+        return named
     match = _ANNEX_ARTICLE.match(number)
     if match:
         return f"Artikel {match['number']} van bijlage {match['annex']}"

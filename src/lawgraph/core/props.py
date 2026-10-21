@@ -250,7 +250,8 @@ class InstrumentProps(_CommonProps):
     child_treaties: list[RelatedTreatyProps] | None = None
     """Of a Verdragenbank treaty: its `Kindverdragen`."""
     article_count: int | None = None
-    """Its articles (`PART_OF` it, not its annexes; `semantic graph-list-stats`)."""
+    """Its articles in force, without stubs: the `total` of `/articles` (`semantic
+    graph-list-stats`)."""
     inbound_citation_count: int | None = None
     """The `REFERS_TO` edges to it and to its articles and annexes (`semantic
     graph-list-stats`)."""
