@@ -32,7 +32,6 @@ TREATY = "BWBV0009001"
 
 
 _IMPLEMENTS_META = {
-    "celex": DIRECTIVE,
     "bases": ["considerans", "national_implementing_measure"],
     "publications": ["stb-2018-401"],
 }
@@ -160,7 +159,6 @@ def _seed(store: GraphStore) -> None:
             RELATION_REFERS_TO,
             source=EDGE_SOURCE_BWB_IMPLEMENTS,
             confidence=1.0,
-            meta={"celex": DIRECTIVE},
         ),
         make_edge_doc(
             "articles/32016l0680_1", "instruments/32016l0680", RELATION_PART_OF

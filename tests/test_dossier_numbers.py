@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.core.dossier_numbers import parse_dossier_query, suffix_sort_key
+from lawgraph.core.dossier_numbers import (
+    parse_dossier_query,
+    published_number,
+    suffix_sort_key,
+)
 
 
 def test_the_dossiers_of_a_budget_are_in_the_order_of_the_kamer() -> None:
@@ -124,3 +128,18 @@ def test_where_the_act_was_published_is_no_short_title() -> None:
     ) == ("Instrument voor Internationale Overheidsopdrachten – IIO")
     assert short_title("Goedkeuring van het Verdrag (Trb. 2021, 52)") is None
     assert short_title("Uitvoering van richtlijn 2019/1 (PbEU 2019, L 11)") is None
+
+
+@pytest.mark.parametrize(
+    ("label", "published"),
+    [
+        ("33440-(R1990)", "33440"),  # a Rijkswet: the Staatsblad names 33440
+        ("36200-VII", "36200-VII"),
+        ("21501-20", "21501-20"),
+        ("35418", "35418"),
+    ],
+)
+def test_a_publication_names_a_rijkswet_by_its_number_alone(
+    label: str, published: str
+) -> None:
+    assert published_number(label) == published

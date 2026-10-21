@@ -137,7 +137,6 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
                 relation=RELATION_AMENDS,
                 source=EDGE_SOURCE,
                 confidence=confidence,
-                meta={"title": title},
                 status=EDGE_STATUS_VOORGESTELD,
             )
             if edge_doc:

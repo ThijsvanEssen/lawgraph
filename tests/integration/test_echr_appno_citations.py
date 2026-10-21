@@ -47,11 +47,11 @@ DECISIONS = [
 ]
 
 
-def _cited(store: GraphStore, source: str) -> set[tuple[str, str, str | None]]:
+def _cited(store: GraphStore, source: str) -> set[tuple[str, str]]:
     return {
-        (row["from_id"], row["to_id"], row["date"])
+        (row["from_id"], row["to_id"])
         for row in store.query(
-            "SELECT from_id, to_id, doc -> 'meta' ->> 'cited_date' AS date FROM edges"
+            "SELECT from_id, to_id FROM edges"
             " WHERE relation = 'REFERS_TO' AND source = %(source)s"
             " AND to_id LIKE 'judgments/echr_%%'",
             {"source": source},
@@ -76,8 +76,8 @@ def test_a_dutch_judgment_cites_strasbourg_by_number(database: str, cli: Any) ->
     ruling = "judgments/ecli_nl_hr_2019_2006"
     assert _cited(store, "judgment-citation-linker") == {
         # the date chooses the judgment, not the decision on admissibility
-        (ruling, "judgments/echr_001_58554", "2000-03-28"),
-        (ruling, "judgments/echr_001_69000", "2005-05-03"),
+        (ruling, "judgments/echr_001_58554"),
+        (ruling, "judgments/echr_001_69000"),
         # 55555/05 has two decisions and no date: none; 24/6811 is no ECHR number
     }
 
@@ -99,5 +99,5 @@ def test_a_judgment_of_the_court_cites_another_by_number(
     # 12345/01 by number and date; 22492/93 has two decisions and no date here; its own
     # number is no citation
     assert _cited(store, "echr-citation-linker") == {
-        ("judgments/echr_001_252192", "judgments/echr_001_69000", "2005-05-03")
+        ("judgments/echr_001_252192", "judgments/echr_001_69000")
     }

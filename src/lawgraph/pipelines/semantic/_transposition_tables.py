@@ -1,17 +1,26 @@
 """The stored transposition tables, each read and checked against the laws it names: what
 ``semantic tk-transposition-tables`` writes and ``lawgraph succession-gaps`` reports.
 
-A table comes from one of two sources: a bijlage that is a PDF of its own (``retrieve
-tk-transposition-tables``, read by ``core.transposition_tables``), or a table in the XML of an
-explanatory memorandum with a heading that names one (``retrieve tk-content``, read by
-``core.transposition_xml``). Its laws are found by the names it gives them:
+A table comes from what ``retrieve tk-transposition-tables`` stored: a bijlage that is a PDF
+of its own (read by ``core.transposition_tables``), or a Kamerstuk with a table in its XML
+(read by ``core.transposition_xml``); or it is the concordance table of an EU act that
+codifies or recasts others (its HTML as ``retrieve eurlex`` stored it, read by
+``core.concordance_html``). The laws of a Kamerstuk's table are found by the names it gives
+them:
 
 * the new law: of that name, the law a publication of the table's dossier enacted or put
   articles in (``LEGISLATED_IN`` the dossier, ``ESTABLISHES`` or ``INTRODUCES`` its
   articles), else the one law of the BWB; a table that names none (``Huidig naar nieuw``),
-  the one law of its dossier;
+  the one law of its dossier. A table of the law the paper proposes (``Wetsvoorstel``)
+  names it by its column or its dossier's title, a year still open (``Mediawet 20..``)
+  standing for any (``bwb_laws_named``): the law of the dossier of such a name, else the
+  one law of the dossier, else the one law of the BWB of such a name;
 * the old law: the one law of the BWB of that name that is not the new law; a table that
-  names none, the one of the new law's name (the current text of a law recodified).
+  names none, the one of the new law's name (the current text of a law recodified). Its
+  articles are those of its current text and its historical identities (``normalize
+  bwb-history``): a table names the articles of its day, also one the law has lost since
+  (Woningwet 101a, moved into the Omgevingswet). A table of a proposed law names the old law
+  by its column, else by its title (``Tabel 3. Boswet`` over ``Plaats``).
 
 A table with a column per law names both; which is the new law is read from the sources,
 not from the order of the columns (``new_column``): the one of them the dossier enacted or put
@@ -19,14 +28,20 @@ articles in, else the one the title does not name. A table whose laws are not fo
 nothing and says why (``Table.problem``). The tables between the same two laws are checked
 together (``Succession``): an article of the old law one table leaves out may be in another.
 An article of the old law without a row is a gap only when the old law goes (``_replaced``):
-expired in the BWB, or recodified as a whole under its own name; of a law that stays (the Wet
-milieubeheer after the Omgevingswet) a table names only what moves.
+expired in the BWB, recodified as a whole under its own name, or repealed by the EU act of the
+table; of a law that stays (the Wet milieubeheer after the Omgevingswet) a table names only
+what moves.
+
+The acts of an EU table are its own (the new act) and the one its column names by CELEX
+(``core.concordance_html``), each as ``normalize eurlex`` made it; an old act the graph does
+not hold places nothing (``retrieve eurlex --mode gaps`` fetches it).
 """
 
 from __future__ import annotations
 
 import base64
 import binascii
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
@@ -34,36 +49,44 @@ from typing import Any
 
 from pypdf.errors import PyPdfError
 
-from lawgraph.config.constants import COLLECTION_DOSSIERS
+from lawgraph.config.constants import (
+    COLLECTION_DOSSIERS,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
+)
+from lawgraph.core.citations import article_order
+from lawgraph.core.concordance_html import read_tables as read_concordance
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.succession import LawArticle, Placed, SourceRow, place
 from lawgraph.core.transposition_tables import pdf_pages, read_table, source_rows
-from lawgraph.core.transposition_xml import TABLE_WORDS, XmlTable
+from lawgraph.core.transposition_xml import XmlTable
 from lawgraph.core.transposition_xml import read_tables as read_xml_tables
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import successions as queries
-
-# A heading of a memorandum that names a table (a regular expression).
-_TABLE_HEADING = "|".join(TABLE_WORDS)
 
 
 @dataclass(frozen=True)
 class Table:
     """One table of a source: its laws and rows, or why it places nothing."""
 
-    identifier: str  # the source: blg-1081574, kst-34986-3
-    dossier: str
+    identifier: str  # the source: blg-1081574, kst-34986-3, 32017R1001
+    dossier: str  # empty for an EU act
     name: str = ""  # the table in its source: "h. Transponeringstabel Waterwet"
     problem: str | None = None
     old_law: str | None = None  # instruments/bwbr0001903
     new_law: str | None = None  # instruments/wet_stb_2026_56
     rows: tuple[SourceRow, ...] = ()
+    repeals_old: bool = False  # the source repeals the old law (an EU act)
 
     @property
     def title(self) -> str:
         return f"{self.identifier} {self.name}".strip()
+
+    @property
+    def heading(self) -> str:
+        """The title with the dossier, when there is one."""
+        return f"{self.title} (dossier {self.dossier})" if self.dossier else self.title
 
 
 @dataclass(frozen=True)
@@ -88,10 +111,10 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
             problems.append(table)
     successions = []
     for (old, new), own in by_laws.items():
-        replaced = _replaced(store, old, new)
+        replaced = any(t.repeals_old for t in own) or _replaced(store, old, new)
         placed = place(
             [row for table in own for row in table.rows],
-            _articles(store, old),
+            _articles(store, old, historical=True),
             _articles(store, new),
             replaced=replaced,
         )
@@ -111,11 +134,43 @@ def _replaced(store: Store, old: str, new: str) -> bool:
 
 
 def _tables(store: Store) -> Iterator[Table]:
-    """Every stored table: the PDFs, then the tables of the memoranda, by identifier."""
+    """Every stored table: of each PDF, and of each Kamerstuk stored with its XML."""
     for record in queries.transposition_tables(store):
-        yield _pdf_table(store, record)
-    for record in queries.kamerstukken_with_tables(store, _TABLE_HEADING):
-        yield from _xml_tables(store, record)
+        if record.get("kind") != RAW_KIND_TK_TRANSPOSITION_DOCUMENT:
+            yield _pdf_table(store, record)
+        elif payload_text(record):
+            yield from _xml_tables(store, record)
+    for record in queries.eu_acts_with_concordance(store):
+        yield from _eu_tables(store, record)
+
+
+def _eu_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
+    """The concordance tables of the EU act of *record*, a table per old act."""
+    celex = str(record.get("external_id") or "")
+    if not (html := payload_text(record)):
+        return
+    tables = read_concordance(html, celex)
+    acts = queries.eu_acts(store, [celex, *(t.old_act for t in tables if t.old_act)])
+    for table in tables:
+        found = Table(celex, "", table.name, table.problem)
+        if table.problem or table.old_act is None:
+            yield found
+        elif celex not in acts:
+            yield replace(found, problem=f"the act {celex} is not in the graph")
+        elif table.old_act not in acts:
+            yield replace(
+                found,
+                problem=f"the act {table.old_act} is not in the graph "
+                f"(retrieve eurlex --celex {table.old_act})",
+            )
+        else:
+            yield replace(
+                found,
+                old_law=acts[table.old_act],
+                new_law=acts[celex],
+                rows=table.rows,
+                repeals_old=table.repealed,
+            )
 
 
 def _pdf_table(store: Store, record: dict[str, Any]) -> Table:
@@ -135,7 +190,7 @@ def _pdf_table(store: Store, record: dict[str, Any]) -> Table:
 def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
     identifier = str(record.get("external_id") or "")
     match = KST_ID_PATTERN.fullmatch(identifier)
-    dossier = match.group(1) if match else ""
+    dossier = str(meta(record).get("dossier") or (match.group(1) if match else ""))
     if not (xml := payload_text(record)):
         return
     try:
@@ -147,6 +202,8 @@ def _xml_tables(store: Store, record: dict[str, Any]) -> Iterator[Table]:
         found = Table(identifier, dossier, table.name, table.problem)
         if table.problem:
             yield found
+        elif table.proposed is not None:
+            yield _with_proposal(store, found, table)
         elif table.columns is None:
             yield _with_laws(store, replace(found, rows=table.rows()), None, None)
         else:
@@ -190,6 +247,45 @@ def _with_laws(
             rows=(),
         )
     return replace(table, old_law=old[0], new_law=new_id)
+
+
+def _with_proposal(store: Store, table: Table, xml: XmlTable) -> Table:
+    """*table* with the law the paper proposes and the old law of *xml*, its rows read from
+    the old law's column to the proposed law's, or with the reason they are not found."""
+    assert xml.columns is not None and xml.proposed is not None
+    new = _proposed_law(store, _dossier_laws(store, table.dossier), xml.proposed)
+    if new is None:
+        named = " or ".join(repr(name) for name in xml.proposed) or "none"
+        return replace(
+            table, problem=f"no one law of dossier {table.dossier} named {named}"
+        )
+    names = tuple(dict.fromkeys(n for n in (xml.columns[0], xml.title_law) if n))
+    for name in names:
+        old = [law for law in queries.bwb_laws_named(store, name) if law != new]
+        if len(old) == 1:
+            return replace(table, old_law=old[0], new_law=new, rows=xml.rows())
+    named = " or ".join(repr(name) for name in names)
+    return replace(table, problem=f"no one law of the BWB named {named}")
+
+
+def _proposed_law(
+    store: Store, dossier: list[dict[str, Any]], names: tuple[str, ...]
+) -> str | None:
+    """The law of the dossier of one of *names*, else the one law of the *dossier*, else the
+    one law of the BWB of one of *names*."""
+    for name in names:
+        own = [
+            str(law["id"]) for law in dossier if _same(law.get("citation_title"), name)
+        ]
+        if len(own) == 1:
+            return own[0]
+    if len(dossier) == 1:
+        return str(dossier[0]["id"])
+    for name in names:
+        found = queries.bwb_laws_named(store, name)
+        if len(found) == 1:
+            return found[0]
+    return None
 
 
 def _with_columns(store: Store, table: Table, xml: XmlTable) -> Table:
@@ -245,21 +341,48 @@ def _named_law(store: Store, dossier: list[dict[str, Any]], name: str) -> str | 
 
 def _same(title: Any, name: str) -> bool:
     """Whether the citation title *title* is *name*, as ``successions.bwb_laws_named``
-    compares them: in any case, without spaces, hyphens and other marks."""
-    return _folded(str(title or "")) == _folded(name)
+    compares them: in any case, without spaces, hyphens and other marks, a year still open
+    for any."""
+    return bool(
+        re.fullmatch(queries.name_pattern(name), queries.folded(str(title or "")))
+    )
 
 
-def _folded(name: str) -> str:
-    return "".join(c for c in name.lower() if c.isalnum())
-
-
-def _articles(store: Store, law_id: str) -> dict[str, LawArticle]:
-    return {
-        row["number"]: LawArticle(
-            row["id"],
+def _articles(
+    store: Store, law_id: str, *, historical: bool = False
+) -> dict[str, LawArticle]:
+    """The articles of the law by number, in its order: those of its current text, and with
+    *historical* (the old law) its historical identities between them (``in_law_order``);
+    of a number both have, the current article."""
+    articles: dict[str, LawArticle] = {}
+    rows = queries.law_articles(store, law_id, historical=historical)
+    for row in in_law_order(rows):
+        articles.setdefault(
             row["number"],
-            frozenset(row["leden"] or ()),
-            bool(row["repealed"]),
+            LawArticle(
+                row["id"],
+                row["number"],
+                frozenset(row["leden"] or ()),
+                bool(row["repealed"]),
+            ),
         )
-        for row in queries.law_articles(store, law_id)
-    }
+    return articles
+
+
+def in_law_order(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The articles of a law (``successions.law_articles``) in its order: a historical
+    identity, which has no place in the current text, before the first current article whose
+    number comes after its own (``article_order``); after them all when none does."""
+    current = [row for row in rows if not row["historical"]]
+    earlier = sorted(
+        (row for row in rows if row["historical"]),
+        key=lambda row: article_order(row["number"]),
+    )
+    ordered: list[dict[str, Any]] = []
+    for row in current:
+        while earlier and article_order(earlier[0]["number"]) < article_order(
+            row["number"]
+        ):
+            ordered.append(earlier.pop(0))
+        ordered.append(row)
+    return ordered + earlier

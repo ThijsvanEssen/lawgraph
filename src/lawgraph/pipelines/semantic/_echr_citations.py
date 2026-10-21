@@ -58,8 +58,6 @@ def link(
         if to_id == from_id:
             continue
         meta: dict[str, Any] = {"cited_appno": citation.appno}
-        if citation.date:
-            meta["cited_date"] = citation.date
         meta.update((places or {}).get((from_id, citation.appno)) or {})
         edges.add(
             from_id,

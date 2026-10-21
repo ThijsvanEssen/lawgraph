@@ -320,12 +320,10 @@ def _count_facets(
     ]
 
 
-# The lids an edge cites, from its ``meta``: ``lid``, ``leden``, and the ``leden`` of each
-# of its ``mentions`` (a judgment cites an article in several places).
+# The lids an edge cites, from its ``meta``: ``leden``, and the ``leden`` of each of its
+# ``mentions`` (a judgment cites an article in several places).
 _LIDS = f"""ARRAY(
     SELECT DISTINCT lid FROM (
-        SELECT e.doc -> 'meta' ->> 'lid'
-        UNION ALL
         SELECT unnest(lg_text_array(e.doc -> 'meta' -> 'leden'))
         UNION ALL
         SELECT unnest(lg_text_array(m.mention -> 'leden'))

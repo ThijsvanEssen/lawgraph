@@ -20,6 +20,8 @@ from tests.fakes.queries import (
     patch_edge_removals,
     patch_kept_state,
     patch_pipeline_state,
+    patch_rijkswet_dossiers,
+    patch_unlinked,
 )
 from tests.fakes.raw_reads import patch_raw_reads
 from tests.fakes.store import (
@@ -51,7 +53,9 @@ __all__ = [
     "patch_edge_removals",
     "patch_kept_state",
     "patch_pipeline_state",
+    "patch_rijkswet_dossiers",
     "patch_raw_reads",
+    "patch_unlinked",
     "raw_record",
     "until",
 ]

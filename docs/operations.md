@@ -192,7 +192,7 @@ The order is `tk`, `rechtspraak`, `eurlex`, `bwb`, `bwb-definitions`, `bwb-capti
 | `lawgraph expand-graph [--max-iterations N] [--no-final-pass]` | rounds of `retrieve all --mode gaps`, `normalize all --since <round>` and `semantic all --since <round>` while a round retrieves records (default 10); then one full `semantic all`, for the texts loaded earlier that name a law loaded now (not with `--no-final-pass`) |
 | `lawgraph poll CHAIN --since WINDOW` | a light chain for one source, between the nightly runs: its retrieves, the normalize of what they fetched and the semantic steps the feed needs of it, each step that takes `--since` from the start of the window, as `--touched-since` to `tk-dossier-outcomes` and `tk-government`; a normalize or semantic step from where the last complete `<phase> all` of its phase began when that is later (what the nightly run already did; a nightly phase that failed leaves its mark, and the poll reads the whole window). `tk`: `tk`, `tk-dossiers` (without members), `tk-document-links` and `tk-case-actors`, `tk-dossier-outcomes`, `tk-government`, `tk-cited-papers`; `ek`: `eerstekamer-votes`, `tk-dossier-outcomes`; `rechtspraak`: the courts of the feed tiers; `echr`. No mark of its own: choose the window wider than the time between two polls, so they overlap; `--since` is required |
 | `lawgraph gaps [--min-stubs N]` | reads only: what `retrieve all --mode gaps` would fetch (laws by number of referred articles, cited judgments, referrals of preliminary rulings, EU acts, treaties, memoranda without text) |
-| `lawgraph succession-gaps [--table ID]` | reads only: what the transposition tables do not place (as `semantic tk-transposition-tables` reads them): per old and new law the rows of each table that do not hold (a place that does not read, an article the old law lacks, an article or lid the new law lacks) and the articles of the old law in force without a place in the new law in any of them, each with its page or row; then why a table places nothing. `--table` the tables of one source (`blg-1081574`, `kst-34986-3`) and the laws they are between |
+| `lawgraph succession-gaps [--table ID]` | reads only: what the transposition and concordance tables do not place (as `semantic tk-transposition-tables` reads them): per old and new law the rows of each table that do not hold (a place that does not read, an article the old law lacks, an article or lid the new law lacks) and the articles of the old law in force without a place in the new law in any of them, each with its page or row; then why a table places nothing. `--table` the tables of one source (`blg-1081574`, `kst-34986-3`, `32017R1001`) and the laws they are between |
 | `lawgraph verify cabinets` | reads only: one row per cabinet (posts, seats, gaps, overlaps, stand-ins, phases) and every rule a cabinet breaks; a broken rule fails it |
 | `lawgraph built-beforehand` | reads nothing: the SQL that builds the indexes of the large tables a release adds before its deploy (see Deploy) |
 | `lawgraph search-stats [--days N] [--top N]` | the terms searched most in the last `--days` (default 7), from the files of `LAWGRAPH_SEARCH_STATS_DIR`. `search-stats prune [--keep-days 7] [--min-count 5]` moves the days older than `--keep-days` into the file of their month, keeping only the terms asked at least `--min-count` times in that day and the days kept after it; `daily.sh` runs it |
@@ -719,6 +719,16 @@ their own (`database`; on every run, as the unit suite: see CONTRIBUTING) agains
 `postgres:18` with JIT off, as the test server (pulled from the ECR Public mirror of Docker Hub, `public.ecr.aws/docker/library/postgres:18`, the same image: Docker Hub limits pulls without login); it has
 no S3 server, so it sets `ALLOW_S3_TESTS=0` and the tests of the payload store in a bucket are
 skipped there.
+
+The database tests run in seven shards of whole files, spread on the seconds per file that CI
+measured (`tests/durations.json`, by `tests/shards.py`); a file not measured yet counts as the
+median file. Each shard keeps its junit file as the artifact `junit-N`. A file's seconds vary
+by some 15% from run to run, so they are the mean over a few runs; to spread them anew:
+
+```sh
+for run in RUN_ID ...; do gh run download "$run" -p 'junit-*' -D "junit/$run"; done
+python -m tests.shards --record junit/*/*/junit.xml
+```
 
 Layout: a test in `tests/integration` runs the CLI or a pipeline; a test in `tests/pg` writes
 the graph directly and reads a query or a route, also at a scale that would defeat an unindexed

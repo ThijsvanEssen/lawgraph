@@ -547,7 +547,8 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         TKTranspositionTablesRetrievePipeline,
-        "The transposition tables among the attachments of Kamerstukken (PDF), as the KOOP "
+        "The transposition tables among the attachments of Kamerstukken (PDF), and the "
+        "Kamerstukken whose text names one (XML, kept when a table is read in it), as the KOOP "
         "SRU lists them: those not stored yet or changed since.",
         argv_for_all=_no_argv,
         lane=KOOP_REPOSITORY.lane,
@@ -963,7 +964,8 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         TKTranspositionTablesSemanticPipeline,
         "TRANSPOSED_TO from an article of the old law to its place in the new law, from the "
-        "stored transposition tables, each row checked against the text of the new law.",
+        "stored transposition tables and the concordance tables of EU acts, each row checked "
+        "against the text of the new law.",
     ),
     _pipeline(
         StaatscourantSemanticPipeline,

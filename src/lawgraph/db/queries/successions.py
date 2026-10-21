@@ -1,25 +1,28 @@
 """The reads of old law to new law: the stored transposition tables (a PDF of their own, or
-in the XML of a memorie van toelichting), and the laws a table names with their articles
-(``semantic tk-transposition-tables``, ``lawgraph succession-gaps``)."""
+in the XML of a Kamerstuk), the stored HTML of the EU acts with a concordance table, and the
+laws a table names with their articles (``semantic tk-transposition-tables``, ``lawgraph
+succession-gaps``)."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    EXPLANATORY_KIND_MARKER,
-    RAW_KIND_TK_KAMERSTUK_XML,
+    RAW_KIND_EURLEX_CELEX,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
+    SOURCE_EURLEX,
     SOURCE_TK,
 )
+from lawgraph.core.transposition_xml import PLACEHOLDER_YEAR
 from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
@@ -41,43 +44,58 @@ ORDER BY i.id
 """
 
 # The laws of the BWB of a citation title, as written in any case and with or without its
-# spaces, hyphens and other marks ("Omgevings-wet", "Monumentenwet1988").
+# spaces, hyphens and other marks ("Omgevings-wet", "Monumentenwet1988"): its folded title
+# matches the pattern of the name (``name_pattern``).
 _FOLDED = "regexp_replace(lower({}), '[^[:alnum:]]+', '', 'g')"
 _BWB_LAWS_NAMED = f"""
 SELECT id FROM {COLLECTION_INSTRUMENTS}
 WHERE bwb_id IS NOT NULL AND stub IS DISTINCT FROM TRUE
-  AND {_FOLDED.format("citation_title")} = {_FOLDED.format("%(name)s")}
+  AND {_FOLDED.format("citation_title")} ~ %(pattern)s
 ORDER BY id
 """
 
-# The keys of the explanatory memoranda with a heading that names a transposition or
-# concordance table: the Kamerstukken whose XML holds one.
-_MEMORANDA_WITH_TABLES = f"""
-SELECT d.key
-FROM {COLLECTION_DOCUMENTS} d
-CROSS JOIN LATERAL (SELECT d.props -> 'sections' AS sections OFFSET 0) p
-WHERE strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0
-  AND EXISTS (
-      SELECT 1 FROM json_array_elements({array_or_empty("p.sections")}) s
-      WHERE s ->> 'heading' ~* %(words)s
-  )
+# The EU acts with a concordance table: an article of theirs says that references to the acts
+# it repeals are read by it ("… worden gelezen volgens de concordantietabel in bijlage III").
+_ACTS_WITH_CONCORDANCE = f"""
+SELECT DISTINCT celex FROM {COLLECTION_ARTICLES}
+WHERE celex IS NOT NULL
+  AND strpos(lower(lg_str(props -> 'text')), 'concordantietabel') > 0
+"""
+
+# The EU acts of these CELEX numbers in the graph.
+_EU_ACTS = f"""
+SELECT celex, id FROM {COLLECTION_INSTRUMENTS}
+WHERE celex = ANY(%(celex)s) AND stub IS DISTINCT FROM TRUE
 """
 
 # The articles of a law that are no stub and have a number, in the order of the law, each
-# with the numbers of its leden (``props.parts`` of kind ``lid``).
+# with the numbers of its leden (``props.parts`` of kind ``lid``); then the historical
+# identities of a law of the BWB when asked for (``normalize bwb-history``: an article no
+# longer in its current toestand), repealed, by their last number.
 _LAW_ARTICLES = f"""
-SELECT a.id, a.article_number AS number, coalesce(a.repealed, false) AS repealed,
-       ARRAY(
-           SELECT p ->> 'number'
-           FROM json_array_elements({array_or_empty("a.props -> 'parts'")}) p
-           WHERE p ->> 'kind' = 'lid' AND p ->> 'number' IS NOT NULL
-       ) AS leden
-FROM edges e
-JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
-WHERE e.to_id = %(law)s AND e.relation = '{RELATION_PART_OF}'
-  AND e.from_collection = '{COLLECTION_ARTICLES}'
-  AND a.article_number IS NOT NULL AND a.stub IS DISTINCT FROM TRUE
-ORDER BY a.position NULLS LAST, a.id
+SELECT id, number, repealed, leden, historical FROM (
+    SELECT a.id, a.position, a.article_number AS number,
+           coalesce(a.repealed, false) AS repealed,
+           ARRAY(
+               SELECT p ->> 'number'
+               FROM json_array_elements({array_or_empty("a.props -> 'parts'")}) p
+               WHERE p ->> 'kind' = 'lid' AND p ->> 'number' IS NOT NULL
+           ) AS leden,
+           false AS historical
+    FROM edges e
+    JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
+    WHERE e.to_id = %(law)s AND e.relation = '{RELATION_PART_OF}'
+      AND e.from_collection = '{COLLECTION_ARTICLES}'
+      AND a.article_number IS NOT NULL AND a.stub IS DISTINCT FROM TRUE
+    UNION ALL
+    SELECT a.id, NULL, a.props ->> 'last_article_number', true, ARRAY[]::text[], true
+    FROM {COLLECTION_INSTRUMENTS} i
+    JOIN {COLLECTION_ARTICLES} a ON a.bwb_id = i.bwb_id AND a.article_number IS NULL
+    WHERE %(historical)s AND i.id = %(law)s
+      AND a.props ->> 'last_article_number' IS NOT NULL
+      AND a.stub IS DISTINCT FROM TRUE
+) articles
+ORDER BY historical NULLS LAST, position NULLS LAST, id
 """
 
 
@@ -88,42 +106,42 @@ def laws_of_dossier(store: Store, dossier_id: str) -> list[dict[str, Any]]:
 
 
 def bwb_laws_named(store: Store, name: str) -> list[str]:
-    """The ids of the laws of the BWB whose citation title is *name* (``_FOLDED``)."""
-    return [str(row) for row in store.query(_BWB_LAWS_NAMED, {"name": name})]
+    """The ids of the laws of the BWB whose citation title is *name* (``_FOLDED``,
+    ``name_pattern``)."""
+    pattern = f"^{name_pattern(name)}$"
+    return [str(row) for row in store.query(_BWB_LAWS_NAMED, {"pattern": pattern})]
 
 
-def law_articles(store: Store, law_id: str) -> list[dict[str, Any]]:
-    """``{id, number, repealed, leden}`` of each numbered article of the law."""
-    return list(store.query(_LAW_ARTICLES, {"law": law_id}))
+def folded(name: str) -> str:
+    """*name* in lower case without its spaces, hyphens and other marks (``_FOLDED``)."""
+    return "".join(c for c in name.lower() if c.isalnum())
+
+
+def name_pattern(name: str) -> str:
+    """The regular expression a folded citation title of *name* matches: its folded letters
+    and figures, a year a proposed law's name leaves open (``Mediawet 20..``) any year of
+    this century."""
+    return "20[0-9]{2}".join(re.escape(folded(p)) for p in PLACEHOLDER_YEAR.split(name))
+
+
+def law_articles(
+    store: Store, law_id: str, *, historical: bool = False
+) -> list[dict[str, Any]]:
+    """``{id, number, repealed, leden, historical}`` of each numbered article of the law,
+    then, with *historical*, of each historical identity of it."""
+    return list(store.query(_LAW_ARTICLES, {"law": law_id, "historical": historical}))
 
 
 def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:
-    """Every stored transposition table, with its payload."""
+    """Every stored transposition table and Kamerstuk naming one, with its payload."""
     rows = raw_queries.iter_raw_records(
         store,
         source=SOURCE_TK,
-        kinds=[RAW_KIND_TK_TRANSPOSITION_TABLE],
+        kinds=[RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT],
         since_iso=None,
         batch_size=1,
     )
     return store.with_payloads(rows)
-
-
-def kamerstukken_with_tables(store: Store, words: str) -> Iterator[dict[str, Any]]:
-    """The stored XML of every explanatory memorandum with a heading that matches the
-    regular expression *words*, with its payload."""
-    keys = [str(key) for key in store.query(_MEMORANDA_WITH_TABLES, {"words": words})]
-    rows = store.query(
-        """
-        SELECT key, doc FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s
-          AND lg_str(doc -> 'meta' -> 'document') = ANY(%(keys)s)
-        ORDER BY key
-        """,
-        {"source": SOURCE_TK, "kind": RAW_KIND_TK_KAMERSTUK_XML, "keys": keys},
-        batch_size=1,
-    )
-    return store.with_payloads(raw_doc(row) for row in rows)
 
 
 def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
@@ -137,3 +155,27 @@ def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:
             {"ids": law_ids},
         )
     )
+
+
+def eu_acts_with_concordance(store: Store) -> Iterator[dict[str, Any]]:
+    """The stored HTML of every EU act with a concordance table, by CELEX number, with its
+    payload."""
+    acts = sorted(str(celex) for celex in store.query(_ACTS_WITH_CONCORDANCE))
+    rows = store.query(
+        """
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id = ANY(%(acts)s)
+        ORDER BY external_id
+        """,
+        {"source": SOURCE_EURLEX, "kind": RAW_KIND_EURLEX_CELEX, "acts": acts},
+        batch_size=1,
+    )
+    return store.with_payloads(raw_doc(row) for row in rows)
+
+
+def eu_acts(store: Store, celex: list[str]) -> dict[str, str]:
+    """The id of the instrument of each EU act of *celex* the graph holds."""
+    return {
+        str(row["celex"]): str(row["id"])
+        for row in store.query(_EU_ACTS, {"celex": celex})
+    }

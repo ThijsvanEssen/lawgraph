@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from lawgraph.core.completeness import Coverage
 from lawgraph.core.curated import LISTS
 from lawgraph.core.ek_votes import RESULT_ADOPTED, RESULT_REJECTED
 from lawgraph.core.tk_records.kinds import KIND_BILL, KIND_EXPLANATORY_MEMORANDUM
@@ -39,12 +40,11 @@ CARRYING_KINDS: tuple[str, ...] = (
     "PKB/Structuurvisie",
 )
 
+# The kind of a budget: its law is published in the Staatsblad, the BWB never holds it.
+BUDGET_KIND = "Begroting"
 # The kinds that go the way of a bill, and so have phases; a treaty (approved tacitly),
 # an initiatiefnota and a structuurvisie have no voorstel van wet.
-LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", "Begroting")
-# The kinds whose bill becomes a law of its own, which the BWB holds once it is published;
-# a budget law (``Begroting``) it never holds.
-STATUTE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving")
+LEGISLATIVE_KINDS: tuple[str, ...] = ("Wetgeving", "Initiatiefwetgeving", BUDGET_KIND)
 
 # Where the kind comes from: a zaak of the dossier, the one source of it.
 KIND_BASIS_CASE = "case"
@@ -97,6 +97,8 @@ def load_phases() -> tuple[Phase, ...]:
 
 
 PHASES = load_phases()
+# The phase of the text the Tweede Kamer adopted: its bill passed the Kamer.
+ADOPTED_TEXT_PHASE = "Eindtekst"
 
 
 def _phase_dates(
@@ -378,6 +380,28 @@ def derive_outcome(
         if last["passed"] is False:
             return DossierOutcome(True, REJECTED, last.get("date"), decision)
     return DossierOutcome(False, tk_decision=decision)
+
+
+# The kinds of dossier the graph can see the end of: a bill (its law published, a chamber
+# voting it down) and a treaty (its act of approval published).
+ENDING_KINDS: tuple[str, ...] = (*LEGISLATIVE_KINDS, "Verdrag")
+
+
+def outcome_part(props: dict[str, Any]) -> dict[str, Any]:
+    """The ``outcome`` part of the ``completeness`` of a dossier with these *props*.
+
+    ``done`` as of ``closed_on`` when it closed. An open bill or treaty is ``pending`` as of
+    its ``last_activity``: still before a chamber, or ended in a way no record says (the
+    Kamer records no withdrawal), which the graph cannot tell apart. An open dossier of
+    another kind is ``not_in_source``: nothing records an end of it. ``pending`` without a
+    day before ``semantic tk-dossier-outcomes`` reached it."""
+    if "closed" not in props:
+        return {"state": Coverage.PENDING.value}
+    if props["closed"]:
+        return {"state": Coverage.DONE.value, "as_of": props.get("closed_on")}
+    if props.get("kind") in ENDING_KINDS:
+        return {"state": Coverage.PENDING.value, "as_of": props.get("last_activity")}
+    return {"state": Coverage.NOT_IN_SOURCE.value}
 
 
 def outcome_props(outcome: DossierOutcome) -> dict[str, Any]:

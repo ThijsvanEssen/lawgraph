@@ -8,6 +8,7 @@ import pytest
 
 from lawgraph.core.curated import LISTS, problems
 from lawgraph.core.dossier_stages import (
+    ADOPTED_TEXT_PHASE,
     CARRYING_KINDS,
     LEGISLATIVE_KINDS,
     PHASES,
@@ -19,6 +20,7 @@ from lawgraph.core.dossier_stages import (
     last_activity,
     last_decision,
     opened_on,
+    outcome_part,
     outcome_props,
     phase_props,
     select_title,
@@ -283,6 +285,27 @@ def test_the_last_decision_of_the_kamer_is_kept_as_it_writes_it() -> None:
     assert last_decision([]) is None
 
 
+def test_the_outcome_part_says_what_the_graph_knows_of_the_end() -> None:
+    """Closed: ``done`` on its closing day. An open bill: ``pending`` since its last
+    activity, for a withdrawal is recorded nowhere (a withdrawn bill looks like one still
+    before a chamber). A dossier without a bill: no end in the source. Not yet derived:
+    ``pending`` without a day."""
+    closed = {"closed": True, "closed_on": "2022-08-30", "last_activity": "2023-01-01"}
+    assert outcome_part({**closed, "kind": "Wetgeving"}) == {
+        "state": "done",
+        "as_of": "2022-08-30",
+    }
+    for kind in (*LEGISLATIVE_KINDS, "Verdrag"):
+        bill = {"closed": False, "kind": kind, "last_activity": "2009-08-11"}
+        assert outcome_part(bill) == {"state": "pending", "as_of": "2009-08-11"}
+    for other_kind in (None, "Initiatiefnota", "PKB/Structuurvisie"):
+        other = {"closed": False, "kind": other_kind, "last_activity": "2026-01-01"}
+        assert outcome_part(other) == {"state": "not_in_source"}
+    assert outcome_part({"kind": "Wetgeving", "last_activity": "2026-01-01"}) == {
+        "state": "pending"
+    }
+
+
 def test_outcome_props_records_the_outcome() -> None:
     outcome = DossierOutcome(True, "aangenomen", "2024-05-01", {"kind": "k"})
     assert outcome_props(outcome) == {
@@ -347,3 +370,7 @@ def test_the_last_activity_is_the_newest_thing_that_happened() -> None:
     assert last_activity(docs, activities, decisions) == "2026-03-05"
     assert last_activity(docs, activities, []) == "2026-02-01"
     assert last_activity([], [], []) is None
+
+
+def test_the_phase_of_the_adopted_text_is_a_phase_of_the_bar() -> None:
+    assert ADOPTED_TEXT_PHASE in [phase.name for phase in PHASES]

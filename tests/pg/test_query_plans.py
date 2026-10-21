@@ -141,10 +141,21 @@ URLS = [
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
+    # a paper: its dossiers by its PART_OF edges, each by its id; the same for the paper
+    # of a vote
+    "/api/documents/d1",
+    "/api/documents/d1/passages?bwb_id=BWBR0001&article=1",
+    "/api/documents",
+    "/api/documents?dossier=36000",
+    "/api/decisions?facets=false",
+    "/api/decisions/b1",
+    "/api/decisions/b1/document",
     "/api/dossiers/36000",
     # the documents behind the decisions of a page, by their cases (not every paper of it)
     "/api/dossiers/36000/timeline",
     "/api/dossiers/36000/amendments",
+    "/api/dossiers/36000/documents",
+    "/api/dossiers/36000/mutations",
     # the server HTML of a page (``/render``): a judgment, a dossier, a paper (the law of
     # this graph has no BWB id of seven figures, so no readable address)
     f"/render/uitspraken/{ECLI}",
@@ -445,6 +456,23 @@ def test_an_article_reads_the_definitions_its_regulation_takes(
         and statement_text(statement) == statement_text(_BASES_SQL)
         for url, statement, _ in statements
     ), show_items(statements)
+
+
+def test_a_detail_reads_its_unlinked_references_by_its_id(
+    statements: list[tuple[str, Any, Any]],
+) -> None:
+    """The article and the judgment route read how many references of the record were not
+    linked (``lg_unlinked_references``, one row by its key): planned above with the rest."""
+    from lawgraph.db.queries.unlinked_references import _COUNT_SQL
+
+    read = {
+        url
+        for url, statement, _ in statements
+        if statement_text(statement) == statement_text(_COUNT_SQL)
+    }
+    assert {f"/api/articles/{BWB}/1", f"/api/judgments/{ECLI}"} <= read, show_items(
+        statements
+    )
 
 
 def test_the_votes_of_a_rare_word_are_found_by_its_trigrams(

@@ -16,9 +16,15 @@ from lawgraph.api.schemas.common import (
     WithPath,
     dossier_names_of,
 )
+from lawgraph.api.schemas.completeness import (
+    COMPLETENESS,
+    Completeness,
+    document_completeness,
+)
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
+from lawgraph.core.document_completeness import XmlRetrieval
 from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
 from lawgraph.core.documents import (
@@ -28,6 +34,7 @@ from lawgraph.core.documents import (
     number_in_dossier,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.official_urls import document_url
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity, SubmitterRole, submitters
@@ -349,6 +356,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         description="The original file of a Tweede Kamer document (Word or PDF), from the "
         "Gegevensmagazijn.",
     )
+    official_url: str | None = Field(
+        None,
+        description="The document on zoek.officielebekendmakingen.nl: of the Eerste Kamer "
+        "the page its record names; of the Staatsblad or the Staatscourant (from 1995) by "
+        "its identifier; a Kamerstuk of the Tweede Kamer by its address "
+        "(``kst-37020-X-53``) once its text was read from there. Null for any other.",
+    )
     text: str | None = None
     submitters: list[SubmitterDTO] = Field(default_factory=list)
     dossier_numbers: list[str] = Field(default_factory=list)
@@ -384,6 +398,18 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         "agenda item it names; the document it was taken on is the oldest of that case, "
         "as the timeline of a dossier shows it. Empty for any other paper.",
     )
+    completeness: Completeness | None = Field(
+        None,
+        description="Of a paper of the Tweede Kamer `text`, `paragraphs` and `tables`: "
+        "`done`, `pending` (not fetched or not read yet; `as_of` when its XML was fetched or "
+        "last asked for, `reason` `awaiting_normalize` or `source_pdf_only`), "
+        "`not_in_source` (no Kamerstuk, or the repository has no XML of it) or `none` (its "
+        "XML read, and no text in it); `paragraphs` and `tables` `none` when its text has "
+        "none. Of a paper of the Eerste Kamer all three `not_fetched`. `references`: the "
+        "article and law citations of its text (`partial`: `missing` recognized and not "
+        "linked: a law or an article not in the graph). "
+        f"{COMPLETENESS} Null when no step derived any part.",
+    )
 
     @classmethod
     def from_document(
@@ -393,10 +419,14 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
+        unlinked: int | None = None,
+        retrieval: XmlRetrieval | None = None,
     ) -> DocumentTextResponse:
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
-        ``get_replacements``."""
+        ``get_replacements``; *unlinked* the citations of its text ``semantic tk`` could
+        not link (``unlinked_count``); *retrieval* what raw_sources holds of its XML
+        (``document_xml_retrieval``)."""
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
         slugs: dict[str, str] = doc.get("member_slugs") or {}
@@ -416,6 +446,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             external_id=external_id,
             tk_url=tk_url(NodeType.DOCUMENT.value, props),
             file_url=document_file_url(props),
+            official_url=document_url(props),
             text=text,
             sections=readable_sections(text, props.get("sections")),
             footnotes=document_footnotes(props),
@@ -440,6 +471,9 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
             decisions=[
                 DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
+            completeness=document_completeness(
+                props, list(doc.get("labels") or []), retrieval, unlinked
+            ),
             **origin,
             **outcome_fields(props),
         )

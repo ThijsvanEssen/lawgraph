@@ -1,0 +1,127 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/stb-2020-400/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Staatsblad</titel>
+    <subtitel>van het Koninkrijk der Nederlanden</subtitel>
+  </kop>
+  <staatsblad>
+    <wet-besluit>
+      <nota-toelichting>
+        <kop>
+          <titel>NOTA VAN TOELICHTING</titel>
+        </kop>
+        <bijlage status="goed">
+          <divisie opmaak="default">
+            <kop>
+              <titel>BIJLAGE TRANSPONERINGSTABELLEN</titel>
+            </kop>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <title>b. Transponeringstabel Bouwbesluit 2012</title>
+              <tgroup tgroupstyle="xml2" cols="5" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="130*" />
+                <colspec colnum="2" colname="col2" colwidth="64*" />
+                <colspec colnum="3" colname="col3" colwidth="96*" />
+                <colspec colnum="4" colname="col4" colwidth="74*" />
+                <colspec colnum="5" colname="col5" colwidth="90*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Hoofdstuk/onderwerp</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel </nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel Omgevingswet</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Artikel AMvB</nadruk>
+                      </al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>
+                        <nadruk type="vet">Toelichting overgangsrecht</nadruk>
+                      </al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>§ 1.1. Algemeen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Begripsbepalingen</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>1.1 Bbl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Geen overgangsrecht nodig.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Aantal personen in een bouwwerk</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.3, eerste lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>2.11 Bbl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Specifiek overgangsrecht is opgenomen in artikel 2.12 Bbl.</al>
+                    </entry>
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Gelijkwaardigheid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>1.3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>4.7</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>2.4 en 2.5 Bbl</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                      <al>Artikel 8.2.17 IbOw.</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </divisie>
+        </bijlage>
+      </nota-toelichting>
+    </wet-besluit>
+  </staatsblad>
+</officiele-publicatie>

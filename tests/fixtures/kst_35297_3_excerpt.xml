@@ -1,0 +1,134 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-35297-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <stuk>
+      <algemeen>
+        <bijlage status="goed">
+          <kop kopopmaak="vet">
+            <titel>BIJLAGE 1, BEHORENDE BIJ DE MEMORIE VAN TOELICHTING BIJ HET WETSVOORSTEL WET VOORTGEZET ONDERWIJS 20XX</titel>
+          </kop>
+          <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+            <title>Transponeringstabel van de Wet op het voortgezet onderwijs (WVO) en de Wet voortgezet onderwijs BES (WVO BES) naar de Wet voortgezet onderwijs 20xx (WVO 20xx)</title>
+            <tgroup tgroupstyle="xml2" cols="8" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="60*" />
+              <colspec colnum="2" colname="col2" colwidth="95*" />
+              <colspec colnum="3" colname="col3" colwidth="58*" />
+              <colspec colnum="4" colname="col4" colwidth="95*" />
+              <colspec colnum="5" colname="col5" colwidth="64*" />
+              <colspec colnum="6" colname="col6" colwidth="95*" />
+              <colspec colnum="7" colname="col7" colwidth="143*" />
+              <colspec colnum="8" colname="col8" colwidth="142*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>artikel WVO</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>lid/onderdeel</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>artikel WVO-BES</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>lid/onderdeel</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>artikel WVO 20xx</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col6" morerows="0" rotate="0">
+                    <al>lid/onderdeel</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col7" morerows="0" rotate="0">
+                    <al>opmerking / afwijkende bepaling voor Caribisch Nederland</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="center" colname="col8" morerows="0" rotate="0">
+                    <al>inwerkingtreding voor Caribisch Nederland</al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>(deels)</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>(deels)</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>1.1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col6" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col7" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col8" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>(deels)</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>(deels)</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>2.13</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col6" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col7" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col8" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>-</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>(deels)</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>11.1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col6" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col7" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col8" morerows="0" rotate="0" />
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>2</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>2</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col5" morerows="0" rotate="0">
+                    <al>1.4</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col6" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col7" morerows="0" rotate="0" />
+                  <entry colsep="0" valign="top" align="left" colname="col8" morerows="0" rotate="0" />
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+        </bijlage>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

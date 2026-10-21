@@ -5,7 +5,7 @@ The EVRM (the BWB treaty BWBV0001000, abbreviated EVRM in its WTI) and the AVG (
 with the short title EUR-Lex gives, and the abbreviation of ``curated
 instrument-abbreviations``) are in the graph: their articles are cited. The Rv and the Sv
 are not: the judgment keeps those citations as ``unresolved_citations``, until the law is
-loaded.
+loaded, and says how many it could not link (``completeness.references``).
 """
 
 from __future__ import annotations
@@ -126,12 +126,15 @@ def test_a_citation_of_a_law_not_in_the_graph_is_kept_on_the_judgment(
     ]
     cited = {a["article"]["article_number"] for a in response.json()["cited_articles"]}
     assert cited == {"8", "6"}
+    assert response.json()["completeness"] == {
+        "references": {"state": "partial", "as_of": None, "missing": 2, "reason": None}
+    }
 
 
 def test_a_law_that_is_loaded_later_takes_its_citations_over(
     client: tuple[TestClient, GraphStore, Any],
 ) -> None:
-    _, store, cli = client
+    api, store, cli = client
     _put(
         store,
         COLLECTION_INSTRUMENTS,
@@ -150,6 +153,8 @@ def test_a_law_that_is_loaded_later_takes_its_citations_over(
         "WHERE key = 'ecli_nl_hr_2019_1278'"
     )
     assert [(c["law"], c["article_number"]) for c in props] == [("Sv", "350")]
+    completeness = api.get(f"/api/judgments/{ECLI}").json()["completeness"]
+    assert completeness["references"]["missing"] == 1
 
 
 def test_the_code_keeps_rv_beside_its_version_for_paper_in_slices(

@@ -92,6 +92,15 @@ def edge_keys(store: GraphStore) -> set[str]:
     return set(store.query("SELECT key FROM edges"))
 
 
+def revisions(
+    store: GraphStore, collection: str, where: str = "true"
+) -> dict[str, str]:
+    """The key of every row of *collection* with its ``xmin``: the transaction that wrote it
+    last."""
+    statement = f"SELECT key, xmin::text AS rev FROM {collection} WHERE {where}"
+    return {row["key"]: row["rev"] for row in store.query(statement)}
+
+
 def write_evrm(store: GraphStore) -> None:
     """The ECHR Convention as ``normalize bwb`` writes BWBV0001000: EVRM from its WTI."""
     store.bulk_insert_or_update_nodes(

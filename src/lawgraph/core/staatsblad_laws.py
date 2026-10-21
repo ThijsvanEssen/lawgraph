@@ -29,7 +29,7 @@ from __future__ import annotations
 import copy
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -38,6 +38,7 @@ from lawgraph.core.bwb_definitions import definitions_in
 from lawgraph.core.bwb_xml import (
     ARTICLE_ELEMENTS,
     DIVISIONS,
+    KIND_PUBLICATION,
     ArticleXml,
     Crumb,
     article_display_name,
@@ -51,7 +52,7 @@ from lawgraph.core.citations import (
     name_key,
     parse_article_numbers,
 )
-from lawgraph.core.completeness import Coverage, Part
+from lawgraph.core.completeness import Coverage, Part, references_part
 from lawgraph.core.models import make_node_key
 from lawgraph.core.publications import koop_citation, parse_koop_id
 from lawgraph.core.qualifiers import parse_qualifier
@@ -104,7 +105,7 @@ class Replacement:
 
 @dataclass(frozen=True)
 class LawPublication:
-    """A publication of the Staatsblad that is a law (``DC.type`` ``Wet``)."""
+    """A publication of the Staatsblad that is a law (``DC.type`` ``Wet`` or ``Rijkswet``)."""
 
     official_id: str  # stb-2026-56
     intitule: str
@@ -129,6 +130,11 @@ class LawPublication:
             (number := article_number(article)) and number[0].isdigit()
             for article in _own_articles(self.wettekst)
         )
+
+    def without_text(self) -> LawPublication:
+        """The publication read for its dossiers alone: no text, so it enacts nothing and
+        gives no law a new text."""
+        return replace(self, wettekst=ET.Element("wettekst"), replacements=())
 
 
 def _own_articles(element: ET.Element) -> Iterator[ET.Element]:
@@ -331,9 +337,12 @@ def law_definitions(law: LawPublication, text: LawText) -> list[dict[str, Any]]:
 
 def read_records(
     records: Iterable[tuple[object, str | None]],
+    *,
+    text_wanted: Callable[[LawPublication], bool] = lambda _: True,
 ) -> tuple[list[LawPublication], list[tuple[str, str]]]:
     """The publications of the stored records *records* (``(external_id, xml)``), and those
-    left out (``(why, id)``): no XML, XML that does not parse, no wettekst."""
+    left out (``(why, id)``): no XML, XML that does not parse, no wettekst. A publication
+    whose text is not *text_wanted* is kept without it (``without_text``)."""
     found: list[LawPublication] = []
     skipped: list[tuple[str, str]] = []
     for official, xml in records:
@@ -348,7 +357,9 @@ def read_records(
         if publication is None:
             skipped.append(("no wettekst", official))
             continue
-        found.append(publication)
+        found.append(
+            publication if text_wanted(publication) else publication.without_text()
+        )
     return found, skipped
 
 
@@ -596,17 +607,28 @@ def law_completeness(
     law = props if law is None else law
     if law.get("source") != SOURCE_STAATSBLAD or law.get("kind") != KIND_LAW:
         return None
-    unlinked = props.get("unlinked_references")
-    references: dict[str, Any]
-    if unlinked is None:
-        references = {"state": Coverage.PENDING.value}
-    elif unlinked:
-        references = {"state": Coverage.PARTIAL.value, "missing": int(unlinked)}
-    else:
-        references = {"state": Coverage.DONE.value}
+    references = references_part(props.get("unlinked_references")) or {
+        "state": Coverage.PENDING.value
+    }
     found = law.get("definitions_found") is not None
     definitions = Coverage.DONE if found else Coverage.PENDING
     return {
         Part.REFERENCES.value: references,
         Part.DEFINITIONS.value: {"state": definitions.value},
     }
+
+
+def publication_completeness(
+    props: Mapping[str, Any],
+) -> dict[str, dict[str, Any]] | None:
+    """The ``completeness`` of a publication (``kind`` ``publicatie``) as the BWB names one:
+    its ``text`` ``not_fetched``, for officielebekendmakingen.nl holds it and what it
+    changes is read from the BWB. None of a publication of the Staatsblad whose XML
+    ``retrieve staatsblad`` fetched (``source`` ``staatsblad``: a law, read when it enacts
+    one the BWB does not hold) and of anything else."""
+    if (
+        props.get("kind") != KIND_PUBLICATION
+        or props.get("source") == SOURCE_STAATSBLAD
+    ):
+        return None
+    return {Part.TEXT.value: {"state": Coverage.NOT_FETCHED.value}}

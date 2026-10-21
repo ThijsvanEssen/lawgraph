@@ -1,5 +1,5 @@
 """Retrieve pipeline for Dutch Staatsblad publications: the AMvBs the BWB names, and the laws
-of the dossiers the graph holds as adopted."""
+of the dossiers whose bill passed."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from lawgraph.config.constants import (
     RAW_KIND_STAATSBLAD_LAW,
     SOURCE_STAATSBLAD,
 )
+from lawgraph.core.dossier_numbers import published_number
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import UNREAD_TOESTAND, staatsblad_ref_from_bwb_xml
@@ -70,23 +71,25 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
         return result
 
     def run_laws_of_adopted_dossiers(self, store: GraphStore) -> PipelineResult:
-        """Retrieve the laws (``DC.type`` ``Wet``) of the dossiers the graph holds as adopted
-        that no instrument is ``LEGISLATED_IN`` yet (``dossiers_awaiting_their_law``): per
-        dossier those the SRU lists (``w.behandeldDossier``), not stored yet or changed since.
-        ``normalize staatsblad-laws`` reads a law the BWB does not hold from them."""
+        """Retrieve the laws (``DC.type`` ``Wet`` or ``Rijkswet``) of the dossiers whose bill
+        passed that no instrument is ``LEGISLATED_IN`` yet (``dossiers_awaiting_their_law``):
+        per dossier those the SRU lists (``w.behandeldDossier``, a Rijkswet's by its number
+        alone: ``published_number``), not stored yet or changed since. ``normalize
+        staatsblad-laws`` links each to its dossiers, and reads a law the BWB does not hold
+        from them."""
 
         def listing() -> Iterator[RetrieveRecord]:
             dossiers = [str(d) for d in law_queries.dossiers_awaiting_their_law(store)]
             listed = {
                 law["identifier"]: law
                 for dossier in dossiers
-                for law in self.laws.search(dossier=dossier)
+                for law in self.laws.search(dossier=published_number(dossier))
             }
             identifiers = self._changed(
                 SOURCE_STAATSBLAD, RAW_KIND_STAATSBLAD_LAW, listed.values()
             )
             logger.info(
-                "Staatsblad laws: %d adopted dossiers without a law in the graph, %d laws "
+                "Staatsblad laws: %d passed dossiers without a law in the graph, %d laws "
                 "listed for them, %d new or changed.",
                 len(dossiers),
                 len(listed),

@@ -186,14 +186,27 @@ _ACT_KINDS: dict[str, EUInstrumentKind] = {
     for noun in (act.noun, *act.older_nouns)
 }
 _DOMAIN = r"(?:EU|EG|EEG|EGKS|Euratom|JBZ|GBVB)"
-EU_ACT_PATTERN = re.compile(
-    r"\b(?:gedelegeerde\s+|uitvoerings-?)?"
-    r"(?P<kind>kaderbesluit|richtlijn|verordening|beschikking|besluit)\s+"
+# The number of an act after its kind: "2016/679", "(EU) 2016/679", "(EEG) nr. 1408/71",
+# "nr. 2004/17/EG".
+_ACT_NUMBER = (
     r"(?:nr\.?\s*)?"
     rf"(?:\({_DOMAIN}(?:,\s*{_DOMAIN})*\)\s*)?"
     r"(?P<nr>nr\.?\s*)?"
     r"(?P<first>\d{2,4})/(?P<second>\d{1,4})"
-    rf"(?:/{_DOMAIN})?\b",
+    rf"(?:/{_DOMAIN})?\b"
+)
+_ACT_KIND = r"(?P<kind>kaderbesluit|richtlijn|verordening|beschikking|besluit)"
+EU_ACT_PATTERN = re.compile(
+    rf"\b(?:gedelegeerde\s+|uitvoerings-?)?{_ACT_KIND}\s+{_ACT_NUMBER}",
+    re.IGNORECASE,
+)
+_ACT_NUMBER_PATTERN = re.compile(_ACT_NUMBER, re.IGNORECASE)
+# A kind, also in the plural, with a list of numbers: "De Richtlijnen 82/891/EEG, 89/666/EEG
+# en 2005/56/EG".
+_LISTED_NUMBER = re.sub(r"\(\?P<\w+>", "(?:", _ACT_NUMBER)
+_ACTS_PATTERN = re.compile(
+    rf"\b{_ACT_KIND}(?:en)?\s+(?P<numbers>{_LISTED_NUMBER}"
+    rf"(?:(?:\s*,\s*|\s+en\s+){_LISTED_NUMBER})*)",
     re.IGNORECASE,
 )
 # A clause that implements: "ter uitvoering van", "te implementeren", "geïmplementeerd",
@@ -220,7 +233,24 @@ def eu_act_celex(match: re.Match[str]) -> str | None:
     A regulation before 2015 has its number first ("nr. 1408/71"), any other act its year;
     a year of two digits is one of the twentieth century.
     """
-    kind = _ACT_KINDS[match["kind"].lower()]
+    return _celex(match["kind"], match)
+
+
+def named_acts(text: str) -> list[str]:
+    """The CELEX numbers of the EU acts *text* names, in order, each once: one by one
+    ("Verordening (EG) nr. 207/2009") or in a list ("De Richtlijnen 82/891/EEG, 89/666/EEG
+    en 2005/56/EG"), read as :func:`eu_act_celex` reads one."""
+    found: dict[str, None] = {}
+    for listed in _ACTS_PATTERN.finditer(text):
+        for match in _ACT_NUMBER_PATTERN.finditer(listed["numbers"]):
+            celex = _celex(listed["kind"], match)
+            if celex:
+                found.setdefault(celex)
+    return list(found)
+
+
+def _celex(kind_name: str, match: re.Match[str]) -> str | None:
+    kind = _ACT_KINDS[kind_name.lower()]
     first, second = match["first"], match["second"]
     year, number = (
         (second, first) if kind == "regulation" and match["nr"] else (first, second)

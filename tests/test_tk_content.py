@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     SOURCE_TK,
 )
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
+from lawgraph.core.time import dutch_today
 from lawgraph.db import raw_key
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
@@ -271,7 +272,7 @@ def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None
 
 def _retry_after(days_old: int) -> dt.datetime:
     """When a paper *days_old* days old that the repository has no XML for is asked again."""
-    day = (dt.datetime.now(dt.UTC).date() - dt.timedelta(days=days_old)).isoformat()
+    day = (dutch_today() - dt.timedelta(days=days_old)).isoformat()
     not_found = _Client({"kst-36867-3": http_error(404)})
     store = _Store([_document("36867", 3, date=day)])
     TKContentRetrievePipeline(

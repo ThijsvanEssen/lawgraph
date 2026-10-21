@@ -248,7 +248,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
         EDGE_SOURCE_SECTIONS,
         CONFIDENCE_OF_MATCH[MATCH_BODY_NAMED_LAW],
     )
-    assert named["meta"]["match_type"] == "body_named_law"
+    assert _best(named["meta"])["match_type"] == "body_named_law"
     assert named["meta"]["changed"] is True
     assert named["meta"]["explanation"].endswith("het dossier wijzigt het artikel.")
     assert named["meta"]["heading"] == "Artikel I" and named["meta"]["section_anchor"]
@@ -270,7 +270,7 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
             EDGE_SOURCE_SECTIONS,
             CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER],
         )
-        assert edge["meta"]["match_type"] == "own_number"
+        assert _best(edge["meta"])["match_type"] == "own_number"
         assert edge["meta"]["heading"] == f"Artikel {number}"
     # the article no change edge names: an edge only the sections know of
     assert new[ids["new_3"]]["source"] == EDGE_SOURCE_SECTIONS
@@ -284,6 +284,14 @@ def _check_the_result(store: GraphStore, ids: dict[str, str]) -> None:
 
 def _run(cli: Any, *names: str) -> str:
     return "\n".join(cli("semantic", name).stderr for name in names)
+
+
+def _best(meta: dict[str, Any]) -> dict[str, Any]:
+    """The section of *meta* its top describes (``section_anchor``)."""
+    (section,) = [
+        s for s in meta["sections"] if s["section_anchor"] == meta["section_anchor"]
+    ]
+    return section
 
 
 def test_the_result_is_the_same_in_either_order_and_a_rerun_writes_nothing(
@@ -507,7 +515,7 @@ def test_a_memorandum_per_onderdeel_explains_what_the_bill_says_it_changes(
     for number, section in (("10", "s-0"), ("20a", "s-1")):
         meta = edges[ids[number]]["meta"]
         assert meta["section_anchor"] == section
-        assert meta["match_type"] == "bill_part"
+        assert _best(meta)["match_type"] == "bill_part"
         assert meta["changed"] is True
     # what the bill inserted and the dossier did not change, and the bill's own articles
     assert ids["20b"] not in edges
@@ -533,11 +541,17 @@ def test_a_section_edge_the_code_no_longer_derives_goes_back_to_the_dossier(
     store = GraphStore()
     ids = _graph(store)
     _run(cli, "tk-mvt", "tk-mvt-articles")
-    stale = {
+    section = {
         "section_anchor": "s-1",
-        "sections": [{"section_anchor": "s-1", "heading": "Artikel I"}],
+        "heading": "Artikel I",
+        "char_start": 0,
+        "char_end": 10,
         "match_type": "body_named_law",
+        "changed": True,
+        "confidence": 0.65,
+        "explanation": "De tekst noemt de wet.",
     }
+    stale = {"section_anchor": "s-1", "sections": [section]}
     # what an earlier code wrote: 3 of the Klimaatfonds (changed, no section names it), and
     # an article of another dossier's law
     for target in (ids["klimaat_3"], ids["new_1"]):
@@ -604,7 +618,7 @@ def test_an_adopted_amendment_is_the_explanation_of_the_article_it_added(
     adopted = _by_target(store, "documents/amendment_adopted")
     assert set(adopted) == {f"article_versions/{version}"}
     meta = adopted[f"article_versions/{version}"]["meta"]
-    assert (meta["match_type"], meta["heading"]) == ("amendment", "Toelichting")
+    assert (_best(meta)["match_type"], meta["heading"]) == ("amendment", "Toelichting")
     assert _by_target(store, "documents/amendment_rejected") == {}
 
     # the reader: the memorandum names no 30a; the amendment explains it
@@ -681,13 +695,13 @@ def test_the_memorandum_of_a_new_law_that_changes_another_explains_both(
     assert zorgplicht["source"] == EDGE_SOURCE_SECTIONS
     assert zorgplicht["confidence"] == CONFIDENCE_OF_MATCH[MATCH_OWN_NUMBER]
     meta = zorgplicht["meta"]
-    assert (meta["match_type"], meta["changed"]) == ("own_number", True)
+    assert (_best(meta)["match_type"], meta["changed"]) == ("own_number", True)
     assert meta["explanation"].endswith("het dossier stelt het artikel vast.")
     # article 22 is named in passing: the dossier explains it, no section
     assert edges[ids["cbw_22"]]["source"] == EDGE_SOURCE
     assert edges[ids["cbw_99"]]["meta"]["section_anchor"] == "s-1"
     tw = edges[ids["tw"]]["meta"]
-    assert (tw["section_anchor"], tw["match_type"]) == ("s-1", "body_named_law")
+    assert (tw["section_anchor"], _best(tw)["match_type"]) == ("s-1", "body_named_law")
 
     app.dependency_overrides[get_store] = lambda: store
     client = TestClient(app)

@@ -17,8 +17,8 @@ dossier established (``core.mvt_articles.new_law``): its articles are those of t
 An edge is one per (document, article), so an article that several sections explain has one
 edge that lists them all: ``meta.section_anchor`` and the fields beside it describe the surest
 of them, ``meta.sections`` every one. What a match rests on is in ``explanation``,
-``match_type`` and ``changed``: whether the dossier changed the article, which corroborates
-what the document says (``core.mvt_articles``).
+``changed`` (whether the dossier changed the article, which corroborates what the document
+says) and, per section, ``match_type`` (``core.mvt_articles``).
 
 The edge is the one ``semantic tk-mvt`` writes for the whole dossier, upgraded in place (same
 key): this pipeline's source and confidence are what the edge carries when it exists, whichever
@@ -105,7 +105,6 @@ def edge_meta(references: list[Reference]) -> dict[str, Any]:
         "section_anchor": best.section_id,
         "char_start": best.char_start,
         "char_end": best.char_end,
-        "match_type": best.match_type,
         "changed": best.changed,
         "explanation": best.explanation,
         "heading": best.heading,

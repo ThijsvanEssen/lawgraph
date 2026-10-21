@@ -37,7 +37,7 @@ Staatsblad the BWB does not hold (yet) is named by the publication that enacted 
 (`STB-2026-56`) in the article routes (`/api/articles/STB-2026-56/2.8.6`) and on all instrument
 routes, and by its key (`wet_stb_2026_56`); the publication itself is named by its own key
 (`stb_2026_56`). Such a law and each of its articles carry `completeness` (see
-"Completeness"; null for any other): `references` `done` (every article reference of its text
+"Completeness"): `references` `done` (every article reference of its text
 linked), `partial` (`missing` not linked: a law not in the graph, a citation not read) or
 `pending` (not read yet), `definitions` `done` or `pending`, from what `semantic
 staatsblad-law-references` and `semantic bwb-definitions` kept. A dossier `number`
@@ -61,6 +61,10 @@ article without a number the JCI can address), a BWB regulation as `/{BWB}` (a v
 `/{BWB}/{valid_from}`), an EU act on EUR-Lex by its CELEX number, a treaty on the
 Verdragenbank, a Staatsblad, Staatscourant or Tractatenblad publication on
 zoek.officielebekendmakingen.nl (`stb-2019-33`; null before 1995, where that site begins).
+A document (`/api/documents/{key}`, `/api/decisions/{key}/document`) carries it too, on
+zoek.officielebekendmakingen.nl: a paper of the Eerste Kamer at the page its record names
+(`url`), a Staatsblad or Staatscourant document by its identifier, a Kamerstuk of the Tweede
+Kamer by its address (`kst-37020-X-53`) once its text was read from there; null for any other.
 
 ## Shared fields
 
@@ -144,7 +148,7 @@ detail, node responses), is its page on tweedekamer.nl, made from the number the
 document number (`kamerstukken/detail?id=2026D44984&did=2026D44984`) or the activity number
 (`debat_en_vergadering/plenaire_vergaderingen/details/activiteit?id=…` for a plenary kind,
 `debat_en_vergadering/commissievergaderingen/details?id=…` for any other). It is null when the node
-has no such number, as an Eerste Kamer paper, whose page is its `url`.
+has no such number, as an Eerste Kamer paper, whose page is its `official_url`.
 
 `number` of a document, wherever it appears (timeline, document lists and detail, search hits,
 the feed, node responses: in `props`), is its number in its dossier as its chamber cites it: the
@@ -251,7 +255,7 @@ What the graph holds of a record or a source, and what it lacks, has one shape
 (`core/completeness.py`, `api/schemas/completeness.py`):
 
 ```
-completeness: {<part>: {state, as_of, missing}}
+completeness: {<part>: {state, as_of, missing, reason}}
 ```
 
 | Part | About |
@@ -263,6 +267,7 @@ completeness: {<part>: {state, as_of, missing}}
 | `definitions` | the definitions it gives |
 | `versions` | its versions over time |
 | `succession` | its successor and predecessor (old to new law) |
+| `outcome` | how it ended: of a dossier, the end of its bill |
 | `source` | the source itself: whether the runs still fetch from it |
 
 | State | Meaning |
@@ -274,12 +279,57 @@ completeness: {<part>: {state, as_of, missing}}
 | `paused` | the source or the step is off |
 | `unavailable` | the source refused the last run (HTTP 401/403, a challenge page) |
 | `not_in_source` | the source does not give it |
+| `not_fetched` | the source gives it; the graph does not take it in |
+
+Where one state has more than one cause, `reason` says which (null otherwise):
+
+| Reason | With | Meaning |
+|--------|------|---------|
+| `awaiting_normalize` | `pending` `text` of a Kamerstuk | its XML is fetched, not read yet |
+| `source_pdf_only` | `pending` `text` of a Kamerstuk | the source has its PDF only; its XML follows |
 
 A part left out is not known to lack anything. Every state is derived from what a step wrote
 or a run recorded, never set by hand.
 
 Of a record: a law of the Staatsblad the BWB does not hold (yet) and each of its articles
-(`references`, `definitions`; see "Paths, parameters and periods"); null on any other record.
+(`references`, `definitions`; see "Paths, parameters and periods"); an article of the BWB or of
+an EU act (`/api/articles/...`), a judgment (`/api/judgments/{ecli}`) and a paper
+(`/api/documents/{key}`, `/api/decisions/{key}/document`) `references`: `done` (every
+reference its text makes that the step recognized is linked) or `partial` (`missing`
+recognized and not linked: a law or an article not in the graph), as `semantic bwb` (the
+references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk` kept
+them in `lg_unlinked_references`. Null on a record no step read the references of (an article
+without references, a paper without text, one not read yet) and on any other record.
+
+Of a paper of the Tweede Kamer (`/api/documents/{key}`, `/api/decisions/{key}/document`) its
+`text`, `paragraphs` and `tables`, from what `retrieve tk-content` and `normalize tk-content`
+wrote (`core/document_completeness.py`). With text, `text` is `done`, and `paragraphs` and
+`tables` `done`, `none` when the read found none, or `pending` when it was read before they
+were kept. Without, all three alike:
+
+| State | `reason` | When | `as_of` |
+|-------|----------|------|---------|
+| `pending` | | not fetched yet | |
+| `pending` | `awaiting_normalize` | its XML fetched, not read by a complete `normalize all` since | when it was fetched |
+| `pending` | `source_pdf_only` | the repository had no XML yet of a paper of the last 14 days (a new paper is a PDF only until its XML follows; asked again each night) | when it was last asked for |
+| `not_in_source` | | the repository had no XML of an older paper | when it was last asked for |
+| `not_in_source` | | it is no Kamerstuk: not numbered in a dossier, so no address in the repository | |
+| `none` | | its XML read and no text in it, or XML that does not read | when it was fetched |
+
+Of a paper of the Eerste Kamer all three are `not_fetched`: the repository holds it, the graph
+takes in the Eerste Kamer's record of it, not its text. Of a publication the BWB names (`kind`
+`publicatie`, `/api/instruments/{identifier}`) `text` is `not_fetched`: its text is on
+officielebekendmakingen.nl and what it changes is read from the BWB; a publication of the
+Staatsblad whose XML `retrieve staatsblad` fetched (`source` `staatsblad`, a law) has no such
+part.
+
+Of a dossier (`/api/dossiers`, `/api/dossiers/{number}` and every list of dossiers) its
+`outcome`, from what `semantic tk-dossier-outcomes` wrote (`core/dossier_stages.outcome_part`):
+`done` as of `closed_on` when it closed; `pending` as of `last_activity` when a bill or treaty
+is open, for the graph cannot tell one still before a chamber from one withdrawn (the
+Tweede Kamer records no withdrawal, [data model](data-model.md)); `not_in_source` when a
+dossier of another kind is open (nothing records its end); `pending` without `as_of` before
+the step reached it.
 
 Of a source (`data_as_of.<source>.completeness.source`, in `/api/stats` and the feed): after
 its steps, `<phase> all` and a poll keep per source whose retrieves they had what they did

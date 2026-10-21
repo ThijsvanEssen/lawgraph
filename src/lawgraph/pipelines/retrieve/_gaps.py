@@ -11,26 +11,31 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 from lawgraph.config.constants import (
+    RAW_KIND_EURLEX_CELEX,
     RAW_KIND_MISSING_SUFFIX,
     RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_DOCUMENT,
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
+    SOURCE_EURLEX,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
 from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
+from lawgraph.core.concordance_html import read_tables
+from lawgraph.core.document_completeness import kamerstuk_address
 from lawgraph.core.dossier_numbers import first_reading_dossiers
-from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
+from lawgraph.core.raw_records import payload_text
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import Store, raw_key
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import successions as succession_queries
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
 logger = get_logger(__name__)
@@ -151,12 +156,39 @@ def unanswered_referrals(store: Store) -> list[Referral]:
 
 
 def eurlex_gaps(store: Store) -> list[str]:
-    """The EU acts BWB regulations name (``props.celex_refs``) that were not retrieved.
+    """The EU acts the graph names and that were not retrieved: those BWB regulations name
+    (``props.celex_refs``), and the old acts of the concordance tables (``concordance_gaps``).
 
     The id is an attribute of the link in the XML, not text of an article, so it is read
     from what ``normalize bwb`` kept on the regulation.
     """
-    return cast(list[str], list(gap_queries.unretrieved_celex_refs(store)))
+    named = [str(celex) for celex in gap_queries.unretrieved_celex_refs(store)]
+    return list(dict.fromkeys([*named, *concordance_gaps(store)]))
+
+
+def concordance_gaps(store: Store) -> list[str]:
+    """The old acts the concordance table of a stored EU act names (``core.concordance_html``)
+    that the graph does not hold and that were not retrieved, sorted: without them the table
+    places nothing. An old act fetched in turn may have a table of its own, for the next run.
+    """
+    named = sorted(
+        {
+            table.old_act
+            for record in succession_queries.eu_acts_with_concordance(store)
+            for table in read_tables(
+                payload_text(record) or "", str(record.get("external_id") or "")
+            )
+            if table.old_act
+        }
+    )
+    held = set(succession_queries.eu_acts(store, named))
+    stored = _with_raw_record(
+        store,
+        [{"identifier": celex} for celex in named if celex not in held],
+        RAW_KIND_EURLEX_CELEX,
+        source=SOURCE_EURLEX,
+    )
+    return [celex for celex in named if celex not in held | stored]
 
 
 def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
@@ -172,10 +204,10 @@ def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> Gaps:
         gap_queries.papers_with_dossier(store, [kind.lower() for kind in kinds])
     )
     for document in documents:
-        document["identifier"] = kamerstuk_identifier(
+        document["identifier"] = kamerstuk_address(
             document["number"], document.get("suffix"), document["sequence"]
         )
-    documents = [p for p in documents if KST_ID_PATTERN.fullmatch(p["identifier"])]
+    documents = [p for p in documents if p["identifier"]]
     stored = _with_raw_record(store, documents, RAW_KIND_TK_KAMERSTUK_XML)
     waiting = _with_raw_record(
         store,
@@ -194,15 +226,17 @@ def _with_raw_record(
     documents: list[dict[str, Any]],
     kind: str,
     *,
+    source: str = SOURCE_TK,
     retry_ahead: bool = False,
 ) -> set[str]:
-    """The identifiers of *documents* that have a raw record of *kind*, by primary key.
+    """The identifiers of *documents* that have a raw record of *source* and *kind*, by
+    primary key.
 
     With *retry_ahead* only a record of a missing document counts that is not to be asked for
     again yet.
     """
     by_key = {
-        raw_key(SOURCE_TK, kind, document["identifier"]): document["identifier"]
+        raw_key(source, kind, document["identifier"]): document["identifier"]
         for document in documents
     }
     now = iso_timestamp(dt.datetime.now(dt.UTC)) if retry_ahead else None

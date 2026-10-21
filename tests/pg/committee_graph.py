@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records.decisions import VOTE_KIND_MEMBER
 from lawgraph.db import GraphStore, make_edge_doc
 from lawgraph.db.queries.member_votes import get_member_votes
+from tests.edge_meta import off_the_model
 from tests.pg.plans import explain, plan_nodes, recorded
 
 FIRST = "Eerste ondertekenaar"
@@ -88,7 +89,8 @@ def committee_graph(store: GraphStore) -> None:
         role="voorzitter",
         observed_from="2020-02-01",
     )
-    g.edge("members/m6", RELATION_MEMBER_OF, committee, to_date=5)
+    with off_the_model("an end that is not a date is no end ahead (lg_seated)"):
+        g.edge("members/m6", RELATION_MEMBER_OF, committee, to_date=5)
     dossiers: dict[str, dict[str, Any]] = {
         "d1": {"opened_on": "2024-01-01"},
         "d2": {"opened_on": "2024-01-01"},
@@ -196,7 +198,7 @@ def faction_graph(store: GraphStore) -> None:
     # a former member (last day past) is not counted, one leaving later still is
     g.edge("members/m4", RELATION_MEMBER_OF, "factions/vvd", to_date="2017-03-22")
     g.edge("members/m5", RELATION_MEMBER_OF, "factions/vvd", to_date="2999-12-31")
-    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd", chamber="EK")
+    g.edge("members/m3", RELATION_MEMBER_OF, "factions/ek_vvd")
     g.edge("members/m1", RELATION_MEMBER_OF, "factions/d66")
     g.write()
 
@@ -338,11 +340,19 @@ def signatures(store: GraphStore) -> None:
     g.edge("cases/k2", RELATION_PART_OF, "dossiers/d3")
     signed = (
         ("doc1", {"role": FIRST, "capacity": "bewindspersoon", "function": "minister"}),
-        ("doc2", {"role": "", "capacity": "", "function": None}),
         ("doc3", {"role": CO, "capacity": None, "function": "Kamerlid"}),
     )
     for document, meta in signed:
         g.edge("members/m1", RELATION_AUTHORED, f"documents/{document}", **meta)
+    with off_the_model('a capacity "" is none: the routes leave it out and answer'):
+        g.edge(
+            "members/m1",
+            RELATION_AUTHORED,
+            "documents/doc2",
+            role="",
+            capacity="",
+            function=None,
+        )
     g.edge("members/m2", RELATION_AUTHORED, "documents/doc2", role=CO)
     g.edge("members/m2", RELATION_AUTHORED, "documents/doc1", role=FIRST)
     g.edge("members/m2", RELATION_AUTHORED, "cases/k2", role=FIRST)

@@ -236,6 +236,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -264,6 +272,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -292,6 +308,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "done",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -320,6 +344,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "done",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -348,6 +380,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -547,6 +587,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "done",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -683,6 +731,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -3798,6 +3854,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -3832,6 +3896,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -3876,6 +3948,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -3920,6 +4000,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -3963,6 +4051,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,
@@ -4007,6 +4103,14 @@
       "submitted_on_tk": null,
       "last_activity": null,
       "closed_on": null,
+      "completeness": {
+       "outcome": {
+        "state": "pending",
+        "as_of": null,
+        "missing": null,
+        "reason": null
+       }
+      },
       "ministry": null,
       "initiative": null,
       "cabinet": null,

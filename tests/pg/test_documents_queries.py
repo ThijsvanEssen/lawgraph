@@ -325,7 +325,9 @@ def _passage(anchor: str, confidence: float, **more: Any) -> dict[str, Any]:
         "char_start": 0,
         "char_end": 1,
         "match_type": "heading_target",
+        "changed": False,
         "confidence": confidence,
+        "explanation": "De kop noemt het artikel.",
         **more,
     }
 

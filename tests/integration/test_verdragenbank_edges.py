@@ -4,7 +4,8 @@
 
 - A treaty is PUBLISHED_IN each Tractatenblad it lists; one not in the graph yet becomes a
   publication, one the BWB loaded keeps what the BWB said.
-- It is LEGISLATED_IN the dossier of its approval when the dossier is in the graph.
+- It is LEGISLATED_IN the dossier of its approval when the dossier is in the graph, a
+  Rijkswet's too (the register names 8689-(R542) "8689 (R542)").
 - A Protocol is PART_OF its Convention (005132) when that is in the graph, and the
   Convention does not count it among its articles.
 - A second run changes nothing; an edge the register no longer names goes.
@@ -76,7 +77,13 @@ def _seed(store: GraphStore) -> None:
                 "type": "dossier",
                 "labels": [],
                 "props": {"number": "22386"},
-            }
+            },
+            {
+                "key": "8689_r542",
+                "type": "dossier",
+                "labels": [],
+                "props": {"number": "8689", "label": "8689-(R542)"},
+            },
         ],
     )
     # a Tractatenblad the BWB loaded already
@@ -121,8 +128,7 @@ def test_a_treaty_is_published_in_its_tractatenbladen(store: GraphStore) -> None
     edges = _edges(store)
     granada = "instruments/verdrag_000004"
     assert edges[(granada, "PUBLISHED_IN", "instruments/trb_1985_163")] == {
-        "tractatenblad": "1985, 163",
-        "description": "En, Fr, vert. Ne",
+        "description": "En, Fr, vert. Ne"
     }
     # a new publication carries what its id says; one the BWB loaded is left as it was
     new = store.get_node("instruments", "trb_1985_163")
@@ -144,13 +150,17 @@ def test_a_treaty_is_legislated_in_the_dossier_of_its_approval(
     # a dossier that is not in the graph gets no edge
     found = [(_, _, t) for _, _, t in edges if t == "dossiers/32047"]
     assert not found, show_items(found)
+    # "8689 (R542)": the dossier of a Rijkswet, which the graph knows as 8689-(R542)
+    approval = ("instruments/verdrag_004630", "LEGISLATED_IN", "dossiers/8689_r542")
+    assert edges[approval]["dossier_number"] == "8689"
 
 
 def test_a_protocol_is_part_of_its_convention(store: GraphStore, cli: Any) -> None:
     edges = _edges(store)
-    assert edges[
-        ("instruments/verdrag_004630", "PART_OF", "instruments/verdrag_005132")
-    ] == {"verdrag_id": "005132"}
+    assert (
+        edges[("instruments/verdrag_004630", "PART_OF", "instruments/verdrag_005132")]
+        == {}
+    )
     # the Convention does not count its Protocol among its articles or their citations
     store.bulk_insert_or_update_edges(
         [

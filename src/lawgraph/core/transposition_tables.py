@@ -20,7 +20,9 @@ document without such a heading, is no table: ``read_table`` gives None.
 A place (``places``) is one of the ``;``-separated items of a line: an article of the new law
 with the leden it names (``2.8.6, 1``; ``algemene regeling 2.1.10``, the general rule that
 covers it), a place that is no article as the source writes it (``vervallen``, ``Besluit B2``,
-``bepaling over gegevensverwerking``), or an item that is not readable (``1,5,2, 6``). Nothing
+``bepaling over gegevensverwerking``; ``**``, a footnote mark whose note the PDF does not
+hold), or an item that is not readable (``1,5,2, 6``). A footnote mark after a place is no
+part of its number: ``2.8.6, 1**`` is ``2.8.6, 1``. Nothing
 is corrected: what does not read is marked, and the check against the text of the new law
 (``core.succession``) decides what holds.
 """
@@ -61,6 +63,8 @@ _PLACE = re.compile(
 _LID_TOKEN = re.compile(r"\d+")
 _OTHER_TOKEN = re.compile(r"[a-z]{1,2}|\d+\s*[°⁰º]|\d+e zin")
 _TOKENS = re.compile(r"\s*,\s*|\s*\ben\b\s*")
+# A footnote mark at the end of an item: "**".
+_FOOTNOTE = re.compile(r"\s*\*+$")
 # Something that reads as a number of the new law: one that is no article is not read.
 _LOOKS_LIKE_A_NUMBER = re.compile(r"\d+\s*[.,]\s*\d+\s*[.,]\s*\d+")
 
@@ -192,7 +196,10 @@ def places(text: str) -> list[Place]:
 
 
 def _place(item: str) -> Place:
-    match = _PLACE.match(item)
+    bare = _FOOTNOTE.sub("", item)
+    if not bare:  # only a footnote mark
+        return Place(item, None, ())
+    match = _PLACE.match(bare)
     if match:
         rest = match["rest"] or ""
         tokens = [t for t in _TOKENS.split(rest) if t]
@@ -203,7 +210,7 @@ def _place(item: str) -> Place:
                 tuple(t for t in tokens if _LID_TOKEN.fullmatch(t)),
                 general=bool(match["general"]),
             )
-    elif not _LOOKS_LIKE_A_NUMBER.search(item) and re.search(r"[A-Za-z]", item):
+    elif not _LOOKS_LIKE_A_NUMBER.search(bare) and re.search(r"[A-Za-z]", bare):
         return Place(item, None, ())
     return Place(item, None, (), readable=False)
 

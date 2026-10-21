@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.79.67",
+    "version": "0.79.68",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -2241,7 +2241,7 @@
           "nodes"
         ],
         "summary": "Explore a node and its neighbors",
-        "description": "Fetches a node from the given collection and returns its neighbors from the unified edge collection in buckets, one per relation, direction and neighbor collection. Each neighbor carries the edge that leads to it: `edge_id`, `status`, `confidence` and `meta`. A bucket holds one page (`limit` neighbors from `offset`, in the same order on every request), its `total`, and the `next_offset` of the following page (null on the last). `relations`, `node_types`, `direction` and `status` narrow the edges; the totals count what remains.\n\na node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection, a page of `limit` (at most 200; 500 with `props=canvas`) from `offset` in each. An article's `lid_counts` are waited for only on the first page with every prop: a further page or a page of the canvas gives those counted before, or none while they are being counted. Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, `confidence`, `meta`. The node, every neighbour and every node of a neighbourhood or path has `title`, the `<title>` of its page (`core.names.title_of`; of a publication with the title of its nota van toelichting; with `props=canvas` too, which keeps what it reads), and a judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props `short_title` and `short_title_basis` as the feed gives them, a decision `short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, `Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. `props=canvas` gives a neighbour only what the canvas of the explorer draws: of its props those of its collection and those its title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), an annex its `label` and `title`, an instrument version the citation title of its law, `instrument_citation_title`, from the columns of `instruments`; a motion, an amendment or a judgment its `outcome` alone of how it ended), of its edge's `meta` the keys the canvas reads (null when none, never `{}`); the node itself stays whole. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page), `lid_counts`, `capacity_counts` and `items`; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `\"\"` for none), how many of the whole bucket and not only of its page (`{\"kamerlid\": 980, \"bewindspersoon\": 503}`), from `lg_authored`; null for every other bucket and with a `status` filter; `lid_counts`, of an article: per lid the edges of the whole bucket cite (in their `meta`: `lid`, `leden`, and the `leden` of each of a judgment's `mentions`), how many do (only the leden the article has: a citation can give it the lid of another article it names), `\"\"` for those that cite none and an edge that cites two counted for each (`{\"1\": 28, \"2\": 174, \"\": 12}`); with `limit=1` (the light node) an article whose lid counts are not kept yet waits for them 0.5 s at most, then answers with every `lid_counts` null and `lid_counts_pending` true while they are counted (a larger `limit` waits for them), so that a reader can show them without reading every page (counted over the meta of every edge of the article, so kept an hour whatever the data does, a newer count made in the background after that; those of the 20 most cited articles warmed); null for a bucket that cites no lid and for a node that is no article; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request. A neighbour is light: its `props` leave out besides those the text of a paper (`sections`, `footnotes`), the structure of an article (`parts`, `references`, `breadcrumb`) and the rollups of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, `court`, `court_code`, `case_number`, `source`, `stub`, `translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, `outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and `echr_findings` alone (`lg_judgment_light`), and its `tier` (`hoge_raad`, `hvj_eu`, `ehrm`: by its court code, of code XX by the court it names) and its `source` (by its ECLI) where those lack them; its `summary` is cut at 400 characters (with `…`), and the `meta` of its edge leaves out `mentions` (each place a judgment cites the article or the judgment; `/api/judgments/{ecli}` has them), which the node itself, `/api/documents/{key}` and `/api/articles/...` carry. The answer has the `title` and `description` of the node's page (as `/render` gives them, from the node's own props: without the outcome of a motion or the counts of an article; `title` is the page's `<title>` without `, Concordans`, never cut, the title the app's tab shows: `Art. 6:162 BW, Onrechtmatige daad` (an article with its heading, else its `caption`), `Motie 36496-71 Bolhuis over een AI-killswitch` (a motion or an amendment by its number, then every word of its subject), `HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36600-VII Begroting Binnenlandse Zaken en Koninkrijksrelaties 2025`; a day in a title or a description as `20 december 2019`) and its readable `path` (null for a node without one, an activity). The `meta` of a neighbour's edge holds `paragraphs` where a judgment cites: the numbers of the paragraphs it cites in (\"4.3\", as the judgment prints them), stored on an edge to a cited judgment and taken from the mentions of an edge to a cited article, so a list of citing judgments shows where each cites without a request per row. With `edge_meta=passages` (also with `props=canvas`) it holds `passages` too, from the mentions of the edge: the first place in each of its first three paragraphs (a footnote counts apart), each `paragraph_id`, `paragraph_number`, `footnote` (its label, null in the paragraph itself), `snippet`, `text` (the citation as written) and `start`, `end` (`snippet[start:end]` is `text`), so a row or a card shows the passage without the judgment; none of a mention linked before it kept `snippet_start`. `light` (the default) leaves them out: they weigh about 0.9 kB an edge. The `meta` of an edge from a Tweede Kamer paper holds `place`, where its citation stands in what `/api/documents/{key}` serves (`part` `title`, `text` with `section_id`, or `footnote` with `footnote_id`; `start` and `end` in that part; see data-model (docs/data-model.md#judgment))",
+        "description": "Fetches a node from the given collection and returns its neighbors from the unified edge collection in buckets, one per relation, direction and neighbor collection. Each neighbor carries the edge that leads to it: `edge_id`, `status`, `confidence` and `meta`. A bucket holds one page (`limit` neighbors from `offset`, in the same order on every request), its `total`, and the `next_offset` of the following page (null on the last). `relations`, `node_types`, `direction` and `status` narrow the edges; the totals count what remains.\n\na node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection, a page of `limit` (at most 200; 500 with `props=canvas`) from `offset` in each. An article's `lid_counts` are waited for only on the first page with every prop: a further page or a page of the canvas gives those counted before, or none while they are being counted. Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, `confidence`, `meta`. The node, every neighbour and every node of a neighbourhood or path has `title`, the `<title>` of its page (`core.names.title_of`; of a publication with the title of its nota van toelichting; with `props=canvas` too, which keeps what it reads), and a judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props `short_title` and `short_title_basis` as the feed gives them, a decision `short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, `Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. `props=canvas` gives a neighbour only what the canvas of the explorer draws: of its props those of its collection and those its title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), an annex its `label` and `title`, an instrument version the citation title of its law, `instrument_citation_title`, from the columns of `instruments`; a motion, an amendment or a judgment its `outcome` alone of how it ended), of its edge's `meta` the keys the canvas reads (null when none, never `{}`); the node itself stays whole. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page), `lid_counts`, `capacity_counts` and `items`; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `\"\"` for none), how many of the whole bucket and not only of its page (`{\"kamerlid\": 980, \"bewindspersoon\": 503}`), from `lg_authored`; null for every other bucket and with a `status` filter; `lid_counts`, of an article: per lid the edges of the whole bucket cite (in their `meta`: `leden`, and the `leden` of each of a judgment's `mentions`), how many do (only the leden the article has: a citation can give it the lid of another article it names), `\"\"` for those that cite none and an edge that cites two counted for each (`{\"1\": 28, \"2\": 174, \"\": 12}`); with `limit=1` (the light node) an article whose lid counts are not kept yet waits for them 0.5 s at most, then answers with every `lid_counts` null and `lid_counts_pending` true while they are counted (a larger `limit` waits for them), so that a reader can show them without reading every page (counted over the meta of every edge of the article, so kept an hour whatever the data does, a newer count made in the background after that; those of the 20 most cited articles warmed); null for a bucket that cites no lid and for a node that is no article; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request. A neighbour is light: its `props` leave out besides those the text of a paper (`sections`, `footnotes`), the structure of an article (`parts`, `references`, `breadcrumb`) and the rollups of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, `court`, `court_code`, `case_number`, `source`, `stub`, `translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, `outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and `echr_findings` alone (`lg_judgment_light`), and its `tier` (`hoge_raad`, `hvj_eu`, `ehrm`: by its court code, of code XX by the court it names) and its `source` (by its ECLI) where those lack them; its `summary` is cut at 400 characters (with `…`), and the `meta` of its edge leaves out `mentions` (each place a judgment cites the article or the judgment; `/api/judgments/{ecli}` has them), which the node itself, `/api/documents/{key}` and `/api/articles/...` carry. The answer has the `title` and `description` of the node's page (as `/render` gives them, from the node's own props: without the outcome of a motion or the counts of an article; `title` is the page's `<title>` without `, Concordans`, never cut, the title the app's tab shows: `Art. 6:162 BW, Onrechtmatige daad` (an article with its heading, else its `caption`), `Motie 36496-71 Bolhuis over een AI-killswitch` (a motion or an amendment by its number, then every word of its subject), `HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36600-VII Begroting Binnenlandse Zaken en Koninkrijksrelaties 2025`; a day in a title or a description as `20 december 2019`) and its readable `path` (null for a node without one, an activity). The `meta` of a neighbour's edge holds `paragraphs` where a judgment cites: the numbers of the paragraphs it cites in (\"4.3\", as the judgment prints them), stored on an edge to a cited judgment and taken from the mentions of an edge to a cited article, so a list of citing judgments shows where each cites without a request per row. With `edge_meta=passages` (also with `props=canvas`) it holds `passages` too, from the mentions of the edge: the first place in each of its first three paragraphs (a footnote counts apart), each `paragraph_id`, `paragraph_number`, `footnote` (its label, null in the paragraph itself), `snippet`, `text` (the citation as written) and `start`, `end` (`snippet[start:end]` is `text`), so a row or a card shows the passage without the judgment; none of a mention linked before it kept `snippet_start`. `light` (the default) leaves them out: they weigh about 0.9 kB an edge. The `meta` of an edge from a Tweede Kamer paper holds `place`, where its citation stands in what `/api/documents/{key}` serves (`part` `title`, `text` with `section_id`, or `footnote` with `footnote_id`; `start` and `end` in that part; see data-model (docs/data-model.md#judgment))",
         "operationId": "get_node_graph_api_nodes__collection___key__get",
         "parameters": [
           {
@@ -5440,7 +5440,7 @@
           "documents"
         ],
         "summary": "Document text",
-        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it.",
+        "description": "One document with its text, read from the XML of the paper, its `sections` (the headings of the paper with their offsets into `text`), its `paragraphs` (each line of `text` with a lasting id and its alinea number), its `tables` (each a span of `text`, a row a line and its cells separated by a tab), the dossiers it belongs to and, for an explanatory document, the articles and laws it explains, and the votes taken on it (`decisions`, with the vote of every faction). `text` is null when `normalize tk-content` has not reached it; `completeness.text` says why (pending, not in the source, not fetched, or read and empty).",
         "operationId": "get_document_text_api_documents__key__get",
         "parameters": [
           {
@@ -9052,6 +9052,17 @@
             ],
             "title": "Closed On"
           },
+          "completeness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PartStateDTO"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "object",
+            "title": "Completeness",
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+          },
           "ministry": {
             "anyOf": [
               {
@@ -9159,6 +9170,7 @@
           "submitted_on_tk",
           "last_activity",
           "closed_on",
+          "completeness",
           "ministry",
           "initiative",
           "cabinet",
@@ -10632,7 +10644,7 @@
               }
             ],
             "title": "Completeness",
-            "description": "Of an article of a law of the Staatsblad the BWB does not hold (yet): `references` of this article (`partial`: `missing` not linked) and `definitions` of its law. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for any other article."
+            "description": "`references`: the article references of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph); of an article of a law of the Staatsblad the BWB does not hold (yet) also `definitions` of its law. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null for an article no step read the references of."
           },
           "citations": {
             "items": {
@@ -11695,7 +11707,7 @@
               }
             ],
             "title": "Source",
-            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`."
+            "description": "The identifier of the source: `blg-1081574`, `kst-34986-3`, the CELEX number of an EU act: `32017R1001`."
           },
           "source_url": {
             "anyOf": [
@@ -11707,7 +11719,7 @@
               }
             ],
             "title": "Source Url",
-            "description": "The source on zoek.officielebekendmakingen.nl."
+            "description": "The source on zoek.officielebekendmakingen.nl, an EU act on EUR-Lex."
           }
         },
         "additionalProperties": false,
@@ -15340,7 +15352,8 @@
           "pending",
           "paused",
           "unavailable",
-          "not_in_source"
+          "not_in_source",
+          "not_fetched"
         ],
         "title": "Coverage",
         "description": "How far a part is complete."
@@ -15537,7 +15550,7 @@
             },
             "type": "object",
             "title": "Completeness",
-            "description": "Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Of a source its `source`: `done`, `paused` (off: no scheduled run asks it anything), `unavailable` (it refused the last run) or `pending` (nothing fetched yet), with `as_of`."
+            "description": "Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Of a source its `source`: `done`, `paused` (off: no scheduled run asks it anything), `unavailable` (it refused the last run) or `pending` (nothing fetched yet), with `as_of`."
           }
         },
         "additionalProperties": false,
@@ -18114,6 +18127,18 @@
             "title": "File Url",
             "description": "The original file of a Tweede Kamer document (Word or PDF), from the Gegevensmagazijn."
           },
+          "official_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Url",
+            "description": "The document on zoek.officielebekendmakingen.nl: of the Eerste Kamer the page its record names; of the Staatsblad or the Staatscourant (from 1995) by its identifier; a Kamerstuk of the Tweede Kamer by its address (``kst-37020-X-53``) once its text was read from there. Null for any other."
+          },
           "text": {
             "anyOf": [
               {
@@ -18208,6 +18233,24 @@
             "title": "Decisions",
             "description": "The votes taken on this document, oldest first, each with how every faction (or, on a roll-call, every member) voted: of a motion or an amendment the vote on it, of a bill the votes on the bill. A decision is about the case of an agenda item it names; the document it was taken on is the oldest of that case, as the timeline of a dossier shows it. Empty for any other paper."
           },
+          "completeness": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness",
+            "description": "Of a paper of the Tweede Kamer `text`, `paragraphs` and `tables`: `done`, `pending` (not fetched or not read yet; `as_of` when its XML was fetched or last asked for, `reason` `awaiting_normalize` or `source_pdf_only`), `not_in_source` (no Kamerstuk, or the repository has no XML of it) or `none` (its XML read, and no text in it); `paragraphs` and `tables` `none` when its text has none. Of a paper of the Eerste Kamer all three `not_fetched`. `references`: the article and law citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null when no step derived any part."
+          },
           "kind_group": {
             "anyOf": [
               {
@@ -18251,6 +18294,7 @@
           "external_id",
           "tk_url",
           "file_url",
+          "official_url",
           "text",
           "submitters",
           "dossier_numbers",
@@ -18263,6 +18307,7 @@
           "replaces",
           "replaced_by",
           "decisions",
+          "completeness",
           "kind_group"
         ],
         "title": "DocumentTextResponse",
@@ -18710,6 +18755,17 @@
             ],
             "title": "Closed On"
           },
+          "completeness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PartStateDTO"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "object",
+            "title": "Completeness",
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+          },
           "ministry": {
             "anyOf": [
               {
@@ -18862,6 +18918,7 @@
           "submitted_on_tk",
           "last_activity",
           "closed_on",
+          "completeness",
           "ministry",
           "initiative",
           "cabinet",
@@ -20292,6 +20349,17 @@
             ],
             "title": "Closed On"
           },
+          "completeness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PartStateDTO"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "object",
+            "title": "Completeness",
+            "description": "`outcome`: what the graph knows of its end. `done` as of the day it closed; `pending` as of its last activity for an open bill or treaty, which may still be before a chamber or may have been withdrawn (the Tweede Kamer records no withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; `not_in_source` for an open dossier of another kind. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\")."
+          },
           "ministry": {
             "anyOf": [
               {
@@ -20366,6 +20434,7 @@
           "submitted_on_tk",
           "last_activity",
           "closed_on",
+          "completeness",
           "ministry",
           "initiative",
           "cabinet",
@@ -21322,7 +21391,7 @@
             "additionalProperties": true,
             "type": "object",
             "title": "Meta",
-            "description": "Edge evidence as stored (`celex`, `bases`, `publications`, `measures`)."
+            "description": "Edge evidence as stored (`bases`, `publications`, `measures`)."
           }
         },
         "additionalProperties": false,
@@ -26053,7 +26122,7 @@
               }
             ],
             "title": "Completeness",
-            "description": "Of a law of the Staatsblad the BWB does not hold (yet): `references` of all its articles (`partial`: `missing` not linked) and `definitions`. Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `source`) `{state, as_of, missing}` (docs/api.md \"Completeness\"). Null for any other instrument."
+            "description": "Of a law of the Staatsblad the BWB does not hold (yet): `references` of all its articles (`partial`: `missing` not linked) and `definitions`. Of a publication the BWB names (`kind` `publicatie`): `text` `not_fetched` (its text is on officielebekendmakingen.nl; what it changes is read from the BWB). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null for any other instrument."
           },
           "path": {
             "anyOf": [
@@ -29115,6 +29184,24 @@
             "title": "Series",
             "description": "The other judgments of its series (`judgment.series_id`), in the order of their ECLI numbers; empty outside a series."
           },
+          "completeness": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/PartStateDTO"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/Part"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completeness",
+            "description": "`references`: the article citations of its text (`partial`: `missing` recognized and not linked: a law or an article not in the graph, as `judgment.unresolved_citations` lists the first). Per part (`text`, `paragraphs`, `tables`, `references`, `definitions`, `versions`, `succession`, `outcome`, `source`) `{state, as_of, missing, reason}` (docs/api.md \"Completeness\"). Null for a judgment `semantic rechtspraak` has not read."
+          },
           "metadata": {
             "anyOf": [
               {
@@ -29139,6 +29226,7 @@
           "related_to",
           "conclusions",
           "series",
+          "completeness",
           "metadata"
         ],
         "title": "JudgmentDetailResponse",
@@ -32564,6 +32652,7 @@
           "definitions",
           "versions",
           "succession",
+          "outcome",
           "source"
         ],
         "title": "Part",
@@ -32573,7 +32662,7 @@
         "properties": {
           "state": {
             "$ref": "#/components/schemas/Coverage",
-            "description": "`done` (the step ran and holds all it found), `partial` (it left some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet), `paused` (the source or the step is off), `unavailable` (the source refused the last run), `not_in_source` (the source does not give it)."
+            "description": "`done` (the step ran and holds all it found), `partial` (it left some: `missing`), `none` (it ran and found nothing), `pending` (not reached yet), `paused` (the source or the step is off), `unavailable` (the source refused the last run), `not_in_source` (the source does not give it), `not_fetched` (the source gives it, the graph does not take it in)."
           },
           "as_of": {
             "anyOf": [
@@ -32585,7 +32674,7 @@
               }
             ],
             "title": "As Of",
-            "description": "Of a source: when its retrieves last all ended well (UTC, ISO 8601), else when its newest record was fetched."
+            "description": "Of a source: when its retrieves last all ended well (UTC, ISO 8601), else when its newest record was fetched. Of the `outcome` of a dossier: the day it closed (`done`), or of its last activity (`pending`). Of the `text` of a paper: when its XML was fetched, or last asked for when the repository had none."
           },
           "missing": {
             "anyOf": [
@@ -32598,6 +32687,17 @@
             ],
             "title": "Missing",
             "description": "With `partial`: how many are missing."
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Reason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why, where one state has more than one cause. Of the `text` of a Kamerstuk that is `pending` as of a day: `awaiting_normalize` (its XML is fetched, not read yet), `source_pdf_only` (the source has its PDF only; its XML follows)."
           }
         },
         "additionalProperties": false,
@@ -32605,7 +32705,8 @@
         "required": [
           "state",
           "as_of",
-          "missing"
+          "missing",
+          "reason"
         ],
         "title": "PartStateDTO",
         "description": "How far one part is complete."
@@ -33339,6 +33440,15 @@
         ],
         "title": "PublicationDTO",
         "description": "An amending publication (Staatsblad, Tractatenblad, ...) as recorded on a version."
+      },
+      "Reason": {
+        "type": "string",
+        "enum": [
+          "awaiting_normalize",
+          "source_pdf_only"
+        ],
+        "title": "Reason",
+        "description": "Why a part is in its state, where one state has more than one cause: of the ``text``\nof a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``)."
       },
       "ReferenceTargetDTO": {
         "properties": {

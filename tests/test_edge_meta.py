@@ -1,12 +1,14 @@
 """The models of ``meta`` per relation (``RelationSpec.meta`` in ``core/relations.py``):
-documented, holding what writers write outside ``make_edge_doc``, and the check the
-recorder of the test run (``tests/edge_meta_recorder.py``) holds every edge made to."""
+documented, holding what writers write outside ``make_edge_doc``, and the check
+``make_edge_doc`` holds every edge made to: the keys on a run, the whole model in the tests
+(``tests/conftest.py``)."""
 
 from __future__ import annotations
 
 import re
 from typing import get_args
 
+import pytest
 from pydantic import BaseModel
 
 from lawgraph.config.constants import (
@@ -15,8 +17,8 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
     RELATION_VOTED,
 )
-from lawgraph.core.relations import BY_NAME, RELATIONS
-from tests.edge_meta_recorder import meta_problems
+from lawgraph.core.relations import BY_NAME, RELATIONS, meta_problems
+from lawgraph.db import edges
 from tests.paths import SRC
 
 
@@ -100,5 +102,47 @@ def test_the_meta_of_two_writers_of_one_edge_fits() -> None:
         "confidence": 0.95,
         "explanation": "De kop noemt het artikel.",
     }
-    best = {k: v for k, v in section.items() if k != "confidence"}
+    best = {k: v for k, v in section.items() if k not in ("confidence", "match_type")}
     assert meta_problems(RELATION_EXPLAINS, {**best, "sections": [section]}) == []
+
+
+def test_a_run_logs_a_key_the_model_lacks_once_per_relation_source_and_key(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # a run outside the tests: only the keys, and no error
+    monkeypatch.setattr(edges, "_strict", None)
+    monkeypatch.setattr(edges, "_LOGGED", set())
+    vote = {"choice": "Voor", "seats": "15"}  # a type is the tests' to hold
+    for _ in range(3):
+        edges.make_edge_doc(
+            "members/m1", "decisions/d1", RELATION_VOTED, source="s", meta=vote
+        )
+        edges.make_edge_doc(
+            "members/m1",
+            "decisions/d1",
+            RELATION_VOTED,
+            source="s",
+            meta={**vote, "colour": "red", "size": 1},
+        )
+    edges.make_edge_doc(
+        "members/m1", "decisions/d1", RELATION_VOTED, source="t", meta={"colour": "red"}
+    )
+    logged = [r.getMessage() for r in caplog.records if r.name == edges.__name__]
+    assert logged == [
+        f"Edge meta: VOTED of s has {key!r}, a key its model lacks (core/relations.py)"
+        for key in ("colour", "size")
+    ] + [
+        "Edge meta: VOTED of t has 'colour', a key its model lacks (core/relations.py)"
+    ]
+
+
+def test_the_tests_hold_the_whole_meta_to_the_model() -> None:
+    with edges.strict_meta() as found:
+        edges.make_edge_doc(
+            "members/m1",
+            "decisions/d1",
+            RELATION_VOTED,
+            source="s",
+            meta={"choice": "Voor", "seats": "15"},
+        )
+    assert found == ["VOTED s: seats: int_type"]

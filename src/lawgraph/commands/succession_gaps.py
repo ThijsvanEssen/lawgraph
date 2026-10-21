@@ -1,19 +1,21 @@
 """``lawgraph succession-gaps``: what the transposition tables do not place. Reads only.
 
-Of every stored table (a PDF of ``retrieve tk-transposition-tables``, a table in the XML of a
-memorie van toelichting), as ``semantic tk-transposition-tables`` reads it: why it places
-nothing, or, per old law and new law, with the tables between them
+Of every stored table (a PDF or a table in the XML of a Kamerstuk, as ``retrieve
+tk-transposition-tables`` stores them; the concordance table of an EU act), as ``semantic
+tk-transposition-tables`` reads it: why it places nothing, or, per old law and new law, with
+the tables between them
 
 - the rows of each table that do not hold: a place that does not read, an article the old
   law does not have, an article or lid the new law does not have;
 - the articles of the old law in force without a place in an article of the new law in any
   of the tables: no row for it, a row that places it in no article ("vervallen", "Besluit
-  B2"), or rows none of which hold; "no row" only of an old law that goes (expired in the BWB,
-  or recodified under its own name).
+  B2", "—"), or rows none of which hold; "no row" only of an old law that goes (expired in the
+  BWB, recodified under its own name, or repealed by the EU act of the table).
 
 Nothing is filled in: these are what is left to decide. Each line names where in its table
 it is (the page of a PDF, the row of a table in XML), so it can be looked up. A table that
-places nothing (an EU directive's) is a note at the end, no gap.
+places nothing (an EU implementation table, an EU act the graph does not hold) is a note at
+the end, no gap.
 """
 
 from __future__ import annotations
@@ -44,8 +46,8 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--table",
         metavar="ID",
-        help="Only the tables of this source (blg-1081574, kst-34986-3) and the laws they "
-        "are between.",
+        help="Only the tables of this source (blg-1081574, kst-34986-3, 32017R1001) and the "
+        "laws they are between.",
     )
     args = parser.parse_args(argv)
     problems, successions = read_successions(GraphStore())
@@ -67,7 +69,7 @@ def main(argv: list[str] | None = None) -> PipelineResult:
 
 def problem(table: Table) -> str:
     """The line of a table that places nothing."""
-    return f"{table.title} (dossier {table.dossier}): places nothing: {table.problem}."
+    return f"{table.heading}: places nothing: {table.problem}."
 
 
 def report(succession: Succession) -> list[str]:
@@ -86,10 +88,7 @@ def report(succession: Succession) -> list[str]:
             for g in placed.gaps
             if g.kind in ROW_GAPS and g.source == table.identifier
         ]
-        lines.append(
-            f"  {table.title} (dossier {table.dossier}): rows that do not hold "
-            f"({len(rows)})"
-        )
+        lines.append(f"  {table.heading}: rows that do not hold ({len(rows)})")
         lines += [f"    {_line(g)}" for g in rows]
     lines.append(f"  Articles of the old law without a place ({len(articles)})")
     lines += [f"    {_line(g, source=len(succession.tables) > 1)}" for g in articles]

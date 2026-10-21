@@ -14,6 +14,9 @@ Rules (enforced by ``tests/test_relation_catalogue.py``):
 ``RELATION_*`` constant per entry.
 
 Each relation names the model of what its ``meta`` may hold (``RelationSpec.meta``).
+``make_edge_doc`` holds every edge to it: a key the model lacks is logged once per
+relation, source and key (``unknown_meta_keys``); the tests hold the whole of the meta to
+the model (``meta_problems``) and fail on what does not fit.
 
 The tables in ``docs/data-model.md`` between the ``relations`` and the ``edge-meta``
 markers, and ``tests/data/relations.json`` (the collections and the relations with their
@@ -25,10 +28,11 @@ ends, which the front end is tested against), are generated from this module::
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
@@ -113,13 +117,6 @@ class ArticleChangeMeta(BwbChangeMeta):
     """The words of the amendment that name the article."""
 
 
-class AmendsMeta(ArticleChangeMeta):
-    """An amendment of an article or an instrument."""
-
-    title: str | None = None
-    """The title of the paper that amends the instrument (``tk-amends-instrument``)."""
-
-
 class TranspositionPart(_Meta):
     from_: str = Field(alias="from")
     """The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole."""
@@ -143,8 +140,6 @@ class TransposedToMeta(_Meta):
 class BasedOnMeta(_Meta):
     text: str | None = None
     """The reference without list word and law: `16, eerste en zevende lid`."""
-    doc: str | None = None
-    """The part of the instrument that holds the reference."""
     basis_kind: str | None = None
     """`delegates` when the leden named give the power, `mentioned` when the article is only
     named."""
@@ -162,8 +157,6 @@ class ImplementingMeasure(_Meta):
 
 
 class ImplementsMeta(_Meta):
-    celex: str | None = None
-    """The CELEX number of the EU act."""
     bases: list[str] | None = None
     """The implementation sources: `national_implementing_measure`, `considerans`."""
     publications: list[str] | None = None
@@ -175,26 +168,11 @@ class ImplementsMeta(_Meta):
 class LegislatedInMeta(_Meta):
     dossier_number: str | None = None
     """The number of the dossier."""
-    rijks_number: str | None = None
-    """The Rijkswet number of the Kamerstuk the Verdragenbank lists."""
 
 
 class PublishedInMeta(_Meta):
-    tractatenblad: str | None = None
-    """The Tractatenblad as the register writes it."""
     description: str | None = None
     """What it publishes, as the register writes it."""
-
-
-class PartOfMeta(_Meta):
-    verdrag_id: str | None = None
-    """The Verdragenbank id of the treaty it belongs to."""
-    dossier_number: str | None = None
-    """The number of the dossier of a paper of the Eerste Kamer."""
-    dossier_suffix: str | None = None
-    """Its suffix."""
-    chamber: str | None = None
-    """`EK`."""
 
 
 class TextPlace(_Meta):
@@ -245,8 +223,6 @@ class RefersToMeta(_Span, _Parts):
     subject that names the paper (`tk-cited-papers`)."""
     reference_kind: str | None = None
     """`intref` or `extref`, as the BWB XML writes the link."""
-    linked_article: str | None = None
-    """The article the link of the XML points at, when the text names another."""
     semantic_pattern: str | None = None
     """The pattern that typed the reference (`semantic_type`)."""
     semantic_confidence: float | None = None
@@ -269,16 +245,8 @@ class RefersToMeta(_Span, _Parts):
     """The ECLI the judgment cites."""
     cited_appno: str | None = None
     """The application number of the ECHR decision it cites."""
-    cited_date: str | None = None
-    """The date of that decision."""
-    hudoc_articles: list[str] | None = None
-    """The articles of the Convention HUDOC lists for the judgment."""
-    protocol: str | None = None
-    """The Protocol of the article cited."""
     match_type: str | None = None
     """`bwb_text_scan`: the conclusion of an ECHR judgment names the law."""
-    celex: str | None = None
-    """The CELEX number of the EU act a regulation names."""
     basis: Basis | None = None
     """`subject` (core/provenance.py)."""
     reference: str | None = None
@@ -307,8 +275,7 @@ class MvtSection(_Meta):
 
 
 class ExplainsMeta(_Meta):
-    """The surest section of an MvT that is about the article, and every section; of an NvT
-    of the Staatsblad or Staatscourant how it was found."""
+    """The surest section of an MvT that is about the article, and every section."""
 
     section_anchor: str | None = None
     """The `id` of the surest section (`props.sections` of the Document); the keys below
@@ -323,8 +290,6 @@ class ExplainsMeta(_Meta):
     """As in `sections`."""
     explanation: str | None = None
     """As in `sections`."""
-    match_type: str | None = None
-    """Of an MvT as in `sections`; of an NvT `bwb_id` or `title`."""
     sections: list[MvtSection] | None = None
     """Every section about the article, in the order of the memorandum."""
 
@@ -388,14 +353,10 @@ class MemberOfMeta(CommitteePeriod):
     """Every seat in the committee, oldest first."""
     record_ids: list[str] | None = None
     """The `FractieZetelPersoon` records of the faction seat."""
-    chamber: str | None = None
-    """`EK`."""
     observed_from: str | None = None
     """The first day the Eerste Kamer site showed the seat."""
     observed_until: str | None = None
     """The day it no longer did; null while it does."""
-    seniority_days: int | None = None
-    """The days in the Eerste Kamer the site gives."""
 
 
 class ServedInMeta(_Meta):
@@ -523,7 +484,6 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "Containment. Article/Annex → Instrument; Document → Case or Dossier; "
         "Case → Dossier; a treaty → the treaty it belongs to, as the Verdragenbank registers "
         "it (a Protocol → its Convention, `Moederverdrag`).",
-        meta=PartOfMeta,
     ),
     RelationSpec(
         "VERSION_OF",
@@ -555,7 +515,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "An instrument changes existing text (effective date and version in `meta`). "
         "A bill (Document) proposing the change carries status `voorgesteld`; a paper of "
         "the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it.",
-        meta=AmendsMeta,
+        meta=ArticleChangeMeta,
     ),
     RelationSpec(
         "INTRODUCES",
@@ -579,8 +539,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "TRANSPOSED_TO",
         ((_A, _A),),
         "An article of the old law → the article of the new law that takes its place in a "
-        "recodification, as an official source gives it (`meta.basis`; `meta.source` the "
-        "identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each "
+        "recodification (of Dutch law, or a codification or recast of EU law), as an "
+        "official source gives it (`meta.basis`; `meta.source` the identifier of that "
+        "source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: "
+        "`32017R1001`). `meta.parts` pairs each "
         "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) "
         "with the place in the new law as the source writes it (`to`: `2.8.6, 1`, "
         "`8.2.26, vierde lid`), read: the number of the new article of the edge "
@@ -614,9 +576,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
     RelationSpec(
         "LEGISLATED_IN",
         ((_I, _DOSSIER),),
-        "The parliamentary dossier in which an instrument was legislated "
-        "(BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's "
-        "`Kamerstukken`, `meta.rijks_number`).",
+        "The parliamentary dossier in which an instrument was legislated (the "
+        "`dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty "
+        "was approved (the Verdragenbank's `Kamerstukken`).",
         meta=LegislatedInMeta,
     ),
     RelationSpec(
@@ -911,6 +873,51 @@ def without_unknown_relations[T](
 def allows(relation: str, source: str, target: str) -> bool:
     """Whether the catalogue has *relation* from collection *source* to *target*."""
     return (relation, source, target) in _ENDS
+
+
+# relation -> the keys its ``meta`` may hold at the top, as stored: what ``make_edge_doc``
+# checks and what the edge upsert keeps of the stored meta (``bulk_insert_or_update_edges``)
+META_KEYS: dict[str, frozenset[str]] = {
+    r.name: frozenset(
+        field.alias or name
+        for name, field in (r.meta.model_fields.items() if r.meta else ())
+    )
+    for r in RELATIONS
+}
+
+
+def unknown_meta_keys(relation: str, meta: Mapping[str, Any]) -> list[str]:
+    """The keys at the top of *meta* the model of *relation* lacks: a set difference, cheap
+    enough for every edge a run makes."""
+    allowed = META_KEYS.get(relation)
+    if allowed is None or meta.keys() <= allowed:
+        return []
+    return sorted(meta.keys() - allowed)
+
+
+def meta_problems(relation: str, meta: Mapping[str, Any]) -> list[str]:
+    """What of *meta* the model of *relation* does not allow, all the way down (strict
+    validation): ``unknown key x`` or ``x[].y: <pydantic error type>``."""
+    spec = BY_NAME.get(relation)
+    if spec is None or not meta:
+        return []
+    if spec.meta is None:
+        return [f"unknown key {key}" for key in sorted(meta)]
+    try:
+        spec.meta.model_validate(dict(meta), strict=True)
+    except ValidationError as error:
+        found = set()
+        for item in error.errors():
+            where = "".join(
+                f".{part}" if isinstance(part, str) else "[]" for part in item["loc"]
+            ).lstrip(".")
+            found.add(
+                f"unknown key {where}"
+                if item["type"] == "extra_forbidden"
+                else f"{where}: {item['type']}"
+            )
+        return sorted(found)
+    return []
 
 
 def concept(collection: str) -> str:

@@ -1,12 +1,17 @@
 """``retrieve tk-transposition-tables`` stores the PDF of each table the SRU lists as it is,
-with what the SRU says of it."""
+and the XML of each Kamerstuk naming one that holds a table, with what the SRU says of it."""
 
 from __future__ import annotations
 
 import base64
+from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
-from lawgraph.config.constants import RAW_KIND_TK_TRANSPOSITION_TABLE, SOURCE_TK
+from lawgraph.config.constants import (
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
+    RAW_KIND_TK_TRANSPOSITION_TABLE,
+    SOURCE_TK,
+)
 from lawgraph.pipelines.retrieve.tk_transposition_tables import (
     TKTranspositionTablesRetrievePipeline,
 )
@@ -23,24 +28,61 @@ LISTED = {
     "blg-1081574/1/pdf/blg-1081574.pdf",
     "modified": "2023-04-14",
 }
+MEDIAWET = {
+    "identifier": "kst-31356-3",
+    "title": "Mediawet 20..; Memorie van Toelichting",
+    "dossier": "31356",
+    "xml_url": "https://repository.overheid.nl/frbr/officielepublicaties/kst/31356/"
+    "kst-31356-3/1/xml/kst-31356-3.xml",
+    "modified": "2017-06-29",
+}
+WITHOUT = {
+    **MEDIAWET,
+    "identifier": "kst-32317-90",
+    "dossier": "32317",
+    "xml_url": "https://repository.overheid.nl/frbr/officielepublicaties/kst/32317/"
+    "kst-32317-90/1/xml/kst-32317-90.xml",
+}
 
 
-def test_the_pdf_is_stored_as_it_is_with_its_dossier(raw_reads: None) -> None:
-    asked: list[str] = []
+def _client(documents: dict[str, str], asked: list[str]) -> Any:
+    """A client that lists the PDF of LISTED and *papers* (identifier -> XML)."""
 
     def fetch_pdf(url: str) -> bytes:
         asked.append(url)
         return PDF
 
+    def fetch_xml(url: str) -> str:
+        asked.append(url)
+        return documents[url]
+
     client = type("Kst", (), {})()
     client.search_tables = lambda: [LISTED]
+    client.search_documents_naming_tables = lambda: [MEDIAWET, WITHOUT]
     client.fetch_pdf = fetch_pdf
+    client.fetch_xml = fetch_xml
+    return client
+
+
+def _documents() -> dict[str, str]:
+    return {
+        MEDIAWET["xml_url"]: fixture_text("kst_31356_3_excerpt.xml"),
+        WITHOUT[
+            "xml_url"
+        ]: "<kamerstuk><al>Zie de transponeringstabel.</al></kamerstuk>",
+    }
+
+
+def test_the_pdf_is_stored_as_it_is_with_its_dossier(raw_reads: None) -> None:
+    asked: list[str] = []
     store = InMemoryStore()
 
-    result = TKTranspositionTablesRetrievePipeline(store, client=client).run()
+    result = TKTranspositionTablesRetrievePipeline(
+        store, client=_client(_documents(), asked)
+    ).run()
 
-    assert (result.created, result.errors, asked) == (1, [], [LISTED["pdf_url"]])
-    (record,) = store.raw.values()
+    assert (result.created, result.errors, asked[0]) == (3, [], LISTED["pdf_url"])
+    record = next(r for r in store.raw.values() if r["external_id"] == "blg-1081574")
     assert (record["source"], record["kind"], record["external_id"]) == (
         SOURCE_TK,
         RAW_KIND_TK_TRANSPOSITION_TABLE,
@@ -70,3 +112,62 @@ def test_the_pdf_of_a_table_that_is_also_xml_is_its_pdf_manifestation() -> None:
         "https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/"
         "blg-123216/1/pdf/blg-123216.pdf",
     ), table
+
+
+def test_a_paper_is_stored_with_its_xml_when_a_table_is_read_in_it(
+    raw_reads: None,
+) -> None:
+    """The Mediawet 2008 (kst-31356-3) has a table under no heading that names it; a paper
+    that only names one in a sentence is stored without its XML, so the next run leaves
+    both alone until the SRU says they changed."""
+    asked: list[str] = []
+    store = InMemoryStore()
+    TKTranspositionTablesRetrievePipeline(
+        store, client=_client(_documents(), asked)
+    ).run()
+
+    documents = {
+        r["external_id"]: r
+        for r in store.raw.values()
+        if r["kind"] == RAW_KIND_TK_TRANSPOSITION_DOCUMENT
+    }
+    assert documents["kst-31356-3"]["payload_text"] == fixture_text(
+        "kst_31356_3_excerpt.xml"
+    )
+    assert documents["kst-31356-3"]["meta"] == {
+        "identifier": "kst-31356-3",
+        "title": MEDIAWET["title"],
+        "dossier": "31356",
+        "modified": "2017-06-29",
+        "url": MEDIAWET["xml_url"],
+        "tables": 1,
+    }
+    assert documents["kst-32317-90"].get("payload_text") is None
+    assert documents["kst-32317-90"]["meta"]["tables"] == 0
+
+    again: list[str] = []
+    TKTranspositionTablesRetrievePipeline(
+        store, client=_client(_documents(), again)
+    ).run()
+    assert again == []
+
+
+def test_a_paper_naming_a_table_is_listed_by_its_full_text_with_its_xml() -> None:
+    """The full text search of the SRU; a paper without XML (a scan of Staten-Generaal
+    Digitaal, a paper only a PDF) is not listed."""
+    page = fixture_text("sru_transposition_table_with_xml.xml")
+    without = page.replace(
+        '<gzd:itemUrl manifestation="xml">', '<gzd:itemUrl manifestation="ocr">'
+    )
+    asked: list[dict] = []
+    client = KamerstukClient(session=ScriptedSession(lambda sent: page, asked=asked))
+    (document,) = client.search_documents_naming_tables()
+    assert (document["identifier"], document["dossier"], document["xml_url"]) == (
+        "blg-123216",
+        "32291",
+        "https://repository.overheid.nl/frbr/officielepublicaties/blg/onopgemaakt/"
+        "blg-123216/1/xml/blg-123216.xml",
+    )
+    assert 'cql.textAndIndexes="transponeringstabel"' in asked[0]["query"]
+    client = KamerstukClient(session=ScriptedSession(lambda sent: without))
+    assert client.search_documents_naming_tables() == []

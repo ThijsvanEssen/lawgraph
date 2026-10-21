@@ -23,7 +23,9 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
-from lawgraph.db import GraphStore, raw_key
+from lawgraph.core.time import dutch_today
+from lawgraph.db import GraphStore, RawSourceWriter, raw_key, raw_source_doc
+from lawgraph.db.queries.state import set_covered_until
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve.tk_content import TKContentRetrievePipeline
 from tests.asserts import show_items
@@ -293,3 +295,79 @@ def test_a_motion_reaches_the_api_with_its_alineas(database: str, cli: Any) -> N
         "– de Kamer te informeren over de gevolgen van een vacaturestop;"
     )
     assert re.fullmatch(r"p-[0-9a-f]{8}", fourth["id"])
+
+
+def _completeness(store: GraphStore, key: str) -> dict[str, Any]:
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        body = TestClient(app).get(f"/api/documents/{key}").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    return {part: body["completeness"][part] for part in ("text", "paragraphs")}
+
+
+def _both(
+    state: str, as_of: str | None = None, reason: str | None = None
+) -> dict[str, Any]:
+    part = {"state": state, "as_of": as_of, "missing": None, "reason": reason}
+    return {"text": part, "paragraphs": part}
+
+
+def test_the_api_says_why_a_paper_has_no_text(database: str, cli: Any) -> None:
+    """What ``retrieve tk-content`` and ``normalize tk-content`` wrote of a paper decides
+    ``completeness.text``: done; XML not read yet; XML read and no text in it; the
+    repository without XML of a paper of 2025, and of one of today; not fetched yet."""
+    store = _seeded(cli)
+    unreadable, unfetched = _gaps.kamerstuk_gaps(store, ["motie"])[:2]
+    repository = _Repository({MVT_36000: _xml("kst_36750_3"), MVT_36025: None})
+    TKContentRetrievePipeline(
+        store=store, client=cast(KamerstukClient, repository)
+    ).run(kinds=MEMORANDA)
+    with RawSourceWriter(store) as writer:  # what the repository served: no XML
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_TK,
+                kind=RAW_KIND_TK_KAMERSTUK_XML,
+                external_id=unreadable["identifier"],
+                payload_text="not xml",
+                meta={"document": unreadable["key"]},
+            )
+        )
+    documents = _mvt_documents(store)
+    read, missing = documents[1]["key"], documents[26]["key"]
+    fetched = _raw(store, raw_key(SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, MVT_36000))
+    asked = _raw(
+        store,
+        raw_key(
+            SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX, MVT_36025
+        ),
+    )
+    assert _completeness(store, read) == _both(
+        "pending", fetched["fetched_at"], "awaiting_normalize"
+    )
+
+    cli("normalize", "tk-content")
+    # before a complete normalize all: what it read is not known to be read
+    assert _completeness(store, unreadable["key"])["text"]["state"] == "pending"
+    set_covered_until(store, "normalize", dt.datetime.now(dt.UTC).isoformat())
+
+    assert _completeness(store, read) == _both("done")
+    assert _completeness(store, unreadable["key"]) == _both(
+        "none",
+        _raw(
+            store,
+            raw_key(SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, unreadable["identifier"]),
+        )["fetched_at"],
+    )
+    assert _completeness(store, missing) == _both("not_in_source", asked["fetched_at"])
+    assert _completeness(store, unfetched["key"]) == _both("pending")
+
+    # a paper of today: its XML may follow
+    store.execute(
+        "UPDATE documents SET props = (props::jsonb"
+        " || jsonb_build_object('date', %(today)s::text))::json WHERE key = %(key)s",
+        {"today": dutch_today().isoformat(), "key": missing},
+    )
+    assert _completeness(store, missing) == _both(
+        "pending", asked["fetched_at"], "source_pdf_only"
+    )

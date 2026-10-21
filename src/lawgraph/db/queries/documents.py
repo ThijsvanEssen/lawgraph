@@ -12,14 +12,24 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_PIPELINE_STATE,
+    COLLECTION_RAW_SOURCES,
+    RAW_KIND_MISSING_SUFFIX,
+    RAW_KIND_TK_KAMERSTUK_XML,
     RELATION_EXPLAINS,
     RELATION_PART_OF,
     RELATION_REVISES,
     RELATION_VERSION_OF,
+    SOURCE_TK,
+)
+from lawgraph.core.document_completeness import (
+    XmlRetrieval,
+    document_address,
+    needs_retrieval,
 )
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.models import key_of, make_node_key
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, raw_key
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
@@ -37,7 +47,8 @@ def get_document(store: GraphStore, key: str) -> dict[str, Any] | None:
 
 # ``targets``: what each EXPLAINS edge of the document points at, a version of an article
 # resolved to the first article it is a VERSION_OF (by id; NULL for a version without
-# one); ``found``: those that are an article or an instrument, each once.
+# one); ``found``: those that are an article or an instrument, each once. The label of
+# each dossier its PART_OF edges name by its id, not every dossier tested against them.
 _LINKS_SQL = f"""
 WITH targets AS (
     SELECT CASE WHEN e.to_collection = '{COLLECTION_ARTICLE_VERSIONS}' THEN (
@@ -62,15 +73,15 @@ found AS (
     WHERE i.id IN (SELECT id FROM targets)
 )
 SELECT
-    ARRAY(
-        SELECT DISTINCT ds.label
+    array_remove(ARRAY(
+        SELECT DISTINCT (
+            SELECT ds.label FROM {COLLECTION_DOSSIERS} ds WHERE ds.id = e.to_id
+        ) AS label
         FROM {COLLECTION_EDGES} e
-        JOIN {COLLECTION_DOSSIERS} ds ON ds.id = e.to_id
         WHERE e.from_id = %(document_id)s AND e.relation = %(part_of)s
           AND e.to_collection = '{COLLECTION_DOSSIERS}'
-          AND ds.label IS NOT NULL
-        ORDER BY ds.label NULLS FIRST
-    ) AS dossier_numbers,
+        ORDER BY label NULLS FIRST
+    ), NULL) AS dossier_numbers,
     (
         SELECT coalesce(json_agg(json_build_object(
             'id', f.id,
@@ -297,3 +308,38 @@ def get_replacements(
             }
         )
     return found
+
+
+def document_xml_retrieval(
+    store: GraphStore, doc: dict[str, Any]
+) -> XmlRetrieval | None:
+    """What raw_sources holds of the XML of the paper *doc* (``core.document_completeness``):
+    two raw records and the mark of ``normalize all``, each by its primary key, the XML
+    itself not read. None when the state of its text does not turn on it."""
+    props = doc.get("props") or {}
+    if not needs_retrieval(props, doc.get("labels") or []):
+        return None
+    address = document_address(props) or ""
+    row = next(
+        store.query(
+            f"""
+            SELECT
+                (SELECT fetched_at FROM {COLLECTION_RAW_SOURCES} WHERE key = %(stored)s)
+                    AS stored,
+                (SELECT fetched_at FROM {COLLECTION_RAW_SOURCES} WHERE key = %(missing)s)
+                    AS missing,
+                (SELECT doc ->> 'covered_until' FROM {COLLECTION_PIPELINE_STATE}
+                 WHERE key = %(phase)s) AS normalized_until
+            """,
+            {
+                "stored": raw_key(SOURCE_TK, RAW_KIND_TK_KAMERSTUK_XML, address),
+                "missing": raw_key(
+                    SOURCE_TK,
+                    RAW_KIND_TK_KAMERSTUK_XML + RAW_KIND_MISSING_SUFFIX,
+                    address,
+                ),
+                "phase": "normalize",
+            },
+        )
+    )
+    return XmlRetrieval(**row)

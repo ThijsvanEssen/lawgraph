@@ -63,9 +63,9 @@ from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import (
-    OFFICIELE_BEKENDMAKINGEN,
     article_url,
     enacting_publication_url,
+    source_url,
 )
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
@@ -468,10 +468,12 @@ class ArticleSuccessionDTO(StrictModel):
     )
     source: str | None = Field(
         None,
-        description="The identifier of the source: `blg-1081574`, `kst-34986-3`.",
+        description="The identifier of the source: `blg-1081574`, `kst-34986-3`, the "
+        "CELEX number of an EU act: `32017R1001`.",
     )
     source_url: str | None = Field(
-        None, description="The source on zoek.officielebekendmakingen.nl."
+        None,
+        description="The source on zoek.officielebekendmakingen.nl, an EU act on EUR-Lex.",
     )
 
     @classmethod
@@ -500,9 +502,7 @@ class ArticleSuccessionDTO(StrictModel):
             ],
             basis=meta.get("basis"),
             source=source,
-            source_url=OFFICIELE_BEKENDMAKINGEN.format(identifier=source)
-            if source
-            else None,
+            source_url=source_url(source) if source else None,
         )
 
 
@@ -545,9 +545,10 @@ class ArticleDetailResponse(StrictModel):
     instrument: InstrumentSummaryDTO | None
     completeness: Completeness | None = Field(
         None,
-        description="Of an article of a law of the Staatsblad the BWB does not hold (yet): "
-        "`references` of this article (`partial`: `missing` not linked) and `definitions` "
-        f"of its law. {COMPLETENESS} Null for any other article.",
+        description="`references`: the article references of its text (`partial`: "
+        "`missing` recognized and not linked: a law or an article not in the graph); of an "
+        "article of a law of the Staatsblad the BWB does not hold (yet) also `definitions` "
+        f"of its law. {COMPLETENESS} Null for an article no step read the references of.",
     )
     citations: list[ArticleCitationSpan] = Field(default_factory=list)
     term_spans: list[TermSpanDTO] = Field(

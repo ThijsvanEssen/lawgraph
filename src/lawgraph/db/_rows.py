@@ -307,13 +307,9 @@ CANVAS_EDGE_META = (
     "function",
     "capacity",
     "leden",
-    "lid",
-    "paragraph_number",
-    "paragraph_id",
     "snippet",
     "raw_match",
     "reason",
-    "edge_id",
     "passages",
 )
 

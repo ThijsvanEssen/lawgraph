@@ -8,6 +8,7 @@ from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any
 
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
+from lawgraph.core.relations import META_KEYS
 from lawgraph.db import raw_key
 
 if TYPE_CHECKING:
@@ -63,6 +64,8 @@ class InMemoryStore(FakeStoreBase):
         self.raw: dict[str, dict[str, Any]] = {doc["key"]: doc for doc in raw}
         # what a pipeline keeps in ``pipeline_state`` (``patch_kept_state``)
         self.kept: dict[str, dict[str, Any]] = {}
+        # the references each step could not link (``patch_unlinked``): node id -> (step, count)
+        self.unlinked: dict[str, tuple[str, int]] = {}
 
     # ── nodes ────────────────────────────────────────────────────────────────
 
@@ -135,9 +138,12 @@ class InMemoryStore(FakeStoreBase):
                 created += 1
                 self.edges[doc["key"]] = dict(doc)
                 continue
+            # as the real store: of the stored meta the keys the model of the relation has
+            allowed = META_KEYS.get(stored.get("relation", ""), frozenset())
+            kept = {k: v for k, v in (stored.get("meta") or {}).items() if k in allowed}
             stored.update(
                 {k: doc.get(k) for k in ("confidence", "source", "status")},
-                meta={**(stored.get("meta") or {}), **(doc.get("meta") or {})},
+                meta={**kept, **(doc.get("meta") or {})},
             )
         return created, len(docs) - created
 

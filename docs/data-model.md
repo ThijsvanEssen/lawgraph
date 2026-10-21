@@ -140,10 +140,10 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
-| `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification, as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
+| `TRANSPOSED_TO` | Article → Article | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A row the source gives that the text of the laws does not hold is no edge: `lawgraph succession-gaps` lists it. |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
-| `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (BWB `dossierref`), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`, `meta.rijks_number`). |
+| `LEGISLATED_IN` | Instrument → Dossier | The parliamentary dossier in which an instrument was legislated (the `dossierref` of the BWB or of the law in the Staatsblad), or in which a treaty was approved (the Verdragenbank's `Kamerstukken`). |
 | `PUBLISHED_IN` | Instrument → Instrument | A treaty → a Tractatenblad that publishes it or something about it, as the Verdragenbank registers it: its text, its approval, its entry into force, its parties (`meta.description`, as the register writes it). |
 | `REFERS_TO` | Article → Article, Article → Instrument, Document → Article, Document → Instrument, Document → Document, Judgment → Article, Judgment → Instrument, Judgment → Judgment, Instrument → Article, Instrument → Instrument | A text refers to an article, instrument, judgment or Kamerstuk: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The source node says who refers; article → article edges also carry a `semantic_type`. From an instrument: a regulation whose text names the CELEX number of an EU act it does not `IMPLEMENTS`, or an EU act → an article or act its text names. Judgment → instrument: a law the conclusion of an ECHR judgment names by its BWB id. Document → document: its subject names the paper by dossier and number, "(Kamerstuk 36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` it. |
 | `EXPLAINS` | Document → ArticleVersion, Document → Article, Document → Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
@@ -194,7 +194,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `basis` | `subject` | `ANSWERS`, `REFERS_TO` | The subject of the Kamerstuk names the paper by dossier and number. |
 | `basis` | `text` | `ANSWERS` | A line of the text of the letter names the motion. |
 | `basis` | `footnote` | `ANSWERS` | A footnote of the letter names the motion. |
-| `basis` | `transposition_table` | `TRANSPOSED_TO` | The transposition table sent with the bill (a bijlage of its memorie van toelichting, or a table in it) places the old article in the new law, and the text of the new law holds that article and lid. |
+| `basis` | `transposition_table` | `TRANSPOSED_TO` | The table of the recodification places the old article in the new law (the transposition table sent with the bill, a bijlage of its memorie van toelichting or a table in it; the concordance table of an EU act that codifies or recasts others), and the text of the new law holds that article and lid. |
 | `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
 | `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
 | `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
@@ -244,7 +244,9 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `meta` | evidence and context, per relation as in the table below; upserts merge `meta` |
 
 An edge is one per (`from_id`, `relation`, `to_id`); a second write replaces `source`, `status` and
-`confidence` and merges `meta`. `EXPLAINS` from a memorandum has two writers that share its
+`confidence` and merges `meta` into the stored keys the model of the relation has (below): a key
+the model lacks goes on the next write of the edge, so a run of the step that writes it clears
+what an earlier version left. `EXPLAINS` from a memorandum has two writers that share its
 key: `semantic tk-mvt` (a change of the dossier, `confidence` 0.5, no section) and `semantic
 tk-mvt-articles` (a section that is about the article; `source` `mvt-section-linker`, the
 `confidence` of the surest section). The second wins whichever ran first.
@@ -253,15 +255,16 @@ The keys `meta` may hold are those of the model of its relation in `src/lawgraph
 (`RelationSpec.meta`): every key of every writer of the relation, since two writers of one
 edge merge theirs. A nested key is written `parent[].key` for an item of a list. Refresh the
 table with `python -m lawgraph.core.relations`; a test fails when it is out of date.
+`make_edge_doc` logs a key the model lacks, once per relation, source and key in a process
+(`Edge meta: … a key its model lacks`); in the tests every edge is held to the whole model,
+types included, and a test that makes one that does not fit fails. The `UPDATE` of
+`_CLASSIFICATIONS_SQL` (`db/queries/semantic/bwb.py`) writes outside it; a unit test holds
+its keys to the model of `REFERS_TO`.
 
 <!-- edge-meta:begin (generated: python -m lawgraph.core.relations) -->
 
 | Relation | Key | Type | Meaning |
 |----------|-----|------|---------|
-| `PART_OF` | `verdrag_id` | `str` | The Verdragenbank id of the treaty it belongs to. |
-|  | `dossier_number` | `str` | The number of the dossier of a paper of the Eerste Kamer. |
-|  | `dossier_suffix` | `str` | Its suffix. |
-|  | `chamber` | `str` | `EK`. |
 | `ESTABLISHES` | `effective_date` | `str` | The day the version takes effect. |
 |  | `article_version` | `str` | The key of the article version the publication made. |
 |  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
@@ -272,7 +275,6 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
 |  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
 |  | `snippet` | `str` | The words of the amendment that name the article. |
-|  | `title` | `str` | The title of the paper that amends the instrument (`tk-amends-instrument`). |
 | `INTRODUCES` | `effective_date` | `str` | The day the version takes effect. |
 |  | `article_version` | `str` | The key of the article version the publication made. |
 |  | `effect` | `str` | The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`. |
@@ -293,10 +295,8 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `parts[].article` | `str` | The number of the new article of the edge. |
 |  | `parts[].leden` | `list[str]` | The leden of it the place names; empty for the whole. |
 | `BASED_ON` | `text` | `str` | The reference without list word and law: `16, eerste en zevende lid`. |
-|  | `doc` | `str` | The part of the instrument that holds the reference. |
 |  | `basis_kind` | `str` | `delegates` when the leden named give the power, `mentioned` when the article is only named. |
-| `IMPLEMENTS` | `celex` | `str` | The CELEX number of the EU act. |
-|  | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
+| `IMPLEMENTS` | `bases` | `list[str]` | The implementation sources: `national_implementing_measure`, `considerans`. |
 |  | `publications` | `list[str]` | The publications EUR-Lex lists as national implementing measures. |
 |  | `measures` | `list[object]` | Those measures as EUR-Lex lists them. |
 |  | `measures[].citation` | `str` | How EUR-Lex cites the measure. |
@@ -304,9 +304,7 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `measures[].title` | `str` | Its title as EUR-Lex gives it. |
 |  | `measures[].type` | `str` | Its type as EUR-Lex gives it. |
 | `LEGISLATED_IN` | `dossier_number` | `str` | The number of the dossier. |
-|  | `rijks_number` | `str` | The Rijkswet number of the Kamerstuk the Verdragenbank lists. |
-| `PUBLISHED_IN` | `tractatenblad` | `str` | The Tractatenblad as the register writes it. |
-|  | `description` | `str` | What it publishes, as the register writes it. |
+| `PUBLISHED_IN` | `description` | `str` | What it publishes, as the register writes it. |
 | `REFERS_TO` | `leden` | `list[str]` | The leden the reference names: `["1", "3"]`. |
 |  | `onderdelen` | `list[str]` | The onderdelen it names: `["a"]`. |
 |  | `aanhef` | `bool` | It names the aanhef of the article. |
@@ -315,7 +313,6 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
 |  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`); the subject that names the paper (`tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
-|  | `linked_article` | `str` | The article the link of the XML points at, when the text names another. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |
 |  | `raw_match` | `str` | The citation as written. |
@@ -346,11 +343,7 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
-|  | `cited_date` | `str` | The date of that decision. |
-|  | `hudoc_articles` | `list[str]` | The articles of the Convention HUDOC lists for the judgment. |
-|  | `protocol` | `str` | The Protocol of the article cited. |
 |  | `match_type` | `str` | `bwb_text_scan`: the conclusion of an ECHR judgment names the law. |
-|  | `celex` | `str` | The CELEX number of the EU act a regulation names. |
 |  | `basis` | `Basis` | `subject` (core/provenance.py). |
 |  | `reference` | `str` | The reference to the paper as written. |
 | `EXPLAINS` | `section_anchor` | `str` | The `id` of the surest section (`props.sections` of the Document); the keys below up to `sections` are that section's. |
@@ -359,7 +352,6 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `heading` | `str` | Its heading. |
 |  | `changed` | `bool` | As in `sections`. |
 |  | `explanation` | `str` | As in `sections`. |
-|  | `match_type` | `str` | Of an MvT as in `sections`; of an NvT `bwb_id` or `title`. |
 |  | `sections` | `list[object]` | Every section about the article, in the order of the memorandum. |
 |  | `sections[].section_anchor` | `str` | The section of the memorandum. |
 |  | `sections[].heading` | `str` | Its heading. |
@@ -397,10 +389,8 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `periods[].role` | `str` | The role as the source writes it. |
 |  | `periods[].substitute` | `bool` | `true` for a substitute. |
 |  | `record_ids` | `list[str]` | The `FractieZetelPersoon` records of the faction seat. |
-|  | `chamber` | `str` | `EK`. |
 |  | `observed_from` | `str` | The first day the Eerste Kamer site showed the seat. |
 |  | `observed_until` | `str` | The day it no longer did; null while it does. |
-|  | `seniority_days` | `int` | The days in the Eerste Kamer the site gives. |
 | `SERVED_IN` | `posts` | `list[object]` | The posts held in the cabinet, as in the member's `government_functions`. |
 |  | `posts[].cabinet_key` | `str` | The cabinet node. |
 |  | `posts[].cabinet` | `str` | Its name: "kabinet-Rutte IV". |
@@ -455,7 +445,7 @@ table with `python -m lawgraph.core.relations`; a test fails when it is out of d
 |  | `seats` | `int` | The seats the vote counts. |
 |  | `record_ids` | `list[str]` | The `Stemming` records it is made of. |
 
-Without meta: `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
+Without meta: `PART_OF`, `VERSION_OF`, `ABOUT`, `LED_BY`, `SECOND_READING_OF`.
 
 <!-- edge-meta:end -->
 
@@ -471,7 +461,6 @@ says that two articles are linked, `semantic_type` says what the link means.
 | `updated_at` | when the classification last changed |
 | `meta.semantic_pattern` | the pattern and where its phrase stood: `limiting_exception_adjacent`, `definitional_reference_window`, `cross_reference_fallback` |
 | `meta.semantic_confidence` | the share of classifications by that pattern a hand check found right ([per pattern](pipelines.md#bwb-dutch-legislation)); the edge's `confidence` (1.0) is that the reference exists |
-| `meta.linked_article` | the key of the article the link of the XML points at, when the words of the reference name another (`semantic bwb`) |
 
 ## Instrument
 
@@ -1650,8 +1639,8 @@ A Dutch cabinet since 1945, from its Rijksoverheid page; key from its name (`rut
 
 <!-- props:cabinets:end -->
 
-`MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.chamber` `EK`,
-`observed_from`, `observed_until`, and `seniority_days` (faction) or `role` (committee).
+`MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.observed_from`,
+`observed_until`, and `role` (committee).
 
 No link to tweedekamer.nl is stored. The site finds a document by its `document_number` and an
 activity by its `number`, never by the GUID of the record (`external_id`), so the API derives
@@ -1760,7 +1749,7 @@ record is skipped like one without a payload.
 
 | Source | Kinds |
 |--------|-------|
-| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document), `tk-transposition-table-pdf` (the PDF of a transposition table, base64, external id `blg-1081574`; `meta` its title, dossier, main document, URL and when it was modified) |
+| `tk` | `tk-zaak`, `tk-document`, `tk-dossier`, `tk-activiteit`, `tk-stemming`, `tk-besluit`, `tk-toezegging`, `tk-commissie`, `tk-persoon`, `tk-fractie`, `tk-fractie-zetel-persoon`, `tk-kamerstuk-xml` (the XML of a paper, external id `kst-<dossier>-<n>`, `meta.document` the key of its Document), `tk-transposition-table-pdf` (the PDF of a transposition table, base64, external id `blg-1081574`; `meta` its title, dossier, main document, URL and when it was modified), `tk-transposition-document-xml` (the XML of a Kamerstuk whose text names a transposition table, external id `kst-<dossier>-<n>`, without a payload when no table is read in it; `meta` its title, dossier, URL, when it was modified and `tables`, the number read) |
 | `rechtspraak` | `rs-content` (of a judgment the Rechtspraak withdrew: `meta.withdrawn` and its RDF alone, or no payload), `rs-instanties-xml` (the Instanties value list) |
 | `eurlex` | `eu-celex-html` (`meta.modified`: when CELLAR last changed the act), `eu-nim-json` (the Dutch implementing measures of an act) |
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
@@ -1808,8 +1797,17 @@ Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a wo
 superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
-`lg_data_version` holds a counter per table of the graph, and one for
-`lg_instrument_definitions`, whose definitions the article routes mark. A statement trigger on each
+`lg_unlinked_references` holds per node a step read the references of how many its text makes
+that the step recognized and could not link (`id`, `step`: the edge source of the step,
+`count`; 0 when it linked every one): `semantic bwb`, `semantic eurlex`, `semantic rechtspraak`
+and `semantic tk` write a row per article, judgment or paper read, only where it changed, and a
+run over all removes the rows of its step it did not read. The detail routes read it by `id`
+(`completeness.references`). Apart from the props, so a run that counts every judgment
+rewrites no texts.
+
+`lg_data_version` holds a counter per table of the graph, and one each for
+`lg_instrument_definitions`, whose definitions the article routes mark, and
+`lg_unlinked_references`, which the detail routes read. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. `lg_article_terms` has no trigger: `semantic
 graph-article-terms` raises the counter of `articles` once, at the end of a run that changed
@@ -1914,6 +1912,10 @@ What the graph deliberately does not hold, because no official source gives it:
   faction or a committee runs from the first snapshot that shows it (`observed_from`) to the
   first that no longer does (`observed_until`). Nothing before the first snapshot is known,
   and `seniority_days` (`Anciënniteit`) is no start date.
-- Withdrawal of a bill: the Tweede Kamer records no withdrawal as data of the bill or its
-  case (its zaak keeps `Status` `Vrijgegeven`), so there is no outcome `ingetrokken`: a
-  withdrawn bill stays open (see [pipelines](pipelines.md), `tk-dossier-outcomes`).
+- Withdrawal of a bill: no source records it as data. The Tweede Kamer keeps the zaak of
+  the bill at `Status` `Vrijgegeven` (`Afgedaan` is true of a passed bill too), takes no
+  `BesluitSoort` for it, and the withdrawal comes as a `Brief regering` whose subject says
+  so in words; the Kamerstuk of officielebekendmakingen.nl says it only in its title and
+  text. So there is no outcome `ingetrokken`: a withdrawn bill stays open, and the API says
+  of an open bill only that no end is recorded since its last activity
+  (`completeness.outcome` `pending`; see [pipelines](pipelines.md), `tk-dossier-outcomes`).

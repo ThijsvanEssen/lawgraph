@@ -6,7 +6,9 @@ references are the only source. An article without them produces no edges.
 
 The edges are derived in full: a full run removes every edge of the step it did not write
 (also of an article whose references are gone, which it does not read); a run under
-``--since`` those of the articles it read.
+``--since`` those of the articles it read. Each article read keeps how many of its references
+name an article the graph does not hold (``lg_unlinked_references``): what
+``completeness.references`` of the API says.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
+from lawgraph.db.queries import unlinked_references as unlinked_queries
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic._bwb_references import (
     ArticleReferenceHit,
@@ -66,6 +69,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         # the articles read: under --since the edges of those go that their references no
         # longer support
         read: list[str] = []
+        unlinked: dict[str, int] = {}
         edges = EdgeWriter(self.store, what=None, remembers=True)
         # Stream articles (they carry full text) and process them in chunks so
         # that all reference targets of a chunk are resolved with ONE lookup.
@@ -97,9 +101,14 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                 },
             )
             for article, hits in scanned:
-                self._link(article, hits, edges)
+                missed = self._link(article, hits, edges)
+                if article.node_id:
+                    unlinked[article.node_id] = missed
 
         edges.flush_into(result)
+        unlinked_queries.keep_unlinked(
+            self.store, EDGE_SOURCE, unlinked, whole=since is None
+        )
         if not articles_seen:
             logger.info("No BWB articles found for semantic linking.")
 
@@ -108,8 +117,10 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         else:
             removed = edges.remove_stale(RELATION_REFERS_TO, EDGE_SOURCE, read)
         logger.info(
-            "%d references read; %d edges the references no longer support removed.",
+            "%d references read, %d not linked; %d edges the references no longer "
+            "support removed.",
             hits_detected,
+            sum(unlinked.values()),
             removed,
         )
         return result
@@ -119,11 +130,14 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         article: Node,
         hits: list[ArticleReferenceHit],
         edges: EdgeWriter,
-    ) -> None:
-        """Queue the edges of one article."""
+    ) -> int:
+        """Queue the edges of one article; how many of its references name an article the
+        graph does not hold."""
+        missed = 0
         for hit in hits:
             target, hit = self._resolve_article(hit)
             if not target:
+                missed += 1
                 continue
             edges.add_doc(
                 self._make_edge_doc(
@@ -135,6 +149,7 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     meta=self._edge_meta(hit),
                 )
             )
+        return missed
 
     @staticmethod
     def _hits_for(article: Node, bwb_id: str) -> list[ArticleReferenceHit]:
@@ -157,8 +172,6 @@ class BWBSemanticPipeline(SemanticPipelineBase):
         }
         if hit.reason:
             meta["reason"] = hit.reason
-        if hit.linked:
-            meta["linked_article"] = make_node_key(*hit.linked)
         return meta
 
     def _load_bwb_ids_from_graph(self) -> list[str]:

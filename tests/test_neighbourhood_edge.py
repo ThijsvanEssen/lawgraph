@@ -33,8 +33,8 @@ def test_the_period_of_a_membership_is_on_its_edge() -> None:
 
 
 def test_the_passages_stay_their_own_field() -> None:
-    edge = _edge({"lid": "2", "passages": [_PASSAGE]})
-    assert edge["meta"] == {"lid": "2"}
+    edge = _edge({"leden": ["2"], "passages": [_PASSAGE]})
+    assert edge["meta"] == {"leden": ["2"]}
     assert edge["passages"] == [_PASSAGE]
 
 
