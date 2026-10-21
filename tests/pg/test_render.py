@@ -1308,6 +1308,41 @@ def _seed_annex_and_case(store: GraphStore) -> None:
     )
 
 
+def test_a_treaty_its_article_and_annex_have_their_pages(
+    client: TestClient, store: GraphStore
+) -> None:
+    """A treaty of the BWB (``BWBV``) is a law at ``/wetten`` as one of its regulations
+    is: its page, its article's and its annex's are a 200, another spelling a 301 to
+    them, never a 301 to the same address (a loop)."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [_node("bwbv0007162", "instrument", bwb_id="BWBV0007162", kind="verdrag",
+               citation_title="Verdrag inzake de rechten van het kind")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node("bwbv0007162_15", "article", bwb_id="BWBV0007162", article_number="15",
+               position=15, text="De Staten die partij zijn …",
+               instrument_citation_title="Verdrag inzake de rechten van het kind")],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "annexes",
+        [_node("bwbv0007162_annex_i", "annex", bwb_id="BWBV0007162", label="I",
+               title="Bijlage I",
+               instrument_citation_title="Verdrag inzake de rechten van het kind")],
+    )  # fmt: skip
+    for path in (
+        "/wetten/BWBV0007162",
+        "/wetten/BWBV0007162/artikel/15",
+        "/wetten/BWBV0007162/bijlage/I",
+    ):
+        assert_status(_get(client, path), 200)
+        lower = _get(client, path.lower())
+        assert (lower.status_code, lower.headers.get("location")) == (301, path), (
+            lower.text
+        )
+
+
 def test_an_annex_has_its_law_and_entries(
     client: TestClient, store: GraphStore
 ) -> None:

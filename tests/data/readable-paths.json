@@ -33,6 +33,11 @@
       "path": "/wetten/BWBR0005289"
     },
     {
+      "focus": "instruments/bwbv0007162",
+      "props": {},
+      "path": "/wetten/BWBV0007162"
+    },
+    {
       "focus": "instruments/32022l2555",
       "props": {
         "celex": "32022L2555"
@@ -190,6 +195,14 @@
       "path": "/wetten/BWBR0002741/bijlage/II"
     },
     {
+      "focus": "annexes/bwbv0007162_annex_i",
+      "props": {
+        "bwb_id": "BWBV0007162",
+        "label": "I"
+      },
+      "path": "/wetten/BWBV0007162/bijlage/I"
+    },
+    {
       "focus": "cases/0a1b2c3d",
       "props": {
         "number": "2025Z15468"
@@ -267,6 +280,14 @@
         "a": "BWBR0005289"
       },
       "canonical": "/wetten/BWBR0005289"
+    },
+    {
+      "path": "/wetten/bwbv0007162",
+      "pad": {
+        "soort": "wet",
+        "a": "BWBV0007162"
+      },
+      "canonical": "/wetten/BWBV0007162"
     },
     {
       "path": "/wetten/32022l2555",
@@ -374,7 +395,8 @@
     "/activiteiten/01323",
     "/activiteiten/2026A01323/x",
     "/wetten/STB-2026",
-    "/wetten/STCRT-2026-56"
+    "/wetten/STCRT-2026-56",
+    "/wetten/BWBX0007162"
   ],
   "focus": [
     {
@@ -392,6 +414,10 @@
     {
       "path": "/wetten/BWBR0005289",
       "focus": "instruments/bwbr0005289"
+    },
+    {
+      "path": "/wetten/BWBV0007162",
+      "focus": "instruments/bwbv0007162"
     },
     {
       "path": "/wetten/32022L2555",
