@@ -12,6 +12,7 @@ from lawgraph.core.dossier_stages import (
     CARRYING_KINDS,
     LEGISLATIVE_KINDS,
     PHASES,
+    WITHDRAWAL_LETTER_SUBJECT,
     DossierOutcome,
     current_phase,
     derive_outcome,
@@ -24,6 +25,7 @@ from lawgraph.core.dossier_stages import (
     outcome_props,
     phase_props,
     select_title,
+    subject_key,
 )
 from lawgraph.core.tk_records.dossiers import dossier_display_name
 
@@ -256,13 +258,50 @@ def test_the_last_vote_on_the_bill_decides_a_rejection() -> None:
 
 def test_a_bill_without_publication_or_rejection_is_open() -> None:
     assert derive_outcome([], []) == DossierOutcome(False)
-    # a postponement is no vote, and no withdrawal is read from anything
+    # a postponement is no vote
     postponed = {
         "date": "2024-04-01",
         "passed": None,
         "decision_kind": "Stemmen - uitstellen",
     }
     assert derive_outcome([], [postponed]).closed is False
+
+
+def test_a_withdrawal_letter_closes_the_dossier_on_its_day() -> None:
+    """The latest letter with the fixed title closes it as ``ingetrokken``, kept as proof;
+    a law published or a chamber's vote decides before it."""
+    letters = [
+        {"id": "documents/a", "date": "2025-05-30"},
+        {"id": "documents/b", "date": "2025-06-02"},
+    ]
+    outcome = derive_outcome(
+        [], [{"date": "2025-01-01", "passed": True}], None, letters
+    )
+    assert outcome == DossierOutcome(
+        True, "ingetrokken", "2025-06-02", withdrawal_letter="documents/b"
+    )
+    assert outcome_props(outcome)["withdrawal_letter"] == "documents/b"
+    enacted = derive_outcome([{"date_published": "2026-01-01"}], [], None, letters)
+    assert (enacted.outcome, enacted.withdrawal_letter) == ("aangenomen", None)
+    rejected = derive_outcome(
+        [], [{"date": "2024-04-01", "passed": False}], None, letters
+    )
+    assert rejected.outcome == "verworpen"
+
+
+def test_the_withdrawal_title_is_matched_whole_but_for_spaces_and_case() -> None:
+    """As the Kamer gives it, with a space after it (2025D25397); with more words it is
+    another subject (2013D07117)."""
+    title = subject_key(WITHDRAWAL_LETTER_SUBJECT)
+    assert subject_key("Brief houdende intrekking van het wetsvoorstel ") == title
+    assert subject_key("brief  houdende\nintrekking van het Wetsvoorstel") == title
+    assert (
+        subject_key(
+            "Brief houdende intrekking van het wetsvoorstel Kaderwet Veteranen "
+        )
+        != title
+    )
+    assert subject_key("Intrekking van het wetsvoorstel") != title
 
 
 def test_the_last_decision_of_the_kamer_is_kept_as_it_writes_it() -> None:
@@ -287,9 +326,8 @@ def test_the_last_decision_of_the_kamer_is_kept_as_it_writes_it() -> None:
 
 def test_the_outcome_part_says_what_the_graph_knows_of_the_end() -> None:
     """Closed: ``done`` on its closing day. An open bill: ``pending`` since its last
-    activity, for a withdrawal is recorded nowhere (a withdrawn bill looks like one still
-    before a chamber). A dossier without a bill: no end in the source. Not yet derived:
-    ``pending`` without a day."""
+    activity, for it may also have ended in a way no record says. A dossier without a bill:
+    no end in the source. Not yet derived: ``pending`` without a day."""
     closed = {"closed": True, "closed_on": "2022-08-30", "last_activity": "2023-01-01"}
     assert outcome_part({**closed, "kind": "Wetgeving"}) == {
         "state": "done",
@@ -314,6 +352,7 @@ def test_outcome_props_records_the_outcome() -> None:
         "closed_on": "2024-05-01",
         "tk_decision": {"kind": "k"},
         "ek_outcome": None,
+        "withdrawal_letter": None,
     }
 
 

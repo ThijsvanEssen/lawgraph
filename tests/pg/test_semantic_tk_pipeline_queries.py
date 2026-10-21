@@ -749,8 +749,24 @@ def test_dossier_outcome_signals(store: GraphStore) -> None:
               kind="Hamerstuk", subject="t"),
         _node("Ek", "decision", chamber="EK", date="2025-05-01"),
     )  # fmt: skip
+    # the letter that withdraws the bill: its fixed subject, but for spaces and case; not
+    # a letter of another kind, nor a subject that says more
+    subject = "Brief houdende intrekking van het wetsvoorstel"
+    _seed(
+        store,
+        COLLECTION_DOCUMENTS,
+        _node("w1", "document", kind="Brief regering", date="2025-06-02",
+              subject=" brief  houdende\nintrekking van het Wetsvoorstel "),
+        _node("w2", "document", kind="Brief commissie", date="2025-06-03",
+              subject=subject),
+        _node("w3", "document", kind="Brief regering", date="2025-06-04",
+              subject=f"{subject} Kaderwet Veteranen"),
+    )  # fmt: skip
     _edges(
         store,
+        _edge("documents/w1", "dossiers/d1", "PART_OF", "p1"),
+        _edge("documents/w2", "dossiers/d1", "PART_OF", "p2"),
+        _edge("documents/w3", "dossiers/d1", "PART_OF", "p3"),
         _edge("instruments/i2", "dossiers/d1", "LEGISLATED_IN", "l2"),
         _edge("instruments/i1", "dossiers/d1", "LEGISLATED_IN", "l1"),
         _edge("instruments/gone", "dossiers/d1", "LEGISLATED_IN", "l3"),
@@ -775,11 +791,15 @@ def test_dossier_outcome_signals(store: GraphStore) -> None:
         "publications": [],
         "bill_decisions": [],
         "ek_votes": [],
+        "withdrawal_letters": [],
     }
     assert rows[0] == empty and rows[2] == empty
     assert len(rows) == 3
     d1 = rows[1]
-    assert list(d1) == ["key", "props", "publications", "bill_decisions", "ek_votes"]
+    assert list(d1) == [
+        "key", "props", "publications", "bill_decisions", "ek_votes", "withdrawal_letters"
+    ]  # fmt: skip
+    assert d1["withdrawal_letters"] == [{"id": "documents/w1", "date": "2025-06-02"}]
     assert d1["key"] == "d1"
     assert d1["props"] == {
         "closed": True,

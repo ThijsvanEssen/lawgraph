@@ -39,7 +39,8 @@
  ],
  "/components/schemas/ActorDossierDTO/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/ActorDossierDTO/properties/source": [
   "tk",
@@ -420,7 +421,8 @@
  ],
  "/components/schemas/DossierDetailResponse/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/DossierDetailResponse/properties/source": [
   "tk",
@@ -565,7 +567,8 @@
  ],
  "/components/schemas/DossierSummaryDTO/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/DossierSummaryDTO/properties/source": [
   "tk",
@@ -1632,7 +1635,8 @@
  ],
  "/paths//api/dossiers/get/parameters/1/schema/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/paths//api/dossiers/get/parameters/12/schema/anyOf/0": [
   "number",
