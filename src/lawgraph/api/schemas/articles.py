@@ -185,24 +185,64 @@ def headings_from_props(props: dict[str, Any]) -> list[ArticleHeadingDTO]:
 class FootnoteMarkDTO(StrictModel):
     """The marker of a footnote in the text of an article (``<sup>1</sup>`` after
     "Richtlijn (EU) 2019/944"): no character of `text`, but where it stood. The footnote
-    itself is a paragraph of `text` that opens with its number."""
+    itself is a paragraph of `text` that opens with its number, or the one of `footnotes`
+    at `footnote`."""
 
     at: int = Field(
         description="Offset into `text` where the marker stood: `text[:at]` the words "
         "before it."
     )
     number: str = Field(description="Its number, without brackets: `1`.")
+    footnote: int | None = Field(
+        None,
+        description="The footnote it marks, its place in `footnotes`; null for one that "
+        "is a paragraph of `text`.",
+    )
+
+
+class FootnoteDTO(StrictModel):
+    """A footnote the source writes where its marker stands (a BWB ``<noot>``): not in
+    `text`, but its own."""
+
+    number: str = Field(
+        description="Its number as printed, without brackets: `1`; empty without one. "
+        "Numbers can repeat (an annex of forms numbers per form)."
+    )
+    text: str = Field(description="Its text, a paragraph a line.")
+
+
+def footnotes_from_props(props: dict[str, Any]) -> list[FootnoteDTO]:
+    """The ``<noot>`` footnotes stored on an article, version or annex, in text order."""
+    stored = props.get("footnotes")
+    if not isinstance(stored, list):
+        return []
+    return [
+        FootnoteDTO.model_validate(note)
+        for note in stored
+        if isinstance(note, dict)
+        and isinstance(note.get("number"), str)
+        and isinstance(note.get("text"), str)
+    ]
 
 
 def footnote_marks_from_props(props: dict[str, Any]) -> list[FootnoteMarkDTO]:
     """The footnote markers stored on an article, version or annex; one that does not fit
-    the text is left out rather than failing the response."""
+    the text is left out rather than failing the response, and one that names a footnote
+    the props do not hold names none."""
     text = props.get("text")
     stored = props.get("footnote_marks")
     if not isinstance(text, str) or not isinstance(stored, list):
         return []
+    footnotes = len(footnotes_from_props(props))
     return [
-        FootnoteMarkDTO.model_validate(mark)
+        FootnoteMarkDTO(
+            at=mark["at"],
+            number=mark["number"],
+            footnote=footnote
+            if isinstance(footnote := mark.get("footnote"), int)
+            and 0 <= footnote < footnotes
+            else None,
+        )
         for mark in stored
         if isinstance(mark, dict)
         and isinstance(mark.get("at"), int)
@@ -287,8 +327,16 @@ class ArticleReferenceDTO(QualifierFields):
         "for a link to an annex."
     )
     text: str
-    start: int = Field(description="Offset of `text` in the text of the article.")
+    start: int = Field(
+        description="Offset of `text` in the text of the article, or in that of its "
+        "`footnote`."
+    )
     end: int
+    footnote: int | None = Field(
+        None,
+        description="The footnote it stands in, its place in `footnotes`; null for a "
+        "reference of the text itself.",
+    )
     target: ReferenceTargetDTO | None = Field(
         None,
         description="What the link names: the article; the regulation of a link to a "
@@ -297,16 +345,20 @@ class ArticleReferenceDTO(QualifierFields):
 
 
 def references_from_props(
-    props: dict[str, Any], present: set[tuple[str, str]]
+    props: dict[str, Any], present: set[tuple[str, str]], *, footnotes: bool = False
 ) -> list[ArticleReferenceDTO]:
     """The references stored on an article, in text order, each with its target and
-    whether it is among the ``(collection, key)`` the data holds (*present*)."""
+    whether it is among the ``(collection, key)`` the data holds (*present*): those of its
+    text, or with *footnotes* those of its footnotes (``footnote``)."""
     stored = props.get("references")
     if not isinstance(stored, list):
         return []
     references = []
     for ref in stored:
         if not isinstance(ref, dict):
+            continue
+        footnote = ref.get("footnote")
+        if (footnote is not None) != footnotes:
             continue
         target = reference_target(ref)
         references.append(
@@ -319,6 +371,7 @@ def references_from_props(
                 text=str(ref.get("text") or ""),
                 start=int(ref.get("start") or 0),
                 end=int(ref.get("end") or 0),
+                footnote=footnote if isinstance(footnote, int) else None,
                 target=ReferenceTargetDTO(
                     collection=target[0], key=target[1], exists=target in present
                 )
@@ -327,7 +380,7 @@ def references_from_props(
                 **Qualifier.from_dict(ref).to_dict(),
             )
         )
-    return sorted(references, key=lambda ref: (ref.start, ref.end))
+    return sorted(references, key=lambda ref: (ref.footnote or 0, ref.start, ref.end))
 
 
 class ArticleSummaryDTO(WithPath):
@@ -376,6 +429,11 @@ class ArticleSummaryDTO(WithPath):
         default_factory=list,
         description="Where the markers of its footnotes stood in `text`, in text order.",
     )
+    footnotes: list[FootnoteDTO] = Field(
+        default_factory=list,
+        description="The footnotes the source writes where their marker stands, not in "
+        "`text`, in text order; those of `heading` (without a marker) first.",
+    )
 
     @classmethod
     def from_document(
@@ -401,6 +459,7 @@ class ArticleSummaryDTO(WithPath):
             tables=tables_from_props(props),
             headings=headings_from_props(props),
             footnote_marks=footnote_marks_from_props(props),
+            footnotes=footnotes_from_props(props),
         )
 
 
@@ -605,6 +664,12 @@ class ArticleDetailResponse(StrictModel):
         "whether or not the target is in the graph. `citations` holds the resolved ones, "
         "one per target.",
     )
+    footnote_references: list[ArticleReferenceDTO] = Field(
+        default_factory=list,
+        description="The references its footnotes (`article.footnotes`) make, as "
+        "`references`: each with its `footnote`, offsets into the text of that footnote.",
+    )
+
     delegations: list[DelegationClauseDTO] = Field(
         default_factory=list,
         description="The delegation formulas in the text, in text order; empty when the "
@@ -1193,6 +1258,9 @@ class ArticleVersionDTO(_ArticleVersionFields):
     footnote_marks: list[FootnoteMarkDTO] = Field(
         default_factory=list, description="As on the article: offsets into `text`."
     )
+    footnotes: list[FootnoteDTO] = Field(
+        default_factory=list, description="As on the article."
+    )
 
     @classmethod
     def from_document(
@@ -1206,6 +1274,7 @@ class ArticleVersionDTO(_ArticleVersionFields):
             tables=tables_from_props(props),
             headings=headings_from_props(props),
             footnote_marks=footnote_marks_from_props(props),
+            footnotes=footnotes_from_props(props),
         )
 
 

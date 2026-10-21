@@ -208,8 +208,9 @@ def test_an_article_says_where_its_parts_and_references_are() -> None:
     assert "references" in _properties("ArticleDetailResponse")
     qualifier = {"leden", "onderdelen", "aanhef"}
     reference = {"kind", "bwb_id", "article", "celex", "doc", "text", "start", "end"}
-    reference |= {"target"}
+    reference |= {"target", "footnote"}
     assert reference | qualifier == _properties("ArticleReferenceDTO")
+    assert "footnote_references" in _properties("ArticleDetailResponse")
     assert qualifier | {"reference_kind", "start", "end", "text"} <= _properties(
         "ArticleCitationSpan"
     )
