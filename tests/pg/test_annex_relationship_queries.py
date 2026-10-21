@@ -84,6 +84,8 @@ def graph(store: GraphStore) -> GraphStore:
             ),
             _edge("t1", "articles/A_1", "articles/B_1", "TRANSPOSED_TO"),
             _edge("t2", "articles/A_2", "articles/A_1", "TRANSPOSED_TO"),
+            # what the table answers ("vervallen"): to the new law, no successor
+            _edge("t3", "articles/A_1", "instruments/B", "TRANSPOSED_TO"),
             _edge("s2", "articles/B_1", "annexes/A_bijlage", "SCOPED_BY"),
             _edge("s1", "articles/A_1", "annexes/A_bijlage", "SCOPED_BY"),
             _edge("s0", "articles/A_2", "annexes/A_bijlage", "SCOPED_BY"),

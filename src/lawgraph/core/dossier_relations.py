@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -240,25 +240,24 @@ def related_case_ids(cases: Iterable[Mapping[str, Any]]) -> list[str]:
 
 
 def _side(
-    case_id: str, documents: Mapping[str, Mapping[str, Any]]
-) -> list[dict[str, Any]]:
-    """The sides a case gives a pair: one per document of its own kind (``case_documents``), each
-    with the number of its case; the case alone when it has none in the graph."""
-    found = documents.get(case_id) or {}
-    number = found.get("number")
+    case_id: str, documents: Mapping[str, Sequence[Mapping[str, Any]]]
+) -> list[tuple[str, dict[str, Any]]]:
+    """The sides a case gives a pair, each with the day of its document: one per document of
+    its own kind (``case_documents``); ``{paper: null}`` when it has none in the graph."""
     own = [
-        {
-            "case": number,
-            "paper": document.get("id"),
-            "kind": document.get("kind"),
-            "dossier_number": document.get("dossier_number"),
-            "dossier_suffix": document.get("dossier_suffix"),
-            "sequence": document.get("sequence"),
-            "date": document.get("date"),
-        }
-        for document in found.get("papers") or []
+        (
+            str(document.get("date") or ""),
+            {
+                "paper": document.get("id"),
+                "kind": document.get("kind"),
+                "dossier_number": document.get("dossier_number"),
+                "dossier_suffix": document.get("dossier_suffix"),
+                "sequence": document.get("sequence"),
+            },
+        )
+        for document in documents.get(case_id) or []
     ]
-    return own or [{"case": number, "paper": None}]
+    return own or [("", {"paper": None})]
 
 
 # The pairs of documents an edge between two dossiers keeps (``meta.pairs``): the newest. Two
@@ -266,21 +265,17 @@ def _side(
 PAIRS_KEPT = 5
 
 
-def _newest(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The ``PAIRS_KEPT`` newest *pairs*, by the day of their documents (the later side), in
-    that order; a pair without a document in the graph last."""
-
-    def day(pair: dict[str, Any]) -> str:
-        return max(
-            str(pair["from"].get("date") or ""), str(pair["to"].get("date") or "")
-        )
-
-    return sorted(pairs, key=day, reverse=True)[:PAIRS_KEPT]
+def _newest(pairs: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
+    """The ``PAIRS_KEPT`` newest *pairs*, by their day (that of the later document), in that
+    order; a pair without a document in the graph last."""
+    return [pair for _, pair in sorted(pairs, key=lambda p: p[0], reverse=True)][
+        :PAIRS_KEPT
+    ]
 
 
 def related_dossiers(
     cases: Iterable[Mapping[str, Any]],
-    documents: Mapping[str, Mapping[str, Any]] | None = None,
+    documents: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
 ) -> Iterator[DossierLink]:
     """``RELATED_TO`` links between the dossiers of two cases the Kamer relates.
 
@@ -288,10 +283,9 @@ def related_dossiers(
     relates A to B. ``meta.cases`` is how many such pairs of cases there are, ``meta.case_kinds``
     their kinds ("Brief regering → Motie"), and ``meta.pairs`` the documents of the newest pairs
     (``PAIRS_KEPT``): per pair of documents of the two cases' own kinds (*documents*,
-    ``case_documents``: the letter and the motion) ``{kinds, from, to}``, each side ``{case,
-    document, kind, dossier_number, dossier_suffix, sequence, date}``, or ``{case, document:
-    null}`` for a case without such a document in the graph. Cases within one dossier relate
-    no dossiers.
+    ``case_documents``: the letter and the motion) ``{from, to}``, each side ``{paper, kind,
+    dossier_number, dossier_suffix, sequence}``, or ``{paper: null}`` for a case without such
+    a document in the graph. Cases within one dossier relate no dossiers.
     """
     documents = documents or {}
     pairs: dict[tuple[str, str], set[tuple[str, str, str]]] = {}
@@ -316,10 +310,10 @@ def related_dossiers(
                 "case_kinds": sorted({kinds for _, _, kinds in case_pairs}),
                 "pairs": _newest(
                     [
-                        {"kinds": kinds, "from": one, "to": two}
-                        for case, other, kinds in sorted(case_pairs)
-                        for one in _side(case, documents)
-                        for two in _side(other, documents)
+                        (max(one_day, two_day), {"from": one, "to": two})
+                        for case, other, _ in sorted(case_pairs)
+                        for one_day, one in _side(case, documents)
+                        for two_day, two in _side(other, documents)
                     ]
                 ),
             },

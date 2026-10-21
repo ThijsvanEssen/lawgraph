@@ -86,7 +86,14 @@ from tests.paths import FIXTURES
             ],
         ),
         ("artikel 1.1a", [Reference("artikel 1.1a", "1.1a")]),
-        ("5.33 jo. 16.15 en 16.16", None),
+        (
+            "5.33 jo. 16.15 en 16.16",
+            [
+                Reference("5.33", "5.33"),
+                Reference("16.15", "16.15"),
+                Reference("16.16", "16.16"),
+            ],
+        ),
         ("§ 2.3", None),
         ("", None),
     ],
@@ -112,12 +119,82 @@ def test_the_references_of_a_cell(text: str, expected: list[Reference] | None) -
                 Place("bijlage A", None, ()),
             ],
         ),
+        # kst-34986-3, Belemmeringenwet Privaatrecht 7, 5 and 12: in prose, a law named
+        # after the last reference
         (
             "Komt terug in 13.1 en 13.3 Omgevingswet.",
             [
+                Place("13.1", "13.1", ()),
+                Place("13.3 Omgevingswet", "13.3", (), law="Omgevingswet"),
+            ],
+        ),
+        (
+            "Komt inhoudelijk gewijzigd terug in artikel 10.23.",
+            [Place("artikel 10.23", "10.23", ())],
+        ),
+        (
+            "Komt inhoudelijk ongewijzigd terug in artikel 10.1a van de Omgevingswet.",
+            [Place("artikel 10.1a Omgevingswet", "10.1a", (), law="Omgevingswet")],
+        ),
+        # a law named after the last reference only: Wro 3.30, WEC 47b (kst-34878-3),
+        # Wabo 5.14, Tracéwet 21a
+        (
+            "5.45, 16.7 en afdeling 3.5 Awb",
+            [
+                Place("5.45", "5.45", ()),
+                Place("16.7", "16.7", ()),
+                Place("afdeling 3.5 Awb", None, (), law="Awb"),
+            ],
+        ),
+        (
+            "12 en 47b WEC",
+            [Place("12", "12", ()), Place("47b WEC", "47b", (), law="WEC")],
+        ),
+        (
+            "5.20, derde lid, Awb (nieuw)",
+            [Place("5.20, derde lid Awb", "5.20", ("3",), law="Awb")],
+        ),
+        (
+            "16.75 (Aanvullingswet grondeigendom Omgevingswet)",
+            [
                 Place(
-                    "Komt terug in 13.1 en 13.3 Omgevingswet.", None, (), readable=False
+                    "16.75 Aanvullingswet grondeigendom Omgevingswet",
+                    "16.75",
+                    (),
+                    law="Aanvullingswet grondeigendom Omgevingswet",
                 )
+            ],
+        ),
+        # what follows a reference is no law when it names a part or starts in lower case
+        (
+            "art. 9.1, eerste lid, onderdeel g (werkzaamheden op verzoek)",
+            [
+                Place(
+                    "art. 9.1, eerste lid, onderdeel g (werkzaamheden op verzoek)",
+                    None,
+                    (),
+                    readable=False,
+                )
+            ],
+        ),
+        (
+            "3.40, vijfde en zesde",
+            [Place("3.40, vijfde en zesde", None, (), readable=False)],
+        ),
+        # references joined by a word: Wm 7.30, Wabo 2.1, Energiewet
+        (
+            "16.50 in samenhang met 16.40, derde lid",
+            [Place("16.50", "16.50", ()), Place("16.40, derde lid", "16.40", ("3",))],
+        ),
+        (
+            "5.1 resp. 5.3",
+            [Place("5.1", "5.1", ()), Place("5.3", "5.3", ())],
+        ),
+        (
+            "3.89, eerste lid, i.c.m. 3.10, zevende lid",
+            [
+                Place("3.89, eerste lid", "3.89", ("1",)),
+                Place("3.10, zevende lid", "3.10", ("7",)),
             ],
         ),
         (
@@ -163,10 +240,20 @@ def test_a_table_with_a_column_per_law() -> None:
         ("Wtw", "Omgevingswet"),
         "Waterwet",
     )
-    assert table.rows()[1] == SourceRow(
+    # "bijlage A in samenhang met 1.3, 2.17, 4.10, 4.12, 4.23 en 5.9"
+    assert [r.place.text for r in table.rows()[:7]] == [
+        "bijlage A",
+        "1.3",
+        "2.17",
+        "4.10",
+        "4.12",
+        "4.23",
+        "5.9",
+    ]
+    assert table.rows()[7] == SourceRow(
         "1.2", "", Place("1.5", "1.5", ()), "rij 3", "kst-34986-3", "1.4"
     )
-    assert [(r.old_article, r.place.text) for r in table.rows()[3:5]] == [
+    assert [(r.old_article, r.place.text) for r in table.rows()[9:11]] == [
         ("2.1", "1.3"),
         ("2.1", "4.23"),
     ]

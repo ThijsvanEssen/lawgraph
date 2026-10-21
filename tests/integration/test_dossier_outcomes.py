@@ -9,7 +9,11 @@ AVG, law since Stb. 2018, 144, says false). The records below have the fields th
   enacted.
 * 37014 (Wet weerbare waarden) is pending: an amendment on it was voted down, which does not
   end the bill.
-* 36680 was withdrawn by letter: no record of the Kamer says so, so it stays open.
+* 36680 was withdrawn by the letter 2025D25397 (Kamerstuk 36680, nr. 6), whose Onderwerp is
+  the fixed title of such a letter, with the space the Kamer leaves after it: it is
+  ``ingetrokken`` on the day of that letter.
+* 37014 also has a letter whose Onderwerp is that title with more after it, as the Kamer
+  gave 2013D07117 on 32538 ("… Kaderwet Veteranen "): no withdrawal letter.
 * 36999 was voted down by the Tweede Kamer.
 * 36928 passed as a hamerstuk: a Besluit ``Stemmen - zonder stemming aannemen`` on its zaak
   without a single vote, fetched as a Besluit on a bill (``tk-besluit``); open, awaiting the
@@ -35,6 +39,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_STEMMING,
 )
+from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from tests.databases import Api, module_store
 from tests.integration.seed import FIXTURES, uid, write_tk, write_toestanden
@@ -192,6 +197,19 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
                     order=1,
                 )
             )
+            # Not the fixed title: words follow it, so it withdraws nothing.
+            letter = _zaak(number, 5, "Brief regering")
+            yield (
+                RAW_KIND_TK_DOCUMENT,
+                _document(
+                    number,
+                    6,
+                    "Brief regering",
+                    "Brief houdende intrekking van het wetsvoorstel Kaderwet Veteranen ",
+                    "2025-12-01",
+                    [bill, letter],
+                ),
+            )
         if number == ENACTED:
             yield (
                 RAW_KIND_TK_DOCUMENT,
@@ -206,7 +224,7 @@ def _tk_payloads() -> Iterator[tuple[str, dict[str, Any]]]:
                     number,
                     6,
                     "Brief regering",
-                    "Brief houdende intrekking van het wetsvoorstel",
+                    "Brief houdende intrekking van het wetsvoorstel ",
                     "2025-06-02",
                     [bill, letter],
                 ),
@@ -265,7 +283,7 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
 def _dossier_props(store: GraphStore) -> dict[str, dict[str, Any]]:
     kept = (
         "number", "closed", "outcome", "closed_on", "opened_on", "kind", "kind_basis",
-        "phases", "current_phase", "tk_decision",
+        "phases", "current_phase", "tk_decision", "withdrawal_letter",
     )  # fmt: skip
     return {
         props["number"]: {k: v for k, v in props.items() if k in kept}
@@ -297,8 +315,10 @@ def test_a_dossier_is_closed_by_what_the_graph_holds(database: str, cli: Any) ->
         "text": "Verworpen.",
         "date": "2025-03-11",
     }
-    # A withdrawal is read from nothing: the Kamer records none.
-    assert _outcome(dossiers[WITHDRAWN]) == (False, None, None)
+    # Withdrawn by the letter with the fixed title, on its day, with the letter as proof.
+    assert _outcome(dossiers[WITHDRAWN]) == (True, "ingetrokken", "2025-06-02")
+    letter = make_node_key(uid(int(WITHDRAWN), 6))
+    assert dossiers[WITHDRAWN]["withdrawal_letter"] == f"documents/{letter}"
     # A rejected amendment is not the end of the bill, and no vote on the bill itself.
     assert _outcome(dossiers[PENDING]) == (False, None, None)
     assert (dossiers[PENDING]["kind"], dossiers[PENDING]["kind_basis"]) == (
@@ -331,11 +351,7 @@ def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
     api: Api,
 ) -> None:
     open_page = api.get_json("/api/dossiers?status=open")
-    assert {item["number"] for item in open_page["items"]} == {
-        PENDING,
-        WITHDRAWN,
-        HAMMERED,
-    }
+    assert {item["number"] for item in open_page["items"]} == {PENDING, HAMMERED}
     hammered = api.get_json(f"/api/dossiers/{HAMMERED}")
     assert hammered["tk_decision"]["kind"] == "Stemmen - zonder stemming aannemen"
     assert hammered["current_phase"] == "Stemmingen"
@@ -349,17 +365,25 @@ def test_the_api_lists_the_dossiers_that_did_not_end_as_open(
     pending = api.get_json(f"/api/dossiers/{PENDING}")
     assert (pending["closed"], pending["outcome"]) == (False, None)
 
-    # What the graph knows of the end: the closing day of an ended bill; of an open one
-    # only that none is recorded since its last activity (the withdrawal letter of 36680).
+    # What the graph knows of the end: the closing day of an ended bill, a withdrawn one
+    # too; of an open one only that none is recorded since its last activity.
     def outcome(body: dict[str, Any]) -> dict[str, Any]:
         part = body["completeness"]["outcome"]
         return {k: v for k, v in part.items() if v is not None}
 
     assert outcome(enacted) == {"state": "done", "as_of": "2022-08-30"}
+    assert outcome(pending) == {"state": "pending", "as_of": "2025-12-01"}
     withdrawn = api.get_json(f"/api/dossiers/{WITHDRAWN}")
-    assert outcome(withdrawn) == {"state": "pending", "as_of": "2025-06-02"}
-    listed = {i["number"]: i for i in open_page["items"]}
-    assert outcome(listed[WITHDRAWN]) == outcome(withdrawn)
+    assert (withdrawn["closed"], withdrawn["outcome"], withdrawn["closed_on"]) == (
+        True,
+        "ingetrokken",
+        "2025-06-02",
+    )
+    assert outcome(withdrawn) == {"state": "done", "as_of": "2025-06-02"}
+    letter = api.get_json(f"/api/documents/{withdrawn['withdrawal_letter']}")
+    assert (letter["kind"], letter["date"][:10]) == ("Brief regering", "2025-06-02")
+    closed = api.get_json("/api/dossiers", status="closed", outcome="ingetrokken")
+    assert [item["number"] for item in closed["items"]] == [WITHDRAWN]
 
 
 def test_the_api_types_the_kind_of_case_a_vote_and_a_paper_belong_to(

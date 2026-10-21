@@ -27,6 +27,7 @@ from lawgraph.api.schemas.documents import (
     readable_sections,
 )
 from lawgraph.config.constants import Chamber
+from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import get_document_decisions
@@ -40,7 +41,7 @@ from lawgraph.db.queries.documents import (
 )
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
-from lawgraph.db.queries.unlinked_references import unlinked_count
+from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
 
@@ -53,7 +54,10 @@ router = APIRouter()
         "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their "
         "metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is "
         "numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, "
-        "``title`` and ``session_year``. ``facets`` counts per ``kind`` and ``chamber``, "
+        "``title`` and ``session_year``; of a motion or an amendment how it ended "
+        "(``outcome``) and of a motion of censure or of no confidence ``motion_kind``. "
+        "``motion_kind=censure,no_confidence`` keeps those motions: one open while its "
+        "``outcome`` is null. ``facets`` counts per ``kind`` and ``chamber``, "
         "each without its own filter; ``facets=false`` reads one page only."
     ),
     tags=["documents"],
@@ -80,6 +84,13 @@ def list_chamber_documents(
     date_to: Annotated[
         dt.date | None, Query(alias="to", description="On or before, YYYY-MM-DD.")
     ] = None,
+    motion_kind: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated kinds of motion: ``censure`` (motie van "
+            "afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions."
+        ),
+    ] = None,
     facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -91,6 +102,7 @@ def list_chamber_documents(
         dossier=dossier,
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
+        motion_kinds=parse_choices(motion_kind, MOTION_KINDS, "motion_kind"),
         limit=limit,
         offset=offset,
         facets=facets,
@@ -135,7 +147,7 @@ def get_document_text(
         get_document_decisions(store, doc["id"]),
         load_dossier_names(store),
         get_replacements(store, [doc["id"]]).get(doc["id"]),
-        unlinked_count(store, doc["id"]),
+        reference_counts(store, doc["id"]),
         document_xml_retrieval(store, doc),
     )
 

@@ -125,7 +125,9 @@ date}`: done when a paper of the dossier, an activity about it that took place o
 its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
 `current_phase` (the furthest done phase in the order of the list, not the one with the latest
 date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
-four days after the bill passed; null for none), `closed`, `outcome`, `tk_decision` (the last decision of the Kamer on its bill: `kind`
+four days after the bill passed; null for none), `closed`, `outcome` (`aangenomen`, `verworpen`
+or `ingetrokken`), `withdrawal_letter` (of a withdrawn bill the key of the letter that
+withdrew it, whose date is `closed_on`), `tk_decision` (the last decision of the Kamer on its bill: `kind`
 its `BesluitSoort`, `Stemmen - aangenomen`, `Stemmen - zonder stemming aannemen` for a
 hamerstuk, `Stemmen - verworpen`, `Stemmen - uitstellen`, …; `text`, `date`; null for none),
 `ek_outcome` (the outcome of the bill in the Eerste Kamer, as eerstekamer.nl gives it:
@@ -222,7 +224,10 @@ law), `summary` (the text of a commitment, the
 decision of a vote, `Aangenomen.`; else null), `has_text` (of a paper: whether its text is in
 the data, so a row can open on it; a new paper's text follows its PDF by days; null for the
 other kinds), `dictum` (of a motion what it asks or says, as `/api/documents/{key}` gives it;
-else null; both from `lg_document_light`, not from the paper's props), `subkind` (the whole `Document.Soort`,
+else null; both from `lg_document_light`, not from the paper's props), `motion_kind` (of a motion of
+censure `censure` or of no confidence `no_confidence`, and of a vote on one, as `/api/documents/{key}`
+and `/api/decisions/{key}` give it; else null; `GET /api/documents?motion_kind=censure,no_confidence`
+lists those motions, one open while its `outcome` is null), `subkind` (the whole `Document.Soort`,
 `Motie (gewijzigd/nader)`; for a vote what was voted on, the `Zaak.Soort`: `Motie`,
 `Amendement`, `Wetgeving`, …, null when the Kamer names no one Soort), `dossier` short titles: `short_title` the name the dossier goes by and `short_title_basis` where it comes from: `title` (of a budget its chapter and year, else the parentheses that end the title, as in `/api/dossiers`), else official data of its bill: `citation` (the citation title the bill gives itself, "Deze wet wordt aangehaald als: …"), `case` (the citation title the Kamer gives the bill's case), `amended_law` (the citation title of the one Dutch law the bill changes: then it names that law, not the bill); both null when there is none, `headline` (the parts a headline is made of:
 `surname` of the first `indiener`, `subject` the part of the title after its first ` over `,
@@ -287,6 +292,7 @@ Where one state has more than one cause, `reason` says which (null otherwise):
 |--------|------|---------|
 | `awaiting_normalize` | `pending` `text` of a Kamerstuk | its XML is fetched, not read yet |
 | `source_pdf_only` | `pending` `text` of a Kamerstuk | the source has its PDF only; its XML follows |
+| `target_not_loaded` | `partial` `references` | every one missing is linked to a stub: an article, a law or a judgment the graph has not loaded |
 
 A part left out is not known to lack anything. Every state is derived from what a step wrote
 or a run recorded, never set by hand.
@@ -295,10 +301,12 @@ Of a record: a law of the Staatsblad the BWB does not hold (yet) and each of its
 (`references`, `definitions`; see "Paths, parameters and periods"); an article of the BWB or of
 an EU act (`/api/articles/...`), a judgment (`/api/judgments/{ecli}`) and a paper
 (`/api/documents/{key}`, `/api/decisions/{key}/document`) `references`: `done` (every
-reference its text makes that the step recognized is linked) or `partial` (`missing`
-recognized and not linked: a law or an article not in the graph), as `semantic bwb` (the
-references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk` kept
-them in `lg_unlinked_references`. Null on a record no step read the references of (an article
+reference its text makes that the step recognized is linked to a loaded record) or `partial`
+(`missing` those recognized and not linked, a law or an article not in the graph, as `semantic
+bwb` (the references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk`
+kept them in `lg_unlinked_references`, and its `REFERS_TO` edges to a stub, of which the graph
+has not loaded the text: of a judgment also those to a judgment it cites by an ECLI not loaded;
+`reason` `target_not_loaded` when every one missing is of the second kind). Null on a record no step read the references of (an article
 without references, a paper without text, one not read yet) and on any other record.
 
 Of a paper of the Tweede Kamer (`/api/documents/{key}`, `/api/decisions/{key}/document`) its
@@ -325,9 +333,9 @@ part.
 
 Of a dossier (`/api/dossiers`, `/api/dossiers/{number}` and every list of dossiers) its
 `outcome`, from what `semantic tk-dossier-outcomes` wrote (`core/dossier_stages.outcome_part`):
-`done` as of `closed_on` when it closed; `pending` as of `last_activity` when a bill or treaty
-is open, for the graph cannot tell one still before a chamber from one withdrawn (the
-Tweede Kamer records no withdrawal, [data model](data-model.md)); `not_in_source` when a
+`done` as of `closed_on` when it closed (a withdrawn bill on the day of its letter);
+`pending` as of `last_activity` when a bill or treaty is open, for the graph cannot tell one
+still before a chamber from one ended in a way no record says; `not_in_source` when a
 dossier of another kind is open (nothing records its end); `pending` without `as_of` before
 the step reached it.
 

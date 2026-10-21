@@ -435,6 +435,7 @@ def test_decisions_are_listed_with_their_tally(monkeypatch) -> None:
         "party_votes": [],
         "coalition": [],
         "coalition_cabinets": [],
+        "motion_kind": [],
     }
 
 
@@ -538,6 +539,7 @@ def test_the_decision_facets_are_passed_on(monkeypatch) -> None:
                 "decisive": 4,
             }
         ],
+        "motion_kind": [{"value": "censure", "count": 1, "passed": 0, "rejected": 1}],
     }
     stub_route(
         monkeypatch,

@@ -203,7 +203,6 @@ def _seed(store: GraphStore) -> None:
             refers,
             source="echr-citation-linker",
             confidence=0.8,
-            meta={"match_type": "bwb_text_scan"},
         ),
         # a Dutch judgment: to the directive's article, not an international link
         make_edge_doc(
@@ -346,7 +345,7 @@ def test_international_links_hold_treaties_and_echr_judgments(
     assert echr["kind"] == "echr_judgment" and echr["instrument"] is None
     assert echr["judgment"]["ecli"] == "ECLI:CE:ECHR:2020:2"
     assert echr["own_article"] is None  # the regulation as a whole
-    assert echr["meta"] == {"match_type": "bwb_text_scan"}
+    assert echr["meta"] == {}
 
     # the Dutch judgment that cites an article of the regulation is not an ECHR link
     eclis = {

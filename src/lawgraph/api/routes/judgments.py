@@ -37,7 +37,7 @@ from lawgraph.db.queries.judgments import (
     get_judgment_with_relations,
     get_judgments_list,
 )
-from lawgraph.db.queries.unlinked_references import unlinked_count
+from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
 
@@ -357,7 +357,7 @@ def get_judgment_detail(
             for c in data.conclusions
         ],
         completeness=completeness_dto(
-            props, unlinked=unlinked_count(store, data.judgment["id"])
+            props, references=reference_counts(store, data.judgment["id"])
         ),
         metadata=data.metadata or None,
     )

@@ -50,7 +50,7 @@ from lawgraph.core.dossier_stages import CARRYING_KINDS, PHASES
 from lawgraph.core.law_names import laws_in_title
 from lawgraph.core.relations import without_unknown_relations
 from lawgraph.core.time import dutch_today, iso_day
-from lawgraph.core.votes import VoteOutcome
+from lawgraph.core.votes import DossierEnd
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import run_together
 from lawgraph.db.queries.amendments import get_amendment_chains
@@ -113,7 +113,7 @@ class DossierListParams:
             Literal["open", "closed", "all"],
             Query(description="Open dossiers, closed ones (with an outcome) or both."),
         ] = "all",
-        outcome: Annotated[VoteOutcome | None, Query()] = None,
+        outcome: Annotated[DossierEnd | None, Query()] = None,
         kind: Annotated[
             str | None,
             Query(

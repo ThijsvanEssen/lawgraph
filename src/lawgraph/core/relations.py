@@ -121,11 +121,17 @@ class TranspositionPart(_Meta):
     from_: str = Field(alias="from")
     """The part of the old article: `2`, `2 a`, `eerste lid`; empty for the whole."""
     to: str
-    """The place in the new law as the source writes it: `2.8.6, 1`."""
-    article: str
-    """The number of the new article of the edge."""
-    leden: list[str]
-    """The leden of it the place names; empty for the whole."""
+    """The place in the new law as the source writes it: `2.8.6, 1`, `vervallen (mvt)`."""
+    article: str | None = None
+    """The number of the new article of the edge (an edge to an article)."""
+    leden: list[str] | None = None
+    """The leden of it the place names; empty for the whole (an edge to an article)."""
+    outcome: str | None = None
+    """What the source says of a part it places in no article (an edge to the new law):
+    `vervallen`, `niet_overgenomen`, `blijft_in:<law as written>`; `gat` for a part that
+    does not hold."""
+    via: str | None = None
+    """The division of the old law the source names for the old article: `§ 1.2`."""
 
 
 class TransposedToMeta(_Meta):
@@ -135,6 +141,9 @@ class TransposedToMeta(_Meta):
     """The paper that gives the table: `blg-1081574`, `kst-34986-3`."""
     parts: list[TranspositionPart] | None = None
     """Each part of the old article with its place in the new law."""
+    outcome: str | None = None
+    """Of an edge to the new law: the outcome of the old article its parts share, `gat` for
+    an old article no source places (`lawgraph succession-gaps`)."""
 
 
 class BasedOnMeta(_Meta):
@@ -219,8 +228,8 @@ class RefersToMeta(_Span, _Parts):
     reason: Reason | None = None
     """What the citation names or how it was read (core/provenance.py)."""
     text: str | None = None
-    """The reference as written (`bwb-article-references`, `staatsblad-law-references`); the
-    subject that names the paper (`tk-cited-papers`)."""
+    """The reference as written (`bwb-article-references`, `staatsblad-law-references`,
+    `tk-cited-papers`)."""
     reference_kind: str | None = None
     """`intref` or `extref`, as the BWB XML writes the link."""
     semantic_pattern: str | None = None
@@ -245,12 +254,8 @@ class RefersToMeta(_Span, _Parts):
     """The ECLI the judgment cites."""
     cited_appno: str | None = None
     """The application number of the ECHR decision it cites."""
-    match_type: str | None = None
-    """`bwb_text_scan`: the conclusion of an ECHR judgment names the law."""
     basis: Basis | None = None
     """`subject` (core/provenance.py)."""
-    reference: str | None = None
-    """The reference to the paper as written."""
 
 
 class MvtSection(_Meta):
@@ -286,10 +291,6 @@ class ExplainsMeta(_Meta):
     """Where it ends."""
     heading: str | None = None
     """Its heading."""
-    changed: bool | None = None
-    """As in `sections`."""
-    explanation: str | None = None
-    """As in `sections`."""
     sections: list[MvtSection] | None = None
     """Every section about the article, in the order of the memorandum."""
 
@@ -322,9 +323,7 @@ class SameAsMeta(_Meta):
     """What makes the two the same (core/provenance.py)."""
 
 
-class ScopedByMeta(_Span):
-    text: str | None = None
-    """The words that name the annex."""
+class ScopedByMeta(_Meta):
     scope_type: str | None = None
     """`fixed` or `discretionary`."""
 
@@ -374,8 +373,6 @@ class AuthoredMeta(_Meta):
 
 
 class PairSide(_Meta):
-    case: str | None = None
-    """The number of the case."""
     document: str | None = Field(default=None, alias="paper")
     """The document of its own kind; null when the graph has none."""
     kind: str | None = None
@@ -386,13 +383,9 @@ class PairSide(_Meta):
     """The suffix of that dossier."""
     sequence: int | None = None
     """Its number in the dossier."""
-    date: str | None = None
-    """Its date."""
 
 
 class CasePair(_Meta):
-    kinds: str
-    """What the two cases are: `Brief regering → Motie`."""
     from_: PairSide = Field(alias="from")
     """The paper of the case of this dossier."""
     to: PairSide
@@ -537,17 +530,23 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "TRANSPOSED_TO",
-        ((_A, _A),),
+        ((_A, _A), (_A, _I)),
         "An article of the old law → the article of the new law that takes its place in a "
         "recodification (of Dutch law, or a codification or recast of EU law), as an "
         "official source gives it (`meta.basis`; `meta.source` the identifier of that "
         "source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: "
         "`32017R1001`). `meta.parts` pairs each "
-        "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole) "
+        "part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole; "
+        "`via` the division of the old law the source names: `§ 1.2`) "
         "with the place in the new law as the source writes it (`to`: `2.8.6, 1`, "
         "`8.2.26, vierde lid`), read: the number of the new article of the edge "
-        '(`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). A '
-        "row the source gives that the text of the laws does not hold is no edge: "
+        '(`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). The '
+        "article of another law the source names (`afdeling 3.5 Awb`) is one too. An "
+        "article of the old law → the new law (Instrument): what the source says of the "
+        "parts it places in no article (`parts[].outcome`: `vervallen`, "
+        "`niet_overgenomen`, `blijft_in:<law>`), and of an old article no source places, "
+        "its parts as the source writes them (`meta.outcome` `gat`). A row the source "
+        "gives that the text of the laws does not hold is no edge to an article: "
         "`lawgraph succession-gaps` lists it.",
         meta=TransposedToMeta,
     ),

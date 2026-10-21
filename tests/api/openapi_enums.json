@@ -39,7 +39,8 @@
  ],
  "/components/schemas/ActorDossierDTO/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/ActorDossierDTO/properties/source": [
   "tk",
@@ -298,6 +299,10 @@
   "brief",
   "overig"
  ],
+ "/components/schemas/DecisionDTO/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
+ ],
  "/components/schemas/DecisionMotionDTO/properties/collection": [
   "instruments",
   "articles",
@@ -316,6 +321,10 @@
   "cabinets",
   "annexes"
  ],
+ "/components/schemas/DecisionMotionKindCount/properties/value": [
+  "censure",
+  "no_confidence"
+ ],
  "/components/schemas/DecisionPaperDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",
@@ -329,6 +338,10 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/DecisionSummaryDTO/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
  ],
  "/components/schemas/DelegatedClauseDTO/properties/kind": [
   "amvb",
@@ -371,6 +384,10 @@
   "brief",
   "overig"
  ],
+ "/components/schemas/DocumentListItemDTO/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
+ ],
  "/components/schemas/DocumentListItemDTO/properties/outcome/anyOf/0": [
   "aangenomen",
   "verworpen",
@@ -389,6 +406,10 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/DocumentTextResponse/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
  ],
  "/components/schemas/DocumentTextResponse/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -420,7 +441,8 @@
  ],
  "/components/schemas/DossierDetailResponse/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/DossierDetailResponse/properties/source": [
   "tk",
@@ -442,6 +464,10 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/DossierDocumentDTO/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
  ],
  "/components/schemas/DossierDocumentDTO/properties/outcome/anyOf/0": [
   "aangenomen",
@@ -565,7 +591,8 @@
  ],
  "/components/schemas/DossierSummaryDTO/properties/outcome/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/components/schemas/DossierSummaryDTO/properties/source": [
   "tk",
@@ -703,6 +730,10 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/FeedItemDTO/properties/motion_kind/anyOf/0": [
+  "censure",
+  "no_confidence"
  ],
  "/components/schemas/FeedJudgmentDTO/properties/conclusion_outcome/anyOf/0": [
   "verwerping",
@@ -1385,7 +1416,8 @@
  ],
  "/components/schemas/Reason": [
   "awaiting_normalize",
-  "source_pdf_only"
+  "source_pdf_only",
+  "target_not_loaded"
  ],
  "/components/schemas/ReferenceTargetDTO/properties/collection": [
   "articles",
@@ -1632,7 +1664,8 @@
  ],
  "/paths//api/dossiers/get/parameters/1/schema/anyOf/0": [
   "aangenomen",
-  "verworpen"
+  "verworpen",
+  "ingetrokken"
  ],
  "/paths//api/dossiers/get/parameters/12/schema/anyOf/0": [
   "number",

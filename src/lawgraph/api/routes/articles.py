@@ -64,7 +64,7 @@ from lawgraph.db.queries.definitions import article_terms
 from lawgraph.db.queries.delegations import get_delegated_regulations
 from lawgraph.db.queries.not_found import NotFound, require_node
 from lawgraph.db.queries.relationships import get_article_relationship_data
-from lawgraph.db.queries.unlinked_references import unlinked_count
+from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
 
@@ -112,7 +112,7 @@ def get_article_detail(
         completeness=completeness_dto(
             props,
             (data.instrument.get("props") or {}) if data.instrument is not None else {},
-            unlinked_count(store, data.article["id"]),
+            reference_counts(store, data.article["id"]),
         ),
         citations=citations,
         term_spans=[TermSpanDTO(**span) for span in term_spans],

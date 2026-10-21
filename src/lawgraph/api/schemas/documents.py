@@ -24,6 +24,7 @@ from lawgraph.api.schemas.completeness import (
 from lawgraph.api.schemas.decisions import DecisionDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.config.constants import Chamber
+from lawgraph.core.completeness import ReferenceCounts
 from lawgraph.core.document_completeness import XmlRetrieval
 from lawgraph.core.document_paragraphs import DocumentLineKind
 from lawgraph.core.document_reading import footnote_id, section_at
@@ -34,6 +35,7 @@ from lawgraph.core.documents import (
     number_in_dossier,
 )
 from lawgraph.core.models import NodeType
+from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.official_urls import document_url
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import document_file_url, tk_url
@@ -313,6 +315,13 @@ class PaperOutcomeFields(StrictModel):
         None,
         description="The key of that decision (``/api/decisions/{key}``); null without one.",
     )
+    motion_kind: MotionKind | None = Field(
+        None,
+        description="Of a motion of censure (motie van afkeuring) ``censure``, of no "
+        "confidence (motie van wantrouwen) ``no_confidence``, as the fixed wording of its "
+        "subject says (``semantic tk-motion-kinds``, ``core/motion_kinds.py``); null for "
+        "any other paper. Open while ``outcome`` is null.",
+    )
 
 
 def outcome_fields(values: dict[str, Any]) -> dict[str, Any]:
@@ -419,13 +428,13 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
         decisions: list[dict[str, Any]] | None = None,
         names: dict[str, dict[str, Any]] | None = None,
         replacements: dict[str, list[dict[str, Any]]] | None = None,
-        unlinked: int | None = None,
+        references: ReferenceCounts | None = None,
         retrieval: XmlRetrieval | None = None,
     ) -> DocumentTextResponse:
         """From the stored document with the slugs of its members (``get_document``) and
         what ``get_document_links`` found for it; *replacements* its own of
-        ``get_replacements``; *unlinked* the citations of its text ``semantic tk`` could
-        not link (``unlinked_count``); *retrieval* what raw_sources holds of its XML
+        ``get_replacements``; *references* what ``reference_counts`` counts of the
+        citations of its text; *retrieval* what raw_sources holds of its XML
         (``document_xml_retrieval``)."""
         props: dict[str, Any] = doc.get("props") or {}
         links = links or {}
@@ -472,7 +481,7 @@ class DocumentTextResponse(WithKindGroup, PaperOutcomeFields, DocumentOrigin):
                 DecisionDTO.from_document(d, names or {}) for d in decisions or []
             ],
             completeness=document_completeness(
-                props, list(doc.get("labels") or []), retrieval, unlinked
+                props, list(doc.get("labels") or []), retrieval, references
             ),
             **origin,
             **outcome_fields(props),

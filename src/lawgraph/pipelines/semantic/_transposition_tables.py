@@ -27,10 +27,16 @@ not from the order of the columns (``new_column``): the one of them the dossier 
 articles in, else the one the title does not name. A table whose laws are not found places
 nothing and says why (``Table.problem``). The tables between the same two laws are checked
 together (``Succession``): an article of the old law one table leaves out may be in another.
+A place that names another law ("afdeling 3.5 Awb", "16.52 Omgevingswet") is of the law of
+that name: the new law when it is its name, else the one law of the BWB of that citation
+title, else the law the citation extractor reads in "artikel 1 <name>" ("Awb", "WED").
 An article of the old law without a row is a gap only when the old law goes (``_replaced``):
-expired in the BWB, recodified as a whole under its own name, or repealed by the EU act of the
-table; of a law that stays (the Wet milieubeheer after the Omgevingswet) a table names only
-what moves.
+it expired in the BWB no later than the new law came into force, it is recodified as a whole
+under its own name, or the EU act of the table repeals it; of a law that stays (the Wet
+milieubeheer after the Omgevingswet), or that went only after the new law came into force
+(the Wet op het voortgezet onderwijs after the Wet register onderwijsdeelnemers), a table
+names only what moves. Nor is it a gap when a table of the old law to another new law has a
+row for it (the Monumentenwet 1988 to the Erfgoedwet and to the Omgevingswet).
 
 The acts of an EU table are its own (the new act) and the one its column names by CELEX
 (``core.concordance_html``), each as ``normalize eurlex`` made it; an old act the graph does
@@ -53,17 +59,27 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
 )
-from lawgraph.core.citations import article_order
+from lawgraph.core.aliases import code_choices, curated_abbreviations, instrument_names
+from lawgraph.core.citations import DutchCitationExtractor, article_order
 from lawgraph.core.concordance_html import read_tables as read_concordance
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_text
-from lawgraph.core.succession import LawArticle, Placed, SourceRow, place
+from lawgraph.core.succession import (
+    LawArticle,
+    Placed,
+    SourceRow,
+    division_label,
+    place,
+)
 from lawgraph.core.transposition_tables import pdf_pages, read_table, source_rows
 from lawgraph.core.transposition_xml import XmlTable
 from lawgraph.core.transposition_xml import read_tables as read_xml_tables
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import instrument_names as instrument_name_queries
 from lawgraph.db.queries import successions as queries
+from lawgraph.db.queries.semantic import bwb as semantic_bwb
+from lawgraph.pipelines.semantic._detection import build_extractor
 
 
 @dataclass(frozen=True)
@@ -110,27 +126,117 @@ def read_successions(store: Store) -> tuple[list[Table], list[Succession]]:
         else:
             problems.append(table)
     successions = []
+    other_laws = _OtherLaws(store)
     for (old, new), own in by_laws.items():
-        replaced = any(t.repeals_old for t in own) or _replaced(store, old, new)
+        laws = {str(law["id"]): law for law in queries.law_titles(store, [old, new])}
+        rows = [row for table in own for row in table.rows]
+        articles = _articles(store, new)
+        replaced = any(t.repeals_old for t in own) or _replaced(laws, old, new)
+        old_articles = _articles(store, old, historical=True)
         placed = place(
-            [row for table in own for row in table.rows],
-            _articles(store, old, historical=True),
-            _articles(store, new),
+            rows,
+            old_articles,
+            articles,
             replaced=replaced,
+            laws=other_laws.named(
+                rows, {old: old_articles, new: articles}, laws.get(new) or {}
+            ),
         )
         successions.append(Succession(old, new, tuple(own), placed, replaced))
-    return problems, successions
+    return problems, _rows_of_other_new_laws(successions)
 
 
-def _replaced(store: Store, old: str, new: str) -> bool:
-    """Whether the old law goes, as the sources say: the BWB has it expired (withdrawn), or
-    the new law bears its name (the whole law recodified, the new Wetboek van
-    Strafvordering)."""
-    laws = {str(law["id"]): law for law in queries.law_titles(store, [old, new])}
-    if (laws.get(old) or {}).get("date_expired"):
+def _replaced(laws: dict[str, dict[str, Any]], old: str, new: str) -> bool:
+    """Whether the old law goes, as the sources say: the BWB has it expired no later than
+    the new law came into force, or the new law bears its name (the whole law recodified,
+    the new Wetboek van Strafvordering). *laws*: ``successions.law_titles`` by id."""
+    old_law, new_law = laws.get(old) or {}, laws.get(new) or {}
+    expired, in_force = old_law.get("date_expired"), new_law.get("date_in_force")
+    if expired and in_force and str(expired) <= str(in_force):
         return True
-    title = str((laws.get(old) or {}).get("citation_title") or "")
-    return bool(title) and _same((laws.get(new) or {}).get("citation_title"), title)
+    title = str(old_law.get("citation_title") or "")
+    return bool(title) and _same(new_law.get("citation_title"), title)
+
+
+def _rows_of_other_new_laws(successions: list[Succession]) -> list[Succession]:
+    """*successions* without the gap "no row" of an old article a table of the same old law
+    to another new law has a row for."""
+    named: dict[str, set[str]] = {}
+    for succession in successions:
+        named.setdefault(succession.old_law, set()).update(succession.placed.named)
+    for succession in successions:
+        succession.placed.gaps = [
+            gap
+            for gap in succession.placed.gaps
+            if gap.kind != "no_row" or gap.old_article not in named[succession.old_law]
+        ]
+    return successions
+
+
+class _OtherLaws:
+    """The laws a place names by name ("Awb", "Omgevingswet"), with their articles."""
+
+    def __init__(self, store: Store) -> None:
+        self.store = store
+        self._ids: dict[str, str | None] = {}
+        self._articles: dict[str, dict[str, LawArticle]] = {}
+        self._extractor: DutchCitationExtractor | None = None
+
+    def named(
+        self,
+        rows: list[SourceRow],
+        own: dict[str, dict[str, LawArticle]],
+        new: dict[str, Any],
+    ) -> dict[str, dict[str, LawArticle] | None]:
+        """The articles of the law of each name a place of *rows* gives, None for a law not
+        found; of the old and the new law the articles *own* gives (by law id), the *new*
+        law also by its citation title."""
+        found: dict[str, dict[str, LawArticle] | None] = {}
+        for name in dict.fromkeys(r.place.law for r in rows if r.place.law):
+            law = (
+                str(new["id"])
+                if _same(new.get("citation_title"), name)
+                else self._law(name)
+            )
+            if law in own:
+                found[name] = own[law]
+            elif law is not None:
+                if law not in self._articles:
+                    self._articles[law] = _articles(self.store, law)
+                found[name] = self._articles[law]
+            else:
+                found[name] = None
+        return found
+
+    def _law(self, name: str) -> str | None:
+        """The one law of the BWB of the citation title *name*, else the law the citation
+        extractor reads in "artikel 1 <name>"."""
+        if name not in self._ids:
+            named = queries.bwb_laws_named(self.store, name)
+            if len(named) != 1:
+                bwb_ids = {
+                    hit.bwb_id
+                    for hit in self.extractor().extract(f"artikel 1 {name}")
+                    if hit.bwb_id
+                }
+                named = list(
+                    queries.laws_of_bwb_ids(self.store, sorted(bwb_ids)).values()
+                )
+            self._ids[name] = named[0] if len(named) == 1 else None
+        return self._ids[name]
+
+    def extractor(self) -> DutchCitationExtractor:
+        """The citation extractor of running text, with the abbreviations and names of the
+        laws of the graph."""
+        if self._extractor is None:
+            codes, _ = code_choices(
+                instrument_name_queries.code_alias_rows(self.store),
+                curated_abbreviations(),
+            )
+            self._extractor = build_extractor(
+                codes, instrument_names(semantic_bwb.instrument_alias_rows(self.store))
+            )
+        return self._extractor
 
 
 def _tables(store: Store) -> Iterator[Table]:
@@ -351,9 +457,10 @@ def _same(title: Any, name: str) -> bool:
 def _articles(
     store: Store, law_id: str, *, historical: bool = False
 ) -> dict[str, LawArticle]:
-    """The articles of the law by number, in its order: those of its current text, and with
-    *historical* (the old law) its historical identities between them (``in_law_order``);
-    of a number both have, the current article."""
+    """The articles of the law by number, in its order, each with the divisions it stands
+    in: those of its current text, and with *historical* (the old law) its historical
+    identities between them (``in_law_order``); of a number both have, the current
+    article."""
     articles: dict[str, LawArticle] = {}
     rows = queries.law_articles(store, law_id, historical=historical)
     for row in in_law_order(rows):
@@ -364,6 +471,11 @@ def _articles(
                 row["number"],
                 frozenset(row["leden"] or ()),
                 bool(row["repealed"]),
+                tuple(
+                    label
+                    for label in map(division_label, row.get("divisions") or ())
+                    if label
+                ),
             ),
         )
     return articles

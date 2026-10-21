@@ -44,10 +44,10 @@ from lawgraph.config.constants import (
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, number_in_dossier, numbered_in
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import node_id, parse_node_id
+from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity
-from lawgraph.core.votes import VoteOutcome
+from lawgraph.core.votes import DossierEnd
 
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
 DossierSource = Literal["tk", "eerstekamer"]
@@ -500,9 +500,10 @@ class DossierSummaryDTO(WithPath):
     ``phases``: every phase of the curated list in its order, each done when a paper, an
     activity or a decision of the Kamer marks it; ``current_phase`` is the furthest done
     phase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was
-    published, or the Eerste Kamer adopted it) or ``verworpen`` (a chamber voted the bill
-    down); ``tk_decision`` is the last decision of the Tweede Kamer on the bill and
-    ``ek_outcome`` its outcome in the Eerste Kamer.
+    published, or the Eerste Kamer adopted it), ``verworpen`` (a chamber voted the bill
+    down) or ``ingetrokken`` (the government withdrew it by letter, ``withdrawal_letter``);
+    ``tk_decision`` is the last decision of the Tweede Kamer on the bill and ``ek_outcome``
+    its outcome in the Eerste Kamer.
     """
 
     path_source = PathSource("dossiers")
@@ -561,7 +562,14 @@ class DossierSummaryDTO(WithPath):
         "none.",
     )
     closed: bool = False
-    outcome: VoteOutcome | None = None
+    outcome: DossierEnd | None = None
+    withdrawal_letter: str | None = Field(
+        None,
+        description="Of a withdrawn bill (``outcome`` ``ingetrokken``): the key of the "
+        "letter that withdrew it (``GET /api/documents/{key}``), a ``Brief regering`` whose "
+        "subject is the Tweede Kamer's fixed title ``Brief houdende intrekking van het "
+        "wetsvoorstel``; its date is ``closed_on``.",
+    )
     tk_decision: TkDecisionDTO | None = None
     ek_outcome: EkOutcomeDTO | None = None
     opened_on: str | None = Field(
@@ -589,9 +597,9 @@ class DossierSummaryDTO(WithPath):
     completeness: Completeness = Field(
         default_factory=dict,
         description="`outcome`: what the graph knows of its end. `done` as of the day it "
-        "closed; `pending` as of its last activity for an open bill or treaty, which may "
-        "still be before a chamber or may have been withdrawn (the Tweede Kamer records no "
-        "withdrawal), and without a day before `semantic tk-dossier-outcomes` reached it; "
+        "closed (withdrawn too); `pending` as of its last activity for an open bill or "
+        "treaty, which may still be before a chamber or may have ended in a way no record "
+        "says, and without a day before `semantic tk-dossier-outcomes` reached it; "
         f"`not_in_source` for an open dossier of another kind. {COMPLETENESS}",
     )
     ministry: MinistryKey | None = Field(
@@ -1073,7 +1081,12 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "closed": bool(props.get("closed")),
         "outcome": (
             props.get("outcome")
-            if props.get("outcome") in get_args(VoteOutcome)
+            if props.get("outcome") in get_args(DossierEnd)
+            else None
+        ),
+        "withdrawal_letter": (
+            key_of(props["withdrawal_letter"])
+            if props.get("withdrawal_letter")
             else None
         ),
         "tk_decision": props.get("tk_decision"),

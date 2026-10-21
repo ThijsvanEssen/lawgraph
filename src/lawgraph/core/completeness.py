@@ -9,7 +9,8 @@ lists are closed. Every state
 is derived from what a step wrote or what a run recorded, never set by hand: a source's from
 the outcome of its retrieves (``pipelines/source_runs.py``) and ``raw_sources``; a record's
 ``references`` from how many references its text makes that the step that reads them
-recognized and could not link (``references_part``); a dossier's ``outcome`` from what
+recognized and could not link, and how many of those it linked go to a stub
+(``references_part``); a dossier's ``outcome`` from what
 ``semantic tk-dossier-outcomes`` wrote (``core.dossier_stages.outcome_part``).
 """
 
@@ -17,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any
+from typing import Any, NamedTuple
 
 
 class Part(StrEnum):
@@ -49,10 +50,13 @@ class Coverage(StrEnum):
 
 class Reason(StrEnum):
     """Why a part is in its state, where one state has more than one cause: of the ``text``
-    of a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``)."""
+    of a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``), of the
+    ``references`` of a record that are ``partial`` (``references_part``)."""
 
     AWAITING_NORMALIZE = "awaiting_normalize"  # its XML is fetched, not read yet
     SOURCE_PDF_ONLY = "source_pdf_only"  # the source has its PDF only, its XML follows
+    # every one missing is linked to a stub: a target the graph has not loaded
+    TARGET_NOT_LOADED = "target_not_loaded"
 
 
 # The key in ``pipeline_state`` of what the last scheduled run did with a source's retrieves
@@ -61,16 +65,30 @@ class Reason(StrEnum):
 SOURCE_RUN_STATE = "source "
 
 
-def references_part(unlinked: int | None) -> dict[str, Any] | None:
+class ReferenceCounts(NamedTuple):
+    """Of the references a record makes: how many the step that reads them could not link
+    (``unlinked``), and how many go to a stub (``unloaded``): a placeholder of an article, a
+    law or a judgment the graph has not loaded, made because something referred to it."""
+
+    unlinked: int
+    unloaded: int = 0
+
+
+def references_part(counts: ReferenceCounts | None) -> dict[str, Any] | None:
     """The ``references`` part of a record of which the step that reads its references
-    could not link *unlinked* (``lg_unlinked_references``, or the props of a law of the
-    Staatsblad): ``done`` at 0, ``partial`` with that count as ``missing``; None when the
-    step has not read it."""
-    if unlinked is None:
+    could not link ``unlinked`` and linked ``unloaded`` to a stub (*counts*, from
+    ``lg_unlinked_references`` and the edges, or the props of a law of the Staatsblad):
+    ``done`` at 0, ``partial`` with their sum as ``missing``, with ``target_not_loaded``
+    when all of them go to a stub; None when the step has not read it."""
+    if counts is None:
         return None
-    if unlinked:
-        return {"state": Coverage.PARTIAL.value, "missing": int(unlinked)}
-    return {"state": Coverage.DONE.value}
+    missing = counts.unlinked + counts.unloaded
+    if not missing:
+        return {"state": Coverage.DONE.value}
+    part: dict[str, Any] = {"state": Coverage.PARTIAL.value, "missing": missing}
+    if not counts.unlinked:
+        part["reason"] = Reason.TARGET_NOT_LOADED.value
+    return part
 
 
 def source_completeness(

@@ -27,6 +27,7 @@ from lawgraph.api.schemas.decisions import (
     DecisionSummaryDTO,
 )
 from lawgraph.api.schemas.documents import DocumentTextResponse
+from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.time import iso_day
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
 from lawgraph.db import GraphStore
@@ -41,7 +42,7 @@ from lawgraph.db.queries.decisions import (
 from lawgraph.db.queries.documents import document_xml_retrieval, get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
-from lawgraph.db.queries.unlinked_references import unlinked_count
+from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
 
@@ -143,7 +144,13 @@ _VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
         "`facets.coalition_cabinets` gives per cabinet (`cabinet`, `name`, newest "
         "first) under every filter, a topic of the Overzicht being its words, Kamer "
         "and period, its `votes` and how many were `together`, `split`, `wissel`, "
-        "`carried` and `decisive`"
+        "`carried` and `decisive`. A vote on a motion of censure (motie van afkeuring) "
+        "or of no confidence (motie van wantrouwen) has `motion_kind` `censure` or "
+        "`no_confidence` (on the list and the detail; `semantic tk-motion-kinds`, from the "
+        "fixed wording of its subject), null for any other; "
+        "`motion_kind=censure,no_confidence` keeps those votes, and `facets.motion_kind` "
+        "counts them per kind (`value`, `count`, `passed`, `rejected`) under every filter "
+        "but its own"
     ),
     tags=["decisions"],
 )
@@ -207,6 +214,14 @@ def list_decisions(
             "`carried` or was `decisive` on."
         ),
     ] = None,
+    motion_kind: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated kinds of motion: ``censure`` (motie van "
+            "afkeuring), ``no_confidence`` (motie van wantrouwen). Only the votes on such a "
+            "motion."
+        ),
+    ] = None,
     unvoted: Annotated[
         bool,
         Query(
@@ -238,6 +253,7 @@ def list_decisions(
         ),
         coalition=coalition,
         unvoted=unvoted,
+        motion_kinds=parse_choices(motion_kind, MOTION_KINDS, "motion_kind"),
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset, facets=facets)
     names = load_dossier_names(store)
@@ -301,6 +317,6 @@ def get_decision_document_route(
     return DocumentTextResponse.from_document(
         document,
         get_document_links(store, document["id"]),
-        unlinked=unlinked_count(store, document["id"]),
+        references=reference_counts(store, document["id"]),
         retrieval=document_xml_retrieval(store, document),
     )
