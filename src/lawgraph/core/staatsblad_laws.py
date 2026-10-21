@@ -52,7 +52,12 @@ from lawgraph.core.citations import (
     name_key,
     parse_article_numbers,
 )
-from lawgraph.core.completeness import Coverage, Part, references_part
+from lawgraph.core.completeness import (
+    Coverage,
+    Part,
+    ReferenceCounts,
+    references_part,
+)
 from lawgraph.core.models import make_node_key
 from lawgraph.core.publications import koop_citation, parse_koop_id
 from lawgraph.core.qualifiers import parse_qualifier
@@ -607,9 +612,10 @@ def law_completeness(
     law = props if law is None else law
     if law.get("source") != SOURCE_STAATSBLAD or law.get("kind") != KIND_LAW:
         return None
-    references = references_part(props.get("unlinked_references")) or {
-        "state": Coverage.PENDING.value
-    }
+    unlinked = props.get("unlinked_references")
+    references = references_part(
+        None if unlinked is None else ReferenceCounts(int(unlinked))
+    ) or {"state": Coverage.PENDING.value}
     found = law.get("definitions_found") is not None
     definitions = Coverage.DONE if found else Coverage.PENDING
     return {

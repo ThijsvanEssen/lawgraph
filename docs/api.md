@@ -289,6 +289,7 @@ Where one state has more than one cause, `reason` says which (null otherwise):
 |--------|------|---------|
 | `awaiting_normalize` | `pending` `text` of a Kamerstuk | its XML is fetched, not read yet |
 | `source_pdf_only` | `pending` `text` of a Kamerstuk | the source has its PDF only; its XML follows |
+| `target_not_loaded` | `partial` `references` | every one missing is linked to a stub: an article, a law or a judgment the graph has not loaded |
 
 A part left out is not known to lack anything. Every state is derived from what a step wrote
 or a run recorded, never set by hand.
@@ -297,10 +298,12 @@ Of a record: a law of the Staatsblad the BWB does not hold (yet) and each of its
 (`references`, `definitions`; see "Paths, parameters and periods"); an article of the BWB or of
 an EU act (`/api/articles/...`), a judgment (`/api/judgments/{ecli}`) and a paper
 (`/api/documents/{key}`, `/api/decisions/{key}/document`) `references`: `done` (every
-reference its text makes that the step recognized is linked) or `partial` (`missing`
-recognized and not linked: a law or an article not in the graph), as `semantic bwb` (the
-references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk` kept
-them in `lg_unlinked_references`. Null on a record no step read the references of (an article
+reference its text makes that the step recognized is linked to a loaded record) or `partial`
+(`missing` those recognized and not linked, a law or an article not in the graph, as `semantic
+bwb` (the references of the BWB XML), `semantic eurlex`, `semantic rechtspraak` and `semantic tk`
+kept them in `lg_unlinked_references`, and its `REFERS_TO` edges to a stub, of which the graph
+has not loaded the text: of a judgment also those to a judgment it cites by an ECLI not loaded;
+`reason` `target_not_loaded` when every one missing is of the second kind). Null on a record no step read the references of (an article
 without references, a paper without text, one not read yet) and on any other record.
 
 Of a paper of the Tweede Kamer (`/api/documents/{key}`, `/api/decisions/{key}/document`) its

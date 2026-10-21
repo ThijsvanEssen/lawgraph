@@ -167,12 +167,17 @@
         "articles"
       ],
       "targets": [
-        "articles"
+        "articles",
+        "instruments"
       ],
       "ends": [
         [
           "articles",
           "articles"
+        ],
+        [
+          "articles",
+          "instruments"
         ]
       ]
     },

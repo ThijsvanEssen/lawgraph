@@ -592,11 +592,18 @@ reported.
   kst-35297-3), or an old article with its places in two new laws (`Artikel | Artikel
   Omgevingswet | Artikel AMvB`, Stb. 2020, 400). A cell holds references as
   written (`8.2.26, vierde lid`, `2.1 en 2.2`, `5.8 t/m 5.14`, `2.31, eerste lid, onder a`),
-  divisions (`afdeling 15.2`: a place that is no article) or anything else (`–`, `niet
-  overgenomen`: no article; `5.33 jo. 16.15`: does not read). A row whose old cell names only
-  a part (`onder a`) continues the reference above it, in both columns; a cell over more rows
-  holds for each. A run of articles stands for each article of the law from the first to the
-  last, in its order.
+  joined by a word (`16.50 in samenhang met 16.40`, `5.33 jo. 16.15`, `3.89 i.c.m. 3.10`, `5.1
+  resp. 5.3`: each a place), divisions (`afdeling 15.2`: a place that is no article) or
+  anything else (`–`, `niet overgenomen`: no article; `2.21,eerste lid, … 16.89. 20.7`: does
+  not read). A law after the last reference is the law of that one (`5.45, 16.7 en afdeling
+  3.5 Awb`, `16.52, eerste lid, Omgevingswet`, `5.20, derde lid, Awb (nieuw)`): a name that
+  starts with a capital and names no part of an article. A cell in prose reads the references
+  after `komt/keert … terug in` (`Komt inhoudelijk gewijzigd terug in artikel 10.20 van de
+  Omgevingswet.`). A row whose old cell names only a part (`onder a`) continues the reference
+  above it, in both columns; a cell over more rows holds for each. A run of articles stands
+  for each article of the law from the first to the last, in its order. An old cell that is
+  a division of the old law (`§ 1.2`, `titel 10.5`) stands for each article of it, by the
+  divisions of its `props.breadcrumb` (also an article repealed since).
 - The laws: the new law is, of the name the table gives it, the one a publication of the
   table's dossier enacted or put articles in (`LEGISLATED_IN` the dossier, `ESTABLISHES` or
   `INTRODUCES` its articles: `instruments/wet_stb_2026_56`), else the one law of the BWB of that
@@ -638,18 +645,38 @@ reported.
   articles are those of its current text and its historical identities (`normalize
   bwb-history`, by `last_article_number`; a current article first): a table names the
   articles of its day. A number compares in any case and without spaces (`509ibis` is `509i
-  bis`). A run of old articles in a run of new ones as long pairs them one by one. Each pair
-  of articles is one edge: `meta.parts` `[{from, to, article, leden}]` (the part of the old
-  article, empty for the whole; the place as written; the number of the new article of the
-  pair, also of a run; the leden it names), `meta.source` the source of the table (the first, when two
-  give the pair; the CELEX number of an EU act), `meta.basis` `transposition_table`, confidence 1.0.
-- A gap is a row that does not read, of an article the old law lacks, or placing in an article
-  or lid the new law lacks; and an article of the old law in force that no row of any of the
-  tables places in an article of the new law: no row for it, only places that are no article,
-  or rows none of which hold. "No row" only of an old law that goes: expired in the BWB,
-  recodified as a whole under its own name, or repealed by the EU act of the table; a law that stays (the Wet milieubeheer) has a row
-  only for what moves. Each gap is a note of the run, as is a table that places nothing (an EU
-  directive's implementation table in a Kamerstuk); `lawgraph succession-gaps` lists them with their page or row.
+  bis`). A run of old articles in a run of new ones as long pairs them one by one. A place in
+  another law is an article of that law: the new law when it is its name, else the one law of
+  the BWB of that citation title, else the law the citation extractor reads in `artikel 1
+  <name>` (`Awb`, `WED`); a place in the old law itself (`47b WEC` in the WEC's table) stays
+  there. Each pair of articles is one edge: `meta.parts` `[{from, to, article, leden, via}]`
+  (the part of the old article, empty for the whole; the place as written; the number of the
+  new article of the pair, also of a run; the leden it names; the division of the old law the
+  row names), `meta.source` the source of the table (the first, when two give the pair; the
+  CELEX number of an EU act), `meta.basis` `transposition_table`, confidence 1.0.
+- What a table answers instead of a place is an outcome: `vervallen` (`vervallen (mvt)`,
+  `vervalt`, `Vervallen.`, also `vervalllen`), `niet_overgenomen` (`–`, `—`, `niet
+  overgenomen`, `keert niet terug`), `blijft_in:<law as written>` (`Blijft in Waterwet`,
+  `Blijft in Wm 10.6, tweede lid`). An old article with an outcome has an edge to the new law
+  (Instrument): `meta.parts` `[{from, to, outcome, via}]`, `meta.outcome` the outcome its
+  parts share; of an article placed elsewhere only the parts with an outcome. An outcome is no
+  gap.
+- A gap is a row that does not read, of an article (or division) the old law lacks, placing
+  in an article or lid the new law lacks, or in a law not found; and an article of the old law
+  in force that no row of any of the tables places in an article of the new law or answers
+  for: no row for it, only places that are no article (`Besluit B2`), only divisions of the new
+  law (`afdeling 15.2`, the PDF's `B6H3` for Boek 6, Hoofdstuk 3: checked against the
+  breadcrumbs of the new law, but no place, as the graph has no node of a division), or rows
+  none of which hold. Such an article has an edge to the new law with `meta.outcome` `gat`
+  and its parts as the table writes them (a writing error stays as written: `1,5,2, 6`). "No
+  row" only of an old law that goes: expired in the BWB no later than the new law came into
+  force (`date_expired` ≤ `date_in_force`), recodified as a whole under its own name, or
+  repealed by the EU act of the table; and only when no table of the old law to another new
+  law has a row for it. A law that stays (the Wet milieubeheer), or that went after the new
+  law came into force (the Wet op het voortgezet onderwijs after the Wet register
+  onderwijsdeelnemers), has a row only for what moves. Each gap is a note of the run, as is a
+  table that places nothing (an EU directive's implementation table in a Kamerstuk);
+  `lawgraph succession-gaps` lists them with their page or row, and counts the outcomes.
 
 Derived in full on every run: an edge no table gives any more goes.
 

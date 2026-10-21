@@ -32792,7 +32792,7 @@
               }
             ],
             "title": "Missing",
-            "description": "With `partial`: how many are missing."
+            "description": "With `partial`: how many are missing. Of `references`: those the step could not link, and those linked to a stub (a target the graph has not loaded)."
           },
           "reason": {
             "anyOf": [
@@ -32803,7 +32803,7 @@
                 "type": "null"
               }
             ],
-            "description": "Why, where one state has more than one cause. Of the `text` of a Kamerstuk that is `pending` as of a day: `awaiting_normalize` (its XML is fetched, not read yet), `source_pdf_only` (the source has its PDF only; its XML follows)."
+            "description": "Why, where one state has more than one cause. Of the `text` of a Kamerstuk that is `pending` as of a day: `awaiting_normalize` (its XML is fetched, not read yet), `source_pdf_only` (the source has its PDF only; its XML follows). Of `references` that are `partial`: `target_not_loaded` (every one missing is linked to a stub; without a reason, some could not be linked)."
           }
         },
         "additionalProperties": false,
@@ -33551,10 +33551,11 @@
         "type": "string",
         "enum": [
           "awaiting_normalize",
-          "source_pdf_only"
+          "source_pdf_only",
+          "target_not_loaded"
         ],
         "title": "Reason",
-        "description": "Why a part is in its state, where one state has more than one cause: of the ``text``\nof a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``)."
+        "description": "Why a part is in its state, where one state has more than one cause: of the ``text``\nof a Kamerstuk that is ``pending`` as of a day (``core.document_completeness``), of the\n``references`` of a record that are ``partial`` (``references_part``)."
       },
       "ReferenceTargetDTO": {
         "properties": {
