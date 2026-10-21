@@ -1,0 +1,69 @@
+<?xml version='1.0' encoding='utf-8'?>
+<kamerwrk kamer="2" publtype="meto">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-31356-3/metadata.xml" />
+  </metadata>
+  <kop>
+    <titel>Tweede Kamer der Staten-Generaal</titel>
+    <subtitel>2</subtitel>
+    <subtitel>Vergaderjaar 2007-2008</subtitel>
+  </kop>
+  <frontm>
+    <versie dtd="0.10" conv="rel_1_0_5_7__1.1" markup="1xa" />
+    <ordernr>KST115663</ordernr>
+    <vergjaar>2007-2008</vergjaar>
+    <onderw>
+      <nummer>31 356</nummer>
+      <naam>Vaststelling van een nieuwe Mediawet (Mediawet 20..)</naam>
+    </onderw>
+  </frontm>
+  <body>
+    <stuk>
+      <tuskop letat="vet">Tabel B</tuskop>
+      <table orient="port" rowsep="0" colsep="0" frame="topbot" tabstyle="sdu1">
+        <tgroup align="left" charoff="75" cols="2" tgroupstyle="sdu1">
+          <colspec colname="c1" colnum="1" colwidth="50mm" />
+          <colspec colname="c2" colnum="2" colwidth="62.5mm" />
+          <thead valign="bottom">
+            <row valign="top">
+              <entry morerows="0" rotate="0" rowsep="1" valign="top">Huidige Mediawet</entry>
+              <entry morerows="0" rotate="0" rowsep="1" valign="top">Mediawet 20.. </entry>
+            </row>
+          </thead>
+          <tbody valign="bottom">
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 1</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 1.1 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 3</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 1.1 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 4</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 1.2 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 9</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 7.1, lid 1
+en 2 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 10</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 7.2 en 7.3 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 11</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 7.4 en 7.8,
+lid 1 </entry>
+            </row>
+            <row valign="top">
+              <entry morerows="0" rotate="0" valign="top">art. 12</entry>
+              <entry morerows="0" rotate="0" valign="top">art. 7.5 t/m 7.7 </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+    </stuk>
+  </body>
+</kamerwrk>

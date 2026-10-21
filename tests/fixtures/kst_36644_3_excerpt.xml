@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-36644-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>36 644</dossiernr>
+      </dossiernummer>
+      <titel>Regels in verband met de uitgifte van de Nederlandse identiteitskaart (Wet op de Nederlandse identiteitskaart)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <bijlage status="goed">
+          <kop kopopmaak="vet">
+            <label>BIJLAGE</label>
+            <titel>OVEREENKOMSTIGE ARTIKELEN IN DE PASPOORTWET</titel>
+          </kop>
+          <table tabstyle="xml2" frame="topbot" pgwide="1" rowsep="0" colsep="0">
+            <tgroup tgroupstyle="xml2" cols="4" char="" charoff="50" align="left">
+              <colspec colnum="1" colname="col1" colwidth="28*" />
+              <colspec colnum="2" colname="col2" colwidth="28*" />
+              <colspec colnum="3" colname="col3" colwidth="28*" />
+              <colspec colnum="4" colname="col4" colwidth="28.5*" />
+              <thead valign="bottom">
+                <row rowsep="1">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="cur">Wetsvoorstel</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="cur">Paspoortwet</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="cur">Wetsvoorstel</nadruk>
+                    </al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>
+                      <nadruk type="cur">Paspoortwet</nadruk>
+                    </al>
+                  </entry>
+                </row>
+              </thead>
+              <tbody valign="top">
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>1</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>21</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>33</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>2</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>2</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>22</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>34</al>
+                  </entry>
+                </row>
+                <row rowsep="0">
+                  <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                    <al>3</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                    <al>3<noot id="ID-1168354-d36e2623" type="tabel">
+                        <noot.nr>1</noot.nr>
+                        <noot.al>En, voor artikel 3, derde lid, van het wetsvoorstel: artikel 1.5 van het Paspoortbesluit.</noot.al>
+                      </noot>
+                    </al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                    <al>23</al>
+                  </entry>
+                  <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                    <al>36</al>
+                  </entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+        </bijlage>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

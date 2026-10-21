@@ -1,20 +1,19 @@
 """The reads of old law to new law: the stored transposition tables (a PDF of their own, or
-in the XML of a memorie van toelichting), the stored HTML of the EU acts with a concordance
-table, and the laws a table names with their articles (``semantic tk-transposition-tables``,
-``lawgraph succession-gaps``)."""
+in the XML of a Kamerstuk), the stored HTML of the EU acts with a concordance table, and the
+laws a table names with their articles (``semantic tk-transposition-tables``, ``lawgraph
+succession-gaps``)."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
     COLLECTION_INSTRUMENTS,
-    EXPLANATORY_KIND_MARKER,
     RAW_KIND_EURLEX_CELEX,
-    RAW_KIND_TK_KAMERSTUK_XML,
+    RAW_KIND_TK_TRANSPOSITION_DOCUMENT,
     RAW_KIND_TK_TRANSPOSITION_TABLE,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
@@ -23,6 +22,7 @@ from lawgraph.config.constants import (
     SOURCE_EURLEX,
     SOURCE_TK,
 )
+from lawgraph.core.transposition_xml import PLACEHOLDER_YEAR
 from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import raw as raw_queries
@@ -44,26 +44,14 @@ ORDER BY i.id
 """
 
 # The laws of the BWB of a citation title, as written in any case and with or without its
-# spaces, hyphens and other marks ("Omgevings-wet", "Monumentenwet1988").
+# spaces, hyphens and other marks ("Omgevings-wet", "Monumentenwet1988"): its folded title
+# matches the pattern of the name (``name_pattern``).
 _FOLDED = "regexp_replace(lower({}), '[^[:alnum:]]+', '', 'g')"
 _BWB_LAWS_NAMED = f"""
 SELECT id FROM {COLLECTION_INSTRUMENTS}
 WHERE bwb_id IS NOT NULL AND stub IS DISTINCT FROM TRUE
-  AND {_FOLDED.format("citation_title")} = {_FOLDED.format("%(name)s")}
+  AND {_FOLDED.format("citation_title")} ~ %(pattern)s
 ORDER BY id
-"""
-
-# The keys of the explanatory memoranda with a heading that names a transposition or
-# concordance table: the Kamerstukken whose XML holds one.
-_MEMORANDA_WITH_TABLES = f"""
-SELECT d.key
-FROM {COLLECTION_DOCUMENTS} d
-CROSS JOIN LATERAL (SELECT d.props -> 'sections' AS sections OFFSET 0) p
-WHERE strpos(lower(d.kind), '{EXPLANATORY_KIND_MARKER}') > 0
-  AND EXISTS (
-      SELECT 1 FROM json_array_elements({array_or_empty("p.sections")}) s
-      WHERE s ->> 'heading' ~* %(words)s
-  )
 """
 
 # The EU acts with a concordance table: an article of theirs says that references to the acts
@@ -118,8 +106,22 @@ def laws_of_dossier(store: Store, dossier_id: str) -> list[dict[str, Any]]:
 
 
 def bwb_laws_named(store: Store, name: str) -> list[str]:
-    """The ids of the laws of the BWB whose citation title is *name* (``_FOLDED``)."""
-    return [str(row) for row in store.query(_BWB_LAWS_NAMED, {"name": name})]
+    """The ids of the laws of the BWB whose citation title is *name* (``_FOLDED``,
+    ``name_pattern``)."""
+    pattern = f"^{name_pattern(name)}$"
+    return [str(row) for row in store.query(_BWB_LAWS_NAMED, {"pattern": pattern})]
+
+
+def folded(name: str) -> str:
+    """*name* in lower case without its spaces, hyphens and other marks (``_FOLDED``)."""
+    return "".join(c for c in name.lower() if c.isalnum())
+
+
+def name_pattern(name: str) -> str:
+    """The regular expression a folded citation title of *name* matches: its folded letters
+    and figures, a year a proposed law's name leaves open (``Mediawet 20..``) any year of
+    this century."""
+    return "20[0-9]{2}".join(re.escape(folded(p)) for p in PLACEHOLDER_YEAR.split(name))
 
 
 def law_articles(
@@ -131,32 +133,15 @@ def law_articles(
 
 
 def transposition_tables(store: Store) -> Iterator[dict[str, Any]]:
-    """Every stored transposition table, with its payload."""
+    """Every stored transposition table and Kamerstuk naming one, with its payload."""
     rows = raw_queries.iter_raw_records(
         store,
         source=SOURCE_TK,
-        kinds=[RAW_KIND_TK_TRANSPOSITION_TABLE],
+        kinds=[RAW_KIND_TK_TRANSPOSITION_TABLE, RAW_KIND_TK_TRANSPOSITION_DOCUMENT],
         since_iso=None,
         batch_size=1,
     )
     return store.with_payloads(rows)
-
-
-def kamerstukken_with_tables(store: Store, words: str) -> Iterator[dict[str, Any]]:
-    """The stored XML of every explanatory memorandum with a heading that matches the
-    regular expression *words*, with its payload."""
-    keys = [str(key) for key in store.query(_MEMORANDA_WITH_TABLES, {"words": words})]
-    rows = store.query(
-        """
-        SELECT key, doc FROM raw_sources
-        WHERE source = %(source)s AND kind = %(kind)s
-          AND lg_str(doc -> 'meta' -> 'document') = ANY(%(keys)s)
-        ORDER BY key
-        """,
-        {"source": SOURCE_TK, "kind": RAW_KIND_TK_KAMERSTUK_XML, "keys": keys},
-        batch_size=1,
-    )
-    return store.with_payloads(raw_doc(row) for row in rows)
 
 
 def law_titles(store: Store, law_ids: list[str]) -> list[dict[str, Any]]:

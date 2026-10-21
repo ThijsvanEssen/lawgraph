@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-35075-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>35 075</dossiernr>
+      </dossiernummer>
+      <titel>Regels omtrent het waarborgen van edelmetalen voorwerpen (Waarborgwet 20..)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">III.</nr>
+              <titel>TRANSPONERINGSTABEL</titel>
+            </kop>
+            <table tabstyle="xml2" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+              <tgroup tgroupstyle="xml2" cols="4" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="25*" />
+                <colspec colnum="2" colname="col2" colwidth="25*" />
+                <colspec colnum="3" colname="col3" colwidth="25*" />
+                <colspec colnum="4" colname="col4" colwidth="25*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>A</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0" />
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>B</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Artikel wetsvoorstel</al>
+                      <al>Waarborgwet</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Artikel Waarborgwet 1986</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Artikel Waarborgwet 1986</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>Artikel wetsvoorstel Waarborgwet</al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>7, lid 5, 22, 26 en 30, lid 4</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>7</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>5, 6 en15 lid 1, zin 2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>14</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>5a en 5b</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0">
+                      <al>7</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

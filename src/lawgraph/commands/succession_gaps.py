@@ -1,7 +1,7 @@
 """``lawgraph succession-gaps``: what the transposition tables do not place. Reads only.
 
-Of every stored table (a PDF of ``retrieve tk-transposition-tables``, a table in the XML of a
-memorie van toelichting, the concordance table of an EU act), as ``semantic
+Of every stored table (a PDF or a table in the XML of a Kamerstuk, as ``retrieve
+tk-transposition-tables`` stores them; the concordance table of an EU act), as ``semantic
 tk-transposition-tables`` reads it: why it places nothing, or, per old law and new law, with
 the tables between them
 

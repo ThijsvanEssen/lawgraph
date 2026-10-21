@@ -1,0 +1,285 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/repository/schemas/op-consolidated/op-consolidated_2014-05-15/xsd/op-xsd-2014-05-15.xsd">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-36378-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>36 378</dossiernr>
+      </dossiernummer>
+      <titel>Regels over energiemarkten en energiesystemen (Energiewet)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">III.</nr>
+              <titel>TRANSPONERINGSTABELLEN</titel>
+            </kop>
+            <divisie opmaak="default">
+              <kop kopopmaak="vet">
+                <nr status="officieel">1.</nr>
+                <titel>Transponeringstabellen elektriciteit en gas</titel>
+              </kop>
+              <divisie opmaak="default">
+                <kop kopopmaak="cur">
+                  <nr status="officieel">i.</nr>
+                  <titel>Verordening 1227/2011/EU van het Europees Parlement en de Raad van 25 oktober 2011 betreffende de integriteit en transparantie van de groothandelsmarkt voor energie (Pb 2011, L 326)</titel>
+                </kop>
+                <table tabstyle="xml1" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+                  <tgroup tgroupstyle="xml1" cols="4" rowsep="1" char="" charoff="50" align="left">
+                    <colspec colnum="1" colname="col1" colwidth="106*" />
+                    <colspec colnum="2" colname="col2" colwidth="135*" />
+                    <colspec colnum="3" colname="col3" colwidth="106*" />
+                    <colspec colnum="4" colname="col4" colwidth="106*" />
+                    <thead valign="bottom">
+                      <row rowsep="1">
+                        <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                          <al>
+                            <nadruk type="halfvet">Bepaling EU-regeling (verordening 1227/2011)</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                          <al>
+                            <nadruk type="halfvet">Bepaling in implementatieregeling of bestaande regeling</nadruk>
+                          </al>
+                          <al>
+                            <nadruk type="halfvet">Toelichting indien niet geïmplementeerd of naar zijn aard geen implementatie behoeft</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                          <al>
+                            <nadruk type="halfvet">Omschrijving beleidsruimte</nadruk>
+                          </al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                          <al>
+                            <nadruk type="halfvet">Toelichting op keuze(n) bij de invulling van de beleidsruimte</nadruk>
+                          </al>
+                        </entry>
+                      </row>
+                    </thead>
+                    <tbody valign="top">
+                      <row rowsep="1">
+                        <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                          <al>9, eerste lid</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                          <al>Behoeft geen implementatie in verband met rechtstreekse werking van de verordening. T.a.v. verplichting tot registratie: zie 5.1</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col4" morerows="0" rotate="0" />
+                      </row>
+                      <row rowsep="0">
+                        <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                          <al>12, eerste lid</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                          <al>5.25 voor wat betreft waarborgen vertrouwelijkheid informatie. Behoeft voor het overige geen implementatie</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                          <al>Geen</al>
+                        </entry>
+                        <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                      </row>
+                    </tbody>
+                  </tgroup>
+                </table>
+              </divisie>
+            </divisie>
+            <divisie opmaak="default">
+              <kop kopopmaak="vet">
+                <nr status="officieel">5.</nr>
+                <titel>Transponeringstabel Elektriciteitswet 1998</titel>
+              </kop>
+              <table tabstyle="xml1" frame="topbot" pgwide="2" rowsep="0" colsep="0">
+                <tgroup tgroupstyle="xml1" cols="4" rowsep="1" char="" charoff="50" align="left">
+                  <colspec colnum="1" colname="col1" colwidth="39*" />
+                  <colspec colnum="2" colname="col2" colwidth="55*" />
+                  <colspec colnum="3" colname="col3" colwidth="55*" />
+                  <colspec colnum="4" colname="col4" colwidth="22*" />
+                  <thead valign="bottom">
+                    <row rowsep="1">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>
+                          <nadruk type="halfvet">Elektriciteitswet 1998</nadruk>
+                        </al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>
+                          <nadruk type="halfvet">Onderwerp</nadruk>
+                        </al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>
+                          <nadruk type="halfvet">Wetsvoorstel Energiewet</nadruk>
+                        </al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                        <al>
+                          <nadruk type="halfvet">Opmerking</nadruk>
+                        </al>
+                      </entry>
+                    </row>
+                  </thead>
+                  <tbody valign="top">
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, eerste lid, onderdeel a</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Begripsbepalingen</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.1</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, eerste lid, onderdeel b</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Onze Minister</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>Onze Minister</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, tweede lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Multisites</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.3, derde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, derde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Vervoer per trein</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.3, eerste lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, vierde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Studentenwoningen</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.4, eerste lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, vijfde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>EEZ</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.6</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, zesde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Cablepooling</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.4, derde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>1, zevende lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Opknipverbod</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>1.4, derde lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>2 t/m 4</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Energierapport</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>Vervallen</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>4a, eerste lid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Monitoring leverings- en voorzieningszekerheid</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>5.13, eerste lid en vierde lid onderdeel a</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0">
+                        <al>Deels gedelegeerd</al>
+                      </entry>
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>7</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Gegevensverstrekking ACM – Acer</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>5.25</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                    <row rowsep="0">
+                      <entry colsep="0" valign="top" align="left" colname="col1" rowsep="1" morerows="0" rotate="0">
+                        <al>7a</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col2" rowsep="1" morerows="0" rotate="0">
+                        <al>Experimenten</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col3" rowsep="1" morerows="0" rotate="0">
+                        <al>Vervallen</al>
+                      </entry>
+                      <entry colsep="0" valign="top" align="left" colname="col4" rowsep="1" morerows="0" rotate="0" />
+                    </row>
+                  </tbody>
+                </tgroup>
+              </table>
+            </divisie>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>

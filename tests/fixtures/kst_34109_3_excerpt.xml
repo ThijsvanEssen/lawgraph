@@ -1,0 +1,170 @@
+<?xml version='1.0' encoding='utf-8'?>
+<officiele-publicatie xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://technische-documentatie.oep.overheid.nl/schema/op-xsd-2012-2">
+  <metadata>
+    <meta name="OVERHEIDop.externMetadataRecord" scheme="" content="https://zoek.officielebekendmakingen.nl/kst-34109-3/metadata.xml" />
+  </metadata>
+  <kamerstuk>
+    <dossier>
+      <dossiernummer>
+        <dossiernr>34 109</dossiernr>
+      </dossiernummer>
+      <titel>Bundeling en aanpassing van regels op het terrein van cultureel erfgoed (Erfgoedwet)</titel>
+    </dossier>
+    <stuk>
+      <algemeen>
+        <vrije-tekst>
+          <divisie opmaak="default">
+            <kop kopopmaak="vet">
+              <nr status="officieel">III.</nr>
+              <titel>TRANSPONERINGSTABELLEN</titel>
+            </kop>
+            <table tabstyle="xml2" frame="topbot" pgwide="1" rowsep="0" colsep="0">
+              <title>Uitvoeringswet UNESCO-verdrag 1970</title>
+              <tgroup tgroupstyle="xml2" cols="3" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="15*" />
+                <colspec colnum="2" colname="col2" colwidth="30*" />
+                <colspec colnum="3" colname="col3" colwidth="67.5*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>oud</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>nieuw</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>opmerking</al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Onder a: 1.1</al>
+                      <al>Onder b-d: 6.1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Begrip verdrag is gewijzigd in Unesco-verdrag 1970</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>3.13</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>6.3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>4</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>6.7</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0" />
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>5</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Vervalt</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Wijzigde een andere wet</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>6</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>vervalt</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Wijzigde een andere wet</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+            <table tabstyle="xml2" frame="topbot" pgwide="1" rowsep="0" colsep="0">
+              <title>Wet tot behoud van cultuurbezit</title>
+              <tgroup tgroupstyle="xml2" cols="3" char="" charoff="50" align="left">
+                <colspec colnum="1" colname="col1" colwidth="15*" />
+                <colspec colnum="2" colname="col2" colwidth="30*" />
+                <colspec colnum="3" colname="col3" colwidth="67.5*" />
+                <thead valign="bottom">
+                  <row rowsep="1">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>oud</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>nieuw</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>opmerking</al>
+                    </entry>
+                  </row>
+                </thead>
+                <tbody valign="top">
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Eerste lid: 1.1</al>
+                      <al>Tweede lid: 8.5</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Begrip Raad komt niet terug</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>2</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Eerste lid: 3.7, eerste lid</al>
+                      <al>Tweede en derde lid: 3.7, vierde lid</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>– Geen verplicht advies Raad voor cultuur;</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>3</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>Eerste lid: 3.7, tweede lid</al>
+                      <al>Tweede lid: 3.7, vierde lid</al>
+                      <al>Derde lid: 1.1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col3" morerows="0" rotate="0">
+                      <al>Geen verplicht advies Raad voor cultuur</al>
+                    </entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+          </divisie>
+        </vrije-tekst>
+      </algemeen>
+    </stuk>
+  </kamerstuk>
+</officiele-publicatie>
