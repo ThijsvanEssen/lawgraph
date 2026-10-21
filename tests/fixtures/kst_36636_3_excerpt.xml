@@ -116,6 +116,19 @@
                       <al>niet overgenomen</al>
                     </entry>
                   </row>
+                  <row rowsep="0">
+                    <entry namest="col1" nameend="col2" colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>Hoofdstuk 7 – Gratie</al>
+                    </entry>
+                  </row>
+                  <row rowsep="0">
+                    <entry colsep="0" valign="top" align="left" colname="col1" morerows="0" rotate="0">
+                      <al>6:7:1</al>
+                    </entry>
+                    <entry colsep="0" valign="top" align="left" colname="col2" morerows="0" rotate="0">
+                      <al>naar de Gratiewet (via de invoeringswet)</al>
+                    </entry>
+                  </row>
                 </tbody>
               </tgroup>
             </table>
