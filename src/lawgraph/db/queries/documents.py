@@ -196,7 +196,7 @@ def list_documents(
 
     *dossier* is a dossier label (``36791``, ``37020-XV``): the documents ``PART_OF`` it
     (its own and those of its cases); *motion_kinds* keeps the motions of those kinds
-    (``core/motion_kinds.py``), found by the index on their light row. ``facets`` counts per ``kind`` (under the other
+    (``core/motion_kinds.py``). ``facets`` counts per ``kind`` (under the other
     filters) and per ``chamber`` (under the other filters); ``facets=False`` gives
     ``null`` for ``total`` and ``facets``. One statement either way.
     """
@@ -218,9 +218,12 @@ def list_documents(
         shared.append("d.dossier_numbers @> ARRAY[%(dossier)s::text]")
         bind["dossier"] = dossier
     if motion_kinds:
+        # the few motions of the kind first, by the partial index on their light row, then
+        # each by its id: a rare kind beside the order of the list let the planner walk
+        # every paper newest first and test it (prod: past 30 s)
         shared.append(
-            "d.id IN (SELECT l.id FROM lg_document_light l"
-            " WHERE lg_str(l.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[]))"
+            "d.id = ANY(ARRAY(SELECT l.id FROM lg_document_light l"
+            " WHERE lg_str(l.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[])))"
         )
         bind["motion_kinds"] = list(motion_kinds)
     own = {"chamber": "d.labels && %(chambers)s::text[]"}

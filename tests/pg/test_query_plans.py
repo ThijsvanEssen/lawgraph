@@ -549,3 +549,82 @@ def test_the_law_of_a_day_reads_the_references_of_its_articles_at_once(
     texts = [" ".join(statement_text(s).split()) for u, s, _ in statements if u == url]
     assert sum("FROM articles WHERE key = ANY" in t for t in texts) == 1
     assert sum("e.from_id = ANY(%(ids)s)" in t for t in texts) == 1
+
+
+@pytest.mark.parametrize("marked", [0, 3])
+def test_the_motions_of_a_kind_are_found_by_their_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, marked: int
+) -> None:
+    """A motion of censure or of no confidence is rare (156 of some 600,000 papers): the
+    papers and the votes of one kind are found by the partial index on ``motion_kind``,
+    not by walking the list newest first and testing each row (prod, 0.80.0: the papers
+    timed out after 30 s, with none marked yet). The oldest *marked* are of the kind."""
+    from lawgraph.db.queries.decisions import DecisionFilters, get_decisions
+    from lawgraph.db.queries.documents import list_documents
+
+    count = 3_000
+
+    def date(n: int) -> str:
+        return f"{2026 - n * 20 // count}-{1 + n % 12:02d}-{1 + n % 28:02d}"
+
+    def kind(n: int) -> dict[str, Any]:
+        return {"motion_kind": "censure"} if n >= count - marked else {}
+
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {"key": f"m{n:05d}", "type": "document", "labels": ["TK"],
+             "props": {"kind": "Motie", "date": date(n), "title": f"Motie {n}", **kind(n)}}
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            {"key": f"v{n:05d}", "type": "decision", "labels": ["TK"],
+             "props": {"kind": "Motie", "date": date(n), "passed": n % 2 == 0,
+                       "subject": f"Motie {n}", **kind(n)}}
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    with store.pool.connection() as conn:
+        for table in ("documents", "decisions"):
+            conn.execute(f"ANALYZE {table}")
+
+    calls = recorded(store, monkeypatch)
+    papers = list_documents(store, motion_kinds=("censure",), facets=False)
+    assert len(papers["items"]) == marked
+    votes = get_decisions(
+        store, DecisionFilters(motion_kinds=("censure",)), facets=False
+    )
+    assert len(votes["items"]) == marked
+
+    def first_found(node: dict[str, Any]) -> bool:
+        """Whether an InitPlan of *node* reads the motion_kind index: the ids of the
+        kind are found once, before any row of the list is read."""
+        return any(
+            child.get("Parent Relationship") == "InitPlan"
+            and any(
+                str(n.get("Index Name", "")).endswith("motion_kind")
+                for n in plan_nodes(child)
+            )
+            for n in plan_nodes(node)
+            for child in n.get("Plans", [])
+        )
+
+    shapes = []
+    for call in calls:
+        if "motion_kind" not in call.text or "ANY(%(motion_kinds)s" not in call.text:
+            continue
+        plan = explain(store, call.statement, call.params, disable=["seqscan"])
+        indexes = {node.get("Index Name") for node in plan_nodes(plan)}
+        shapes.append((indexes, _outline(plan), first_found(plan)))
+    assert len(shapes) == 2, show_items([c.text for c in calls])
+    for indexes, outline, first in shapes:
+        assert first, "\n".join(outline)
+        assert indexes & {"lg_document_light_motion_kind", "decisions_motion_kind"}, (
+            "\n".join(outline)
+        )
+        assert not indexes & {"documents_list_date", "decisions_list_date"}, "\n".join(
+            outline
+        )
