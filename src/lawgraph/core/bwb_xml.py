@@ -950,32 +950,54 @@ _ITEM_CELLS = {
 }
 
 
-def _blocks(element: ET.Element) -> list[ET.Element]:
-    """The paragraphs, headings and tables of *element* (a lid, a list item), in document
-    order."""
-    blocks: list[ET.Element] = []
+def _children(element: ET.Element) -> Iterator[ET.Element]:
+    """The children of *element*, those of a group as if they stood in *element*."""
     for child in element:
-        name = local_name(child.tag)
-        if name in _BLOCKS:
-            blocks.append(child)
-        elif name in _GROUPS:
-            blocks.extend(_blocks(child))
-    return blocks
-
-
-def _nested(element: ET.Element) -> Iterator[ET.Element]:
-    """The children of *element* that are not among its blocks (its lists)."""
-    for child in element:
-        name = local_name(child.tag)
-        if name in _GROUPS:
-            yield from _nested(child)
-        elif name not in _BLOCKS:
+        if local_name(child.tag) in _GROUPS:
+            yield from _children(child)
+        else:
             yield child
+
+
+def _holds_items(element: ET.Element) -> bool:
+    """Whether list items stand under *element*, not in a table (the text of its cells)."""
+    return any(
+        local_name(child.tag) == "li"
+        or (local_name(child.tag) not in _TABULAR and _holds_items(child))
+        for child in element
+    )
+
+
+# What a lid or a list item holds after its first list, in document order: a list (a
+# child that holds list items) or the blocks between two lists or after the last.
+_Piece = ET.Element | list[ET.Element]
+
+
+def _sections(element: ET.Element) -> tuple[list[ET.Element], list[_Piece]]:
+    """The blocks of *element* (a lid, a list item) before its first list, and what
+    follows them (``_Piece``)."""
+    lead: list[ET.Element] = []
+    rest: list[_Piece] = []
+    for child in _children(element):
+        if local_name(child.tag) in _BLOCKS:
+            if not rest:
+                lead.append(child)
+            elif isinstance(rest[-1], list):
+                rest[-1].append(child)
+            else:
+                rest.append([child])
+        elif _holds_items(child):
+            rest.append(child)
+    return lead, rest
 
 
 def _holds_list(li: ET.Element) -> bool:
     """Whether a list item holds a list of its own (``aa.`` and its 1° to 4°)."""
-    return any(local_name(child.tag) == "lijst" for child in _nested(li))
+    return any(
+        local_name(child.tag) == "lijst"
+        for child in _children(li)
+        if local_name(child.tag) not in _BLOCKS
+    )
 
 
 def _add_heading(builder: TextBuilder, element: ET.Element) -> None:
@@ -1082,25 +1104,28 @@ def _add_table(builder: TextBuilder, table: ET.Element) -> None:
     builder.tables.append(cals.text_table(start, builder.length))
 
 
-def _list_items(
-    element: ET.Element, depth: int = 1
-) -> Iterator[tuple[ET.Element, int]]:
-    """Every ``li`` under *element* in document order, with how deep the lists nest; not
-    those in a table, which are the text of its cells."""
-    for child in element:
-        name = local_name(child.tag)
-        if name == "li":
-            yield child, depth
-            yield from _list_items(child, depth + 1)
-        elif name not in _TABULAR:
-            yield from _list_items(child, depth)
+def _add_after_list(builder: TextBuilder, blocks: list[ET.Element], depth: int) -> None:
+    """Add the *blocks* after a list on a new line: the list items at *depth* and deeper
+    end before them. An empty paragraph (``<al/>`` after the list) is nothing."""
+    blocks = [
+        block
+        for block in blocks
+        if local_name(block.tag) in _TABULAR or "".join(block.itertext()).strip()
+    ]
+    if not blocks:
+        return
+    builder.close_from(depth)
+    if local_name(blocks[0].tag) not in _TABULAR:  # a table starts its own line
+        builder.add("\n")
+    _add_paragraphs(builder, blocks)
 
 
 def _add_item(
     builder: TextBuilder, li: ET.Element, body: list[ET.Element], depth: int
 ) -> None:
-    """Add one list item on a new line: its marker (``a.``, ``1°.``) and its paragraphs; an
-    item of only a list of its own (``aa.``) its marker, the part that holds that list."""
+    """Add one list item on a new line: its marker (``a.``, ``1°.``) and *body*, its
+    paragraphs before a list of its own; an item of only a list of its own (``aa.``) its
+    marker, the part that holds that list."""
     # The item before it ends here, not after the marker of this one.
     builder.close_from(depth)
     builder.add("\n")
@@ -1113,12 +1138,47 @@ def _add_item(
     _add_paragraphs(builder, body)
 
 
+def _add_list(builder: TextBuilder, element: ET.Element, depth: int) -> bool:
+    """Add the list items under *element* (a list) in document order, *depth* deep;
+    whether one of them is a part."""
+    added = False
+    for child in element:
+        name = local_name(child.tag)
+        if name == "li":
+            added = _add_list_item(builder, child, depth) or added
+        elif name not in _TABULAR:
+            added = _add_list(builder, child, depth) or added
+    return added
+
+
+def _add_list_item(builder: TextBuilder, li: ET.Element, depth: int) -> bool:
+    """Add a list item, then its own lists and the paragraphs after them; whether it is a
+    part (an item without text or list is none)."""
+    body, rest = _sections(li)
+    added = bool(body) or _holds_list(li)
+    if added:
+        _add_item(builder, li, body, depth)
+    _add_rest(builder, rest, depth + 1)
+    return added
+
+
+def _add_rest(builder: TextBuilder, rest: list[_Piece], depth: int) -> bool:
+    """Add what follows the first list of a lid or list item (``_sections``), its list
+    items *depth* deep; whether one of them is a part."""
+    added = False
+    for piece in rest:
+        if isinstance(piece, list):
+            _add_after_list(builder, piece, depth)
+        else:
+            added = _add_list(builder, piece, depth) or added
+    return added
+
+
 def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
-    """Add one ``lid``: ``1. paragraph`` (and its tables) followed by its list items on new
-    lines."""
-    paragraphs = _blocks(lid)
-    items = list(_list_items(lid))
-    if not paragraphs and not items:
+    """Add one ``lid``: ``1. paragraph`` (and its tables), its list items on new lines and
+    the paragraphs after a list on new lines after it."""
+    paragraphs, rest = _sections(lid)
+    if not paragraphs and not rest:
         return
     if builder.parts:
         builder.add("\n")
@@ -1129,15 +1189,10 @@ def _add_lid(builder: TextBuilder, lid: ET.Element) -> None:
     aanhef_start = builder.length
     _add_paragraphs(builder, paragraphs)
     aanhef_end = builder.length
-    has_onderdelen = False
-    for li, depth in items:
-        body = _blocks(li)
-        if not body and not _holds_list(li):
-            continue
-        if paragraphs and not has_onderdelen:  # the paragraphs lead up to the list
-            builder.add_aanhef(aanhef_start, aanhef_end)
-        has_onderdelen = True
-        _add_item(builder, li, body, depth)
+    has_onderdelen = _add_rest(builder, rest, 1)
+    builder.close_from(1)
+    if has_onderdelen and paragraphs:  # the paragraphs lead up to the list
+        builder.add_aanhef(aanhef_start, aanhef_end)
     builder.close_from(0)
 
 
@@ -1198,11 +1253,7 @@ def _add_block(builder: TextBuilder, element: ET.Element, depth: int = 1) -> Non
         _add_tabular(builder, element)
         return
     if name == "li":
-        body = _blocks(element)
-        if body or _holds_list(element):
-            _add_item(builder, element, body, depth)
-        for child in _nested(element):  # nested lists
-            _add_block(builder, child, depth + 1)
+        _add_list_item(builder, element, depth)
         builder.close_from(depth)
         return
     for child in element:
