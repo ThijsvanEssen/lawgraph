@@ -17,9 +17,9 @@ BASE, VARIANT = "BWBR0001827", "BWBR0039872"
 TITLE = "Wetboek van Burgerlijke Rechtsvordering"
 
 
-def _wti(title: str) -> str:
+def _wti(title: str, abbreviation: str = "Rv") -> str:
     return (
-        "<algemene-informatie><afkortingen><afkorting>Rv</afkorting></afkortingen>"
+        f"<algemene-informatie><afkortingen><afkorting>{abbreviation}</afkorting></afkortingen>"
         f'<citeertitel status="officieel">{title}</citeertitel></algemene-informatie>'
     )
 
@@ -57,3 +57,77 @@ def test_the_base_regulation_gets_the_abbreviation_its_variant_shares(
     assert not variant.props.get("short_title")
     assert not variant.props.get("abbreviation")
     assert variant.props["aliases"] == ["Rv"]
+
+
+def _store_versions(store: GraphStore, laws: dict[str, tuple[str, str | None]]) -> None:
+    """Store a toestand and a WTI (abbreviation ``BBB``) per ``id: (title, end date)``."""
+    grondwet = (FIXTURES / "bwb_grondwet_toestand.xml").read_text()
+    for bwb_id, (title, end_date) in laws.items():
+        write_toestanden(
+            store,
+            [
+                (
+                    RAW_KIND_BWB_TOESTAND,
+                    bwb_id,
+                    grondwet.replace("BWBR0001840", bwb_id),
+                    {
+                        "bwb_id": bwb_id,
+                        "state_url": f"https://repo/{bwb_id}/x.xml",
+                        "end_date": end_date,
+                    },
+                ),
+                (
+                    RAW_KIND_BWB_WTI_GENERAL,
+                    bwb_id,
+                    _wti(title, "BBB"),
+                    {"bwb_id": bwb_id},
+                ),
+            ],
+        )
+
+
+def _short_titles(store: GraphStore, ids: list[str]) -> dict[str, Any]:
+    nodes = {i: store.get_node("instruments", i.lower()) for i in ids}
+    missing = [i for i, node in nodes.items() if node is None]
+    assert not missing, f"no instrument: {missing}"
+    return {i: node.props.get("short_title") for i, node in nodes.items() if node}
+
+
+def test_versions_of_one_regulation_give_the_abbreviation_to_the_one_in_force(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _store_versions(
+        store,
+        {
+            "BWBR0000101": ("Besluit Boeten", "2012-12-31"),
+            "BWBR0000102": ("besluit boeten", None),
+        },
+    )
+
+    cli("normalize", "bwb")
+
+    assert _short_titles(store, ["BWBR0000101", "BWBR0000102"]) == {
+        "BWBR0000101": None,
+        "BWBR0000102": "BBB",
+    }
+
+
+def test_regulations_with_other_titles_do_not_get_a_shared_abbreviation(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _store_versions(
+        store,
+        {
+            "BWBR0000101": ("Besluit Boeten", None),
+            "BWBR0000102": ("Besluit Anders", None),
+        },
+    )
+
+    cli("normalize", "bwb")
+
+    assert _short_titles(store, ["BWBR0000101", "BWBR0000102"]) == {
+        "BWBR0000101": None,
+        "BWBR0000102": None,
+    }
