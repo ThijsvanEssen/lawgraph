@@ -285,6 +285,7 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     monkeypatch.setattr(raw_queries, "iter_raw_records", every_regulation)
     patch_kept_state(monkeypatch)
     monkeypatch.setattr(normalize_bwb, "update_abbreviations", _update_abbreviations)
+    monkeypatch.setattr(normalize_bwb, "instrument_dates", lambda store, keys: iter(()))
     monkeypatch.setattr(
         normalize_bwb,
         "update_instrument_abbreviations",

@@ -154,6 +154,19 @@ def update_instrument_abbreviations(store: Store, rows: list[dict[str, Any]]) ->
     return int(next(store.query(_ABBREVIATION_SQL, {"rows": Json(rows)}), 0))
 
 
+_DATES_SQL = """
+SELECT key, props -> 'date_in_force' AS date_in_force, props -> 'date_expired' AS date_expired
+FROM instruments
+WHERE key = ANY(%(keys)s)
+ORDER BY key
+"""
+
+
+def instrument_dates(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, date_in_force, date_expired}`` of the stored instruments of *keys*."""
+    return store.query(_DATES_SQL, {"keys": keys})
+
+
 _ARTICLES_SQL = """
 SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id
 FROM articles

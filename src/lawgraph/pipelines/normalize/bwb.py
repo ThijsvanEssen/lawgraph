@@ -4,7 +4,7 @@ import datetime as dt
 import hashlib
 import json
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -48,7 +48,8 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_json, payload_text
-from lawgraph.core.time import iso_timestamp
+from lawgraph.core.time import dutch_today, iso_timestamp
+from lawgraph.core.validity import ValidityState, instrument_validity
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
@@ -237,6 +238,19 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                 )
         writer.flush()
 
+    def _standing(self, bwb_ids: Iterable[str]) -> dict[str, tuple[bool, str]]:
+        """``(in force today, date)`` per regulation from the stored instruments: the date
+        it came into force, or of its expiry when it no longer holds."""
+        today = dutch_today().isoformat()
+        by_key = {make_node_key(bwb_id): bwb_id for bwb_id in bwb_ids}
+        standing: dict[str, tuple[bool, str]] = {}
+        for row in normalize_bwb.instrument_dates(self.store, sorted(by_key)):
+            validity = instrument_validity({**row, "bwb_id": by_key[row["key"]]}, today)
+            held = validity is not None and validity.state == ValidityState.IN_FORCE
+            date = row["date_in_force"] if held else row["date_expired"]
+            standing[by_key[row["key"]]] = (held, str(date or "")[:10])
+        return standing
+
     def _write_instrument_abbreviations(
         self,
         abbreviations_by_bwb: dict[str, list[str]],
@@ -343,6 +357,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         short_titles = choose_short_titles(
             abbreviations_by_bwb,
             {bwb_id: titles[0] for bwb_id, titles in titles_by_bwb.items() if titles},
+            self._standing(abbreviations_by_bwb),
         )
         rows = [
             {

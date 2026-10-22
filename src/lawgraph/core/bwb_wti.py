@@ -12,6 +12,7 @@ label.
 
 from __future__ import annotations
 
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -209,6 +210,7 @@ def _citation_form(abbreviation: str) -> bool:
 def choose_short_titles(
     abbreviations_by_id: Mapping[str, Sequence[str]],
     titles_by_id: Mapping[str, str] | None = None,
+    standing_by_id: Mapping[str, tuple[bool, str]] | None = None,
 ) -> dict[str, str | None]:
     """Pick the one abbreviation per regulation that becomes its ``short_title``.
 
@@ -219,7 +221,12 @@ def choose_short_titles(
     and its variants, each titled as the base plus a parenthesised addition (``Rv`` is
     claimed by the Wetboek van Burgerlijke Rechtsvordering and by its "(geldt in geval van
     niet-digitaal procederen)" variant), the base wins and the variants do not
-    (``_variant_owner``; *titles_by_id* are the citation titles). Of the remaining ones
+    (``_variant_owner``; *titles_by_id* are the citation titles). A second exception: when
+    the claimants all have the same citation title (case, spacing and a trailing year
+    ignored: the successive versions of one regulation, each its own BWB id), the one that
+    stands best wins (``standing_by_id``: ``(in force, date)`` with the date of its entry
+    into force, or of its expiry when it is not in force; the highest wins, so a law in
+    force beats an expired one, the newest of either beats an older one). Of the remaining ones
     the shortest wins (``Sr`` over ``WvS`` and ``WvSr``, ``WVW`` over ``WVW 1994``, ``BW1``
     over ``BW Boek 1``); of equal lengths the citation form (``Gw`` over ``GW``,
     ``_citation_form``), then the source order.
@@ -232,7 +239,7 @@ def choose_short_titles(
     owners = {
         abbreviation: owner
         for abbreviation, ids in claimants.items()
-        if (owner := _variant_owner(ids, titles_by_id or {})) is not None
+        if (owner := _owner(ids, titles_by_id or {}, standing_by_id or {})) is not None
     }
     chosen: dict[str, str | None] = {}
     for regulation_id, abbreviations in abbreviations_by_id.items():
@@ -245,6 +252,23 @@ def choose_short_titles(
             min(own, key=lambda a: (len(a), not _citation_form(a))) if own else None
         )
     return chosen
+
+
+def _owner(
+    ids: set[str], titles: Mapping[str, str], standing: Mapping[str, tuple[bool, str]]
+) -> str | None:
+    """Who may use an abbreviation claimed by *ids*: see ``choose_short_titles``."""
+    if (owner := _variant_owner(ids, titles)) is not None:
+        return owner
+    keys = {_same_title_key(titles.get(i, "")) for i in ids}
+    if len(keys) == 1 and "" not in keys:
+        return max(sorted(ids), key=lambda i: standing.get(i, (False, "")))
+    return None
+
+
+def _same_title_key(title: str) -> str:
+    """The title without case, spacing and a trailing year (``Wet X 2020``)."""
+    return re.sub(r"\s+\d{4}$", "", _title_key(title))
 
 
 def _variant_owner(ids: set[str], titles: Mapping[str, str]) -> str | None:
