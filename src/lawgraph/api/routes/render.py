@@ -263,10 +263,26 @@ def render_page(
         source = _source_page(store, pad, node_id)
         stamp = version_cache.current_version(store)
     if budget.ran_out:
-        return _html(
-            request, _title_page(store, node_id, canonical), 200, "no-store", None
-        )
+        return _late(request, _title_page(store, node_id, canonical))
     return _html(request, source, 200, CACHE_PAGE, stamp)
+
+
+# The seconds a crawler is asked to wait before it asks a page that was not ready again: the
+# reads go on in the background and are kept for the next request.
+LATE_RETRY_AFTER = "5"
+# The header Caddy passes such an answer by (``deploy/server/caddy/concordans.caddy``).
+LATE_HEADER = "X-Render-Late"
+
+
+def _late(request: Request, page: Page) -> Response:
+    """A page whose reads ran past ``RENDER_BUDGET``: 503 with ``Retry-After``, not 200. A
+    200 with a ``<main>`` without content is read as a page with nothing on it (a soft 404,
+    or indexed empty); a 503 is asked again and keeps what the search engine had. The body
+    is *page* (its title and node), so the app still opens for a visitor."""
+    response = _html(request, page, 503, "no-store", None)
+    response.headers["Retry-After"] = LATE_RETRY_AFTER
+    response.headers[LATE_HEADER] = "1"
+    return response
 
 
 # How long a page whose reads ran past ``RENDER_BUDGET`` may read the props of its node for
