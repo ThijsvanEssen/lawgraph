@@ -5,8 +5,10 @@ app starts (it removes ``#seo`` and every ``[data-seo]`` but the title when it m
 The shell is read again whenever the file changes, so a release of the front end needs no
 restart of the API. ``spa-routes.json`` beside it lists the pages of the app (path, title,
 description; a ``[param]`` in a path stands for any one segment): any other path that is
-no readable address is not found. ``start.json``
-beside it holds the fixed text of the start page, the one source of the app and of ``/``.
+no readable address is not found. ``moved.json`` beside it maps the addresses that moved
+(``/wetten``, the bare collection, to its list in the app) to where they are now: a 301.
+``start.json`` beside it holds the fixed text of the start page, the one source of the app
+and of ``/``.
 """
 
 from __future__ import annotations
@@ -47,6 +49,8 @@ class Shell:
     routes: dict[str, dict[str, Any]]
     # the fixed text of the start page (``start.json`` beside the shell), or empty
     start: dict[str, Any]
+    # the addresses that moved, to where they are now (``moved.json``), or empty
+    moved: dict[str, str]
 
 
 _lock = threading.Lock()
@@ -66,10 +70,14 @@ def shell() -> Shell:
         if kept is not None and kept.stamp == stamp:
             return kept
         if stamp == "bare":
-            fresh = Shell(_BARE, stamp, {}, {})
+            fresh = Shell(_BARE, stamp, {}, {}, {})
         else:
             fresh = Shell(
-                path.read_text(encoding="utf-8"), stamp, _routes(path), _start(path)
+                path.read_text(encoding="utf-8"),
+                stamp,
+                _routes(path),
+                _start(path),
+                _moved(path),
             )
         _kept["shell"] = fresh
         return fresh
@@ -88,6 +96,19 @@ def _routes(index: Path) -> dict[str, dict[str, Any]]:
 def _start(index: Path) -> dict[str, Any]:
     """The fixed text of the start page, from ``start.json`` beside the shell."""
     return _beside(index, "start.json", dict) or {}
+
+
+def _moved(index: Path) -> dict[str, str]:
+    """The addresses that moved, from ``moved.json`` beside the shell: each path (without a
+    trailing slash) to where it is now. A front end of before has none."""
+    if not (index.parent / "moved.json").exists():
+        return {}
+    listed = _beside(index, "moved.json", dict) or {}
+    return {
+        str(path).rstrip("/"): to
+        for path, to in listed.items()
+        if isinstance(to, str) and to.startswith("/")
+    }
 
 
 def _beside[T](index: Path, name: str, kind: type[T]) -> T | None:
