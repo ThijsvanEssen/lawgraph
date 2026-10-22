@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lawgraph.api.seo.pages.base import SITE_IMAGE
+from lawgraph.api.seo.pages.base import SITE_IMAGE, source_link
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.publications import own_title, publication_indexed
 from lawgraph.core.readable_paths import parse_path
@@ -71,3 +71,24 @@ def test_a_title_of_its_own(title: str | None, own: bool) -> None:
     assert bool(own_title(title)) is own
     assert publication_indexed(title, False) is own
     assert publication_indexed(title, True) is True
+
+
+def test_an_article_of_a_book_of_a_code_is_cited_by_its_code() -> None:
+    """A link to an article of Boek 5 BW reads ``Artikel 5:40 BW``, not by the short title
+    of the book in the BWB (``BW5``, B39); an article of another law keeps its own."""
+    book = {
+        "collection": "articles",
+        "id": "articles/bwbr0005288_40",
+        "bwb_id": "BWBR0005288",
+        "article_number": "40",
+        "law": "BW5",
+    }
+    assert ">Artikel 5:40 BW<" in source_link(book)
+    sr = {
+        "collection": "articles",
+        "id": "articles/bwbr0001854_287",
+        "bwb_id": "BWBR0001854",
+        "article_number": "287",
+        "law": "Sr",
+    }
+    assert ">Artikel 287 Sr<" in source_link(sr)
