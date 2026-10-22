@@ -184,7 +184,7 @@ def _build(store: GraphStore) -> None:
     edges.flush()
 
 
-def _explanations(store: GraphStore, **page: int) -> dict[str, Any]:
+def _explanations(store: GraphStore, **page: Any) -> dict[str, Any]:
     page = {"limit": 100, "offset": 0, **page}
     return get_article_explanations(store, BWB, "5", **page)
 
@@ -222,7 +222,7 @@ def test_by_importance_the_passage_that_names_the_article_comes_first(
 ) -> None:
     _build(store)
 
-    ranked = _summary(_explanations(store, importance=True))  # type: ignore[arg-type]
+    ranked = _summary(_explanations(store, importance=True))
 
     assert ranked[0] == ("mvt_anchor", AV_OLD, "artikel-5")
     # the rest as by date
