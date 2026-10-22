@@ -128,6 +128,12 @@ def judgment_page(row: dict[str, Any]) -> Page:
         body=body,
         index=not light.get("stub"),
         lang="en" if light.get("source") == SOURCE_ECHR else "nl",
+        citation=present(
+            citation_title=title,
+            citation_date=text_of(light.get("date")).replace("-", "/"),
+            citation_publisher=court,
+            **{"DC.identifier": text_of(light.get("ecli"))},
+        ),
     )
 
 
