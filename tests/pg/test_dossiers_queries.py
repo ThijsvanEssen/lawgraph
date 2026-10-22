@@ -694,6 +694,48 @@ def test_the_hub_gathers_instruments_committees_and_documents_in_one_query(
     assert hub["senate"] == {"document_count": 2, "first_date": "2024-04-01"}
 
 
+def test_the_hub_by_importance_the_most_cited_law_and_the_busiest_committee_first(
+    store: GraphStore,
+) -> None:
+    g = Graph(store)
+    dossier = g.node("dossiers", "36010", number="36010", label="36010")
+    for key, name, cited in (
+        ("w_a", "Wet A", 1),
+        ("w_b", "Wet B", 7),
+        ("w_c", "Wet C", None),
+    ):
+        law = g.node(
+            "instruments",
+            key,
+            display_name=name,
+            inbound_citation_count=cited,
+            jurisdiction="nl",
+        )
+        g.edge(law, RELATION_LEGISLATED_IN, dossier)
+    few = g.node("committees", "c_a", name="Commissie A", slug="a")
+    many = g.node("committees", "c_b", name="Commissie B", slug="b")
+    for key, committee in (("act1", few), ("act2", many), ("act3", many)):
+        activity = g.node("activities", key, date="2024-06-01")
+        g.edge(activity, RELATION_ABOUT, dossier)
+        g.edge(activity, RELATION_LED_BY, committee)
+    g.write()
+
+    by_name = get_dossier_hub(store, "dossiers/36010")
+    assert [i["display_name"] for i in by_name["instruments"]] == [
+        "Wet A",
+        "Wet B",
+        "Wet C",
+    ]
+    assert [c["slug"] for c in by_name["committees"]] == ["a", "b"]
+    ranked = get_dossier_hub(store, "dossiers/36010", importance=True)
+    assert [i["display_name"] for i in ranked["instruments"]] == [
+        "Wet B",
+        "Wet A",
+        "Wet C",
+    ]
+    assert [c["slug"] for c in ranked["committees"]] == ["b", "a"]
+
+
 def test_a_dossier_without_links_has_an_empty_hub(store: GraphStore) -> None:
     g = Graph(store)
     g.node("dossiers", "36003", number="36003", label="36003")
@@ -843,6 +885,7 @@ def test_the_hub_of_a_big_amending_law_walks_indexes_and_stays_fast(
             "establishes": RELATION_ESTABLISHES,
             "canonical": "canoniek",
             "relation_order": ["legislated_in", "amends"],
+            "importance": True,
         },
     )
     scans = [

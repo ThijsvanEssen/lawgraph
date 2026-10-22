@@ -478,7 +478,11 @@ measure is a field the list reads anyway, and every order ends in the key, so pa
 | `/api/instruments/{identifier}/eu-links` (`sort=confidence` default) | most confident first | most cited instrument at the other end (`inbound_citation_count`: EU act, treaty, ECHR judgment), then most confident |
 | `/api/instruments/{bwb_id}/amended-by` | `date`: newest first | most articles affected (`articles_affected`), then newest |
 | `/api/articles/{bwb_id}/{n}/explained-by` | `date` | explanations that name a section about the article before those written for the dossier, then most confident, then newest |
+| `/api/dossiers/{number}` (`instruments`, `committees`) | instruments by relation, status, name; committees by name | within its relation and status the instrument cited most (`inbound_citation_count`) first, then by name; the committee that leads most of the dossier's activities first, then by name |
+| `/api/nodes/{collection}/{key}` (buckets) | `key`: edge key | in a bucket of at most 200 edges: judgments, articles and instruments the most cited (`inbound_citation_count`); members and factions the first signatory first; cases the one with most papers; then by key. A larger bucket and any other collection stay in key order |
 | `/api/activities/{key}/records` | `number` | documents newest first; motions adopted (`outcome`) before the others; commitments still `Openstaand` first, then latest registered; decisions that passed first; cases that are no motion before the motions |
+
+The groups of a dossier are its `instruments` (the laws, and the European and international acts among them by their `jurisdiction`) and `committees`; of a zaak the authors (`AUTHORED` into it) and the related zaken (`RELATED_TO`); of a judgment the same-as, advice, appeal and cited-article buckets, all of the node route. `/api/instruments/{identifier}/eu-links` reads the instrument of a treaty by its id or by the `bwb_id` of the treaty article cited, each on its own index.
 
 No ordering is a query of its own: each sorts the rows the list already reads (a committee's
 activities by the date kept in `lg_led`), and `tests/pg/test_query_plans.py` runs each with

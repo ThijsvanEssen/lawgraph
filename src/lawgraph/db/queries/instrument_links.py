@@ -206,12 +206,20 @@ treaty_rows AS (
     JOIN {COLLECTION_ARTICLES} own_article ON own_article.id = e.from_id
     CROSS JOIN {node_of("e.to_id", "e.to_collection")} target
     CROSS JOIN LATERAL (
-        SELECT i.id, i.key, i.type, i.labels, i.props, i.kind, i.jurisdiction
-        FROM {COLLECTION_INSTRUMENTS} i
-        WHERE CASE WHEN e.to_collection = '{COLLECTION_ARTICLES}'
-            THEN i.bwb_id = lg_str(target.props -> 'bwb_id')
-            ELSE i.id = target.id END
-        ORDER BY i.key
+        -- two branches, each on its own index: the instrument itself by its id, or the
+        -- first of the instruments with the bwb_id of the article's (one CASE over both
+        -- read every instrument)
+        SELECT x.* FROM (
+            SELECT i.id, i.key, i.type, i.labels, i.props, i.kind, i.jurisdiction
+            FROM {COLLECTION_INSTRUMENTS} i
+            WHERE e.to_collection = '{COLLECTION_INSTRUMENTS}' AND i.id = e.to_id
+            UNION ALL
+            SELECT i.id, i.key, i.type, i.labels, i.props, i.kind, i.jurisdiction
+            FROM {COLLECTION_INSTRUMENTS} i
+            WHERE e.to_collection = '{COLLECTION_ARTICLES}'
+              AND i.bwb_id = lg_str(target.props -> 'bwb_id')
+        ) x
+        ORDER BY x.key
         LIMIT 1
     ) treaty
     WHERE e.from_id IN (SELECT id FROM own) AND e.relation = %(relation)s

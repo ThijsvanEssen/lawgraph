@@ -1705,6 +1705,10 @@
   "closed_on",
   "title"
  ],
+ "/paths//api/dossiers/{number}/get/parameters/1/schema": [
+  "name",
+  "importance"
+ ],
  "/paths//api/dossiers/{number}/timeline/get/parameters/1/schema": [
   "asc",
   "desc"
@@ -1854,14 +1858,18 @@
   "importance"
  ],
  "/paths//api/nodes/{collection}/{key}/get/parameters/4/schema": [
+  "key",
+  "importance"
+ ],
+ "/paths//api/nodes/{collection}/{key}/get/parameters/5/schema": [
   "full",
   "canvas"
  ],
- "/paths//api/nodes/{collection}/{key}/get/parameters/5/schema": [
+ "/paths//api/nodes/{collection}/{key}/get/parameters/6/schema": [
   "light",
   "passages"
  ],
- "/paths//api/nodes/{collection}/{key}/get/parameters/8/schema/anyOf/0": [
+ "/paths//api/nodes/{collection}/{key}/get/parameters/9/schema/anyOf/0": [
   "outbound",
   "inbound"
  ],

@@ -9,10 +9,15 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_CABINETS,
+    COLLECTION_CASES,
+    COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     RELATION_AUTHORED,
     RELATION_MEMBER_OF,
+    RELATION_PART_OF,
     RELATION_SERVED_IN,
 )
 from lawgraph.core.models import (
@@ -21,6 +26,7 @@ from lawgraph.core.models import (
     TYPE_OF_COLLECTION,
     Direction,
 )
+from lawgraph.core.tk_records.actors import FIRST_SIGNATORY
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
     canvas_edge_doc,
@@ -254,6 +260,7 @@ def get_node_with_neighbors(
     canvas: bool = False,
     wait_for_lids: bool = True,
     passages: bool = False,
+    importance: bool = False,
 ) -> NodeGraphData:
     """A node with its neighbours, in buckets of one relation, direction and collection.
 
@@ -267,7 +274,7 @@ def get_node_with_neighbors(
     node = _load_node(store, collection, key)
     facets = _count_facets(store, node["id"], filters)
     pages = _read_pages(
-        store, node["id"], filters, facets, limit, offset, canvas, passages
+        store, node["id"], filters, facets, limit, offset, canvas, passages, importance
     )
     lids: dict[tuple[str | None, str, str], dict[str, int]] | None = {}
     if collection == COLLECTION_ARTICLES:
@@ -456,6 +463,43 @@ def _count_lids(
     return {bucket: lids for bucket, lids in found.items() if set(lids) != {""}}
 
 
+# The largest bucket ``sort=importance`` ranks: it is read whole and sorted, which a hub's
+# bucket is never; a larger one stays in key order.
+RANKED_BUCKET_MAX = 200
+
+# How the neighbours of a collection are ranked, most important first, ending in the key: the
+# SQL ``ORDER BY`` over the neighbour ``m`` (its table) and the edge ``k``. A collection not
+# here is not ranked.
+_IMPORTANCE: dict[str, str] = {
+    # judgments, articles: how often they are cited
+    COLLECTION_JUDGMENTS: "m.inbound_citation_count DESC NULLS LAST",
+    COLLECTION_ARTICLES: "m.inbound_citation_count DESC NULLS LAST",
+    COLLECTION_INSTRUMENTS: "lg_num(m.props -> 'inbound_citation_count') DESC NULLS LAST",
+    # who signed: the first signatory before the co-signatories
+    COLLECTION_MEMBERS: (
+        f"(lg_str(k.doc -> 'meta' -> 'role') = '{FIRST_SIGNATORY}') DESC NULLS LAST"
+    ),
+    COLLECTION_FACTIONS: (
+        f"(lg_str(k.doc -> 'meta' -> 'role') = '{FIRST_SIGNATORY}') DESC NULLS LAST"
+    ),
+    # a case: the one with most papers
+    COLLECTION_CASES: (
+        "(SELECT count(*) FROM edges p WHERE p.to_id = m.id"
+        f" AND p.relation = '{RELATION_PART_OF}'"
+        f" AND p.from_collection = '{COLLECTION_DOCUMENTS}') DESC"
+    ),
+}
+
+
+def _is_ranked(facet: NeighborFacet, importance: bool) -> bool:
+    """Whether ``sort=importance`` ranks the bucket of *facet*."""
+    return (
+        importance
+        and facet.count <= RANKED_BUCKET_MAX
+        and facet.collection in _IMPORTANCE
+    )
+
+
 def _read_pages(
     store: GraphStore,
     node_id: str,
@@ -465,10 +509,13 @@ def _read_pages(
     offset: int,
     canvas: bool = False,
     passages: bool = False,
+    importance: bool = False,
 ) -> dict[tuple[str | None, str, str], list[NeighborEntry]]:
     """Read ``limit`` neighbours from ``offset`` on in every facet that reaches that far;
     with *canvas* only what the canvas of the explorer reads of them, with *passages* the
-    passages of their edges.
+    passages of their edges. With *importance* a bucket of at most ``RANKED_BUCKET_MAX``
+    edges whose neighbours have a measure (``_IMPORTANCE``) is ranked by it, the key
+    settling ties.
 
     One query per request: each facet reads its own page of edges in key order, so that a
     page is the same on every request. ``limit`` and ``offset`` count edges, so an edge
@@ -501,45 +548,69 @@ def _read_pages(
         # and per collection of the neighbours, named in the statement: the view ``nodes``
         # then reads that table alone (a value from the bucket left every table of it to be
         # probed for every neighbour, 17 index probes for one)
-        for name, collection, matched in (
-            (name, collection, [b for b in named if b.collection == collection])
+        for name, collection, ranked in (
+            (name, collection, ranked)
             for name, named in (
                 ("named", [b for b in buckets if b.relation is not None]),
                 ("unnamed", [b for b in buckets if b.relation is None]),
             )
-            for collection in dict.fromkeys(b.collection for b in named)
+            for collection, ranked in dict.fromkeys(
+                (b.collection, _is_ranked(b, importance)) for b in named
+            )
         ):
             if collection not in _ALLOWED_NODE_COLLECTIONS:
                 continue  # an edge to a table the graph does not have: no neighbour
-            group = f"{direction}_{name}_{collection}"
+            ranking = _IMPORTANCE[collection] if ranked else None
+            matched = [
+                b
+                for b in buckets
+                if (b.relation is not None) == (name == "named")
+                and b.collection == collection
+                and _is_ranked(b, importance) == ranked
+            ]
+            group = f"{direction}_{name}_{collection}_{int(ranked)}"
             params[f"{group}_relations"] = [b.relation for b in matched]
             params[f"{group}_collections"] = [b.collection for b in matched]
             relation = (
                 "k.relation = b.relation" if name == "named" else "k.relation IS NULL"
             )
-            parts.append(
-                f"""
-                SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
-                       e.key AS edge_key, e.from_id, e.to_id, e.doc,
-                       n.id, n.key, n.type, n.labels, {props} AS props
-                FROM unnest(%({group}_relations)s::text[],
-                            %({group}_collections)s::text[])
-                    WITH ORDINALITY AS b(relation, collection, ord)
-                CROSS JOIN LATERAL (
-                    SELECT e.* FROM (
-                        SELECT k.key FROM edges k
+            if ranking is None:
+                page = f"""SELECT k.key, 0 AS pos FROM edges k
                         WHERE k.{own} = %(node_id)s
                           AND {relation}
                           AND k.{other_collection} = b.collection {status}
                         ORDER BY k.key
-                        LIMIT %(limit)s OFFSET %(offset)s
+                        LIMIT %(limit)s OFFSET %(offset)s"""
+            else:
+                page = f"""SELECT k.key, row_number() OVER (
+                                 ORDER BY {ranking}, k.key) AS pos
+                        FROM edges k JOIN {collection} m ON m.id = k.{other}
+                        WHERE k.{own} = %(node_id)s
+                          AND {relation}
+                          AND k.{other_collection} = b.collection {status}
+                        ORDER BY pos ASC NULLS LAST
+                        LIMIT %(limit)s OFFSET %(offset)s"""
+            parts.append(
+                f"""
+                SELECT b.relation, '{direction}' AS direction, b.collection, b.ord,
+                       e.key AS edge_key, e.from_id, e.to_id, e.doc,
+                       n.id, n.key, n.type, n.labels, {props} AS props, e.pos
+                FROM unnest(%({group}_relations)s::text[],
+                            %({group}_collections)s::text[])
+                    WITH ORDINALITY AS b(relation, collection, ord)
+                CROSS JOIN LATERAL (
+                    SELECT e.*, page.pos FROM (
+                        {page}
                     ) page
                     JOIN edges e ON e.key = page.key
                 ) e
                 JOIN nodes n ON n.id = e.{other} AND n.collection = '{collection}'
                 """
             )
-    statement = " UNION ALL ".join(parts) + " ORDER BY direction, ord, edge_key"
+    statement = (
+        " UNION ALL ".join(parts)
+        + " ORDER BY direction, ord, pos ASC NULLS LAST, edge_key"
+    )
     pages: dict[tuple[str | None, str, str], list[NeighborEntry]] = {}
     # a page of each bucket in key order, never a hub's bucket read whole and sorted
     for row in store.query(statement, params, index_order=True):
