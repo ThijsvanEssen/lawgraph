@@ -192,6 +192,13 @@ def _head(page: Page, base: str) -> str:
         tags.append(
             f'<meta property="og:image" content="{escape(base + page.image)}" data-seo />'
         )
+    if page.citation:
+        meta = {**page.citation, "citation_public_url": url}
+        tags += [
+            f'<meta name="{escape(name)}" content="{escape(value)}" data-seo />'
+            for name, value in meta.items()
+            if value
+        ]
     data = _json_ld(page, base)
     if data:
         tags.append(f'<script type="application/ld+json" data-seo>{data}</script>')
