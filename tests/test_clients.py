@@ -249,7 +249,7 @@ def test_the_actors_of_cases_are_asked_for_alone() -> None:
     assert since["$filter"].startswith("ApiGewijzigdOp ge 2026-10-01")
 
 
-def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it_and_their_dossiers() -> (
+def test_a_commitment_is_asked_for_with_its_letters_their_dossiers_and_its_debate() -> (
     None
 ):
     client, session = _tk(EMPTY)
@@ -259,7 +259,8 @@ def test_a_commitment_is_asked_for_with_the_letters_that_fulfil_it_and_their_dos
             "Toezegging",
             {
                 "$expand": "KamerbriefNakoming($select=Id;"
-                "$expand=Kamerstukdossier($select=Nummer,Toevoeging))"
+                "$expand=Kamerstukdossier($select=Nummer,Toevoeging)),"
+                "Activiteit($select=Datum)"
             },
         )
     ]

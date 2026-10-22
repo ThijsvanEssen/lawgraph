@@ -1177,7 +1177,7 @@ def test_the_passages_are_filtered_and_paged(store: GraphStore) -> None:
     assert _snippets(by_court.rows) == [("j1", "a"), ("j1", "b")]
     assert (by_court.total, by_court.judgment_total) == (2, 1)
 
-    by_tier = get_article_cited_by(store, CITED, tier="first", lid="1")
+    by_tier = get_article_cited_by(store, CITED, tiers=("first",), lid="1")
     assert _snippets(by_tier.rows) == [("j2", "c")]
 
     page = get_article_cited_by(store, CITED, limit=2, offset=1)
@@ -1189,6 +1189,55 @@ def test_the_passages_are_filtered_and_paged(store: GraphStore) -> None:
 
     nothing = get_article_cited_by(store, "articles/none")
     assert (nothing.rows, nothing.total, nothing.judgment_total) == ([], 0, 0)
+
+
+def test_the_facets_count_every_judgment_that_cites_an_article(
+    store: GraphStore,
+) -> None:
+    """B7: the years and tiers of every judgment that cites the article, not of the page;
+    each facet without its own filter, under the others. B25: several tiers at once."""
+    _seed_cited_by(store)
+
+    cited = get_article_cited_by(store, CITED, limit=1)
+    assert cited.facets == {
+        "year": [
+            {"value": None, "count": 1},
+            {"value": "2020", "count": 1},
+            {"value": "2021", "count": 2},
+        ],
+        "tier": [
+            {"value": "first", "count": 2},
+            {"value": "appeal", "count": 1},
+            {"value": "cassatie", "count": 1},
+        ],
+    }
+
+    one_year = get_article_cited_by(store, CITED, year="2021")
+    assert _snippets(one_year.rows) == [("j3", "d"), ("j2", "c")]
+    assert (one_year.total, one_year.judgment_total) == (2, 2)
+    assert one_year.facets["year"] == cited.facets["year"]
+    assert one_year.facets["tier"] == [
+        {"value": "appeal", "count": 1},
+        {"value": "first", "count": 1},
+    ]
+
+    two_tiers = get_article_cited_by(store, CITED, tiers=("cassatie", "appeal"))
+    assert _snippets(two_tiers.rows) == [("j3", "d"), ("j1", "a"), ("j1", "b")]
+    assert (two_tiers.total, two_tiers.judgment_total) == (3, 2)
+    assert two_tiers.facets["tier"] == cited.facets["tier"]
+    assert two_tiers.facets["year"] == [
+        {"value": "2020", "count": 1},
+        {"value": "2021", "count": 1},
+    ]
+
+    # a lid and a court narrow every facet
+    by_lid = get_article_cited_by(store, CITED, lid="2")
+    assert by_lid.facets["tier"] == [
+        {"value": "first", "count": 2},
+        {"value": "cassatie", "count": 1},
+    ]
+    nothing = get_article_cited_by(store, "articles/none")
+    assert nothing.facets == {"year": [], "tier": []}
 
 
 def test_the_echr_judgments_that_cite_an_article_are_counted_apart(

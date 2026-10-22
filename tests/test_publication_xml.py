@@ -50,6 +50,13 @@ def test_extract_staatsblad_ref_from_bwb_xml() -> None:
         "</oorspronkelijk></brondata></toestand>"
     )
     assert fn(bwb) == ("1931", "248")
+    # a treaty: its Tractatenblad names no Staatsblad of the same year and number
+    trb = (
+        '<toestand><brondata><oorspronkelijk><publicatie soort="Trb">'
+        "<publicatiejaar>2018</publicatiejaar><publicatienr>100</publicatienr>"
+        "</publicatie></oorspronkelijk></brondata></toestand>"
+    )
+    assert fn(trb) is None
 
 
 def test_a_publication_is_titled_by_its_intitule_not_its_first_heading() -> None:

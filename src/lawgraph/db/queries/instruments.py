@@ -1245,6 +1245,8 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "title": props.get("title"),
         "short_title": props.get("short_title"),
         "kind": props.get("kind"),
+        "official_id": props.get("official_id"),
+        "treaty_number": props.get("treaty_number") or None,
         "citation_title": citation_title,
         "display_name": display_name if display_name is not None else citation_title,
         "jurisdiction": props.get("jurisdiction"),

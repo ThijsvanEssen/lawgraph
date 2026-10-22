@@ -215,6 +215,7 @@ def _records() -> list[tuple[str, dict[str, Any]]]:
                 "Status": "Afgedaan",
                 "Aanmaakdatum": "2026-04-10T00:00:00+02:00",
                 "ActiviteitNummer": "2026A01323",
+                "Activiteit": [{"Datum": DAY}],
                 "KamerbriefNakoming": [{"Id": LETTER_33}],
             },
         ),
@@ -387,7 +388,11 @@ def test_a_commitment_names_its_debate_and_the_letter_that_fulfils_it(
     api: Api,
 ) -> None:
     commitment = api.get_json(f"/api/commitments/{_key(COMMITMENT)}")
-    assert (commitment["date"], commitment["made_on"]) == ("2026-04-10", "2026-03-23")
+    # made in the debate, registered weeks later
+    assert (commitment["date"], commitment["registered_on"]) == (
+        "2026-03-23",
+        "2026-04-10",
+    )
     activity = commitment["activity"]
     assert (activity["kind"], activity["number"], activity["path"]) == (
         "Wetgevingsoverleg",

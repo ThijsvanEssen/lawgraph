@@ -11,9 +11,11 @@ import importlib
 import pkgutil
 
 from fastapi.routing import APIRoute
+from fastapi.testclient import TestClient
 
 import lawgraph.api.routes as routes
 from lawgraph.api.app import app
+from tests.asserts import assert_status
 
 ROUTES = [
     ("GET", "/api/articles/{bwb_id}/{article_number}"),
@@ -128,3 +130,16 @@ def test_each_route_lives_in_the_module_of_its_prefix() -> None:
         if isinstance(route, APIRoute)
         for method in sorted(route.methods or ())
     ] == [("GET", "/render/{path:path}"), ("HEAD", "/render/{path:path}")]
+
+
+def test_the_schema_and_its_page_are_served_under_the_api_prefix() -> None:
+    """The proxy sends only ``/api/*`` to the API: the schema and its interactive page
+    live there, not at the root FastAPI puts them by default."""
+    client = TestClient(app)
+    schema = client.get("/api/openapi.json")
+    page = client.get("/api/docs")
+    assert_status(schema, 200)
+    assert schema.json()["paths"].keys() == app.openapi()["paths"].keys()
+    assert_status(page, 200)
+    assert "/api/openapi.json" in page.text
+    assert_status(client.get("/openapi.json"), 404)

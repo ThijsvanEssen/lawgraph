@@ -124,7 +124,7 @@ SELECT
     (
         SELECT coalesce(json_agg(json_build_object(
             'id', c.id, 'key', c.key, 'number', c.number, 'text', c.props -> 'text',
-            'status', c.status, 'made_on', c.made_on,
+            'status', c.status, 'registered_on', c.props -> 'registered_on',
             'expected_resolution', c.props -> 'expected_resolution',
             'minister_name', c.props -> 'minister_name',
             'minister_role', c.props -> 'minister_role'

@@ -575,6 +575,16 @@ class DocumentListItemDTO(WithKindGroup, PaperOutcomeFields, WithPath):
         description="Its number in the dossier: of the Tweede Kamer the nr. (``5``), of "
         "the Eerste Kamer the letter (``C``); null for none.",
     )
+    document_number: str | None = Field(
+        None,
+        description="The number the Tweede Kamer gives every paper (``2026D41234``), also "
+        "one that is no Kamerstuk; null for an Eerste Kamer paper.",
+    )
+    tk_url: str | None = Field(
+        None,
+        description="The paper on tweedekamer.nl, by its ``document_number``: the page "
+        "of a paper without a ``path`` here.",
+    )
     date: str | None = None
     title: str | None = None
     session_year: str | None = Field(
@@ -605,6 +615,8 @@ class DocumentListItemDTO(WithKindGroup, PaperOutcomeFields, WithPath):
             dossier_numbers=row.get("dossier_numbers") or [],
             dossiers=dossier_names_of(numbers, names),
             number=number_in_dossier(row.get("chamber"), row),
+            document_number=row.get("document_number"),
+            tk_url=tk_url(NodeType.DOCUMENT.value, row),
             date=row.get("date"),
             title=row.get("title"),
             session_year=row.get("session_year"),

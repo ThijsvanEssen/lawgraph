@@ -73,7 +73,10 @@ class CommitteeDTO(WithPath):
     started_on: str | None = None
     ended_on: str | None = Field(None, description="Null while it sits.")
     active_dossier_count: int = Field(
-        0, description="The open dossiers it leads an activity about; none once ended."
+        0,
+        description="The open dossiers it leads (its activities are about them, its "
+        "cases part of them): of a sitting committee ``dossier_total`` under "
+        "``status=open``; none once ended.",
     )
 
     @classmethod
@@ -88,7 +91,11 @@ class CommitteeDetailDTO(CommitteeDTO):
     ``status`` filter.
     """
 
-    members: list[MemberDTO] = []
+    members: list[MemberDTO] | None = Field(
+        None,
+        description="Null when the data has no seat on it at all (not known, not "
+        "none); empty when no seat is current (``current_only``).",
+    )
     dossiers: list[DossierSummaryDTO] = []
     dossier_total: int = Field(
         0, description="Dossiers matching ``status``, independent of limit and offset."
@@ -98,7 +105,9 @@ class CommitteeDetailDTO(CommitteeDTO):
     def from_detail_document(cls, doc: dict[str, Any]) -> CommitteeDetailDTO:
         return cls(
             **_committee_fields(doc),
-            members=[MemberDTO.from_document(m) for m in doc.get("members") or []],
+            members=None
+            if doc.get("members") is None
+            else [MemberDTO.from_document(m) for m in doc["members"]],
             dossiers=[
                 DossierSummaryDTO.from_document(d) for d in doc.get("dossiers") or []
             ],

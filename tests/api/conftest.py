@@ -45,3 +45,13 @@ def stub_reference_counts(monkeypatch) -> None:
     for module in route_modules():
         if hasattr(module, "reference_counts"):
             monkeypatch.setattr(module, "reference_counts", lambda store, node: None)
+
+
+@pytest.fixture(autouse=True)
+def stub_validity(monkeypatch) -> None:
+    """The routes read no ``validity`` (its queries need a database, ``tests/pg``): null
+    unless a test stubs one."""
+    for module in route_modules():
+        for name in ("instrument_validity_dto", "article_validity_dto"):
+            if hasattr(module, name):
+                monkeypatch.setattr(module, name, lambda *args: None)

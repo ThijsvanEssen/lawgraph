@@ -1261,6 +1261,38 @@ def test_the_addresses_of_the_bundels_before_move_with_the_app(
     assert_status(_get(client, "/gemarkeerd/bundel?id=m-1a2b"), 404)
 
 
+def test_a_bare_collection_moves_where_the_front_end_says(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """``moved.json`` beside the shell: ``/wetten`` (no source of its own) is the list of
+    the laws in the app, ``/zoeken`` the field on the start page, each a 301 with the query
+    after its own (B17). A front end of before, without the file: a 404 as before."""
+    assert_status(_get(client, "/wetten"), 404)
+    (tmp_path / "moved.json").write_text(
+        json.dumps(
+            {
+                "/wetten": "/explore?mode=index&kind=instruments",
+                "/zoeken": "/#zoeken",
+                "/elders": "https://elders.example",
+            }
+        )
+    )
+    shell.forget()
+    for old, new in {
+        "/wetten": "/explore?mode=index&kind=instruments",
+        "/wetten/": "/explore?mode=index&kind=instruments",
+        "/wetten?q=huur": "/explore?mode=index&kind=instruments&q=huur",
+        "/zoeken": "/#zoeken",
+        "/zoeken?q=huur": "/?q=huur#zoeken",
+    }.items():
+        response = _get(client, old)
+        assert response.status_code == 301, old
+        assert response.headers["location"] == new, old
+    # never off the site; a source keeps its own address
+    assert_status(_get(client, "/elders"), 404)
+    assert_status(_get(client, "/wetten/BWBR0005289/artikel/6:162"), 200)
+
+
 def _focus(html: str) -> str | None:
     m = re.search(r'<meta name="focus" content="([^"]*)" data-seo />', html)
     return m[1] if m else None

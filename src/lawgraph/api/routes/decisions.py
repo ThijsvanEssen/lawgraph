@@ -29,7 +29,7 @@ from lawgraph.api.schemas.decisions import (
 from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.time import iso_day
-from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
+from lawgraph.core.votes import VOTE_PARAMETER, VoteParameter
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
@@ -45,10 +45,6 @@ from lawgraph.db.queries.not_found import require
 from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
-
-
-# ``vote`` as the parameter takes it -> ``meta.choice`` on the VOTED edge
-_VOTE_CHOICES = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
 
 
 @router.get(
@@ -170,7 +166,7 @@ def list_decisions(
         str | None, Query(description="Only decisions this party voted on.")
     ] = None,
     vote: Annotated[
-        Literal["voor", "tegen"] | None,
+        VoteParameter | None,
         Query(description="With `party`: only decisions it voted for, or against."),
     ] = None,
     chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,
@@ -242,7 +238,7 @@ def list_decisions(
         kinds=parse_choices(kind, None, "kind"),
         passed=passed,
         faction=party,
-        choice=_VOTE_CHOICES[vote] if vote else None,
+        choice=VOTE_PARAMETER[vote] if vote else None,
         chamber=chamber,
         dossier_number=dossier,
         from_date=iso_day(date_from),

@@ -33,8 +33,8 @@ articles
     props.inbound_citation_count — count of inbound REFERS_TO / EXPLAINS edges
 
 committees
-    props.active_dossier_count — committees leading an activity about an open
-                                 dossier
+    props.active_dossier_count — the open dossiers a committee leads: those its
+                                 activities are about and its cases are part of
 
 Idempotent: only writes when the computed value differs from what is already on
 the document.

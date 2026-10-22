@@ -52,6 +52,7 @@ from lawgraph.api.schemas.completeness import (
     completeness_dto,
 )
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
+from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     IMPLEMENTS_BASES,
@@ -774,7 +775,22 @@ class InstrumentListItemDTO(WithPath):
     citation_title: str | None
     display_name: str | None = None
     jurisdiction: str | None
-    kind: str | None
+    kind: str | None = Field(
+        None,
+        description="Lower case: BWB `wetgeving@soort` (`wet`, `amvb`); a treaty of the "
+        "Verdragenbank `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; an EU act "
+        "by its CELEX letter (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`).",
+    )
+    official_id: str | None = Field(
+        None,
+        description="Of a publication its id at officielebekendmakingen.nl "
+        "(`stb-2019-33`); of a law of the Staatsblad that of the publication that "
+        "enacted it (`stb-2026-56`).",
+    )
+    treaty_number: str | None = Field(
+        None,
+        description="A treaty: its Verdragenbank id (six digits, `010783`).",
+    )
     article_count: int
     inbound_citation_count: int = Field(
         0,
@@ -810,6 +826,8 @@ class InstrumentListItemDTO(WithPath):
             display_name=row.get("display_name"),
             jurisdiction=row.get("jurisdiction") or None,
             kind=row.get("kind"),
+            official_id=row.get("official_id"),
+            treaty_number=row.get("treaty_number"),
             article_count=int(row.get("article_count") or 0),
             inbound_citation_count=int(row.get("inbound_citation_count") or 0),
             next_version_from=row.get("next_version_from"),
@@ -1265,6 +1283,7 @@ class InstrumentDetailDTO(WithPath):
         "standing on its own, as on the list.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    validity: ValidityDTO | None = Field(None, description=VALIDITY)
     date_signed: str | None = Field(
         None,
         description="When the instrument itself was signed; for a BWB regulation that of "
@@ -1329,6 +1348,7 @@ class InstrumentDetailDTO(WithPath):
         *,
         same_treaty: list[dict[str, Any]] | None = None,
         references: ReferenceCounts | None = None,
+        validity: ValidityDTO | None = None,
     ) -> InstrumentDetailDTO:
         """Build from the node *doc*; *references* what the step that reads its references
         counted of them (``db.queries.unlinked_references``)."""
@@ -1359,6 +1379,7 @@ class InstrumentDetailDTO(WithPath):
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
             amending=props.get("amending") is True,
             expired_on=props.get("date_expired"),
+            validity=validity,
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),

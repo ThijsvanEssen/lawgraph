@@ -1630,12 +1630,17 @@
   "bewindspersoon",
   "overig"
  ],
+ "/components/schemas/ValidityState": [
+  "in_force",
+  "expired",
+  "not_in_force_yet"
+ ],
  "/components/schemas/VersionPartChangeDTO/properties/change": [
   "added",
   "removed",
   "changed"
  ],
- "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/7/schema": [
+ "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/8/schema": [
   "date_desc",
   "citation_count"
  ],
@@ -1692,30 +1697,42 @@
   "EK"
  ],
  "/paths//api/feed.atom/get/parameters/11/schema/anyOf/0": [
+  "voor",
+  "tegen"
+ ],
+ "/paths//api/feed.atom/get/parameters/13/schema/anyOf/0": [
   "TK",
   "EK"
  ],
- "/paths//api/feed.atom/get/parameters/12/schema/anyOf/0": [
+ "/paths//api/feed.atom/get/parameters/14/schema/anyOf/0": [
   "together",
   "split",
   "wissel",
   "decisive"
  ],
  "/paths//api/feed/get/parameters/12/schema/anyOf/0": [
+  "voor",
+  "tegen"
+ ],
+ "/paths//api/feed/get/parameters/14/schema/anyOf/0": [
   "TK",
   "EK"
  ],
- "/paths//api/feed/get/parameters/13/schema/anyOf/0": [
+ "/paths//api/feed/get/parameters/15/schema/anyOf/0": [
   "together",
   "split",
   "wissel",
   "decisive"
  ],
  "/paths//api/feed/periods/get/parameters/10/schema/anyOf/0": [
+  "voor",
+  "tegen"
+ ],
+ "/paths//api/feed/periods/get/parameters/12/schema/anyOf/0": [
   "TK",
   "EK"
  ],
- "/paths//api/feed/periods/get/parameters/11/schema/anyOf/0": [
+ "/paths//api/feed/periods/get/parameters/13/schema/anyOf/0": [
   "together",
   "split",
   "wissel",
@@ -1726,10 +1743,14 @@
   "day"
  ],
  "/paths//api/feed/summary/get/parameters/12/schema/anyOf/0": [
+  "voor",
+  "tegen"
+ ],
+ "/paths//api/feed/summary/get/parameters/14/schema/anyOf/0": [
   "TK",
   "EK"
  ],
- "/paths//api/feed/summary/get/parameters/13/schema/anyOf/0": [
+ "/paths//api/feed/summary/get/parameters/15/schema/anyOf/0": [
   "together",
   "split",
   "wissel",

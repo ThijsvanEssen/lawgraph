@@ -84,8 +84,9 @@ _SEAT_FIELDS = ("from_date", "to_date", "role", "observed_from", "observed_until
 
 def _committee_members(
     store: GraphStore, committee_id: str, *, current_only: bool
-) -> list[dict[str, Any]]:
-    """The members of a committee by name, each with its seat (``_SEAT_FIELDS``)."""
+) -> list[dict[str, Any]] | None:
+    """The members of a committee by name, each with its seat (``_SEAT_FIELDS``); None
+    when the data has no seat on it at all (not known: the source gives none)."""
     bind: dict[str, Any] = {
         "committee_id": committee_id,
         "member_of": RELATION_MEMBER_OF,
@@ -94,23 +95,29 @@ def _committee_members(
         bind["today"] = dutch_today().isoformat()
     rows = store.query(
         f"""
-        SELECT {NODE.format(t="m")}, e.doc -> 'meta' AS meta
+        SELECT {NODE.format(t="m")}, e.doc -> 'meta' AS meta,
+               {"lg_seated(e.doc -> 'meta', %(today)s)" if current_only else "true"}
+                   AS seated
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
         WHERE e.to_id = %(committee_id)s AND e.relation = %(member_of)s
           AND e.from_collection = '{COLLECTION_MEMBERS}'
-          {"AND lg_seated(e.doc -> 'meta', %(today)s)" if current_only else ""}
         ORDER BY m.name ASC NULLS FIRST, m.key ASC, e.key ASC
         """,
         bind,
     )
-    members = []
-    for row in rows:
-        meta = row["meta"] if isinstance(row["meta"], dict) else {}
-        members.append(
-            {**node_doc(row), **{field: meta.get(field) for field in _SEAT_FIELDS}}
-        )
-    return members
+    seats = list(rows)
+    if not seats:
+        return None
+    return [
+        {**node_doc(row), **{field: _meta(row).get(field) for field in _SEAT_FIELDS}}
+        for row in seats
+        if row["seated"]
+    ]
+
+
+def _meta(row: dict[str, Any]) -> dict[str, Any]:
+    return row["meta"] if isinstance(row["meta"], dict) else {}
 
 
 def get_committee_detail(
@@ -125,7 +132,8 @@ def get_committee_detail(
     """One committee with its members and a page of the dossiers it leads.
 
     Accepts the committee's ``slug`` or its ``key``. With *current_only* the
-    members are those whose seat has no end date, or an end date still ahead.
+    members are those whose seat has no end date, or an end date still ahead; None
+    when the data has no seat on it at all.
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
     first; ``dossier_total`` counts them all.
     """
