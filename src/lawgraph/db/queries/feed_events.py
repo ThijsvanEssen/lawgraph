@@ -37,6 +37,7 @@ from lawgraph.db.queries.feed_sql import (
     FeedFilters,
     Kind,
     Plan,
+    bind_party,
     coalition_of,
     dimension_facet,
     dimension_filters,
@@ -44,6 +45,7 @@ from lawgraph.db.queries.feed_sql import (
     in_period,
     kinds_to_read,
     lit,
+    party_voted,
     words_of,
 )
 from lawgraph.db.schema import (
@@ -336,6 +338,9 @@ def _matching(
             f"e.kind = {lit(EVENT_VOTE)} AND %(coalition)s = ANY({_COALITION})"
         )
         bind["coalition"] = filters.coalition
+    if filters.party:
+        where.append(f"e.kind = {lit(EVENT_VOTE)} AND {party_voted('e.id')}")
+        bind_party(filters, bind)
     if filters.dossier:
         where.append(
             "EXISTS (SELECT 1 FROM unnest(e.labels) AS label"
@@ -475,9 +480,7 @@ def get_counts(
     never written, or a filter it does not keep (the feed then counts its own rows)."""
     if unsupported(filters):
         return None
-    written = next(
-        iter(store.query("SELECT written_at FROM lg_feed_events_state WHERE id")), None
-    )
+    written = written_at(store)
     if written is None:
         return None
 
@@ -494,6 +497,14 @@ def get_counts(
 PERIODS_MAX_AGE = 3600.0
 
 
+def written_at(store: GraphStore) -> dt.datetime | None:
+    """When the events were last written; None: never."""
+    written: dt.datetime | None = next(
+        iter(store.query("SELECT written_at FROM lg_feed_events_state WHERE id")), None
+    )
+    return written
+
+
 def get_periods(
     store: GraphStore, filters: FeedFilters, per: PeriodUnit
 ) -> dict[str, Any]:
@@ -501,9 +512,7 @@ def get_periods(
     of ``FEED_KINDS``) and ``written_at``, when the events were last written (None: never,
     and so no periods). Kept per filter and writing (``lasting``): the whole feed by month
     counts every row."""
-    written = next(
-        iter(store.query("SELECT written_at FROM lg_feed_events_state WHERE id")), None
-    )
+    written = written_at(store)
     if written is None:
         return {"periods": [], "written_at": None}
     periods = lasting(

@@ -5,7 +5,13 @@ from __future__ import annotations
 
 import pytest
 
-from lawgraph.core.motion_kinds import CENSURE, NO_CONFIDENCE, MotionKind, motion_kind
+from lawgraph.core.motion_kinds import (
+    CENSURE,
+    NO_CONFIDENCE,
+    MotionKind,
+    kinds_named,
+    motion_kind,
+)
 
 
 @pytest.mark.parametrize(
@@ -101,3 +107,20 @@ def test_the_fixed_wording_gives_the_kind(subject: str, kind: MotionKind) -> Non
 )
 def test_a_near_miss_is_no_kind(subject: str | None) -> None:
     assert motion_kind(subject) is None
+
+
+@pytest.mark.parametrize(
+    ("word", "kinds"),
+    [
+        ("wantrouwen", [NO_CONFIDENCE]),
+        ("Afkeuring", [CENSURE]),
+        # every name holds these: they tell no kind apart
+        ("motie", []),
+        ("van", []),
+        ("vertrouwen", []),
+    ],
+)
+def test_a_word_of_the_name_of_a_kind_names_it(
+    word: str, kinds: list[MotionKind]
+) -> None:
+    assert kinds_named(word) == kinds

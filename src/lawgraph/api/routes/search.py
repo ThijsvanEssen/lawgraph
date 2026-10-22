@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
-from lawgraph.api.params import TopLimit
+from lawgraph.api.params import TopLimit, parse_choices
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
@@ -23,14 +23,16 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
 )
+from lawgraph.core.concepts import Concept, concept_named
 from lawgraph.core.logging import get_logger
+from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
-from lawgraph.db.queries.resolve import NO_MATCH
+from lawgraph.db.queries.resolve import CONFIDENCE_NAME, NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
-from lawgraph.db.queries.search.clause import Period
+from lawgraph.db.queries.search.clause import Period, query_words
 from lawgraph.db.queries.search.dispatch import (
     LIVE_STALE_WAIT,
     search_full,
@@ -38,9 +40,10 @@ from lawgraph.db.queries.search.dispatch import (
     signed_of,
 )
 from lawgraph.db.queries.search.parser import kept_notation_parser
+from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, exact_hit
 from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.signers import Signed
-from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
+from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES, hit_by_key
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
@@ -128,7 +131,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "cited: `Art. 6:162 BW`), of an instrument `short_title`, `aliases`, `kind` and the "
         "dates `date_published`, `date_in_force` and `version_date_in_force` (as "
         "`/api/instruments/{identifier}` gives them; regulations of one title told "
-        "apart by them), of a judgment `ecli`, `appno`, `names` and `cite` (as "
+        "apart by them); an article and an instrument `expired_on`, the first day it no "
+        "longer holds (of an article the earlier of its law's and its own end, docs/api.md "
+        '"Validity"): one expired by today comes after every hit of its score that '
+        "holds, not left out; of a judgment `ecli`, `appno`, `names` and `cite` (as "
         "`/api/judgments` gives it; and `person` when it was found by one), of a "
         "document `dossier_number`, of a dossier `number`, "
         "`kind`, `current_phase`, `closed`, `outcome` and `short_title` (the name it "
@@ -196,7 +202,41 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "the next search of the same terms finds what it counted meanwhile. "
         "`searched` says per type of `types` what its search reads: `fields` (`title`, "
         "`name`, `number`, `summary`, `text`, `kind`) and `completeness.text`, `none` "
-        "for a type whose text it does not read (judgments, documents)"
+        "for a type whose text it does not read (judgments, documents)."
+        "\n\n"
+        "The stop words of `q` (the Dutch stop words of PostgreSQL's Snowball dictionary: "
+        "`wat`, `is`, `de`, `van`, `mijn`) are no words of the search, unless they are all of "
+        "it: `words` are those searched, `left_out` the others (`wat is de opzegtermijn van "
+        "mijn huurcontract` searches `opzegtermijn huurcontract`). When no hit of any type "
+        "holds every word of two or more, the full search (not `mode=live`) is asked again for "
+        "the hits that hold one at least (of a ranked type those with more first; not of a "
+        "citation, `Kamerstuk 35925 VI nr. 5`) and `matched` is `any`, else `all`. `toezegging`"
+        " and `toezeggingen` name the type of a commitment and are left out of its search "
+        "(`toezeggingen pensioenen`); a word of a commitment, a vote or a cabinet also finds "
+        "the forms of its stem of four characters or more (`pensioenen`: nabestaandenpensioen)."
+        " A word of the name of a kind of motion (`wantrouwen` of motie van wantrouwen, "
+        "`afkeuring` of motie van afkeuring; `motion_kind`, `semantic tk-motion-kinds`) also "
+        "finds the motions of that kind and the votes on them, whose subject does not hold it "
+        "(`het opzeggen van het vertrouwen`), a motion above those that only hold the word; "
+        "`motion_kind` keeps the papers and the votes to those motions. An LJN (`LJN AU3313`, "
+        "`AU3313`: the number of the ECLI of a decision before 2013) is the judgment whose ECLI"
+        " ends in it, as an ECLI is. A member is named whole by the name without the names or "
+        "initials before it (`Rutte`: Mark Rutte, 0.75, before the Besluit archief Rutten that "
+        "holds it). `exact` per hit says whether `q` names it as the one thing it is (its "
+        "citation, ECLI, LJN, number, the abbreviation or whole title of a law, the name of a "
+        "judgment, the whole name of a member, faction, committee or cabinet), never by a "
+        "heading or words; `best` is the id of what a search box opens on Enter: the match of "
+        "`resolved` of confidence 0.9 or more, else the hit of a concept, else the one "
+        "`exact` hit, else null "
+        "(`huurverhoging`: no hit it names, however its words match)."
+        "\n\n"
+        "A query that is a term of the curated list of concepts (`wanprestatie`, `ontslag "
+        "op staande voet`, `GDPR`, `minimum wage`; the whole query or its words without its "
+        'stop words, any case, without accents and punctuation; docs/api.md "Concepts") '
+        "has the article or law the term is about first among the hits of its type, score "
+        "1, `exact`, with `concept` the term (not with a period, nor when its type is not "
+        "in `types`); it is `best` unless `resolved` names something with confidence 0.9 "
+        "or more."
     ),
     tags=["search"],
 )
@@ -243,6 +283,14 @@ def search(
         dt.date | None,
         Query(alias="to", description="Hits dated on or before this day, YYYY-MM-DD."),
     ] = None,
+    motion_kind: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated kinds of motion: `censure` (motie van "
+            "afkeuring), `no_confidence` (motie van wantrouwen). Of the papers and the "
+            "votes only those motions and the votes on them."
+        ),
+    ] = None,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -264,27 +312,46 @@ def search(
         iso_day(date_from),
         iso_day(date_to),
     )
+    motion_kinds = parse_choices(motion_kind, MOTION_KINDS, "motion_kind")
     search = search_live if mode == "live" else search_full
-    signed = signed_of(store, q, requested_types)
-    raw, partial = search(
-        store,
-        q=q,
-        types=requested_types,
-        kinds=kind_list,
-        limit=limit,
-        period=period,
-        signed=signed,
+    words = query_words(store, q)
+    signed = signed_of(store, q, requested_types, words)
+    asked: dict[str, Any] = {
+        "q": q,
+        "types": requested_types,
+        "kinds": kind_list,
+        "limit": limit,
+        "period": period,
+        "signed": signed,
+        "words": words,
+        "motion_kinds": list(motion_kinds) if motion_kinds else None,
+    }
+    raw, partial = search(store, **asked)
+    any_word = (
+        mode == "full"
+        and not any(raw.values())
+        and not partial
+        and len(words.words) > 1
     )
+    if any_word:
+        # no hit holds every word: those that hold one at least, said in ``matched``;
+        # not while typing, where a word not yet typed whole holds nothing yet
+        raw, partial = search(store, **asked, any_word=True)
+        any_word = any(raw.values())
 
-    grouped: dict[str, list[SearchResultItem]] = {}
-    total = 0
     names = load_dossier_names(store) if "documents" in raw else {}
-    for type_key, hits in raw.items():
-        items = [_item(hit, names) for hit in hits]
-        grouped[type_key] = items
-        total += len(items)
+    grouped = {t: [_item(q, hit, names) for hit in hits] for t, hits in raw.items()}
+    named = None if period else concept_named(q, words.words)
+    concept = _concept_item(store, q, named, requested_types) if named else None
+    if concept is not None:
+        others = [
+            i for i in grouped.get(concept.collection, []) if i.key != concept.key
+        ]
+        grouped[concept.collection] = [concept, *others][:limit]
+    total = sum(len(items) for items in grouped.values())
 
     logger.debug("Search '%s' → %d hits across %s", q, total, requested_types)
+    resolved = _resolved(store, q, mode) if resolve else None
 
     return SearchResponse(
         q=q,
@@ -296,8 +363,51 @@ def search(
             t: SearchedDTO(**SEARCHED[t], signed_for=_signed_for(t, signed))
             for t in requested_types
         },
-        resolved=_resolved(store, q, mode) if resolve else None,
+        resolved=resolved,
+        words=words.words,
+        left_out=words.left_out,
+        matched="any" if any_word else "all",
+        best=_best(grouped, resolved, concept),
     )
+
+
+def _concept_item(
+    store: GraphStore, q: str, named: Concept, types: list[str]
+) -> SearchResultItem | None:
+    """The article or law of the concept *q* names (``core.concepts``) as a hit of score 1,
+    ``exact``, with ``concept`` its term; None when its type is not searched or the graph
+    does not have it."""
+    if named.collection not in types:
+        return None
+    hit = hit_by_key(store, named.collection, named.key)
+    if hit is None:
+        return None
+    item = _item(q, {**hit, "score": SCORE_IDENTIFIER, "exact": True}, {})
+    return item.model_copy(update={"concept": named.term})
+
+
+# A match of ``/api/resolve`` this sure is what the query names (``resolve.CONFIDENCE_NAME``:
+# a law, faction or member by its whole name or abbreviation; a citation, an identifier).
+BEST_CONFIDENCE = CONFIDENCE_NAME
+
+
+def _best(
+    grouped: dict[str, list[SearchResultItem]],
+    resolved: ResolveResponse | None,
+    concept: SearchResultItem | None = None,
+) -> str | None:
+    """The id of what the query names exactly: the match of *resolved* of
+    ``BEST_CONFIDENCE`` or more (what the sources name: a citation, a law by its
+    abbreviation), else the hit of the *concept* it names (``_concept_item``), else the one
+    hit that is ``exact``; None when there is none or more than one (``BW``: every book),
+    however well the words match."""
+    match = resolved.match if resolved else None
+    if match is not None and resolved and resolved.confidence >= BEST_CONFIDENCE:
+        return match.id
+    if concept is not None:
+        return concept.id
+    exact = {hit.id for hits in grouped.values() for hit in hits if hit.exact}
+    return exact.pop() if len(exact) == 1 else None
 
 
 def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:
@@ -321,8 +431,11 @@ def _resolved(store: GraphStore, q: str, mode: str = "full") -> ResolveResponse:
         return ResolveResponse(q=q, **resolve_query(store, q))
 
 
-def _item(hit: dict[str, Any], names: dict[str, dict[str, Any]]) -> SearchResultItem:
-    """A hit as the answer gives it, after its rank: an article named as it is cited
+def _item(
+    q: str, hit: dict[str, Any], names: dict[str, dict[str, Any]]
+) -> SearchResultItem:
+    """A hit of *q* as the answer gives it, after its rank, ``exact`` when *q* names it
+    (``ranking.exact_hit``): an article named as it is cited
     (``core.names.article_cite``), a judgment with its ``cite`` in ``extra``, a paper
     with the name its first dossier goes by (``dossier_short_title``, by *names*:
     ``load_dossier_names``)."""
@@ -357,6 +470,7 @@ def _item(hit: dict[str, Any], names: dict[str, dict[str, Any]]) -> SearchResult
         display_name=display_name,
         snippet=hit.get("snippet"),
         score=hit["score"],
+        exact=exact_hit(q, hit),
         extra=extra,
         path_props=hit.get("path_props"),
     )

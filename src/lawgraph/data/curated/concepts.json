@@ -1,0 +1,1272 @@
+{
+ "about": "By hand: the terms a search names an article or a law by when no source does: a term of the law or of its practice (wanprestatie), an English word (GDPR, minimum wage) or an abbreviation the sources do not give. Each term has its variants, the one article (`law`: a BWB id or CELEX number, `article`: its number as the graph has it; without one the law itself) it is about, and `why`: the source that ties them. A term is added only after its article has been read: it exists, holds and rules the term. A law abbreviation the sources give (Awb, Sr, AVG) needs no entry. A term or variant is one concept's only, compared in lower case without accents and punctuation. `lawgraph curated set concepts`.",
+ "concepts": [
+  {
+   "term": "wanprestatie",
+   "variants": [
+    "tekortkoming in de nakoming",
+    "toerekenbare tekortkoming",
+    "breach of contract"
+   ],
+   "law": "BWBR0005289",
+   "article": "74",
+   "why": "art. 6:74 BW: elke tekortkoming in de nakoming verplicht tot schadevergoeding"
+  },
+  {
+   "term": "onrechtmatige daad",
+   "variants": [
+    "onrechtmatig handelen",
+    "tort"
+   ],
+   "law": "BWBR0005289",
+   "article": "162",
+   "why": "art. 6:162 BW: wie een onrechtmatige daad pleegt, vergoedt de schade"
+  },
+  {
+   "term": "ingebrekestelling",
+   "variants": [
+    "ingebrekestellen",
+    "in gebreke stellen"
+   ],
+   "law": "BWBR0005289",
+   "article": "82",
+   "why": "art. 6:82 BW: het verzuim treedt in na een schriftelijke aanmaning met een redelijke termijn"
+  },
+  {
+   "term": "schadevergoeding",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "95",
+   "why": "art. 6:95 BW: de schade die op grond van een wettelijke verplichting tot schadevergoeding moet worden vergoed"
+  },
+  {
+   "term": "eigen schuld",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "101",
+   "why": "art. 6:101 BW: schade mede door een omstandigheid die de benadeelde kan worden toegerekend"
+  },
+  {
+   "term": "smartengeld",
+   "variants": [
+    "immateriële schade",
+    "immateriële schadevergoeding"
+   ],
+   "law": "BWBR0005289",
+   "article": "106",
+   "why": "art. 6:106 BW: vergoeding van nadeel dat niet in vermogensschade bestaat"
+  },
+  {
+   "term": "ontbinding overeenkomst",
+   "variants": [
+    "ontbinding van de overeenkomst",
+    "overeenkomst ontbinden"
+   ],
+   "law": "BWBR0005289",
+   "article": "265",
+   "why": "art. 6:265 BW: een tekortkoming geeft de bevoegdheid de overeenkomst te ontbinden"
+  },
+  {
+   "term": "dwaling",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "228",
+   "why": "art. 6:228 BW: een overeenkomst onder invloed van dwaling is vernietigbaar"
+  },
+  {
+   "term": "redelijkheid en billijkheid",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "248",
+   "why": "art. 6:248 BW: de aanvullende en beperkende werking van redelijkheid en billijkheid"
+  },
+  {
+   "term": "onvoorziene omstandigheden",
+   "variants": [
+    "imprevisie"
+   ],
+   "law": "BWBR0005289",
+   "article": "258",
+   "why": "art. 6:258 BW: wijziging of ontbinding op grond van onvoorziene omstandigheden"
+  },
+  {
+   "term": "opschortingsrecht",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "52",
+   "why": "art. 6:52 BW: de bevoegdheid de nakoming op te schorten"
+  },
+  {
+   "term": "verrekening",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "127",
+   "why": "art. 6:127 BW: de bevoegdheid tot verrekening"
+  },
+  {
+   "term": "onverschuldigde betaling",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "203",
+   "why": "art. 6:203 BW: terugvordering van wat zonder rechtsgrond is gegeven"
+  },
+  {
+   "term": "ongerechtvaardigde verrijking",
+   "variants": [
+    "unjust enrichment"
+   ],
+   "law": "BWBR0005289",
+   "article": "212",
+   "why": "art. 6:212 BW: wie ongerechtvaardigd is verrijkt, vergoedt de schade"
+  },
+  {
+   "term": "zaakwaarneming",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "198",
+   "why": "art. 6:198 BW: de wettelijke omschrijving van zaakwaarneming"
+  },
+  {
+   "term": "productaansprakelijkheid",
+   "variants": [
+    "product liability"
+   ],
+   "law": "BWBR0005289",
+   "article": "185",
+   "why": "art. 6:185 BW: de producent is aansprakelijk voor schade door een gebrek in zijn product"
+  },
+  {
+   "term": "aansprakelijkheid voor ondergeschikten",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "170",
+   "why": "art. 6:170 BW: aansprakelijkheid voor een fout van een ondergeschikte"
+  },
+  {
+   "term": "opstalaansprakelijkheid",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "174",
+   "why": "art. 6:174 BW: aansprakelijkheid van de bezitter van een gebrekkige opstal"
+  },
+  {
+   "term": "aansprakelijkheid voor dieren",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "179",
+   "why": "art. 6:179 BW: aansprakelijkheid van de bezitter van een dier"
+  },
+  {
+   "term": "algemene voorwaarden",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "231",
+   "why": "art. 6:231 BW: de wettelijke omschrijving van algemene voorwaarden"
+  },
+  {
+   "term": "herroepingsrecht",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "230o",
+   "why": "art. 6:230o BW: ontbinding van een overeenkomst op afstand binnen veertien dagen"
+  },
+  {
+   "term": "wettelijke rente",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "119",
+   "why": "art. 6:119 BW: de wettelijke rente bij vertraging in de voldoening van een geldsom"
+  },
+  {
+   "term": "buitengerechtelijke incassokosten",
+   "variants": [
+    "incassokosten"
+   ],
+   "law": "BWBR0005289",
+   "article": "96",
+   "why": "art. 6:96 lid 2 BW: redelijke kosten ter verkrijging van voldoening buiten rechte"
+  },
+  {
+   "term": "aanbod en aanvaarding",
+   "variants": [],
+   "law": "BWBR0005289",
+   "article": "217",
+   "why": "art. 6:217 BW: een overeenkomst komt tot stand door aanbod en aanvaarding"
+  },
+  {
+   "term": "nietigheid",
+   "variants": [
+    "strijd met de goede zeden"
+   ],
+   "law": "BWBR0005291",
+   "article": "40",
+   "why": "art. 3:40 BW: nietigheid wegens strijd met de goede zeden, de openbare orde of de wet"
+  },
+  {
+   "term": "misbruik van omstandigheden",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "44",
+   "why": "art. 3:44 BW: vernietigbaarheid wegens bedreiging, bedrog of misbruik van omstandigheden"
+  },
+  {
+   "term": "verjaring",
+   "variants": [
+    "verjaring rechtsvordering",
+    "statute of limitations"
+   ],
+   "law": "BWBR0005291",
+   "article": "310",
+   "why": "art. 3:310 BW: de verjaring van een rechtsvordering tot schadevergoeding"
+  },
+  {
+   "term": "verkrijgende verjaring",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "99",
+   "why": "art. 3:99 BW: verkrijging door onafgebroken bezit te goeder trouw"
+  },
+  {
+   "term": "pauliana",
+   "variants": [
+    "actio pauliana"
+   ],
+   "law": "BWBR0005291",
+   "article": "45",
+   "why": "art. 3:45 BW: vernietiging van een rechtshandeling die schuldeisers benadeelt"
+  },
+  {
+   "term": "volmacht",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "60",
+   "why": "art. 3:60 BW: de wettelijke omschrijving van volmacht"
+  },
+  {
+   "term": "hypotheek",
+   "variants": [
+    "hypotheekrecht",
+    "pandrecht"
+   ],
+   "law": "BWBR0005291",
+   "article": "227",
+   "why": "art. 3:227 BW: de rechten van pand en hypotheek"
+  },
+  {
+   "term": "retentierecht",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "290",
+   "why": "art. 3:290 BW: de wettelijke omschrijving van het retentierecht"
+  },
+  {
+   "term": "misbruik van bevoegdheid",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "13",
+   "why": "art. 3:13 BW: een bevoegdheid kan niet worden ingeroepen voor zover zij wordt misbruikt"
+  },
+  {
+   "term": "goede trouw",
+   "variants": [],
+   "law": "BWBR0005291",
+   "article": "11",
+   "why": "art. 3:11 BW: de wettelijke omschrijving van goede trouw"
+  },
+  {
+   "term": "eigendom",
+   "variants": [
+    "eigendomsrecht"
+   ],
+   "law": "BWBR0005288",
+   "article": "1",
+   "why": "art. 5:1 BW: eigendom, het meest omvattende recht op een zaak"
+  },
+  {
+   "term": "onrechtmatige hinder",
+   "variants": [
+    "burenoverlast"
+   ],
+   "law": "BWBR0005288",
+   "article": "37",
+   "why": "art. 5:37 BW: hinder aan eigenaars van andere erven"
+  },
+  {
+   "term": "erfdienstbaarheid",
+   "variants": [
+    "recht van overpad"
+   ],
+   "law": "BWBR0005288",
+   "article": "70",
+   "why": "art. 5:70 BW: de wettelijke omschrijving van erfdienstbaarheid"
+  },
+  {
+   "term": "noodweg",
+   "variants": [],
+   "law": "BWBR0005288",
+   "article": "57",
+   "why": "art. 5:57 BW: de vordering tot aanwijzing van een noodweg"
+  },
+  {
+   "term": "appartementsrecht",
+   "variants": [],
+   "law": "BWBR0005288",
+   "article": "106",
+   "why": "art. 5:106 BW: de splitsing in appartementsrechten"
+  },
+  {
+   "term": "ontslag op staande voet",
+   "variants": [
+    "summary dismissal"
+   ],
+   "law": "BWBR0005290",
+   "article": "677",
+   "why": "art. 7:677 BW: onverwijlde opzegging van de arbeidsovereenkomst om een dringende reden"
+  },
+  {
+   "term": "dringende reden",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "678",
+   "why": "art. 7:678 BW: wat voor de werkgever een dringende reden is"
+  },
+  {
+   "term": "transitievergoeding",
+   "variants": [
+    "transition payment"
+   ],
+   "law": "BWBR0005290",
+   "article": "673",
+   "why": "art. 7:673 BW: wanneer de werkgever een transitievergoeding verschuldigd is"
+  },
+  {
+   "term": "opzegtermijn arbeidsovereenkomst",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "672",
+   "why": "art. 7:672 BW: de termijn van opzegging van de arbeidsovereenkomst"
+  },
+  {
+   "term": "proeftijd",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "652",
+   "why": "art. 7:652 BW: de proeftijd in de arbeidsovereenkomst"
+  },
+  {
+   "term": "concurrentiebeding",
+   "variants": [
+    "non-concurrentiebeding",
+    "relatiebeding",
+    "non-compete"
+   ],
+   "law": "BWBR0005290",
+   "article": "653",
+   "why": "art. 7:653 BW: het beding dat de werknemer na afloop beperkt werkzaam te zijn"
+  },
+  {
+   "term": "ketenregeling",
+   "variants": [
+    "ketenbepaling"
+   ],
+   "law": "BWBR0005290",
+   "article": "668a",
+   "why": "art. 7:668a BW: wanneer opvolgende tijdelijke contracten een contract voor onbepaalde tijd worden"
+  },
+  {
+   "term": "loondoorbetaling bij ziekte",
+   "variants": [
+    "loon bij ziekte"
+   ],
+   "law": "BWBR0005290",
+   "article": "629",
+   "why": "art. 7:629 BW: recht op loon bij ziekte"
+  },
+  {
+   "term": "vakantiedagen",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "634",
+   "why": "art. 7:634 BW: de aanspraak op vakantie"
+  },
+  {
+   "term": "werkgeversaansprakelijkheid",
+   "variants": [
+    "arbeidsongeval"
+   ],
+   "law": "BWBR0005290",
+   "article": "658",
+   "why": "art. 7:658 BW: de zorgplicht en aansprakelijkheid van de werkgever voor schade in de werkzaamheden"
+  },
+  {
+   "term": "goed werkgeverschap",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "611",
+   "why": "art. 7:611 BW: goed werkgever en goed werknemer"
+  },
+  {
+   "term": "huurverhoging",
+   "variants": [
+    "huurprijsverhoging",
+    "rent increase"
+   ],
+   "law": "BWBR0005290",
+   "article": "248",
+   "why": "art. 7:248 BW: hoe de huurprijs kan worden verhoogd"
+  },
+  {
+   "term": "opzegtermijn huur",
+   "variants": [
+    "huur opzeggen",
+    "opzegging huur",
+    "opzegtermijn huurcontract",
+    "huurcontract opzeggen"
+   ],
+   "law": "BWBR0005290",
+   "article": "271",
+   "why": "art. 7:271 BW: de opzegging van de huur van woonruimte en haar termijn"
+  },
+  {
+   "term": "huurbescherming",
+   "variants": [
+    "dringend eigen gebruik"
+   ],
+   "law": "BWBR0005290",
+   "article": "274",
+   "why": "art. 7:274 BW: de gronden waarop de rechter een opzegging door de verhuurder toewijst"
+  },
+  {
+   "term": "servicekosten",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "259",
+   "why": "art. 7:259 BW: de betaling van servicekosten en nutsvoorzieningen"
+  },
+  {
+   "term": "gebrek huurwoning",
+   "variants": [
+    "gebreken huur"
+   ],
+   "law": "BWBR0005290",
+   "article": "204",
+   "why": "art. 7:204 BW: wat een gebrek van het gehuurde is"
+  },
+  {
+   "term": "koopovereenkomst",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "1",
+   "why": "art. 7:1 BW: de wettelijke omschrijving van koop"
+  },
+  {
+   "term": "non-conformiteit",
+   "variants": [
+    "conformiteit"
+   ],
+   "law": "BWBR0005290",
+   "article": "17",
+   "why": "art. 7:17 BW: de afgeleverde zaak moet aan de overeenkomst beantwoorden"
+  },
+  {
+   "term": "consumentenkoop",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "5",
+   "why": "art. 7:5 BW: de wettelijke omschrijving van consumentenkoop"
+  },
+  {
+   "term": "bedenktijd koop woning",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "2",
+   "why": "art. 7:2 BW: de schriftelijke koop van een woning en de bedenktijd van drie dagen"
+  },
+  {
+   "term": "aanneming van werk",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "750",
+   "why": "art. 7:750 BW: de wettelijke omschrijving van aanneming van werk"
+  },
+  {
+   "term": "overeenkomst van opdracht",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "400",
+   "why": "art. 7:400 BW: de wettelijke omschrijving van de overeenkomst van opdracht"
+  },
+  {
+   "term": "borgtocht",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "850",
+   "why": "art. 7:850 BW: de wettelijke omschrijving van borgtocht"
+  },
+  {
+   "term": "vaststellingsovereenkomst",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "900",
+   "why": "art. 7:900 BW: de wettelijke omschrijving van de vaststellingsovereenkomst"
+  },
+  {
+   "term": "reisovereenkomst",
+   "variants": [],
+   "law": "BWBR0005290",
+   "article": "500",
+   "why": "art. 7:500 BW: de begrippen van de titel pakketreisovereenkomst"
+  },
+  {
+   "term": "echtscheiding",
+   "variants": [
+    "divorce"
+   ],
+   "law": "BWBR0002656",
+   "article": "151",
+   "why": "art. 1:151 BW: echtscheiding wegens duurzame ontwrichting van het huwelijk"
+  },
+  {
+   "term": "kinderalimentatie",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "404",
+   "why": "art. 1:404 BW: ouders voorzien naar draagkracht in de kosten van hun minderjarige kinderen"
+  },
+  {
+   "term": "ouderlijk gezag",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "245",
+   "why": "art. 1:245 BW: minderjarigen staan onder ouderlijk gezag of voogdij"
+  },
+  {
+   "term": "omgangsrecht",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "377a",
+   "why": "art. 1:377a BW: het recht op omgang van het kind met zijn ouders"
+  },
+  {
+   "term": "huwelijkse voorwaarden",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "114",
+   "why": "art. 1:114 BW: wanneer huwelijkse voorwaarden kunnen worden gemaakt"
+  },
+  {
+   "term": "gemeenschap van goederen",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "94",
+   "why": "art. 1:94 BW: de gemeenschap van goederen tussen echtgenoten"
+  },
+  {
+   "term": "adoptie",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "227",
+   "why": "art. 1:227 BW: adoptie door een uitspraak van de rechtbank"
+  },
+  {
+   "term": "curatele",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "378",
+   "why": "art. 1:378 BW: ondercuratelestelling van een meerderjarige"
+  },
+  {
+   "term": "bewind",
+   "variants": [
+    "beschermingsbewind"
+   ],
+   "law": "BWBR0002656",
+   "article": "431",
+   "why": "art. 1:431 BW: bewind over goederen van een meerderjarige"
+  },
+  {
+   "term": "mentorschap",
+   "variants": [],
+   "law": "BWBR0002656",
+   "article": "450",
+   "why": "art. 1:450 BW: mentorschap ten behoeve van een meerderjarige"
+  },
+  {
+   "term": "bestuurdersaansprakelijkheid",
+   "variants": [],
+   "law": "BWBR0003045",
+   "article": "9",
+   "why": "art. 2:9 BW: de aansprakelijkheid van een bestuurder tegenover de rechtspersoon"
+  },
+  {
+   "term": "enquêterecht",
+   "variants": [],
+   "law": "BWBR0003045",
+   "article": "345",
+   "why": "art. 2:345 BW: het verzoek tot een onderzoek naar het beleid (enquête)"
+  },
+  {
+   "term": "legitieme portie",
+   "variants": [],
+   "law": "BWBR0002761",
+   "article": "63",
+   "why": "art. 4:63 BW: de wettelijke omschrijving van de legitieme portie"
+  },
+  {
+   "term": "testament",
+   "variants": [],
+   "law": "BWBR0002761",
+   "article": "42",
+   "why": "art. 4:42 BW: de uiterste wilsbeschikking, bij testament gemaakt"
+  },
+  {
+   "term": "erfgenamen",
+   "variants": [
+    "versterferfrecht"
+   ],
+   "law": "BWBR0002761",
+   "article": "10",
+   "why": "art. 4:10 BW: wie de wet als erfgenamen roept"
+  },
+  {
+   "term": "wettelijke verdeling",
+   "variants": [],
+   "law": "BWBR0002761",
+   "article": "13",
+   "why": "art. 4:13 BW: de verdeling van de nalatenschap tussen echtgenoot en kinderen"
+  },
+  {
+   "term": "verwerping nalatenschap",
+   "variants": [
+    "nalatenschap verwerpen"
+   ],
+   "law": "BWBR0002761",
+   "article": "190",
+   "why": "art. 4:190 BW: aanvaarding of verwerping van een nalatenschap"
+  },
+  {
+   "term": "noodweer",
+   "variants": [
+    "self-defence",
+    "noodweerexces"
+   ],
+   "law": "BWBR0001854",
+   "article": "41",
+   "why": "art. 41 Sr: noodzakelijke verdediging (noodweer) en noodweerexces"
+  },
+  {
+   "term": "poging",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "45",
+   "why": "art. 45 Sr: de strafbaarheid van poging tot misdrijf"
+  },
+  {
+   "term": "medeplegen",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "47",
+   "why": "art. 47 Sr: daders, doen plegen en medeplegen"
+  },
+  {
+   "term": "medeplichtigheid",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "48",
+   "why": "art. 48 Sr: medeplichtigen aan een misdrijf"
+  },
+  {
+   "term": "diefstal",
+   "variants": [
+    "theft"
+   ],
+   "law": "BWBR0001854",
+   "article": "310",
+   "why": "art. 310 Sr: diefstal"
+  },
+  {
+   "term": "diefstal met geweld",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "312",
+   "why": "art. 312 Sr: diefstal met geweld of bedreiging met geweld"
+  },
+  {
+   "term": "moord",
+   "variants": [
+    "murder"
+   ],
+   "law": "BWBR0001854",
+   "article": "289",
+   "why": "art. 289 Sr: moord"
+  },
+  {
+   "term": "doodslag",
+   "variants": [
+    "manslaughter"
+   ],
+   "law": "BWBR0001854",
+   "article": "287",
+   "why": "art. 287 Sr: doodslag"
+  },
+  {
+   "term": "mishandeling",
+   "variants": [
+    "assault"
+   ],
+   "law": "BWBR0001854",
+   "article": "300",
+   "why": "art. 300 Sr: mishandeling"
+  },
+  {
+   "term": "zware mishandeling",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "302",
+   "why": "art. 302 Sr: zware mishandeling"
+  },
+  {
+   "term": "oplichting",
+   "variants": [
+    "fraud"
+   ],
+   "law": "BWBR0001854",
+   "article": "326",
+   "why": "art. 326 Sr: oplichting"
+  },
+  {
+   "term": "verduistering",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "321",
+   "why": "art. 321 Sr: verduistering"
+  },
+  {
+   "term": "heling",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "416",
+   "why": "art. 416 Sr: opzetheling"
+  },
+  {
+   "term": "valsheid in geschrift",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "225",
+   "why": "art. 225 Sr: valsheid in geschrift"
+  },
+  {
+   "term": "witwassen",
+   "variants": [
+    "money laundering"
+   ],
+   "law": "BWBR0001854",
+   "article": "420bis",
+   "why": "art. 420bis Sr: witwassen"
+  },
+  {
+   "term": "belediging",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "266",
+   "why": "art. 266 Sr: eenvoudige belediging"
+  },
+  {
+   "term": "smaad",
+   "variants": [
+    "defamation"
+   ],
+   "law": "BWBR0001854",
+   "article": "261",
+   "why": "art. 261 Sr: smaad en smaadschrift"
+  },
+  {
+   "term": "laster",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "262",
+   "why": "art. 262 Sr: laster"
+  },
+  {
+   "term": "bedreiging",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "285",
+   "why": "art. 285 Sr: bedreiging"
+  },
+  {
+   "term": "openlijke geweldpleging",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "141",
+   "why": "art. 141 Sr: openlijk in vereniging geweld plegen"
+  },
+  {
+   "term": "dood door schuld",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "307",
+   "why": "art. 307 Sr: dood door schuld"
+  },
+  {
+   "term": "vernieling",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "350",
+   "why": "art. 350 Sr: vernieling en beschadiging"
+  },
+  {
+   "term": "huisvredebreuk",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "138",
+   "why": "art. 138 Sr: huisvredebreuk"
+  },
+  {
+   "term": "computervredebreuk",
+   "variants": [
+    "hacking"
+   ],
+   "law": "BWBR0001854",
+   "article": "138ab",
+   "why": "art. 138ab Sr: computervredebreuk"
+  },
+  {
+   "term": "ontoerekeningsvatbaarheid",
+   "variants": [],
+   "law": "BWBR0001854",
+   "article": "39",
+   "why": "art. 39 Sr: niet strafbaar wegens een psychische stoornis"
+  },
+  {
+   "term": "tbs",
+   "variants": [
+    "terbeschikkingstelling"
+   ],
+   "law": "BWBR0001854",
+   "article": "37a",
+   "why": "art. 37a Sr: terbeschikkingstelling"
+  },
+  {
+   "term": "voorlopige hechtenis",
+   "variants": [],
+   "law": "BWBR0001903",
+   "article": "67",
+   "why": "art. 67 Sv: de gevallen waarin voorlopige hechtenis kan worden bevolen"
+  },
+  {
+   "term": "verschoningsrecht",
+   "variants": [],
+   "law": "BWBR0001903",
+   "article": "218",
+   "why": "art. 218 Sv: het verschoningsrecht van geheimhouders"
+  },
+  {
+   "term": "cautie",
+   "variants": [
+    "zwijgrecht"
+   ],
+   "law": "BWBR0001903",
+   "article": "29",
+   "why": "art. 29 Sv: de verdachte is niet verplicht te antwoorden (cautie)"
+  },
+  {
+   "term": "opportuniteitsbeginsel",
+   "variants": [
+    "sepot"
+   ],
+   "law": "BWBR0001903",
+   "article": "167",
+   "why": "art. 167 Sv: het openbaar ministerie kan van vervolging afzien"
+  },
+  {
+   "term": "artikel 12-procedure",
+   "variants": [
+    "beklag niet-vervolging"
+   ],
+   "law": "BWBR0001903",
+   "article": "12",
+   "why": "art. 12 Sv: beklag over het niet vervolgen van een strafbaar feit"
+  },
+  {
+   "term": "strafbeschikking",
+   "variants": [],
+   "law": "BWBR0001903",
+   "article": "257a",
+   "why": "art. 257a Sv: de strafbeschikking van de officier van justitie"
+  },
+  {
+   "term": "kort geding",
+   "variants": [],
+   "law": "BWBR0001827",
+   "article": "254",
+   "why": "art. 254 Rv: de voorzieningenrechter in spoedeisende zaken"
+  },
+  {
+   "term": "dagvaarding",
+   "variants": [],
+   "law": "BWBR0001827",
+   "article": "111",
+   "why": "art. 111 Rv: de dagvaarding en wat zij vermeldt"
+  },
+  {
+   "term": "verstek",
+   "variants": [],
+   "law": "BWBR0001827",
+   "article": "139",
+   "why": "art. 139 Rv: verstek tegen een gedaagde die niet verschijnt"
+  },
+  {
+   "term": "conservatoir beslag",
+   "variants": [],
+   "law": "BWBR0001827",
+   "article": "700",
+   "why": "art. 700 Rv: verlof voor het leggen van conservatoir beslag"
+  },
+  {
+   "term": "bewijslast",
+   "variants": [],
+   "law": "BWBR0001827",
+   "article": "150",
+   "why": "art. 150 Rv: de hoofdregel van de bewijslastverdeling"
+  },
+  {
+   "term": "proceskosten",
+   "variants": [
+    "proceskostenveroordeling"
+   ],
+   "law": "BWBR0001827",
+   "article": "237",
+   "why": "art. 237 Rv: de veroordeling in de proceskosten"
+  },
+  {
+   "term": "belanghebbende",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "1:2",
+   "why": "art. 1:2 Awb: de wettelijke omschrijving van belanghebbende"
+  },
+  {
+   "term": "bezwaartermijn",
+   "variants": [
+    "beroepstermijn"
+   ],
+   "law": "BWBR0005537",
+   "article": "6:7",
+   "why": "art. 6:7 Awb: de termijn voor een bezwaar- of beroepschrift is zes weken"
+  },
+  {
+   "term": "bezwaar maken",
+   "variants": [
+    "bezwaarschrift"
+   ],
+   "law": "BWBR0005537",
+   "article": "7:1",
+   "why": "art. 7:1 Awb: bezwaar vóór beroep bij de bestuursrechter"
+  },
+  {
+   "term": "hoorplicht",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "7:2",
+   "why": "art. 7:2 Awb: het horen van belanghebbenden voor de beslissing op bezwaar"
+  },
+  {
+   "term": "zorgvuldigheidsbeginsel",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "3:2",
+   "why": "art. 3:2 Awb: de zorgvuldige voorbereiding van een besluit"
+  },
+  {
+   "term": "motiveringsbeginsel",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "3:46",
+   "why": "art. 3:46 Awb: een besluit berust op een deugdelijke motivering"
+  },
+  {
+   "term": "evenredigheidsbeginsel",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "3:4",
+   "why": "art. 3:4 Awb: belangenafweging en evenredigheid van de gevolgen van een besluit"
+  },
+  {
+   "term": "beslistermijn",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "4:13",
+   "why": "art. 4:13 Awb: de termijn waarbinnen een beschikking wordt gegeven"
+  },
+  {
+   "term": "dwangsom bij niet tijdig beslissen",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "4:17",
+   "why": "art. 4:17 Awb: de dwangsom die het bestuursorgaan verbeurt bij niet tijdig beslissen"
+  },
+  {
+   "term": "last onder dwangsom",
+   "variants": [
+    "dwangsom"
+   ],
+   "law": "BWBR0005537",
+   "article": "5:32",
+   "why": "art. 5:32 Awb: de bevoegdheid een last onder dwangsom op te leggen"
+  },
+  {
+   "term": "bestuursdwang",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "5:21",
+   "why": "art. 5:21 Awb: de wettelijke omschrijving van last onder bestuursdwang"
+  },
+  {
+   "term": "bestuurlijke boete",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "5:40",
+   "why": "art. 5:40 Awb: de wettelijke omschrijving van bestuurlijke boete"
+  },
+  {
+   "term": "voorlopige voorziening",
+   "variants": [],
+   "law": "BWBR0005537",
+   "article": "8:81",
+   "why": "art. 8:81 Awb: de voorlopige voorziening bij de bestuursrechter"
+  },
+  {
+   "term": "gelijkheidsbeginsel",
+   "variants": [
+    "discriminatieverbod",
+    "non-discriminatie",
+    "gelijke behandeling"
+   ],
+   "law": "BWBR0001840",
+   "article": "1",
+   "why": "art. 1 Gw: gelijke behandeling in gelijke gevallen en het verbod van discriminatie"
+  },
+  {
+   "term": "vrijheid van godsdienst",
+   "variants": [
+    "godsdienstvrijheid"
+   ],
+   "law": "BWBR0001840",
+   "article": "6",
+   "why": "art. 6 Gw: de vrijheid van godsdienst en levensovertuiging"
+  },
+  {
+   "term": "vrijheid van meningsuiting",
+   "variants": [
+    "persvrijheid",
+    "freedom of expression"
+   ],
+   "law": "BWBR0001840",
+   "article": "7",
+   "why": "art. 7 Gw: de vrijheid van meningsuiting en drukpers"
+  },
+  {
+   "term": "demonstratierecht",
+   "variants": [
+    "betogingsvrijheid"
+   ],
+   "law": "BWBR0001840",
+   "article": "9",
+   "why": "art. 9 Gw: het recht tot vergadering en betoging"
+  },
+  {
+   "term": "huisrecht",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "12",
+   "why": "art. 12 Gw: het binnentreden in een woning zonder toestemming"
+  },
+  {
+   "term": "briefgeheim",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "13",
+   "why": "art. 13 Gw: het brief- en telecommunicatiegeheim"
+  },
+  {
+   "term": "onteigening",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "14",
+   "why": "art. 14 Gw: onteigening in het algemeen belang"
+  },
+  {
+   "term": "toetsingsverbod",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "120",
+   "why": "art. 120 Gw: de rechter toetst wetten niet aan de Grondwet"
+  },
+  {
+   "term": "vrijheid van onderwijs",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "23",
+   "why": "art. 23 Gw: het onderwijs en de vrijheid van onderwijs"
+  },
+  {
+   "term": "kiesrecht",
+   "variants": [],
+   "law": "BWBR0001840",
+   "article": "4",
+   "why": "art. 4 Gw: het actief en passief kiesrecht"
+  },
+  {
+   "term": "recht op een eerlijk proces",
+   "variants": [
+    "fair trial",
+    "right to a fair trial"
+   ],
+   "law": "BWBV0001000",
+   "article": "6",
+   "why": "art. 6 EVRM: recht op een eerlijk proces"
+  },
+  {
+   "term": "recht op privéleven",
+   "variants": [
+    "right to respect for private life",
+    "recht op eerbiediging van privéleven"
+   ],
+   "law": "BWBV0001000",
+   "article": "8",
+   "why": "art. 8 EVRM: recht op eerbiediging van privé-, familie- en gezinsleven"
+  },
+  {
+   "term": "verbod op foltering",
+   "variants": [],
+   "law": "BWBV0001000",
+   "article": "3",
+   "why": "art. 3 EVRM: verbod van foltering"
+  },
+  {
+   "term": "recht op leven",
+   "variants": [],
+   "law": "BWBV0001000",
+   "article": "2",
+   "why": "art. 2 EVRM: recht op leven"
+  },
+  {
+   "term": "minimumloon",
+   "variants": [
+    "minimum wage"
+   ],
+   "law": "BWBR0002638",
+   "article": "7",
+   "why": "art. 7 Wml: de aanspraak van de werknemer op het minimumloon"
+  },
+  {
+   "term": "dakkapel",
+   "variants": [
+    "dakkapel vergunning",
+    "vergunningvrij bouwen"
+   ],
+   "law": "BWBR0041297",
+   "article": "2.29",
+   "why": "art. 2.29 Bbl: vergunningvrije bouwwerken, onder b de dakkapel"
+  },
+  {
+   "term": "omgevingsvergunning",
+   "variants": [
+    "bouwvergunning"
+   ],
+   "law": "BWBR0037885",
+   "article": "5.1",
+   "why": "art. 5.1 Ow: de activiteiten waarvoor een omgevingsvergunning nodig is"
+  },
+  {
+   "term": "woo-verzoek",
+   "variants": [
+    "wob-verzoek",
+    "freedom of information"
+   ],
+   "law": "BWBR0045754",
+   "article": "4.1",
+   "why": "art. 4.1 Woo: het verzoek om publieke informatie"
+  },
+  {
+   "term": "rijden onder invloed",
+   "variants": [
+    "alcohol in het verkeer",
+    "drunk driving"
+   ],
+   "law": "BWBR0006622",
+   "article": "8",
+   "why": "art. 8 WVW 1994: besturen onder invloed van alcohol of drugs"
+  },
+  {
+   "term": "doorrijden na ongeval",
+   "variants": [],
+   "law": "BWBR0006622",
+   "article": "7",
+   "why": "art. 7 WVW 1994: de plicht om bij een verkeersongeval te blijven"
+  },
+  {
+   "term": "faillissement",
+   "variants": [
+    "bankruptcy"
+   ],
+   "law": "BWBR0001860",
+   "article": "1",
+   "why": "art. 1 Fw: faillietverklaring van wie heeft opgehouden te betalen"
+  },
+  {
+   "term": "schuldsanering",
+   "variants": [],
+   "law": "BWBR0001860",
+   "article": "284",
+   "why": "art. 284 Fw: het verzoek om de schuldsaneringsregeling natuurlijke personen"
+  },
+  {
+   "term": "bijstand",
+   "variants": [],
+   "law": "BWBR0015703",
+   "article": "11",
+   "why": "art. 11 Participatiewet: wie recht heeft op bijstand"
+  },
+  {
+   "term": "kinderopvangtoeslag",
+   "variants": [],
+   "law": "BWBR0017017",
+   "article": "1.5",
+   "why": "art. 1.5 Wko: de aanspraak op kinderopvangtoeslag"
+  },
+  {
+   "term": "aow-leeftijd",
+   "variants": [
+    "pensioenleeftijd"
+   ],
+   "law": "BWBR0002221",
+   "article": "7a",
+   "why": "art. 7a AOW: de pensioengerechtigde leeftijd"
+  },
+  {
+   "term": "gdpr",
+   "variants": [
+    "general data protection regulation",
+    "data protection"
+   ],
+   "law": "32016R0679",
+   "why": "de citeertitel van Verordening (EU) 2016/679 in het Engels: General Data Protection Regulation (de AVG)"
+  },
+  {
+   "term": "recht op inzage",
+   "variants": [],
+   "law": "32016R0679",
+   "article": "15",
+   "why": "art. 15 AVG: recht van inzage van de betrokkene"
+  },
+  {
+   "term": "datalek",
+   "variants": [],
+   "law": "32016R0679",
+   "article": "33",
+   "why": "art. 33 AVG: melding van een inbreuk in verband met persoonsgegevens"
+  }
+ ]
+}

@@ -250,7 +250,8 @@ def test_a_judgment_says_which_paragraphs_cite_which_article() -> None:
 def test_an_article_lists_the_passages_that_cite_it() -> None:
     operation = SPEC["paths"]["/api/articles/{bwb_id}/{article_number}/cited-by"]["get"]
     parameters = {p["name"]: p for p in operation["parameters"]}
-    assert {"limit", "offset", "court", "tier", "lid"} <= set(parameters)
+    assert {"limit", "offset", "court", "tier", "year", "lid"} <= set(parameters)
+    assert parameters["tier"]["schema"]["anyOf"][0]["type"] == "array"
     assert (
         parameters["limit"]["schema"]["maximum"]
         >= parameters["limit"]["schema"]["default"]
@@ -262,7 +263,9 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "total",
         "judgment_total",
         "echr_judgment_total",
+        "facets",
     } == _properties("ArticleCitedByResponse")
+    assert {"year", "tier"} == _properties("CitedByFacets")
     assert {
         "judgment",
         "paragraph_id",

@@ -5,6 +5,7 @@ filter, the facets under the other filters, pages that neither repeat nor skip),
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import threading
 from collections.abc import Iterator
@@ -32,6 +33,7 @@ from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.time import DUTCH_TIME
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries import feed_sql
@@ -274,6 +276,8 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         # no cabinet in the data: no coalition
         "coalition": None,
         "coalition_factions": [],
+        # how a faction voted, under ``party`` alone
+        "party_choice": None,
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -368,6 +372,12 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         ),
         ({"member": "nobody"}, []),
         ({"faction": "vvd"}, ["documents/amendment_004"]),
+        # how a faction voted (B5): the votes alone
+        ({"party": "vvd"}, ["decisions/stemming_1"]),
+        ({"party": "vvd", "vote": "tegen"}, ["decisions/stemming_1"]),
+        ({"party": "vvd", "vote": "voor"}, []),
+        ({"party": "d66", "vote": "voor"}, ["decisions/stemming_1"]),
+        ({"party": "nobody"}, []),
         (
             {"faction": "d66"},
             [
@@ -395,6 +405,23 @@ def test_a_filter_keeps_its_events(
         assert answer["total"] == len(expected)
     else:
         assert answer["total"] is None and answer["facets"] is None
+
+
+@ON_THE_GRAPH
+def test_a_vote_says_how_the_faction_asked_voted(client: TestClient) -> None:
+    """B5: ``party`` keeps the votes a faction voted on, each with its choice; who signed
+    the motion (``faction``) is another filter."""
+    (vote,) = _feed(client, party="vvd")["items"]
+    assert vote["vote"]["party_choice"] == "Tegen"
+    (vote,) = _feed(client, party="d66", facets=False)["items"]
+    assert vote["vote"]["party_choice"] == "Voor"
+    unasked = _feed(client, kind="stemming")["items"][0]
+    assert unasked["vote"]["party_choice"] is None
+    counted = _feed(client, party="vvd")
+    assert counted["total"] == 1
+    assert _counts(counted["facets"]["kind"]) == {"stemming": 1}
+    assert_status(client.get("/api/feed", params={"vote": "voor"}), 422)
+    assert_status(client.get("/api/feed", params={"party": "vvd", "vote": "x"}), 422)
 
 
 @ON_THE_GRAPH
@@ -485,9 +512,11 @@ def test_the_atom_feed_of_a_dossier_is_its_events(client: TestClient) -> None:
     ids = [present(e.find("a:id", ns)).text for e in entries]
     assert ids == [f"tag:lawgraph,2026:{item['id']}" for item in feed["items"]]
     assert len(set(ids)) == len(ids) > 1
-    assert present(root.find("a:updated", ns)).text == (
-        f"{feed['items'][0]['date']}T00:00:00Z"
+    # the events never written: the start of the newest day, in Dutch time
+    newest = dt.datetime.combine(
+        dt.date.fromisoformat(feed["items"][0]["date"]), dt.time(), DUTCH_TIME
     )
+    assert present(root.find("a:updated", ns)).text == newest.isoformat()
     for entry, item in zip(entries, feed["items"], strict=True):
         alternate = present(entry.find("a:link[@rel='alternate']", ns)).get("href")
         expected = item["path"] or f"/explore?focus={item['id']}"
@@ -950,6 +979,7 @@ ITEM_KEYS = [
     "via",
     "coalition",
     "coalition_factions",
+    "party_choice",
 ]
 
 

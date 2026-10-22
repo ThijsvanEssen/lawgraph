@@ -118,9 +118,24 @@ def _by_keys(
 # ── identifiers and law names ─────────────────────────────────────────────────
 
 
+# The judgments whose ECLI has the LJN %(ljn)s for its number, on the trigrams of the column
+# of the prefixes of their ECLI; one as a rule.
+_BY_LJN = f"""
+    SELECT r.id, r.key, {_DEFAULT_NAME} AS display_name
+    FROM judgments r
+    WHERE r.{search_column("ecli", "prefix")} LIKE '%%:' || %(ljn)s
+    ORDER BY r.key
+    LIMIT %(limit)s
+"""
+
+
 def _identified(store: GraphStore, notation: Notation) -> list[dict[str, Any]]:
-    """An ECLI, BWB id or CELEX id: the node with that key."""
+    """An ECLI, LJN, BWB id or CELEX id: the node with that key (of an LJN: the judgment
+    whose ECLI has it for its number)."""
     identifier = notation.identifier or ""
+    if notation.kind == "ljn":
+        rows = list(store.query(_BY_LJN, {"ljn": identifier, "limit": 2}))
+        return _capped([_target(r, "judgment", CONFIDENCE_IDENTIFIER) for r in rows])
     if notation.kind == "ecli":
         keys = [make_node_key(identifier), make_node_key("echr", identifier)]
         rows = _by_keys(store, COLLECTION_JUDGMENTS, keys)
@@ -477,8 +492,12 @@ def _resolve(store: GraphStore, q: str) -> dict[str, Any]:
     """
     parser = load_notation_parser(store)
     notation = parser.parse(q)
-    found = {"notation": notation_fields(notation)}
     candidates, qualifier, choice = _candidates(store, parser, notation, q)
+    if notation is not None and notation.kind == "ljn" and not candidates:
+        # two letters and four digits of no judgment are words ("IB2001")
+        notation = None
+        candidates, qualifier, choice = _candidates(store, parser, notation, q)
+    found = {"notation": notation_fields(notation)}
     if choice and len(candidates) > 1:
         return {
             **found,

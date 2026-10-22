@@ -53,3 +53,24 @@ def motion_kind(subject: str | None) -> MotionKind | None:
     return next(
         (kind for kind, opening in _OPENINGS.items() if opening.match(does)), None
     )
+
+
+# What the Kamer calls each kind, as a search finds it: "motie van wantrouwen" or
+# "wantrouwen" are the motions of no confidence, though their subject never holds the word.
+MOTION_KIND_NAMES: Final[dict[MotionKind, str]] = {
+    CENSURE: "motie van afkeuring",
+    NO_CONFIDENCE: "motie van wantrouwen",
+}
+# The words every name holds ("motie", "van") tell no kind apart.
+_NAMING_NO_KIND: Final = frozenset.intersection(
+    *(frozenset(name.split()) for name in MOTION_KIND_NAMES.values())
+)
+
+
+def kinds_named(word: str) -> list[MotionKind]:
+    """The kinds whose name holds *word* (any case) as a word of its own that tells them
+    apart: ``wantrouwen`` the motions of no confidence, ``afkeuring`` of censure."""
+    wanted = word.strip().lower()
+    if wanted in _NAMING_NO_KIND:
+        return []
+    return [kind for kind, name in MOTION_KIND_NAMES.items() if wanted in name.split()]

@@ -1,7 +1,8 @@
 """Committees that share an abbreviation (G17): the Vaste commissie BuHaOS of 2017-2024 and
 the Algemene commissie BuHaOS sitting now. Each has a slug of its own, its kind and period,
-and one count of the open dossiers it leads, the same in list and detail and none for the
-one that ended. The real ``normalize tk-dossiers`` and ``semantic graph-list-stats``.
+and one count of the open dossiers it leads (of its debates and its cases), the same in list
+and detail, the same as its open dossiers listed, and none for the one that ended (B11). The
+real ``normalize tk-dossiers`` and ``semantic graph-list-stats``.
 """
 
 from __future__ import annotations
@@ -14,11 +15,13 @@ from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
+    COLLECTION_CASES,
     COLLECTION_COMMITTEES,
     COLLECTION_DOSSIERS,
     RAW_KIND_TK_COMMISSIE,
     RELATION_ABOUT,
     RELATION_LED_BY,
+    RELATION_PART_OF,
 )
 from lawgraph.core.models import Node, make_node_key
 from lawgraph.db import (
@@ -51,23 +54,34 @@ COMMITTEES: list[dict[str, Any]] = [
 
 def _seed(store: GraphStore) -> None:
     write_tk(store, [(RAW_KIND_TK_COMMISSIE, payload) for payload in COMMITTEES])
-    nodes = [
-        Node(
-            collection=COLLECTION_DOSSIERS,
-            key=number,
-            labels=["TK"],
-            props={"number": number, "label": number, "closed": closed},
-        )
-        for number, closed in (("36000", False), ("36001", False), ("35000", True))
-    ] + [
-        Node(
-            collection=COLLECTION_ACTIVITIES,
-            key=f"a{i}",
-            labels=["TK"],
-            props={"date": "2025-01-01"},
-        )
-        for i in range(4)
-    ]
+    nodes = (
+        [
+            Node(
+                collection=COLLECTION_DOSSIERS,
+                key=number,
+                labels=["TK"],
+                props={"number": number, "label": number, "closed": closed},
+            )
+            for number, closed in (
+                ("36000", False),
+                ("36001", False),
+                ("36002", False),
+                ("35000", True),
+            )
+        ]
+        + [
+            Node(collection=COLLECTION_CASES, key="z0", labels=["TK"], props={}),
+        ]
+        + [
+            Node(
+                collection=COLLECTION_ACTIVITIES,
+                key=f"a{i}",
+                labels=["TK"],
+                props={"date": "2025-01-01"},
+            )
+            for i in range(4)
+        ]
+    )
     with NodeWriter(store) as writer:
         writer.add_all(nodes)
     # three debates of the sitting committee on two open dossiers and a closed one; one of
@@ -94,6 +108,15 @@ def _seed(store: GraphStore) -> None:
                 RELATION_ABOUT,
                 source="t",
             )
+        # a case it leads in an open dossier none of its debates is about
+        case_id = f"{COLLECTION_CASES}/z0"
+        edges.add(
+            case_id,
+            f"{COLLECTION_COMMITTEES}/{make_node_key(ALGEMENE)}",
+            RELATION_LED_BY,
+            source="t",
+        )
+        edges.add(case_id, f"{COLLECTION_DOSSIERS}/36002", RELATION_PART_OF, source="t")
 
 
 def _get(client: TestClient, path: str) -> Any:
@@ -115,6 +138,7 @@ def test_committees_that_share_an_abbreviation_are_each_reachable(
         listed = {c["slug"]: c for c in _get(client, "/api/committees")}
         sitting = _get(client, "/api/committees/buhaos")
         ended = _get(client, "/api/committees/buhaos-2017")
+        open_led = _get(client, "/api/committees/buhaos?status=open")
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -131,10 +155,14 @@ def test_committees_that_share_an_abbreviation_are_each_reachable(
         None,
     )
     assert (ended["kind"], ended["ended_on"]) == ("vast", "2024-07-02")
-    # two open dossiers, not three debates; the one that ended leads none
+    # three open dossiers (two of its debates, one of its case), not four debates; the
+    # same as its open dossiers listed; the one that ended leads none
     assert (
-        sitting["active_dossier_count"] == listed["buhaos"]["active_dossier_count"] == 2
+        sitting["active_dossier_count"] == listed["buhaos"]["active_dossier_count"] == 3
     )
+    assert open_led["dossier_total"] == sitting["active_dossier_count"]
+    # no seat on it in the data: its members are not known, not none
+    assert sitting["members"] is None
     assert (
         ended["active_dossier_count"]
         == listed["buhaos-2017"]["active_dossier_count"]

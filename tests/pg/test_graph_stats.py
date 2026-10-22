@@ -74,6 +74,29 @@ def test_instruments_count_their_articles_and_what_refers_to_them(
     assert _props(store, "instruments", "x")["jurisdiction"] == ""
 
 
+def test_an_eu_act_is_of_the_kind_its_celex_letter_names(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("32016l0680", "instrument", celex="32016L0680"),
+            _node("32016r0679", "instrument", celex="32016R0679"),
+            _node("32002f0584", "instrument", celex="32002F0584"),
+            _node("verdrag", "instrument", treaty_number="010783", kind="Verdrag"),
+        ],
+    )
+    graph_stats.refresh_instruments(store, dry_run=False)
+    assert {
+        key: _props(store, "instruments", key)["kind"]
+        for key in ("32016l0680", "32016r0679", "32002f0584", "verdrag")
+    } == {
+        "32016l0680": "richtlijn",
+        "32016r0679": "verordening",
+        "32002f0584": "kaderbesluit",
+        "verdrag": "verdrag",
+    }
+    assert graph_stats.refresh_instruments(store, dry_run=True) == 0
+
+
 def test_article_count_is_the_count_of_the_list_of_articles(store: GraphStore) -> None:
     # in force, repealed (PART_OF it still), a stub (no PART_OF): the count is what
     # ``/articles`` answers by default, of a BWB regulation, an EU act and a law of the
@@ -263,7 +286,11 @@ def test_committees_count_the_open_dossiers_they_lead(store: GraphStore) -> None
     )
     store.bulk_insert_or_update_nodes(
         "dossiers",
-        [_node("1", "dossier", closed=False), _node("2", "dossier", closed=True)],
+        [
+            _node("1", "dossier", closed=False),
+            _node("2", "dossier", closed=True),
+            _node("3", "dossier", closed=False),
+        ],
     )
     store.bulk_insert_or_update_edges(
         [
@@ -273,10 +300,16 @@ def test_committees_count_the_open_dossiers_they_lead(store: GraphStore) -> None
             _edge("4", "activities/b", "committees/c1", "LED_BY"),
             _edge("5", "activities/b", "dossiers/1", "ABOUT"),
             _edge("6", "activities/a", "committees/c2", "LED_BY"),
+            # a case it leads, part of an open dossier none of its activities is about
+            _edge("7", "cases/z", "committees/c1", "LED_BY"),
+            _edge("8", "cases/z", "dossiers/3", "PART_OF"),
+            # a paper of the case is part of a dossier too: no dossier the committee leads
+            _edge("9", "documents/p", "cases/z", "PART_OF"),
         ]
     )
     assert graph_stats.refresh_committees(store, dry_run=False) == 2
-    assert _props(store, "committees", "c1")["active_dossier_count"] == 1
+    # the open dossiers of its activities and of its cases, each once (B11)
+    assert _props(store, "committees", "c1")["active_dossier_count"] == 2
     assert _props(store, "committees", "c2")["active_dossier_count"] == 0
 
 

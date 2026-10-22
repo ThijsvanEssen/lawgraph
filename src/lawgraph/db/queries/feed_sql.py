@@ -54,6 +54,7 @@ from lawgraph.core.feed import (
     KIND_RANK,
     FeedCursor,
 )
+from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
@@ -122,7 +123,9 @@ class FeedFilters:
     """What the feed keeps; None keeps everything.
 
     *dossier* is a prefix of a dossier label (``36600`` holds ``36600-VII``); *member* a
-    member key, *faction* a faction key, *cabinet* a cabinet key (the events in its period),
+    member key, *faction* a faction key (what its Kamerleden signed), *party* a faction key
+    (the votes it voted on) with *vote* its choice (``Voor``, ``Tegen``), *cabinet* a
+    cabinet key (the events in its period),
     *q* words of the title or of the title of the event's dossier, in any case; of several,
     any of them (``_words``). *instrument* a BWB id: the events of that law
     (``feed_relations.followed_ctes``), with *article* (an article number) of that article.
@@ -136,6 +139,9 @@ class FeedFilters:
     dossier: str | None = None
     member: str | None = None
     faction: str | None = None
+    # the votes this faction voted on, with ``vote`` voted that way; keeps votes alone
+    party: str | None = None
+    vote: str | None = None
     q: tuple[str, ...] = ()
     chamber: str | None = None  # TK, EK
     # what the coalition did on a vote (``FeedCoalition``); keeps votes alone
@@ -594,6 +600,36 @@ _MEMBER_FILTER = (
 )
 
 
+def party_voted(vote_id: str) -> str:
+    """SQL: the faction asked for (``party``, bind ``party_id``) voted on the vote
+    *vote_id*, the way asked (bind ``party_choice``; None: any), by its row of
+    ``lg_faction_votes`` and the choice on its VOTED edge."""
+    return f"""EXISTS (
+                SELECT 1 FROM lg_faction_votes fv
+                JOIN {COLLECTION_EDGES} pv ON pv.key = fv.edge_key
+                WHERE fv.decision_id = {vote_id} AND fv.faction_id = %(party_id)s
+                  AND (%(party_choice)s::text IS NULL
+                       OR lg_str(pv.doc -> 'meta' -> 'choice') = %(party_choice)s::text)
+            )"""
+
+
+def party_choice(vote_id: str) -> str:
+    """SQL: how the faction asked for (``party``) voted on the vote *vote_id*: the choice
+    on its VOTED edge (``Voor``, ``Tegen``), null where it cast none."""
+    return f"""(
+                SELECT lg_str(pv.doc -> 'meta' -> 'choice') FROM lg_faction_votes fv
+                JOIN {COLLECTION_EDGES} pv ON pv.key = fv.edge_key
+                WHERE fv.decision_id = {vote_id} AND fv.faction_id = %(party_id)s
+                ORDER BY fv.edge_key LIMIT 1
+            )"""
+
+
+def bind_party(filters: FeedFilters, bind: dict[str, Any]) -> None:
+    """The binds of ``party_voted`` and ``party_choice`` under *filters*."""
+    bind["party_id"] = node_id(COLLECTION_FACTIONS, make_node_key(filters.party or ""))
+    bind["party_choice"] = filters.vote
+
+
 def _contains(text: str, count: int) -> str:
     """SQL: the JSON *text* holds any of the *count* words of ``q`` (``_words``, the binds
     ``q_word_0`` …)."""
@@ -622,6 +658,9 @@ def shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
     if filters.member:
         clauses.append(_MEMBER_FILTER)
         bind["member"] = filters.member
+    if filters.party:  # a vote alone (``kinds_to_read``)
+        clauses.append(party_voted("n.id"))
+        bind_party(filters, bind)
     words = words_of(filters)
     for n, word in enumerate(words):
         bind[f"q_{n}"] = word
@@ -650,6 +689,8 @@ def kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[Source]:
         sources = [s for s in sources if s.dossiers is not None]
     if filters.faction:
         sources = [s for s in sources if s.kind != EVENT_COMMITMENT]
+    if filters.party:  # only a vote is voted on
+        sources = [s for s in sources if s.kind == EVENT_VOTE]
     if facets:  # every chamber is counted; ``chamber`` keeps the one asked for
         return sources
     if filters.coalition:  # only a vote has a coalition

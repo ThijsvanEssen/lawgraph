@@ -1,6 +1,6 @@
 """Answers built from query rows in the schemas: the regulations under an article and under
-a law in one order and one casing, the detail of a decision in one step, and the address of
-a DTO built on the fields of another."""
+a law in one order and one casing, the detail of a decision in one step, the address of a DTO
+built on the fields of another, and the identifier a list row has besides its address."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ from typing import Any
 from lawgraph.api.schemas.actors import ActorDossierDTO
 from lawgraph.api.schemas.articles import DelegatedRegulationDTO
 from lawgraph.api.schemas.decisions import DecisionDTO
-from lawgraph.api.schemas.instruments import InstrumentDelegatedItem
+from lawgraph.api.schemas.documents import DocumentListItemDTO
+from lawgraph.api.schemas.instruments import (
+    InstrumentDelegatedItem,
+    InstrumentListItemDTO,
+)
 from lawgraph.api.schemas.judgments import JudgmentDTO, RelatedJudgmentDTO
 from lawgraph.api.schemas.members import MemberDetailDTO
 
@@ -91,3 +95,30 @@ def test_a_dto_built_on_the_fields_of_another_has_its_address() -> None:
     judgment = {"id": "judgments/j", "key": "j", "props": {"ecli": ecli}}
     assert JudgmentDTO.from_document(judgment).path == f"/uitspraken/{ecli}"
     assert RelatedJudgmentDTO.from_document(judgment).path == f"/uitspraken/{ecli}"
+
+
+def test_a_listed_paper_without_an_address_has_its_number_and_page_at_the_kamer() -> (
+    None
+):
+    letter = DocumentListItemDTO.from_row(
+        {
+            "id": "documents/x",
+            "key": "x",
+            "chamber": "TK",
+            "kind": "Brief regering",
+            "document_number": "2026D41234",
+        },
+        {},
+    )
+    assert (letter.path, letter.document_number) == (None, "2026D41234")
+    assert letter.tk_url is not None and letter.tk_url.endswith("2026D41234")
+
+
+def test_a_listed_law_has_its_staatsblad_or_treaty_number() -> None:
+    def listed(**row: Any) -> InstrumentListItemDTO:
+        return InstrumentListItemDTO.from_document(
+            {"id": "instruments/k", "key": "k", "article_count": 0, **row}
+        )
+
+    assert listed(official_id="stb-2010-232").official_id == "stb-2010-232"
+    assert listed(treaty_number="010783").treaty_number == "010783"

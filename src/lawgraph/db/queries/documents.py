@@ -165,6 +165,7 @@ _ITEM = f"""json_build_object(
         'dossier_numbers', {truthy_or("d.props -> 'dossier_numbers'", EMPTY_ARRAY)},
         'sequence', d.props -> 'sequence',
         'number', d.props -> 'number',
+        'document_number', d.props -> 'document_number',
         'date', d.props -> 'date',
         'title', {first_present("d.props -> 'title'", "d.props -> 'display_name'")},
         'session_year', d.props -> 'session_year',

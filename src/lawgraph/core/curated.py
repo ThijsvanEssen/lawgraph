@@ -244,6 +244,45 @@ def _instrument_abbreviations(entries: Entries) -> list[str]:
     return found
 
 
+def _concepts(entries: Entries) -> list[str]:
+    from lawgraph.core.concepts import concept_key
+    from lawgraph.core.identifiers import is_bwb_id, parse_celex
+
+    found = []
+    claimed: dict[str, str] = {}
+    for term, value in entries.items():
+        value = value or {}
+        law, article = str(value.get("law") or ""), value.get("article")
+        if not (is_bwb_id(law) or parse_celex(law)) or law != law.upper():
+            found.append(
+                f"{term}: law {law!r} is no BWB id or CELEX number in upper case"
+            )
+        if article is not None and (
+            not isinstance(article, str) or not article.strip()
+        ):
+            found.append(f"{term}: article {article!r} is no article number")
+        if not str(value.get("why") or "").strip():
+            found.append(
+                f"{term}: needs why, the source that ties it to its article or law"
+            )
+        variants = value.get("variants") or []
+        if not isinstance(variants, list):
+            found.append(f"{term}: variants must be a list")
+            continue
+        for name in (term, *variants):
+            if (
+                not isinstance(name, str)
+                or not concept_key(name)
+                or name != name.strip()
+            ):
+                found.append(f"{term}: {name!r} is no trimmed term")
+            elif claimed.setdefault(concept_key(name), term) != term:
+                found.append(
+                    f"{name}: a term of both {claimed[concept_key(name)]} and {term}"
+                )
+    return found
+
+
 def _echr_protocols(entries: Entries) -> list[str]:
     from lawgraph.core.identifiers import is_bwb_id
 
@@ -408,6 +447,14 @@ LISTS: dict[str, CuratedList] = {
             "whose source gives no abbreviation",
             _records("instruments", "id"),
             _instrument_abbreviations,
+        ),
+        _list(
+            "concepts",
+            "concepts.json",
+            "term -> {variants, law, article, why}: the article or law a search for a term "
+            "of the law, its practice or English names",
+            _records("concepts", "term"),
+            _concepts,
         ),
         _list(
             "echr-protocols",

@@ -7,6 +7,7 @@ code that reads a setting sees it. Variables already set in the process environm
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import os
 from collections.abc import Sequence
@@ -229,6 +230,22 @@ WARM_UP_MIN_INTERVAL = _float("LAWGRAPH_WARM_UP_MIN_INTERVAL", 0)
 RATE_LIMIT_CALLS = _int("LAWGRAPH_RATE_LIMIT_CALLS", 200)
 RATE_LIMIT_PERIOD = _float("LAWGRAPH_RATE_LIMIT_PERIOD", 60)
 TRUSTED_PROXIES = frozenset(_list("LAWGRAPH_TRUSTED_PROXIES"))
+
+
+def _networks(name: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    """Comma-separated addresses or networks (``203.0.113.7``, ``2001:db8::/48``); a value
+    that is neither raises."""
+    networks = []
+    for item in _list(name):
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            raise _invalid(name, item, "an IP address or network") from None
+    return tuple(networks)
+
+
+# Clients the rate limit does not count (our own measurements); none by default.
+RATE_LIMIT_EXEMPT = _networks("LAWGRAPH_RATE_LIMIT_EXEMPT")
 # The front end (Concordans) the Atom feed links its pages to, without a trailing slash.
 SITE_URL = os.getenv("LAWGRAPH_SITE_URL", "http://localhost:5173").rstrip("/")
 # The built shell of the front end (``index.html`` of its build) the server HTML of a page

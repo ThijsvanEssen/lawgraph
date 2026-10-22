@@ -4,7 +4,8 @@
     lawgraph curated list <list>                the entries of one list
     lawgraph curated check [<list>] [--db]      what is wrong with the lists (--db: also
                                                 against the database: faction keys,
-                                                instruments abbreviated)
+                                                instruments abbreviated, the articles
+                                                and laws of concepts)
     lawgraph curated set <list> <key> [<json>] [--after KEY | --first]
     lawgraph curated remove <list> <key>
 
@@ -21,6 +22,7 @@ import json
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS
+from lawgraph.core.concepts import concept_of
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import GraphStore
@@ -82,7 +84,13 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
     """What is wrong with the lists (one of them with *name*); with *db* also against the
     database."""
     found = [p for p in problems() if name is None or p.startswith(f"{name}: ")]
-    if db and name in (None, "seating", "phases", "instrument-abbreviations"):
+    if db and name in (
+        None,
+        "seating",
+        "phases",
+        "instrument-abbreviations",
+        "concepts",
+    ):
         store = GraphStore()
         found += [
             p for p in database_problems(store) if name is None or p.startswith(name)
@@ -96,6 +104,25 @@ def database_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the lists: the seating plan
     (``_seating_problems``) and the abbreviations of instruments the graph does not have."""
     return _seating_problems(store) + _abbreviation_problems(store)
+
+
+def concept_notes(store: GraphStore) -> list[str]:
+    """A concept whose article or law no node of the graph is: a typing error in its law or
+    article number, an article renumbered, or a law a partial database does not hold; a
+    search for the term then names nothing. A note, as a key of the seating plan is."""
+    found = []
+    by_collection: dict[str, dict[str, str]] = {}
+    for term, value in LISTS["concepts"].entries().items():
+        concept = concept_of(term, value)
+        by_collection.setdefault(concept.collection, {})[term] = concept.key
+    for collection, keys in by_collection.items():
+        present = store.existing_keys(collection, set(keys.values()))
+        found += [
+            f"concepts: {term}: no {collection[:-1]} {key} in the graph"
+            for term, key in keys.items()
+            if key not in present
+        ]
+    return found
 
 
 def _abbreviation_problems(store: GraphStore) -> list[str]:
@@ -145,7 +172,8 @@ def database_notes(store: GraphStore) -> list[str]:
     a seat that changed after the plan's date (a replacement within a faction leaves the
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
-    in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
+    in the database has (a typo, a spelling the Kamer changed, or a partial database); of
+    the concepts an article or law the graph does not have (``concept_notes``)."""
     factions = get_factions(store)
     known = {doc["key"] for doc in factions}
     notes = [
@@ -175,7 +203,7 @@ def database_notes(store: GraphStore) -> list[str]:
                 for v in (value or {}).get(part) or []
                 if in_use[part] and v not in in_use[part]
             ]
-    return notes
+    return notes + concept_notes(store)
 
 
 def _change(args: argparse.Namespace) -> list[str]:

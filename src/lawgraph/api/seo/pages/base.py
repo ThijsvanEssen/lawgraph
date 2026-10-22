@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from html import escape
 from typing import Any
 
+from lawgraph.core.code_families import family_of
 from lawgraph.core.display import shorten
 from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
@@ -67,6 +68,10 @@ class Page:
     # the page a search engine finds instead (``rel="canonical"``), when not this one: the
     # page of the one motion a vote is about
     canonical: str = ""
+    # what a reference manager reads (Zotero, Google Scholar): the ``citation_*`` and
+    # ``DC.*`` meta tags of the page, name → content; its address (``citation_public_url``)
+    # is added with them
+    citation: dict[str, str] = field(default_factory=dict)
 
 
 def present(**fields: Any) -> dict[str, Any]:
@@ -169,9 +174,10 @@ def _judgment(row: dict[str, Any]) -> tuple[str, str | None]:
 
 
 def _article(row: dict[str, Any]) -> tuple[str, str | None]:
-    name = article_name(
-        row.get("bwb_id"), text_of(row.get("article_number")), text_of(row.get("law"))
-    )
+    # A book of a code is cited by its code (``Artikel 5:40 BW``), never by its own short
+    # title (``BW5``).
+    law = family_of(text_of(row.get("bwb_id"))) or text_of(row.get("law"))
+    name = article_name(row.get("bwb_id"), text_of(row.get("article_number")), law)
     return name, path_of(row["id"], row)
 
 

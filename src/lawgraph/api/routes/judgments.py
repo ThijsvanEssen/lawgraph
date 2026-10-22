@@ -66,8 +66,8 @@ router = APIRouter()
         "its exact ECLI finds it); `q` (a query that is the whole of an ECLI or of a "
         "case number, `18/04298`, gives the judgments with it and only those; other "
         "text is searched), `court` (ECLI code), `tier` (the `Type` of the court in "
-        "the Instanties list, one of `core.courts.TIERS`: `hoge_raad`, "
-        "`raad_van_state`, `centrale_raad_van_beroep`, "
+        "the Instanties list, repeated for any of several, one of "
+        "`core.courts.TIERS`: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, "
         "`college_van_beroep_bedrijfsleven`, `parket` (the conclusions of the Parket "
         "bij de Hoge Raad), `gerechtshof`, `rechtbank`, `kantongerecht`, "
         "`tuchtcollege`, `andere_instantie`, `koninkrijksinstantie`, `kroon`, "
@@ -125,9 +125,10 @@ def list_judgments(
         Query(description="ECLI court code, e.g. 'HR', 'RBAMS', 'GHARL'"),
     ] = None,
     tier: Annotated[
-        Tier | None,
+        list[Tier] | None,
         Query(
-            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
+            "repeated, the judgments of any of them."
         ),
     ] = None,
     court_kind: Annotated[
@@ -186,7 +187,7 @@ def list_judgments(
     filters = JudgmentFilters(
         q=q,
         court=court,
-        tier=tier.value if tier else None,
+        tiers=tuple(dict.fromkeys(t.value for t in tier or ())),
         court_kind=court_kind.value if court_kind else None,
         source=source,
         subject=(subject or "").strip() or None,

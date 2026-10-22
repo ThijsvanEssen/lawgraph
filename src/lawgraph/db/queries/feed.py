@@ -81,6 +81,7 @@ from lawgraph.db.queries.feed_sql import (
     law_edges,
     lit,
     of_kind,
+    party_choice,
     per_coalition,
     per_faction,
     rows_of,
@@ -395,6 +396,7 @@ def _items(filters: FeedFilters) -> str:
     under words and ``via`` when they follow a law."""
     via_law = via(article=bool(filters.article)) if filters.instrument else "NULL::json"
     matched = _MATCHED if filters.q else "NULL::json"
+    voted = party_choice("pg.id") if filters.party else "NULL::text"
     return f"""(
         SELECT coalesce(json_agg(json_build_object(
             'kind', pg.kind,
@@ -420,7 +422,8 @@ def _items(filters: FeedFilters) -> str:
             'matched', {matched},
             'via', {via_law},
             'coalition', {coalition_object("co")},
-            'coalition_factions', {coalition_factions("co")}
+            'coalition_factions', {coalition_factions("co")},
+            'party_choice', {voted}
         ) ORDER BY {_PAGE_ORDER}), {EMPTY_ARRAY})
         FROM page pg
         {_node_of("pg")}
@@ -729,7 +732,9 @@ def _page_items(
 ) -> tuple[list[dict[str, Any]], str | None]:
     """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
     before the first event, the first day it searched."""
-    if filters.since or not (filters.q or filters.faction or filters.instrument):
+    if filters.since or not (
+        filters.q or filters.faction or filters.party or filters.instrument
+    ):
         return _rows(store, filters, cursor, limit), None
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:

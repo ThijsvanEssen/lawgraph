@@ -392,6 +392,19 @@ def toestanden_without_staatsblad_ref(store: Store) -> Iterator[dict[str, Any]]:
     return _records(rows)
 
 
+def toestanden_of(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """The records of the stored toestanden of *bwb_ids*."""
+    rows = store.query(
+        f"""
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id = ANY(%(ids)s)
+        {_ORDER}
+        """,
+        {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND, "ids": bwb_ids},
+    )
+    return _records(rows)
+
+
 def stored_staatsblad_ids(store: Store, identifiers: list[str]) -> Iterator[Any]:
     """Which of the Staatsblad *identifiers* are stored."""
     return store.query(

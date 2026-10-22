@@ -234,6 +234,12 @@ def document_page(row: dict[str, Any]) -> Page:
         body=body,
         # without its text a paper is its title alone
         index=document_indexed(kind, light),
+        citation=present(
+            citation_title=title,
+            citation_date=text_of(row.get("date") or light.get("date")).replace(
+                "-", "/"
+            ),
+        ),
     )
 
 

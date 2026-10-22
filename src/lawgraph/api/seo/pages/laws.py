@@ -155,6 +155,11 @@ def law_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=not props.get("stub") and (not eu or count > 0),
+        citation=present(
+            citation_title=name,
+            citation_date=text_of(props.get("date_in_force")).replace("-", "/"),
+            **{"DC.identifier": law_id},
+        ),
     )
 
 
@@ -224,6 +229,12 @@ def article_page(row: dict[str, Any]) -> Page:
         },
         body=body,
         index=bool(text) and not props.get("stub"),
+        citation=present(
+            citation_title=f"{title}, {law_label}" if law_label else title,
+            **{
+                "DC.identifier": f"{law_id} {article_label(text_of(props.get('article_number')))}"
+            },
+        ),
     )
 
 
