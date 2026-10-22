@@ -340,7 +340,10 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             except ET.ParseError as exc:
                 self.progress.fail("WTI not XML", f"{bwb_id}: {exc}")
 
-        short_titles = choose_short_titles(abbreviations_by_bwb)
+        short_titles = choose_short_titles(
+            abbreviations_by_bwb,
+            {bwb_id: titles[0] for bwb_id, titles in titles_by_bwb.items() if titles},
+        )
         rows = [
             {
                 "key": make_node_key(bwb_id),
