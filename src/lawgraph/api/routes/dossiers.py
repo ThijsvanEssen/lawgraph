@@ -281,13 +281,17 @@ def list_dossiers(
         "activities, the publications its law was enacted in (`enacted`: `Stb. 2024, 193`), "
         "its documents per kind, its Eerste Kamer papers, and the dossiers it "
         "revises, accompanies or is related to (and those that revise, accompany or "
-        "relate to it)."
+        "relate to it). `sort`: `name` (default) lists the instruments by relation, status "
+        "and name and the committees by name; `importance` puts the instrument cited most "
+        "(`inbound_citation_count`) first within its relation and status, and the committee "
+        "that leads most of the dossier's activities first."
     ),
     tags=["dossiers"],
 )
 def get_dossier(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
+    sort: Annotated[Literal["name", "importance"], Query()] = "name",
 ) -> DossierDetailResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
     enrich_dossier_docs(store, [dossier])
@@ -302,7 +306,7 @@ def get_dossier(
     # independent reads, side by side: the answer takes as long as the slowest
     answers: list[Any] = run_together(
         related,
-        lambda: get_dossier_hub(store, dossier_id),
+        lambda: get_dossier_hub(store, dossier_id, importance=sort == "importance"),
         lambda: get_dossier_implements(store, dossier_id),
         lambda: count_dossier_members(store, dossier_id),
         lambda: get_laws_named(store, laws_in_title(title)),

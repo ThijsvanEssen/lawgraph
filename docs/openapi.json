@@ -2393,6 +2393,22 @@
             "description": "Neighbors to skip in every bucket."
           },
           {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "key",
+                "importance"
+              ],
+              "type": "string",
+              "description": "`key` (default): the neighbours of a bucket in key order; `importance`: in a bucket of at most 200 edges, the most important first: judgments, articles and instruments the most cited (`inbound_citation_count`), members and factions the first signatory first, cases the one with most papers; then by key. A larger bucket and the other collections stay in key order.",
+              "default": "key",
+              "title": "Sort"
+            },
+            "description": "`key` (default): the neighbours of a bucket in key order; `importance`: in a bucket of at most 200 edges, the most important first: judgments, articles and instruments the most cited (`inbound_citation_count`), members and factions the first signatory first, cases the one with most papers; then by key. A larger bucket and the other collections stay in key order."
+          },
+          {
             "name": "props",
             "in": "query",
             "required": false,
@@ -3053,7 +3069,7 @@
           "dossiers"
         ],
         "summary": "Dossier detail",
-        "description": "One dossier: its title, stage, how many documents, activities, decisions and commitments it holds, and what it links to: the instruments it legislated, amends, introduces or repeals (one item per instrument, relation and status), the committees that lead its activities, the publications its law was enacted in (`enacted`: `Stb. 2024, 193`), its documents per kind, its Eerste Kamer papers, and the dossiers it revises, accompanies or is related to (and those that revise, accompany or relate to it).",
+        "description": "One dossier: its title, stage, how many documents, activities, decisions and commitments it holds, and what it links to: the instruments it legislated, amends, introduces or repeals (one item per instrument, relation and status), the committees that lead its activities, the publications its law was enacted in (`enacted`: `Stb. 2024, 193`), its documents per kind, its Eerste Kamer papers, and the dossiers it revises, accompanies or is related to (and those that revise, accompany or relate to it). `sort`: `name` (default) lists the instruments by relation, status and name and the committees by name; `importance` puts the instrument cited most (`inbound_citation_count`) first within its relation and status, and the committee that leads most of the dossier's activities first.",
         "operationId": "get_dossier_api_dossiers__number__get",
         "parameters": [
           {
@@ -3067,6 +3083,20 @@
               "title": "Number"
             },
             "description": "Dossier number, e.g. 29684, 29684-I, 21501-31 or 36956-(R2220)."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "name",
+                "importance"
+              ],
+              "type": "string",
+              "default": "name",
+              "title": "Sort"
+            }
           }
         ],
         "responses": {

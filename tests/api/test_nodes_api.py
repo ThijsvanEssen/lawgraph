@@ -96,6 +96,7 @@ def test_get_node_graph_returns_buckets_of_neighbors(monkeypatch):
         "canvas": False,
         "wait_for_lids": False,  # a further page waits for no lid counts
         "passages": True,
+        "importance": False,
     }
     node = payload["node"]
     assert node["id"].startswith("instruments")
@@ -137,7 +138,22 @@ def test_get_node_graph_defaults_to_thirty_per_bucket_and_no_filter(monkeypatch)
         "canvas": False,
         "wait_for_lids": True,
         "passages": False,
+        "importance": False,
     }
+
+
+def test_get_node_graph_ranks_its_buckets_only_when_asked(monkeypatch):
+    seen: list[bool] = []
+
+    def fake(store, collection, key, **kwargs):
+        seen.append(kwargs["importance"])
+        return _payload()
+
+    stub_route(monkeypatch, "nodes", get_node_with_neighbors=fake)
+    assert_status(client.get("/api/nodes/cases/z?sort=importance"), 200)
+    assert_status(client.get("/api/nodes/cases/z?sort=key"), 200)
+    assert_status(client.get("/api/nodes/cases/z?sort=best"), 422)
+    assert seen == [True, False]
 
 
 @pytest.mark.parametrize("path", ["", "/neighborhood"])

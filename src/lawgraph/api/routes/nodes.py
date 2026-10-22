@@ -338,6 +338,18 @@ def get_node_graph(
         int,
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
+    sort: Annotated[
+        Literal["key", "importance"],
+        Query(
+            description=(
+                "`key` (default): the neighbours of a bucket in key order; `importance`: "
+                "in a bucket of at most 200 edges, the most important first: judgments, "
+                "articles and instruments the most cited (`inbound_citation_count`), "
+                "members and factions the first signatory first, cases the one with most "
+                "papers; then by key. A larger bucket and the other collections stay in key order."
+            )
+        ),
+    ] = "key",
     props: Annotated[
         PropsView,
         Query(
@@ -372,6 +384,7 @@ def get_node_graph(
             # for them); kept an hour and counted on in the background
             wait_for_lids=limit > 1 and offset == 0 and props == "full",
             passages=edge_meta == "passages",
+            importance=sort == "importance",
         )
     except UnsupportedCollectionError as err:
         raise Invalid("collection", str(err)) from err

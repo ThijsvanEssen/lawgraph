@@ -70,13 +70,22 @@ _HUB: dict[str, Any] = {
 }
 
 
-def _dossier_routes(monkeypatch: pytest.MonkeyPatch, hub: dict[str, Any]) -> None:
+def _dossier_routes(
+    monkeypatch: pytest.MonkeyPatch,
+    hub: dict[str, Any],
+    asked: list[bool] | None = None,
+) -> None:
+    def read_hub(store: Any, dossier_id: str, *, importance: bool = False) -> Any:
+        if asked is not None:
+            asked.append(importance)
+        return hub
+
     stub_route(
         monkeypatch,
         "dossiers",
         get_dossier_by_number=_DOSSIER,
         count_dossier_members={"documents": 5},
-        get_dossier_hub=lambda store, dossier_id: hub,
+        get_dossier_hub=read_hub,
         enrich_dossier_docs=lambda store, dossiers: dossiers,
         get_dossier_relations=[],
         get_laws_named=[],
@@ -111,6 +120,19 @@ def test_the_dossier_detail_carries_its_hub(monkeypatch: pytest.MonkeyPatch) -> 
         "progress": [],
         "source": None,
     }
+
+
+def test_the_dossier_detail_ranks_its_hub_only_when_asked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[bool] = []
+    _dossier_routes(monkeypatch, _HUB, asked)
+
+    client.get("/api/dossiers/36000")
+    client.get("/api/dossiers/36000?sort=importance")
+
+    assert asked == [False, True]
+    assert_status(client.get("/api/dossiers/36000?sort=best"), 422)
 
 
 def test_a_dossier_without_links_has_an_empty_hub(

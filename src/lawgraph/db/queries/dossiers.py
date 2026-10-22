@@ -641,9 +641,10 @@ hub_instruments AS (
 ),
 activity_ids AS ({_in_dossier("%(about)s", COLLECTION_ACTIVITIES)}),
 lead_ids AS (
-    SELECT DISTINCT led.to_id AS id
+    SELECT led.to_id AS id, count(DISTINCT a.id)::int AS led
     FROM activity_ids a
     JOIN {COLLECTION_EDGES} led ON led.from_id = a.id AND led.relation = %(led_by)s
+    GROUP BY 1
 )
 SELECT
     (
@@ -659,6 +660,8 @@ SELECT
         ) ORDER BY
             coalesce(array_position(%(relation_order)s::text[], lower(h.relation)), 0) ASC,
             h.status ASC NULLS FIRST,
+            CASE WHEN %(importance)s THEN lg_num(i.props -> 'inbound_citation_count') END
+                DESC NULLS LAST,
             i.props ->> 'display_name' ASC NULLS FIRST,
             i.key ASC
         ), '[]'::json)
@@ -702,7 +705,8 @@ SELECT
             'slug', c.props -> 'slug',
             'name', c.props -> 'name',
             'abbreviation', c.props -> 'abbreviation'
-        ) ORDER BY c.props ->> 'name' ASC NULLS FIRST, c.key ASC), '[]'::json)
+        ) ORDER BY CASE WHEN %(importance)s THEN l.led END DESC NULLS LAST,
+                 c.props ->> 'name' ASC NULLS FIRST, c.key ASC), '[]'::json)
         FROM lead_ids l
         JOIN {COLLECTION_COMMITTEES} c ON c.id = l.id
     ) AS committees,
@@ -730,7 +734,9 @@ SELECT
 """
 
 
-def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
+def get_dossier_hub(
+    store: GraphStore, dossier_id: str, *, importance: bool = False
+) -> dict[str, Any]:
     """What a dossier is linked to, in one query: instruments, committees, documents.
 
     *instruments* are the parent instruments the dossier is tied to, one row per
@@ -744,8 +750,13 @@ def get_dossier_hub(store: GraphStore, dossier_id: str) -> dict[str, Any]:
     first: ``{key, cite, published_on, first_effective_date, instrument}``, the date the
     earliest ``effective_date`` of what it enacted, *instrument* ``{key, title}`` of the law
     whose articles it ``ESTABLISHES`` (null for one that only changes other laws).
+
+    The instruments go by relation and status, then by name; with *importance* by how often
+    the instrument is cited (``inbound_citation_count``) before the name. The committees go
+    by name; with *importance* by the activities about the dossier they lead, most first.
     """
     bind = {
+        "importance": importance,
         "dossier_id": dossier_id,
         "part_of": RELATION_PART_OF,
         "about": RELATION_ABOUT,

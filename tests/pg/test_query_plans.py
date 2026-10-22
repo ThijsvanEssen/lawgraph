@@ -129,6 +129,8 @@ URLS = [
     f"/api/instruments/{BWB}/articles?division=deel-hoofdstuk-1",
     f"/api/instruments/{BWB}/articles/at/2020-01-01?division=deel-hoofdstuk-1",
     f"/api/instruments/{BWB}/amended-by",
+    f"/api/instruments/{BWB}/eu-links",
+    f"/api/instruments/{BWB}/eu-links?sort=importance",
     # the connections ranked (``sort=importance``): each by a measure of fields it reads anyway
     f"/api/instruments/{BWB}/amended-by?sort=importance",
     f"/api/instruments/{BWB}/dossiers?sort=importance",
@@ -169,6 +171,10 @@ URLS = [
     # a law: its buckets and its neighbourhood without the outcomes of the old articles
     # (``lg_transposition_outcome``), from the edges' covering index still
     f"/api/nodes/instruments/{BWB.lower()}?limit=1",
+    # the buckets ranked (``sort=importance``): an instrument's, a document's, a member's
+    f"/api/nodes/instruments/{BWB.lower()}?sort=importance",
+    "/api/nodes/documents/d1?sort=importance",
+    "/api/nodes/members/m1?sort=importance",
     f"/api/nodes/instruments/{BWB.lower()}/neighborhood?depth=2&props=canvas",
     # a walk that reaches the members, factions, committees and cabinets but goes through
     # none of them
@@ -190,6 +196,7 @@ URLS = [
     "/api/decisions/b1",
     "/api/decisions/b1/document",
     "/api/dossiers/36000",
+    "/api/dossiers/36000?sort=importance",
     # the documents behind the decisions of a page, by their cases (not every paper of it)
     "/api/dossiers/36000/timeline",
     "/api/dossiers/36000/amendments",

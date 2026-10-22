@@ -726,3 +726,125 @@ def test_what_became_of_an_old_article_is_read_from_it_not_from_the_new_law(
     assert (f"{COLLECTION_ARTICLES}/o1", new, RELATION_TRANSPOSED_TO) in {
         (e["from_id"], e["to_id"], e["relation"]) for e in hood["edges"]
     }
+
+
+# ── sort=importance ──────────────────────────────────────────────────────────
+
+
+def _ranked_keys(
+    store: GraphStore, node: tuple[str, str], relation: str, collection: str, **kw: Any
+) -> list[str]:
+    data = get_node_with_neighbors(store, *node, importance=True, **kw)
+    bucket = next(
+        b
+        for b in data.buckets
+        if (b.facet.relation, b.facet.collection) == (relation, collection)
+    )
+    return [e.doc["key"] for e in bucket.entries]
+
+
+def test_a_small_bucket_is_ranked_by_what_its_neighbours_are_cited_and_signed(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Judgments by how often they are cited, a zaak's signatories first signatory first,
+    related zaken by their papers; a bucket past the bound, and the default, stay in key
+    order."""
+    from lawgraph.config.constants import (
+        COLLECTION_CASES,
+        COLLECTION_DOCUMENTS,
+        COLLECTION_MEMBERS,
+        RELATION_AUTHORED,
+        RELATION_RELATED_TO,
+    )
+    from lawgraph.db.queries import nodes
+
+    _write(
+        store,
+        COLLECTION_JUDGMENTS,
+        [
+            _node(NodeType.JUDGMENT, "ja", inbound_citation_count=1),
+            _node(NodeType.JUDGMENT, "jb", inbound_citation_count=9),
+            _node(NodeType.JUDGMENT, "jc", inbound_citation_count=5),
+            _node(NodeType.JUDGMENT, "jd"),
+        ],
+    )
+    _write(store, COLLECTION_INSTRUMENTS, [_node(NodeType.INSTRUMENT, "law")])
+    _write(
+        store,
+        COLLECTION_CASES,
+        [_node(NodeType.CASE, k) for k in ("z0", "z1", "z2", "z3")],
+    )
+    _write(
+        store,
+        COLLECTION_DOCUMENTS,
+        [_node(NodeType.DOCUMENT, k) for k in ("p1", "p2", "p3")],
+    )
+    _write(
+        store,
+        COLLECTION_MEMBERS,
+        [_node(NodeType.MEMBER, k) for k in ("m_a", "m_b", "m_c")],
+    )
+    edges = [
+        _edge(f"{COLLECTION_JUDGMENTS}/{k}", "instruments/law", RELATION_REFERS_TO)
+        for k in ("ja", "jb", "jc", "jd")
+    ]
+    edges += [
+        _edge("cases/z0", f"cases/{k}", RELATION_RELATED_TO) for k in ("z1", "z2", "z3")
+    ]
+    # z3 holds two papers, z2 one, z1 none
+    edges += [
+        _edge("documents/p1", "cases/z3", RELATION_PART_OF),
+        _edge("documents/p2", "cases/z3", RELATION_PART_OF),
+        _edge("documents/p3", "cases/z2", RELATION_PART_OF),
+    ]
+    edges += [
+        _edge(
+            "members/m_a",
+            "cases/z0",
+            RELATION_AUTHORED,
+            meta={"role": "Medeondertekenaar"},
+        ),
+        _edge(
+            "members/m_b",
+            "cases/z0",
+            RELATION_AUTHORED,
+            meta={"role": "Eerste ondertekenaar"},
+        ),
+        _edge(
+            "members/m_c",
+            "cases/z0",
+            RELATION_AUTHORED,
+            meta={"role": "Medeondertekenaar"},
+        ),
+    ]
+    _write(store, "edges", edges)
+
+    law = ("instruments", "law")
+    assert _ranked_keys(store, law, RELATION_REFERS_TO, "judgments") == [
+        "jb",
+        "jc",
+        "ja",
+        "jd",
+    ]
+    plain = [
+        e.doc["key"]
+        for b in get_node_with_neighbors(store, *law).buckets
+        for e in b.entries
+    ]
+    assert sorted(plain) == ["ja", "jb", "jc", "jd"]
+    case = ("cases", "z0")
+    assert _ranked_keys(store, case, RELATION_RELATED_TO, "cases") == ["z3", "z2", "z1"]
+    assert _ranked_keys(store, case, RELATION_AUTHORED, "members") == [
+        "m_b",
+        "m_a",
+        "m_c",
+    ]
+    # paged inside the ranked order
+    assert _ranked_keys(
+        store, law, RELATION_REFERS_TO, "judgments", limit=2, offset=1
+    ) == [
+        "jc",
+        "ja",
+    ]
+    monkeypatch.setattr(nodes, "RANKED_BUCKET_MAX", 3)
+    assert _ranked_keys(store, law, RELATION_REFERS_TO, "judgments") == plain
