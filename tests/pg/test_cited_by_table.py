@@ -93,6 +93,12 @@ def test_a_citation_is_kept_with_its_mentions_and_its_judgment(
             None,
         ),
     }
+    # an edge that no longer cites the article
+    store.execute(
+        "UPDATE edges SET doc = json_build_object('relation', 'EXPLAINS')"
+        " WHERE from_id = 'judgments/j2'"
+    )
+    assert list(_kept(store)) == ["j1"]
     store.execute("DELETE FROM edges WHERE from_id = 'judgments/j1'")
     store.execute("DELETE FROM judgments WHERE id = 'judgments/j2'")
     assert _kept(store) == {}

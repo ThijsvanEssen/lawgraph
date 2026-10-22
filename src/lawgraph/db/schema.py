@@ -2092,6 +2092,17 @@ def cited_by_values(edge: str, judgment: str) -> str:
     )
 
 
+def cited_by_judgment(edge: str) -> str:
+    """SQL: the judgment ``j`` the edge *edge* comes from, read by its key alone (a
+    ``LATERAL`` with a limit is not made a join: of a transition table of thousands of
+    edges the planner would read the whole table of the judgments)."""
+    return (
+        f"CROSS JOIN LATERAL (SELECT x.date_eff, x.ecli, x.court_code, x.tier,"
+        f" x.inbound_citation_count FROM public.{COLLECTION_JUDGMENTS} x"
+        f" WHERE x.id = {edge}.from_id LIMIT 1) j"
+    )
+
+
 def cited_by_edges(edge: str) -> str:
     """SQL: the edge *edge* is one ``CITED_BY_TABLE`` keeps: ``REFERS_TO`` from a judgment
     into an article."""
@@ -2133,24 +2144,44 @@ LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
         DELETE FROM public.{CITED_BY_TABLE} l USING changed c WHERE l.edge_key = c.key;
-        RETURN NULL;
+    ELSE
+        INSERT INTO public.{CITED_BY_TABLE} ({CITED_BY_COLUMNS})
+        SELECT {cited_by_values("c", "j")}
+        FROM changed c {cited_by_judgment("c")}
+        WHERE {cited_by_edges("c")}
+        ON CONFLICT (edge_key) DO NOTHING;
     END IF;
-    IF TG_OP = 'UPDATE' THEN
-        DELETE FROM public.{CITED_BY_TABLE} l USING changed c
-        WHERE l.edge_key = c.key AND NOT ({cited_by_edges("c")});
-    END IF;
-    INSERT INTO public.{CITED_BY_TABLE} AS l ({CITED_BY_COLUMNS})
-    SELECT {cited_by_values("c", "j")}
-    FROM changed c JOIN public.{COLLECTION_JUDGMENTS} j ON j.id = c.from_id
-    WHERE {cited_by_edges("c")}
-    ON CONFLICT (edge_key) DO UPDATE SET
-        article_id = EXCLUDED.article_id, judgment_id = EXCLUDED.judgment_id,
-        mentions = EXCLUDED.mentions, leden = EXCLUDED.leden
-    WHERE (l.article_id, l.judgment_id, l.leden::text)
-        IS DISTINCT FROM (EXCLUDED.article_id, EXCLUDED.judgment_id, EXCLUDED.leden::text);
     RETURN NULL;
 END $$""",
-        *_after_each_statement("edges", "cited_by", "lg_keep_cited_by"),
+        *_after_each_statement(
+            "edges", "cited_by", "lg_keep_cited_by", ("INSERT", "DELETE")
+        ),
+        # an edge written again: only one whose ends, relation or mentions changed is kept
+        # again (a run of the linker writes hundreds of thousands of them unchanged, and the
+        # leden of each would be read and compared)
+        f"""CREATE OR REPLACE FUNCTION lg_keep_cited_by_update() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM public.{CITED_BY_TABLE} l USING changed c, previous o
+    WHERE o.key = c.key AND l.edge_key = c.key
+      AND {cited_by_edges("o")} AND NOT ({cited_by_edges("c")});
+    INSERT INTO public.{CITED_BY_TABLE} AS l ({CITED_BY_COLUMNS})
+    SELECT {cited_by_values("c", "j")}
+    FROM changed c
+    JOIN previous o ON o.key = c.key
+    {cited_by_judgment("c")}
+    WHERE {cited_by_edges("c")}
+      AND (c.from_id, c.to_id, c.relation, (c.doc -> 'meta' -> 'mentions')::text)
+          IS DISTINCT FROM
+          (o.from_id, o.to_id, o.relation, (o.doc -> 'meta' -> 'mentions')::text)
+    ON CONFLICT (edge_key) DO UPDATE SET
+        article_id = EXCLUDED.article_id, judgment_id = EXCLUDED.judgment_id,
+        mentions = EXCLUDED.mentions, leden = EXCLUDED.leden;
+    RETURN NULL;
+END $$""",
+        "CREATE OR REPLACE TRIGGER edges_cited_by_update AFTER UPDATE ON edges"
+        " REFERENCING OLD TABLE AS previous NEW TABLE AS changed"
+        " FOR EACH STATEMENT EXECUTE FUNCTION lg_keep_cited_by_update()",
         # a judgment written after the edges from it, its date, court or citations changed,
         # or gone
         f"""CREATE OR REPLACE FUNCTION lg_keep_cited_by_judgment() RETURNS trigger
