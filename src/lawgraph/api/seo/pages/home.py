@@ -14,20 +14,17 @@ from lawgraph.api.seo.pages.base import Page, bullets, link
 from lawgraph.config import settings
 from lawgraph.core.votes import REJECTED, VOTE_AGAINST, VOTE_FOR
 
-PUBLISHER = {"@type": "Organization", "name": "TMvE", "email": "concordans@tmve.nl"}
+PUBLISHER = {
+    "@type": "Organization",
+    "name": "Concordans",
+    "email": "concordans@tmve.nl",
+}
 
 # Art. 6:162 BW and the parts of its page (``?bronnen=``, the filter of Verbonden), a
 # motion and its vote, and the shared example bundel (``example-bundle.ts``).
 ARTICLE = "/wetten/BWBR0005289/artikel/6:162"
 START: dict[str, Any] = {
-    "heading": "Wetten, uitspraken en Kamerstukken in samenhang",
-    "lead": (
-        "Concordans is een onderzoeksinstrument dat parlementaire informatie verbindt "
-        "met wetgeving, officiële publicaties en rechtspraak, om inzicht te geven in de "
-        "samenhang rond een onderwerp. Het dient als eenvoudige wettenlezer, met de "
-        "geldende en eerdere versies van elk artikel, en als werkplaats voor eigen "
-        "onderzoek. Wat gevonden is, kan in een bundel worden bewaard en geordend."
-    ),
+    "heading": "Het artikel, en de uitspraken en Kamerstukken die ernaar verwijzen.",
     "placeholder": "Zoek een artikel, uitspraak of motie",
     "article": {
         "heading": "Artikel",
@@ -154,7 +151,6 @@ def _body(start: dict[str, Any]) -> str:
     return (
         '<header class="blad__kop intro">'
         f'<h1 class="blad__titel">{escape(start["heading"])}</h1>'
-        f'<p class="lead">{escape(start["lead"])}</p>'
         "</header>" + _search(start) + _entrances(start)
     )
 
