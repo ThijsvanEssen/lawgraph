@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ListLimit, LongListLimit, PageLimit
+from lawgraph.api.params import ListLimit, LongListLimit, PageLimit, Tier
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
@@ -410,9 +410,12 @@ def list_articles(
         "Per judgment: light metadata plus the specific articles it refers to. "
         "Meant for the case-law layer of the graph. ``total`` is the absolute "
         "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
-        "first; ``cited``, the most cited articles of the law first, then the newest. "
-        "``facets.year`` counts every citing judgment per year, not the page; ``year`` "
-        "keeps the judgments of one year (``total`` and the page)."
+        "first; ``cited``, the most cited articles of the law first; ``citation_count``, "
+        "the most cited judgment first (a standard judgment); each then the newest. "
+        "``year`` and ``tier`` (repeated: any of them) filter ``total`` and the page. "
+        "``facets`` counts the judgments, not the page: per ``year`` without the "
+        "``year`` filter, per ``tier`` (most first) without the ``tier`` filter, each "
+        "under the other filter."
     ),
     tags=["instruments"],
 )
@@ -430,9 +433,23 @@ def get_instrument_judgments_route(
             "``facets.year`` still counts every year.",
         ),
     ] = None,
+    tier: Annotated[
+        list[Tier] | None,
+        Query(
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
+            "repeated, the judgments of any of them; ``facets.tier`` still counts every "
+            "tier."
+        ),
+    ] = None,
 ) -> InstrumentJudgmentsResponse:
     found = get_citing_judgments(
-        store, bwb_id, sort=sort, limit=limit, offset=offset, year=year
+        store,
+        bwb_id,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+        year=year,
+        tiers=tuple(t.value for t in tier or ()),
     )
     return InstrumentJudgmentsResponse(
         bwb_id=bwb_id,
@@ -440,7 +457,8 @@ def get_instrument_judgments_route(
         year=year,
         sort=sort,
         facets=InstrumentJudgmentFacets(
-            year=[FacetCountDTO(**year) for year in found.years]
+            year=[FacetCountDTO(**row) for row in found.years],
+            tier=[FacetCountDTO(**row) for row in found.tiers],
         ),
         items=[InstrumentJudgmentItem.from_row(row) for row in found.items],
     )

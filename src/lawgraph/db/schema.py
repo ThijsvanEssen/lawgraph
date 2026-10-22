@@ -48,6 +48,7 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
     RELATION_LED_BY,
     RELATION_PART_OF,
+    RELATION_REFERS_TO,
     RELATION_TRANSPOSED_TO,
     RELATION_VOTED,
 )
@@ -1320,18 +1321,11 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
             " WHERE public.lg_str(props -> 'motion_kind') IS NOT NULL"
         ),
     ),
-    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas;
-    # what the judgments citing a law or an article are sorted and filtered on, from the
-    # index alone (``judgments_citing``): a much cited law (the Awb, Sr) is hundreds of
-    # thousands of them, and a row of the table holds the text.
+    # /api/judgments by the main area of law (``subject_area``): a GIN index on the areas
     COLLECTION_JUDGMENTS: (
         built_beforehand(
             "CREATE INDEX IF NOT EXISTS judgments_subject_areas"
             " ON judgments USING gin (public.lg_subject_areas(subjects))"
-        ),
-        built_beforehand(
-            "CREATE INDEX IF NOT EXISTS judgments_citing ON judgments (id)"
-            " INCLUDE (date_eff, ecli, court_code, tier, inbound_citation_count)"
         ),
     ),
     # the member lists in name order: those who held a seat, and the Eerste Kamer's; a
@@ -2070,6 +2064,123 @@ END $$""",
     ]
 
 
+# The judgments that cite an article: every ``REFERS_TO`` edge from a judgment into an article,
+# with how many passages of the judgment cite it (``mentions``, the length of the edge's
+# ``meta.mentions``), the leden each passage names, in their order (``leden``), and what
+# the citing judgments are filtered, sorted and counted on (its date, ECLI, court, tier and
+# ``inbound_citation_count`` as ``cited``). What ``/cited-by`` of an article and
+# ``/judgments`` of a law read: a range of the index of the article, instead of the edge of
+# every citing judgment and its mentions (6:162 BW: 10,500 edges, 25 s cold on prod).
+# Kept by triggers on ``edges`` and ``judgments``, a row for each edge of a judgment that
+# is there; ``semantic graph-light`` fills it once. Not a table of the graph: writing it
+# raises no data version.
+CITED_BY_TABLE = "lg_cited_by"
+CITED_BY_COLUMNS = (
+    "edge_key, article_id, judgment_id, mentions, leden,"
+    " date_eff, ecli, court_code, tier, cited"
+)
+
+
+def cited_by_values(edge: str, judgment: str) -> str:
+    """SQL: the ``CITED_BY_COLUMNS`` of the row of the edge *edge* from the judgment
+    *judgment* (rows of ``edges`` and ``judgments``)."""
+    leden = f"public.lg_cited_by_leden({edge}.doc)"
+    return (
+        f"{edge}.key, {edge}.to_id, {edge}.from_id, json_array_length({leden}), {leden},"
+        f" {judgment}.date_eff, {judgment}.ecli, {judgment}.court_code, {judgment}.tier,"
+        f" {judgment}.inbound_citation_count"
+    )
+
+
+def cited_by_edges(edge: str) -> str:
+    """SQL: the edge *edge* is one ``CITED_BY_TABLE`` keeps: ``REFERS_TO`` from a judgment
+    into an article."""
+    return (
+        f"{edge}.relation = '{RELATION_REFERS_TO}'"
+        f" AND {edge}.from_collection = '{COLLECTION_JUDGMENTS}'"
+        f" AND {edge}.to_collection = '{COLLECTION_ARTICLES}'"
+    )
+
+
+def article_cited_by() -> list[str]:
+    return [
+        f"""CREATE TABLE IF NOT EXISTS {CITED_BY_TABLE} (
+    edge_key text PRIMARY KEY,
+    article_id text NOT NULL,
+    judgment_id text NOT NULL,
+    mentions integer NOT NULL,
+    leden json NOT NULL,
+    date_eff text,
+    ecli text,
+    court_code text,
+    tier text,
+    cited double precision
+)""",
+        f"CREATE INDEX IF NOT EXISTS lg_cited_by_article ON {CITED_BY_TABLE} (article_id)"
+        " INCLUDE (judgment_id, edge_key, mentions, date_eff, ecli, court_code, tier, cited)",
+        f"CREATE INDEX IF NOT EXISTS lg_cited_by_judgment ON {CITED_BY_TABLE} (judgment_id)",
+        # per mention of the edge *doc*, in its order, the leden it names (``meta.mentions``)
+        """CREATE OR REPLACE FUNCTION lg_cited_by_leden(doc json) RETURNS json
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+    SELECT coalesce(json_agg(m.mention -> 'leden' ORDER BY m.n), '[]'::json)
+    FROM json_array_elements(
+        CASE WHEN json_typeof(doc -> 'meta' -> 'mentions') = 'array'
+             THEN doc -> 'meta' -> 'mentions' ELSE '[]'::json END
+    ) WITH ORDINALITY AS m(mention, n)
+$$""",
+        f"""CREATE OR REPLACE FUNCTION lg_keep_cited_by() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.{CITED_BY_TABLE} l USING changed c WHERE l.edge_key = c.key;
+        RETURN NULL;
+    END IF;
+    IF TG_OP = 'UPDATE' THEN
+        DELETE FROM public.{CITED_BY_TABLE} l USING changed c
+        WHERE l.edge_key = c.key AND NOT ({cited_by_edges("c")});
+    END IF;
+    INSERT INTO public.{CITED_BY_TABLE} AS l ({CITED_BY_COLUMNS})
+    SELECT {cited_by_values("c", "j")}
+    FROM changed c JOIN public.{COLLECTION_JUDGMENTS} j ON j.id = c.from_id
+    WHERE {cited_by_edges("c")}
+    ON CONFLICT (edge_key) DO UPDATE SET
+        article_id = EXCLUDED.article_id, judgment_id = EXCLUDED.judgment_id,
+        mentions = EXCLUDED.mentions, leden = EXCLUDED.leden
+    WHERE (l.article_id, l.judgment_id, l.leden::text)
+        IS DISTINCT FROM (EXCLUDED.article_id, EXCLUDED.judgment_id, EXCLUDED.leden::text);
+    RETURN NULL;
+END $$""",
+        *_after_each_statement("edges", "cited_by", "lg_keep_cited_by"),
+        # a judgment written after the edges from it, its date, court or citations changed,
+        # or gone
+        f"""CREATE OR REPLACE FUNCTION lg_keep_cited_by_judgment() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.{CITED_BY_TABLE} l USING changed c WHERE l.judgment_id = c.id;
+    ELSIF TG_OP = 'INSERT' THEN
+        INSERT INTO public.{CITED_BY_TABLE} ({CITED_BY_COLUMNS})
+        SELECT {cited_by_values("e", "j")}
+        FROM changed j
+        JOIN public.edges e ON e.from_id = j.id AND {cited_by_edges("e")}
+        ON CONFLICT (edge_key) DO NOTHING;
+    ELSE
+        UPDATE public.{CITED_BY_TABLE} l
+        SET date_eff = c.date_eff, ecli = c.ecli, court_code = c.court_code,
+            tier = c.tier, cited = c.inbound_citation_count
+        FROM changed c
+        WHERE l.judgment_id = c.id
+          AND (l.date_eff, l.ecli, l.court_code, l.tier, l.cited) IS DISTINCT FROM
+              (c.date_eff, c.ecli, c.court_code, c.tier, c.inbound_citation_count);
+    END IF;
+    RETURN NULL;
+END $$""",
+        *_after_each_statement(
+            COLLECTION_JUDGMENTS, "cited_by", "lg_keep_cited_by_judgment"
+        ),
+    ]
+
+
 # What the coalition did on each vote (``core.coalition.vote_pattern``), kept by ``semantic
 # tk-coalition-votes``: its seats for and against, the opposition's, the pattern (``together``,
 # ``split``, ``wissel``), whether it carried or decided the vote, and each coalition
@@ -2372,6 +2483,7 @@ def statements() -> list[str]:
         *faction_votes(),
         *member_authored(),
         *committee_led(),
+        *article_cited_by(),
         ARTICLE_TERMS,
         SEARCH_CANDIDATES,
         DECISION_COALITION,
