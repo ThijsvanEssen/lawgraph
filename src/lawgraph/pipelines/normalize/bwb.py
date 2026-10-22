@@ -48,7 +48,7 @@ from lawgraph.core.bwb_xml import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_json, payload_text
-from lawgraph.core.time import iso_timestamp
+from lawgraph.core.time import dutch_today, iso_timestamp
 from lawgraph.core.validity import ValidityState, instrument_validity
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -241,7 +241,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
     def _standing(self, bwb_ids: Iterable[str]) -> dict[str, tuple[bool, str]]:
         """``(in force today, date)`` per regulation from the stored instruments: the date
         it came into force, or of its expiry when it no longer holds."""
-        today = dt.datetime.now(dt.UTC).date().isoformat()
+        today = dutch_today().isoformat()
         by_key = {make_node_key(bwb_id): bwb_id for bwb_id in bwb_ids}
         standing: dict[str, tuple[bool, str]] = {}
         for row in normalize_bwb.instrument_dates(self.store, sorted(by_key)):
