@@ -199,7 +199,39 @@ def test_the_passages_filter_on_court_tier_and_lid_and_page_with_an_exact_total(
         "total": 5,
         "judgment_total": 3,
         "echr_judgment_total": 0,
+        "facets": _cited_by(api)["facets"],
     }
+
+
+def test_the_facets_count_every_citing_judgment_and_tiers_combine(api: Api) -> None:
+    """B7: the years and tiers of every judgment that cites the article, whatever the page;
+    each facet without its own filter. B25: ``tier`` repeated keeps any of them."""
+    every = _cited_by(api, limit=1)
+    assert every["facets"] == {
+        "year": [
+            {"value": "2019", "count": 1},
+            {"value": "2020", "count": 1},
+            {"value": "2021", "count": 1},
+        ],
+        "tier": [
+            {"value": "gerechtshof", "count": 1},
+            {"value": "hoge_raad", "count": 1},
+            {"value": "rechtbank", "count": 1},
+        ],
+    }
+
+    two = api.get_json(
+        f"/api/articles/{GRONDWET}/1/cited-by?tier=hoge_raad&tier=rechtbank"
+    )
+    assert (two["total"], two["judgment_total"]) == (4, 2)
+    assert {i["judgment"]["court"] for i in two["items"]} == {"HR", "RBAMS"}
+    assert two["facets"]["tier"] == every["facets"]["tier"]
+    assert [f["value"] for f in two["facets"]["year"]] == ["2019", "2020"]
+
+    one_year = _cited_by(api, year="2020")
+    assert (one_year["total"], one_year["judgment_total"]) == (3, 1)
+    assert one_year["facets"]["year"] == every["facets"]["year"]
+    assert one_year["facets"]["tier"] == [{"value": "hoge_raad", "count": 1}]
 
 
 def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
@@ -209,6 +241,7 @@ def test_an_unknown_article_is_a_404_and_a_bad_filter_a_422(
     assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?lid=x!"), 422)
     assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?tier=zzz"), 422)
     assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?limit=0"), 422)
+    assert_status(api.get(f"/api/articles/{GRONDWET}/1/cited-by?year=20"), 422)
 
 
 def test_a_citation_the_text_no_longer_makes_goes(database: str, cli: Any) -> None:

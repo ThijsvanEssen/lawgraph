@@ -21,6 +21,7 @@ from lawgraph.api.schemas.articles import (
     ArticleSuccessionDTO,
     ArticleSummaryDTO,
     ArticleVersionDTO,
+    CitedByFacets,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
@@ -32,6 +33,7 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     DefinitionDTO,
+    FacetCountDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
     in_regulation_order,
@@ -196,10 +198,14 @@ def _build_relationship_dtos(
     description=(
         "One row per passage: a judgment and the paragraph in it that cites the article, "
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
-        "detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` "
-        "(a lid number the passage names) filter; `total` counts all passages that match, "
+        "detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: "
+        "any of them), `year` (of the judgment's date) and `lid` (a lid number the "
+        "passage names) filter; `total` counts all passages that match, "
         "`judgment_total` the judgments they are in, `echr_judgment_total` the ECHR "
         "judgments that cite the article (no passage: HUDOC names the article). "
+        "`facets` counts the judgments, whatever the page: per `year` (oldest first, "
+        "null for none first) without the `year` filter, per `tier` (most first) "
+        "without the `tier` filter, each under the other filters. "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -213,9 +219,18 @@ def get_article_cited_by_passages(
         str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
     ] = None,
     tier: Annotated[
-        Tier | None,
+        list[Tier] | None,
         Query(
-            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
+            "repeated, the judgments of any of them."
+        ),
+    ] = None,
+    year: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d{4}$",
+            description="The judgments of this year (of their date) alone; "
+            "``facets.year`` still counts every year.",
         ),
     ] = None,
     lid: Annotated[
@@ -239,7 +254,8 @@ def get_article_cited_by_passages(
         store,
         article.id,
         court=court,
-        tier=tier.value if tier else None,
+        tiers=tuple(t.value for t in tier or ()),
+        year=year,
         lid=lid,
         sort=sort,
         limit=limit,
@@ -254,6 +270,12 @@ def get_article_cited_by_passages(
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
         echr_judgment_total=cited_by.echr_judgment_total,
+        facets=CitedByFacets(
+            **{
+                name: [FacetCountDTO(**row) for row in rows]
+                for name, rows in cited_by.facets.items()
+            }
+        ),
     )
 
 

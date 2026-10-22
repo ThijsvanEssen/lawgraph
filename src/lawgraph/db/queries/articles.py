@@ -808,23 +808,44 @@ def get_article_explanation_passages(
 @dataclass(frozen=True)
 class CitedBy:
     """A page of the passages that cite an article: ``{judgment, mention}`` rows, the
-    passages that match the filters and the judgments they are in."""
+    passages that match the filters and the judgments they are in, and ``facets``: per
+    ``year`` and ``tier`` the judgments under the other filters (``{value, count}``)."""
 
     rows: list[dict[str, Any]]
     total: int
     judgment_total: int
     echr_judgment_total: int = 0
+    facets: dict[str, list[dict[str, Any]]] = field(
+        default_factory=lambda: {"year": [], "tier": []}
+    )
 
 
 # ``hits``: per edge of a judgment to the article, one row per mention that passes the
-# filters, with only what sorts it; ``ranked``: their order, newest first; the mentions of
-# the page are read whole after the cut.
+# court and lid filters, with only what sorts and counts it; ``kept``: those of the tiers
+# and the year asked for; ``ranked``: their order. The mentions of the page are read whole
+# after the cut. Each facet counts the judgments of ``hits`` under the other filter.
+_TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR h.tier = ANY(%(tiers)s::text[]))"
+_YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
+
+
+def _cited_by_facet(value: str, where: str, order: str) -> str:
+    """SQL: the judgments of ``hits`` under *where*, counted per *value*, in *order*."""
+    return f"""(
+            SELECT coalesce(json_agg(json_build_object('value', f.value, 'count', f.n)
+                                     ORDER BY {order}), '[]'::json)
+            FROM (
+                SELECT h.{value} AS value, count(DISTINCT h.edge)::int AS n
+                FROM hits h WHERE {where} GROUP BY h.{value}
+            ) f
+        )"""
+
+
 def _cited_by_sql(order: str) -> str:
     """The statement of ``get_article_cited_by``, its passages in *order*."""
     return f"""
-    WITH hits AS (
+    WITH hits AS MATERIALIZED (
         SELECT e.key AS edge, m.position - 1 AS position, j.date_eff AS date, j.ecli,
-               j.inbound_citation_count AS cited
+               j.inbound_citation_count AS cited, j.tier, substr(j.date_eff, 1, 4) AS year
         FROM {COLLECTION_EDGES} e
         JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
         CROSS JOIN LATERAL json_array_elements(
@@ -833,20 +854,26 @@ def _cited_by_sql(order: str) -> str:
         WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
           AND e.from_collection = '{COLLECTION_JUDGMENTS}'
           AND (%(court)s::text IS NULL OR j.court_code = %(court)s::text)
-          AND (%(tier)s::text IS NULL OR j.tier = %(tier)s::text)
           AND (
               %(lid)s::text IS NULL
               OR %(lid)s::text = ANY(lg_text_array(m.mention -> 'leden'))
           )
     ),
+    kept AS (
+        SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT}
+    ),
     ranked AS (
         SELECT h.*, row_number() OVER (ORDER BY {order}) AS n
-        FROM hits h
+        FROM kept h
     )
     SELECT
-        (SELECT count(*)::int FROM hits) AS total,
+        (SELECT count(*)::int FROM kept) AS total,
         -- one edge per judgment and article
-        (SELECT count(DISTINCT edge)::int FROM hits) AS judgment_total,
+        (SELECT count(DISTINCT edge)::int FROM kept) AS judgment_total,
+        json_build_object(
+            'year', {_cited_by_facet("year", _TIERS_KEPT, "f.value ASC NULLS FIRST")},
+            'tier', {_cited_by_facet("tier", _YEAR_KEPT, "f.n DESC, f.value ASC")}
+        ) AS facets,
         -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
         (
             SELECT count(DISTINCT e.from_id)::int
@@ -917,7 +944,8 @@ def get_article_cited_by(
     *,
     sort: str = "date_desc",
     court: str | None = None,
-    tier: str | None = None,
+    tiers: tuple[str, ...] = (),
+    year: str | None = None,
     lid: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -927,38 +955,46 @@ def get_article_cited_by(
     ``total`` counts every mention that passes the filters, whatever the page, and
     ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
     judgments that cite the article, whatever the filters: HUDOC names the article they
-    apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code) and
-    ``tier`` of the judgment, and a ``lid`` number that the mention names. ``sort``
-    (``CITED_BY_SORTS``): the newest judgment first, or the most cited first.
+    apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code),
+    any of the ``tiers`` and the ``year`` (of its date) of the judgment, and a ``lid``
+    number that the mention names. ``facets`` counts the judgments per ``year`` (oldest
+    first, none first) without the year filter, and per ``tier`` (most first) without the
+    tier filter. ``sort`` (``CITED_BY_SORTS``): the newest judgment first, or the most
+    cited first.
 
     A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
     its text and its paragraphs. The first pass reads the edges of the article by
-    ``(to_id, relation)`` and keeps only what filters and sorts a mention (the edge, its
-    position, the date and the ECLI, from the generated columns of the judgment); the
-    mentions of the page, with their snippets, are read after the cut, for ``limit`` rows
-    and not for all of them.
+    ``(to_id, relation)`` and keeps only what filters, sorts and counts a mention (the
+    edge, its position, the date, the ECLI and the tier, from the generated columns of the
+    judgment); the mentions of the page, with their snippets, are read after the cut, for
+    ``limit`` rows and not for all of them.
     """
+    chosen = tuple(dict.fromkeys(tiers))
     bind = {
         "article_id": article_id,
         "relation": RELATION_REFERS_TO,
         "court": court.upper() if court else None,
-        "tier": tier,
+        "tiers": list(chosen) or None,
+        "year": year,
         "lid": lid.lower() if lid else None,
         "limit": limit,
         "offset": offset,
     }
+    key = {**bind, "tiers": chosen}
     answer = lasting(
         store,
-        ("cited-by", sort, *sorted(bind.items())),
+        ("cited-by", sort, *sorted(key.items())),
         lambda: (
             next(iter(store.query(_cited_by_sql(CITED_BY_SORTS[sort]), bind)), None)
             or {}
         ),
         CITED_BY_MAX_AGE,
     )
+    facets = answer.get("facets") or {}
     return CitedBy(
         rows=list(answer.get("items") or []),
         total=int(answer.get("total") or 0),
         judgment_total=int(answer.get("judgment_total") or 0),
         echr_judgment_total=int(answer.get("echr_judgment_total") or 0),
+        facets={name: list(facets.get(name) or []) for name in ("year", "tier")},
     )

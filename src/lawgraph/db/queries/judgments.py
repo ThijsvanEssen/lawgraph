@@ -283,7 +283,8 @@ class JudgmentFilters:
 
     q: str | None = None
     court: str | None = None
-    tier: str | None = None
+    # any of these tiers; empty: every tier
+    tiers: tuple[str, ...] = ()
     court_kind: str | None = None
     source: str | None = None
     subject: str | None = None
@@ -320,7 +321,7 @@ _CLAUSES: dict[str, str] = {
     "ecli": "j.ecli = %(ecli)s",
     "case_number": "j.case_number_keys @> ARRAY[%(case_number_key)s]::text[]",
     "court": "j.court_code = %(court)s",
-    "tier": "j.tier = %(tier)s",
+    "tier": "j.tier = ANY(%(tiers)s)",
     "court_kind": "j.court_kind = %(court_kind)s",
     "source": "j.source = %(source)s",
     "subject": "j.subjects @> ARRAY[%(subject)s]::text[]",
@@ -338,7 +339,7 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "ecli": ("ecli", filters.ecli),
         "case_number": ("case_number_key", filters.case_number_key),
         "court": ("court", filters.court.upper() if filters.court else None),
-        "tier": ("tier", filters.tier),
+        "tier": ("tiers", list(filters.tiers)),
         "court_kind": ("court_kind", filters.court_kind),
         "source": ("source", filters.source),
         "subject": ("subject", filters.subject),

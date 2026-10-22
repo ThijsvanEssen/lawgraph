@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.db.queries.articles import ArticleDetailData
+from lawgraph.db.queries.articles import ArticleDetailData, CitedBy
 from tests.asserts import assert_status
 from tests.fakes import FakeStoreBase
 
@@ -58,7 +58,7 @@ def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]]]:
     stub("get_article_relationship_data", {})
     stub(
         "get_article_cited_by",
-        SimpleNamespace(rows=[], total=0, judgment_total=0, echr_judgment_total=0),
+        CitedBy(rows=[], total=0, judgment_total=0),
     )
     stub(
         "get_article_history",
