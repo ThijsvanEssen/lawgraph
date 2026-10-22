@@ -124,12 +124,20 @@ _AUTHORED_FOUND = """
 """
 
 
+# The orders of the dossiers of an actor: by the day opened, or by the documents it signed in them.
+_DOSSIER_ORDER = {
+    "opened": "opened_on DESC NULLS LAST, key ASC",
+    "importance": "document_count DESC NULLS LAST, opened_on DESC NULLS LAST, key ASC",
+}
+
+
 def get_actor_dossiers(
     store: GraphStore,
     actor_id: str,
     *,
     limit: int = 100,
     offset: int = 0,
+    sort: str = "opened",
 ) -> dict[str, Any]:
     """A page of the dossiers a member or a faction authored documents in.
 
@@ -137,7 +145,8 @@ def get_actor_dossiers(
     or through a case. A faction has no ``AUTHORED`` edges of its own: it counts the
     documents its members signed while they belonged to it (``faction_memberships``, as
     for their votes). Each dossier carries the distinct ``AUTHORED`` roles and the number
-    of documents; newest opened first. Returns ``{total, items}``.
+    of documents; newest opened first, or with *sort* ``importance`` the dossier with the
+    most documents first (then newest opened). Returns ``{total, items}``.
     """
     is_faction = parse_node_id(actor_id)[0] == COLLECTION_FACTIONS
     found = _FACTION_FOUND if is_faction else _AUTHORED_FOUND
@@ -153,7 +162,7 @@ def get_actor_dossiers(
             FROM found r JOIN {COLLECTION_DOSSIERS} d ON d.id = r.dossier_id
             GROUP BY d.id
         )
-        {paged("grouped", page_of("grouped", "opened_on DESC NULLS LAST, key ASC"))}
+        {paged("grouped", page_of("grouped", _DOSSIER_ORDER[sort]))}
         """,
         {
             "actor_id": actor_id,

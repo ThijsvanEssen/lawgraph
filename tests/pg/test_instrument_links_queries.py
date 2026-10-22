@@ -222,6 +222,29 @@ def test_eu_links_in_both_directions_most_confident_first(store: GraphStore) -> 
     ]
 
 
+def test_eu_links_by_importance_the_most_cited_instrument_first(
+    store: GraphStore,
+) -> None:
+    _seed(store)
+    store.execute(
+        "UPDATE instruments SET props = (props::jsonb || '{\"inbound_citation_count\": 50}')"
+        "::json WHERE key = '32020l0002'"
+    )
+
+    links = get_eu_links(store, REGULATION, importance=True)
+
+    assert _instrument_keys(links.implements) == [
+        "32020l0002",  # cited most, though no confidence
+        "32016l0680",
+        "32019r0001",
+    ]
+    assert links.implements_total == 3
+    # equal citations: the confidence order of the default
+    assert _instrument_keys(
+        get_eu_links(store, DIRECTIVE, importance=True).implemented_by
+    ) == _instrument_keys(get_eu_links(store, DIRECTIVE).implemented_by)
+
+
 def test_eu_links_are_cut_and_their_totals_are_not(store: GraphStore) -> None:
     _seed(store)
 

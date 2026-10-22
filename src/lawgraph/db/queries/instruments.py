@@ -12,7 +12,6 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENTS,
-    COLLECTION_JUDGMENTS,
     ENACTING_RELATIONS,
     RELATION_AMENDS,
     RELATION_BASED_ON,
@@ -46,7 +45,7 @@ from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_ti
 from lawgraph.db.queries.instrument_scope import listed_article, scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
-from lawgraph.db.schema import instrument_date_in_force, node_of
+from lawgraph.db.schema import CITED_BY_TABLE, instrument_date_in_force, node_of
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
 
@@ -209,11 +208,13 @@ def get_division_articles(
     )
 
 
-# The orders of the judgments that cite a law: the newest first, or the most cited articles
-# of the law first (then the newest); the id settles ties.
+# The orders of the judgments that cite a law: the newest first, the most cited articles of
+# the law first, or the most cited judgment first (a standard judgment), each then the
+# newest; the id settles ties.
 INSTRUMENT_JUDGMENT_SORTS = {
     "date": "k.date_eff DESC NULLS LAST, k.judgment_id",
     "cited": "k.cited_count DESC, k.date_eff DESC NULLS LAST, k.judgment_id",
+    "citation_count": "k.cited DESC NULLS LAST, k.date_eff DESC NULLS LAST, k.judgment_id",
 }
 
 # How long the judgments citing a law are kept under one request (seconds), whatever the
@@ -224,11 +225,13 @@ CITING_MAX_AGE = 3600.0
 
 @dataclass(frozen=True)
 class CitingJudgments:
-    """A page of the judgments that cite a law, how many there are, and per year."""
+    """A page of the judgments that cite a law, how many there are, per year and per
+    tier."""
 
     items: list[dict[str, Any]]
     total: int
     years: list[dict[str, Any]]
+    tiers: list[dict[str, Any]] = field(default_factory=list)
 
 
 def get_citing_judgments(
@@ -239,23 +242,28 @@ def get_citing_judgments(
     limit: int = 500,
     offset: int = 0,
     year: str | None = None,
+    tiers: tuple[str, ...] = (),
 ) -> CitingJudgments:
     """The judgments that cite any article of the law *identifier* (BWB id or CELEX), in
     the order of *sort* (``INSTRUMENT_JUDGMENT_SORTS``): a page (``{judgment,
-    cited_articles}``), ``total`` (every citing judgment id under *year*, one that is
-    missing too) and ``years`` (``[{value, count}]``: every citing judgment that exists
-    per year of ``date_eff``, whatever *year*; the oldest first, those without a date first
-    of all). One reading, kept per request ``CITING_MAX_AGE`` (``lasting``)."""
+    cited_articles}``), ``total`` (every citing judgment under *year* and of any of
+    *tiers*), ``years`` (``[{value, count}]``: per year of ``date_eff`` under *tiers*,
+    whatever *year*; the oldest first, those without a date first of all) and ``tiers``
+    (per tier under *year*, whatever *tiers*; the most first). One reading, kept per request
+    ``CITING_MAX_AGE`` (``lasting``)."""
     scope = scope_of(identifier)
+    chosen = tuple(dict.fromkeys(tiers))
     found = lasting(
         store,
-        ("law judgments", scope.prop, scope.value, sort, limit, offset, year),
+        ("law judgments", scope.prop, scope.value, sort, limit, offset, year, chosen),
         lambda: _citing_judgments(
-            store, scope.prop, scope.value, sort, limit, offset, year
+            store, scope.prop, scope.value, sort, limit, offset, year, chosen
         ),
         CITING_MAX_AGE,
     )
-    return CitingJudgments(found["items"], found["total"], found["years"])
+    return CitingJudgments(
+        found["items"], found["total"], found["years"], found.get("tiers") or []
+    )
 
 
 def most_cited_laws(store: GraphStore, n: int) -> list[str]:
@@ -288,6 +296,10 @@ _LISTED_JUDGMENT = listed_judgment(
 )
 
 
+_YEAR_KEPT = "(%(year)s::text IS NULL OR substr(k.date_eff, 1, 4) = %(year)s::text)"
+_TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR k.tier = ANY(%(tiers)s::text[]))"
+
+
 def _citing_judgments(
     store: GraphStore,
     prop: str,
@@ -296,34 +308,34 @@ def _citing_judgments(
     limit: int,
     offset: int,
     year: str | None,
+    tiers: tuple[str, ...],
 ) -> dict[str, Any]:
-    """``get_citing_judgments`` from the database, in one statement. Of every citing
-    judgment only its date is read before the page is cut, from the covering index
-    ``judgments_citing`` (no row of the table: on the Awb that was 275,000 reads of a
-    17 GB table, a minute cold); the cited articles are gathered for the page alone."""
+    """``get_citing_judgments`` from the database, in one statement. Every citing judgment
+    is read from the ranges of the law's articles in the index of ``lg_cited_by`` (their
+    ids first, and ``citations`` apart: grouped in the order of the judgments, or joined
+    to the articles, the planner would read the whole index), with its date, tier and
+    citations (no row of the judgments, nor of the edges: on the Awb that was 275,000 reads
+    of a 17 GB table, a minute cold); the cited articles are gathered for the page alone."""
     order = INSTRUMENT_JUDGMENT_SORTS[sort]
+    articles = f"ARRAY({_articles_of(prop)})"
     statement = f"""
-        WITH cites AS (
-            SELECT DISTINCT e.from_id AS judgment_id, e.to_id AS article_id
-            FROM edges e
-            WHERE e.relation = %(refers_to)s
-              AND e.to_id IN ({_articles_of(prop)})
-              AND e.from_collection = %(judgments)s
+        WITH citations AS MATERIALIZED (
+            SELECT c.judgment_id, c.date_eff, c.tier, c.cited
+            FROM {CITED_BY_TABLE} c
+            WHERE c.article_id = ANY({articles})
         ),
-        dated AS MATERIALIZED (
-            SELECT g.judgment_id, g.cited_count, j.date_eff, j.id IS NOT NULL AS present
-            FROM (SELECT judgment_id, count(*)::int AS cited_count
-                  FROM cites GROUP BY judgment_id) g
-            LEFT JOIN judgments j ON j.id = g.judgment_id
+        cites AS MATERIALIZED (
+            SELECT c.judgment_id, count(*)::int AS cited_count, min(c.date_eff) AS date_eff,
+                   min(c.tier) AS tier, max(c.cited) AS cited
+            FROM citations c
+            GROUP BY c.judgment_id
         ),
         kept AS (
-            SELECT * FROM dated
-            WHERE %(year)s::text IS NULL OR substr(date_eff, 1, 4) = %(year)s::text
+            SELECT * FROM cites k WHERE {_YEAR_KEPT} AND {_TIERS_KEPT}
         ),
         top AS (
             SELECT k.judgment_id, row_number() OVER (ORDER BY {order}) AS n
             FROM kept k
-            WHERE k.present
             ORDER BY n
             LIMIT %(limit)s OFFSET %(offset)s
         )
@@ -332,8 +344,14 @@ def _citing_judgments(
             'years', (
                 SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
                                          ORDER BY value NULLS FIRST), '[]')
-                FROM (SELECT substr(date_eff, 1, 4) AS value, count(*)::int AS count
-                      FROM dated WHERE present GROUP BY 1) per_year
+                FROM (SELECT substr(k.date_eff, 1, 4) AS value, count(*)::int AS count
+                      FROM cites k WHERE {_TIERS_KEPT} GROUP BY 1) per_year
+            ),
+            'tiers', (
+                SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
+                                         ORDER BY count DESC, value ASC NULLS LAST), '[]')
+                FROM (SELECT k.tier AS value, count(*)::int AS count
+                      FROM cites k WHERE {_YEAR_KEPT} GROUP BY 1) per_tier
             ),
             'items', (
                 SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
@@ -352,8 +370,9 @@ def _citing_judgments(
                             'article_number', a.props -> 'article_number',
                             'display_name', a.props -> 'display_name'
                         ) ORDER BY {_document_order("a")}) AS articles
-                        FROM cites c JOIN articles a ON a.id = c.article_id
+                        FROM {CITED_BY_TABLE} c JOIN articles a ON a.id = c.article_id
                         WHERE c.judgment_id IN (SELECT judgment_id FROM top)
+                          AND c.article_id = ANY({articles})
                         GROUP BY c.judgment_id
                     ) cited ON cited.judgment_id = top.judgment_id
                 ) page
@@ -366,22 +385,36 @@ def _citing_judgments(
                 statement,
                 {
                     "bwb": value,
-                    "refers_to": RELATION_REFERS_TO,
-                    "judgments": COLLECTION_JUDGMENTS,
                     "conclusion": KIND_CONCLUSIE,
                     "limit": limit,
                     "offset": offset,
                     "year": year,
+                    "tiers": list(tiers) or None,
                 },
             )
         ),
         None,
     )
-    return cast(dict[str, Any], row) if row else {"items": [], "total": 0, "years": []}
+    return (
+        cast(dict[str, Any], row)
+        if row
+        else {"items": [], "total": 0, "years": [], "tiers": []}
+    )
+
+
+# The orders of the dossiers of a law: newest opened, or the dossier that made the law first,
+# then those with the most publications that changed it, then the newest opened.
+_DOSSIER_ORDER = {
+    "opened": "g.opened_on DESC NULLS LAST, g.number NULLS FIRST, g.key",
+    "importance": (
+        "g.direct DESC NULLS LAST, g.publication_count DESC NULLS LAST, g.opened_on DESC NULLS LAST,"
+        " g.number NULLS FIRST, g.key"
+    ),
+}
 
 
 def get_instrument_dossiers(
-    store: GraphStore, identifier: str, *, limit: int = 500
+    store: GraphStore, identifier: str, *, limit: int = 500, sort: str = "opened"
 ) -> tuple[list[dict[str, Any]], int]:
     """Parliamentary dossiers linked to this regulation, one query.
 
@@ -390,7 +423,9 @@ def get_instrument_dossiers(
       * the amending publications that AMEND / INTRODUCE / REPEAL one of its
         articles -> ``via = "amending_publication"`` (``publication`` names the
         newest such publication).
-    A dossier linked both ways is reported as ``instrument``.
+    A dossier linked both ways is reported as ``instrument``. Newest opened first, or with
+    *sort* ``importance`` the dossiers of the regulation itself first, then those with the
+    most amending publications, then the newest opened.
 
     Returns ``(items, total)``; each item is ``{dossier, via, publication}``.
     """
@@ -413,7 +448,9 @@ def get_instrument_dossiers(
         ),
         grouped AS (
             SELECT d.id, d.key, d.type, d.labels, d.props, d.opened_on, d.number,
-                   bool_or(l.source_id = %(instrument_id)s) AS direct
+                   bool_or(l.source_id = %(instrument_id)s) AS direct,
+                   (count(*) FILTER (WHERE l.source_id <> %(instrument_id)s))::int
+                       AS publication_count
             FROM links l JOIN dossiers d ON d.id = l.dossier_id
             GROUP BY d.id
         )
@@ -431,9 +468,7 @@ def get_instrument_dossiers(
                    CROSS JOIN {node_of("l.source_id", "split_part(l.source_id, '/', 1)")} s
                    WHERE l.dossier_id = g.id AND l.source_id <> %(instrument_id)s
                ) AS publications,
-               row_number() OVER (
-                   ORDER BY g.opened_on DESC NULLS LAST, g.number NULLS FIRST, g.key
-               ) AS n
+               row_number() OVER (ORDER BY {_DOSSIER_ORDER[sort]}) AS n
         FROM grouped g
         ORDER BY n
         LIMIT %(limit)s
@@ -479,7 +514,12 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_instrument_amended_by(
-    store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
+    store: GraphStore,
+    identifier: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    sort: str = "date",
 ) -> AmendedByData:
     """The publications that enacted or changed a regulation, newest first, and the pending
     proposals to change it (3 queries at most).
@@ -489,11 +529,13 @@ def get_instrument_amended_by(
     article ids), grouped per publication that made them; one the same per document of the
     Tweede Kamer that proposes them and is still pending (``queries.proposals``), up to
     ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
+    The publications newest first, or with *sort* ``importance`` the one that touched the
+    most articles first, then the newest.
     """
     scope = scope_of(identifier)
     rows = store.query(
         _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
-        + paged("grouped", _newest("date_published")),
+        + paged("grouped", _newest("date_published", by_articles=sort == "importance")),
         {**_amending_bind(scope.value), "limit": limit, "offset": offset},
     )
     page_rows, total = split_page(rows)
@@ -533,11 +575,13 @@ _DOCUMENT_PROPS = """(
 )"""
 
 
-def _newest(date: str) -> str:
-    """A page of ``grouped`` newest first: by the prop *date*, then the date signed."""
+def _newest(date: str, *, by_articles: bool = False) -> str:
+    """A page of ``grouped`` newest first: by the prop *date*, then the date signed; with
+    *by_articles* the node that affected the most articles first."""
+    first = "g.articles_affected DESC NULLS LAST," if by_articles else ""
     return f"""
         SELECT g.*, row_number() OVER (
-            ORDER BY lg_str(g.props -> '{date}') DESC NULLS LAST,
+            ORDER BY {first} lg_str(g.props -> '{date}') DESC NULLS LAST,
                      lg_str(g.props -> 'date_signed') DESC NULLS LAST,
                      g.key DESC
         ) AS n

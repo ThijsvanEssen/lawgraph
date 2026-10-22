@@ -147,7 +147,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             _edge("judgments/j_a", "articles/a1", "REFERS_TO"),
             # a stub article is an article of the law too
             _edge("judgments/j_a", "articles/stub", "REFERS_TO"),
-            # a judgment that is missing is counted, not listed
+            # a judgment that is missing is neither counted nor listed
             _edge("judgments/j_missing", "articles/a1", "REFERS_TO"),
             # not a judgment, not a reference, not this law
             _edge("documents/d", "articles/a1", "REFERS_TO"),
@@ -157,7 +157,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     )
     found = instruments.get_citing_judgments(store, BWB, sort="cited")
     items, total = found.items, found.total
-    assert total == 6
+    assert total == 5
     # most cited articles first, then the newest (no date last), then the id
     assert [i["judgment"]["key"] for i in items] == [
         "j_many",
@@ -177,7 +177,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
     ]
     paged = instruments.get_citing_judgments(store, BWB, limit=2, offset=1).items
     assert [i["judgment"]["key"] for i in paged] == ["j_old", "j_many"]
-    # every citing judgment per year, not the page; a missing one is not counted
+    # every citing judgment per year, not the page
     assert found.years == [
         {"value": None, "count": 2},
         {"value": "1990", "count": 1},
@@ -185,7 +185,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         {"value": "2020", "count": 1},
     ]
     found = instruments.get_citing_judgments(store, BWB, limit=1)
-    assert (found.total, len(found.items), len(found.years)) == (6, 1, 4)
+    assert (found.total, len(found.items), len(found.years)) == (5, 1, 4)
     # a year keeps its judgments, total and page; the years still count every year
     of_2001 = instruments.get_citing_judgments(store, BWB, year="2001")
     assert (of_2001.total, [i["judgment"]["key"] for i in of_2001.items]) == (
@@ -251,7 +251,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
 
     found = instruments.get_citing_judgments(store, BWB, sort="cited", limit=1)
     assert (found.total, [i["judgment"]["key"] for i in found.items]) == (
-        6,
+        5,
         ["j_many"],
     )
     nothing = instruments.get_citing_judgments(store, "BWBR9999999")
@@ -297,7 +297,10 @@ def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> No
     finally:
         app.dependency_overrides.pop(get_store, None)
     assert (body["sort"], body["total"], body["year"]) == ("cited", 2, None)
-    assert body["facets"] == {"year": [{"value": None, "count": 2}]}
+    assert body["facets"] == {
+        "year": [{"value": None, "count": 2}],
+        "tier": [{"value": None, "count": 2}],
+    }
     item = next(i for i in body["items"] if i["key"] == "c1")
     assert (item["advocate_general"], item["advocate_general_role"]) == (
         "T. Hartlief",
@@ -389,6 +392,20 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
     items, total = instruments.get_instrument_dossiers(store, BWB, limit=2)
     assert (total, [i["dossier"]["key"] for i in items]) == (7, ["d_both", "d_pub2"])
     assert instruments.get_instrument_dossiers(store, "BWBR9999999") == ([], 0)
+
+    # by importance: the regulation's own dossiers first (the one a publication also
+    # changed ahead of the rest), then those with the most amending publications
+    items, total = instruments.get_instrument_dossiers(store, BWB, sort="importance")
+    assert total == 7
+    assert [i["dossier"]["key"] for i in items] == [
+        "d_both",
+        "d_direct",
+        "d_tie_a",
+        "d_tie_b",
+        "d_pub",
+        "d_pub2",
+        "d_none",
+    ]
 
 
 # ── amended by ───────────────────────────────────────────────────────────────
@@ -503,6 +520,12 @@ def test_amended_by_grouped_per_instrument_newest_first(
     assert [i["instrument"]["key"] for i in page.items] == ["p3c", "p4"]
     beyond = instruments.get_instrument_amended_by(store, BWB, offset=10)
     assert (beyond.items, beyond.total) == ([], 6)
+
+    # by importance: the publication that affected the most articles first, then the newest
+    ranked = instruments.get_instrument_amended_by(store, BWB, sort="importance")
+    assert ranked.total == 6 and ranked.items[0]["instrument"]["key"] == "p1"
+    counts = [i["articles_affected"] for i in ranked.items]
+    assert counts == sorted(counts, reverse=True) and counts[0] == 3
 
 
 def _seed_proposals(store: GraphStore) -> None:
@@ -1602,12 +1625,13 @@ def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
         app.dependency_overrides.pop(get_store, None)
 
 
-def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
+def test_the_judgments_citing_a_law_are_read_from_the_index_of_its_citations(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Of every judgment that cites a law only its date is read before the page is cut,
-    and from ``judgments_citing``: a row of the table holds the text, and the Awb is
-    275,000 judgments (63 s of single-row reads cold, 2026-10-10)."""
+    """Every judgment that cites a law is counted, sorted and filtered from the ranges of
+    its articles in the index of ``lg_cited_by``: no edge is read, and of the judgments
+    only the rows of the page (a row holds the text, and the Awb is 275,000 judgments: 63 s
+    of single-row reads cold, 2026-10-10)."""
     store.bulk_insert_or_update_nodes(
         "articles",
         [{"key": f"a{n}", "type": "article", "labels": ["BWB"],
@@ -1617,25 +1641,86 @@ def test_the_judgments_citing_a_law_are_dated_from_the_index_alone(
         "judgments",
         [{"key": f"j{n}", "type": "judgment", "labels": ["Rechtspraak"],
           "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "date_eff": f"2020-01-{n:02d}",
-                    "text": "x" * 5000}} for n in range(1, 21)],
+                    "tier": "hoge_raad" if n % 2 else "rechtbank",
+                    "inbound_citation_count": n % 7, "text": "x" * 5000}}
+         for n in range(1, 21)],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
         [{"key": f"e{n}", "from_id": f"judgments/j{n}", "to_id": f"articles/a{1 + n % 3}",
           "relation": "REFERS_TO", "source": "t"} for n in range(1, 21)]
     )  # fmt: skip
+    store.vacuum_analyze()
     seen = recorded(store, monkeypatch, "_stream")
-    found = instruments.get_citing_judgments(store, BWB, limit=5)
-    assert (found.total, len(found.items)) == (20, 5)
+    found = instruments.get_citing_judgments(
+        store, BWB, sort="citation_count", tiers=("hoge_raad",), limit=5
+    )
+    assert (found.total, len(found.items)) == (10, 5)
     ((statement, params, *_),) = seen
-    plan = explain(store, statement, params, disable=("seqscan",))
+    plan = explain(store, statement, params, disable=("seqscan",), analyze=True)
     scans = [
-        (node["Node Type"], node.get("Index Name"))
+        (node["Relation Name"], node["Node Type"], node.get("Index Name"))
         for node in plan_nodes(plan)
-        if node.get("Relation Name") == "judgments"
+        if "Relation Name" in node
     ]
-    # the dates of every citing judgment by the covering index; the page's rows by key
-    assert ("Index Only Scan", "judgments_citing") in scans
-    assert sum(1 for kind, _ in scans if kind != "Index Only Scan") <= 1
+    assert "edges" not in {relation for relation, *_ in scans}
+    assert ("lg_cited_by", "Index Only Scan", "lg_cited_by_article") in scans
+    # the judgments of the page alone, by key
+    judgments = [n for n in plan_nodes(plan) if n.get("Relation Name") == "judgments"]
+    assert [n["Index Name"] for n in judgments] == ["judgments_pkey"]
+    assert [n["Actual Loops"] * n["Actual Rows"] for n in judgments] == [5]
+
+
+def test_the_judgments_citing_a_law_by_tier_year_and_citations(
+    store: GraphStore,
+) -> None:
+    """``tiers`` and ``year`` filter the total and the page; ``years`` counts under the
+    tiers and ``tiers`` under the year; ``citation_count`` puts the most cited first."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"key": "a1", "type": "article", "labels": ["BWB"],
+          "props": {"bwb_id": BWB, "article_number": "1"}}],
+    )  # fmt: skip
+    judgments = [
+        ("j1", "2019-05-01", "hoge_raad", 3),
+        ("j2", "2020-05-01", "hoge_raad", 9),
+        ("j3", "2020-06-01", "rechtbank", 1),
+        ("j4", "2021-06-01", "rechtbank", 4),
+    ]
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"key": key, "type": "judgment", "labels": ["Rechtspraak"],
+          "props": {"ecli": key, "date_eff": date, "tier": tier,
+                    "inbound_citation_count": cited}}
+         for key, date, tier, cited in judgments],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [{"key": f"e{key}", "from_id": f"judgments/{key}", "to_id": "articles/a1",
+          "relation": "REFERS_TO", "source": "t"} for key, *_ in judgments]
+    )  # fmt: skip
+
+    def keys(found: instruments.CitingJudgments) -> list[str]:
+        return [item["judgment"]["key"] for item in found.items]
+
+    every = instruments.get_citing_judgments(store, BWB, sort="citation_count")
+    assert keys(every) == ["j2", "j4", "j1", "j3"]
+    assert every.tiers == [
+        {"value": "hoge_raad", "count": 2},
+        {"value": "rechtbank", "count": 2},
+    ]
+    of_2020 = instruments.get_citing_judgments(store, BWB, year="2020")
+    assert (of_2020.total, keys(of_2020)) == (2, ["j3", "j2"])
+    assert of_2020.tiers == [
+        {"value": "hoge_raad", "count": 1},
+        {"value": "rechtbank", "count": 1},
+    ]
+    assert len(of_2020.years) == 3
+    rechtbank = instruments.get_citing_judgments(store, BWB, tiers=("rechtbank",))
+    assert (rechtbank.total, keys(rechtbank)) == (2, ["j4", "j3"])
+    assert rechtbank.years == [
+        {"value": "2020", "count": 1},
+        {"value": "2021", "count": 1},
+    ]
+    assert len(rechtbank.tiers) == 2
 
 
 def test_the_judgments_citing_a_law_are_kept_per_request(

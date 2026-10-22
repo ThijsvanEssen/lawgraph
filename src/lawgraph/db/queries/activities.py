@@ -27,7 +27,9 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.dossier_stages import ACTIVITY_HELD, ACTIVITY_PLANNED
 from lawgraph.core.tk_links import PLENARY_KINDS, VOTES_KIND
+from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN
 from lawgraph.core.tk_records.kinds import KIND_MOTION
+from lawgraph.core.votes import ADOPTED
 from lawgraph.db import GraphStore
 
 
@@ -95,7 +97,47 @@ _DOCUMENT = """json_build_object(
     'has_text', p.props -> 'has_text'
 )"""
 
-_RECORDS_SQL = f"""
+# How each list of the records of an activity is ordered: as the Kamer numbers them, or by
+# importance: the verslag newest first, the motions adopted before the others, the commitments
+# still open before the done, the decisions that passed before those that did not, the cases
+# that are no motion before the motions.
+_RECORD_ORDER = {
+    "number": {
+        "documents": (
+            "lg_str(p.props -> 'date') ASC NULLS LAST, lg_str(p.props -> 'kind') NULLS LAST,"
+            " p.id"
+        ),
+        "motions": "lg_num(p.props -> 'sequence') ASC NULLS LAST, p.id",
+        "commitments": "c.number ASC NULLS LAST, c.key",
+        "decisions": "lg_num(x.props -> 'decision_order') ASC NULLS LAST, x.key",
+        "cases": "lg_str(c.props -> 'number') ASC NULLS LAST, c.key",
+    },
+    "importance": {
+        "documents": "lg_str(p.props -> 'date') DESC NULLS LAST, p.id",
+        "motions": (
+            f"(lg_str(p.props -> 'outcome') IS DISTINCT FROM '{ADOPTED}') ASC NULLS LAST,"
+            " lg_num(p.props -> 'sequence') ASC NULLS LAST, p.id"
+        ),
+        "commitments": (
+            f"(c.status IS DISTINCT FROM '{COMMITMENT_OPEN}') ASC NULLS LAST,"
+            " lg_str(c.props -> 'registered_on') DESC NULLS LAST, c.key"
+        ),
+        "decisions": (
+            "(x.passed IS NOT TRUE) ASC NULLS LAST,"
+            " lg_num(x.props -> 'decision_order') ASC NULLS LAST, x.key"
+        ),
+        "cases": (
+            "(lg_str(c.props -> 'kind') = %(motion)s) ASC NULLS LAST,"
+            " lg_str(c.props -> 'number') ASC NULLS LAST, c.key"
+        ),
+    },
+}
+
+
+def _records_sql(sort: str) -> str:
+    """The statement of ``get_activity_records``, its lists in the order of *sort*."""
+    order = _RECORD_ORDER[sort]
+    return f"""
 WITH made AS MATERIALIZED (
     SELECT e.from_id AS id, e.from_collection AS collection
     FROM {COLLECTION_EDGES} e
@@ -110,14 +152,14 @@ papers AS MATERIALIZED (
 SELECT
     (
         SELECT coalesce(json_agg({_DOCUMENT} ORDER BY
-            lg_str(p.props -> 'date') ASC NULLS LAST, lg_str(p.props -> 'kind') NULLS LAST, p.id),
+            {order["documents"]}),
             '[]'::json)
         FROM papers p
         WHERE NOT p.motion
     ) AS documents,
     (
         SELECT coalesce(json_agg({_DOCUMENT} ORDER BY
-            lg_num(p.props -> 'sequence') ASC NULLS LAST, p.id), '[]'::json)
+            {order["motions"]}), '[]'::json)
         FROM papers p
         WHERE p.motion
     ) AS motions,
@@ -128,7 +170,7 @@ SELECT
             'expected_resolution', c.props -> 'expected_resolution',
             'minister_name', c.props -> 'minister_name',
             'minister_role', c.props -> 'minister_role'
-        ) ORDER BY c.number ASC NULLS LAST, c.key), '[]'::json)
+        ) ORDER BY {order["commitments"]}), '[]'::json)
         FROM made m JOIN {COLLECTION_COMMITMENTS} c ON c.id = m.id
         WHERE m.collection = '{COLLECTION_COMMITMENTS}'
     ) AS commitments,
@@ -139,7 +181,7 @@ SELECT
             'decision_kind', x.props -> 'decision_kind',
             'decision_text', x.props -> 'decision_text',
             'tally', x.props -> 'tally'
-        ) ORDER BY lg_num(x.props -> 'decision_order') ASC NULLS LAST, x.key),
+        ) ORDER BY {order["decisions"]}),
         '[]'::json)
         FROM made m JOIN {COLLECTION_DECISIONS} x ON x.id = m.id
         WHERE m.collection = '{COLLECTION_DECISIONS}'
@@ -148,7 +190,7 @@ SELECT
         SELECT coalesce(json_agg(json_build_object(
             'id', c.id, 'key', c.key, 'number', c.props -> 'number',
             'kind', c.props -> 'kind', 'title', c.props -> 'title'
-        ) ORDER BY lg_str(c.props -> 'number') ASC NULLS LAST, c.key), '[]'::json)
+        ) ORDER BY {order["cases"]}), '[]'::json)
         FROM {COLLECTION_EDGES} e JOIN {COLLECTION_CASES} c ON c.id = e.to_id
         WHERE e.from_id = %(id)s AND e.relation = %(about)s
           AND e.to_collection = '{COLLECTION_CASES}'
@@ -156,12 +198,15 @@ SELECT
 """
 
 
-def get_activity_records(store: GraphStore, node_id: str) -> dict[str, Any]:
+def get_activity_records(
+    store: GraphStore, node_id: str, sort: str = "number"
+) -> dict[str, Any]:
     """What was made in the activity *node_id* (``MADE_IN``): its documents (a stenogram, a
     verslag, a convocatie) apart from the motions submitted in it, the commitments made
-    and the decisions taken in it; and the cases on its agenda (``ABOUT``)."""
+    and the decisions taken in it; and the cases on its agenda (``ABOUT``). Each list as the Kamer numbers it, or with *sort*
+    ``importance`` as ``_RECORD_ORDER`` says."""
     rows = store.query(
-        _RECORDS_SQL,
+        _records_sql(sort),
         {
             "id": node_id,
             "made_in": RELATION_MADE_IN,

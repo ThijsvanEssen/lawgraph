@@ -113,6 +113,33 @@ def test_an_abbreviation_claimed_by_several_regulations_never_wins() -> None:
     }
 
 
+def test_a_base_regulation_wins_an_abbreviation_it_shares_with_its_variants() -> None:
+    titles = {
+        "BWBR0001827": "Wetboek van Burgerlijke Rechtsvordering",
+        "BWBR0039872": "Wetboek van Burgerlijke Rechtsvordering (geldt in geval van "
+        "niet-digitaal procederen)",
+        "BWBR0000002": "Andere wet",
+    }
+    abbreviations = {
+        "BWBR0001827": ["Rv"],
+        "BWBR0039872": ["Rv"],
+        "BWBR0000002": ["Rv"],
+    }
+
+    assert choose_short_titles(abbreviations, titles) == {
+        "BWBR0001827": None,
+        "BWBR0039872": None,
+        "BWBR0000002": None,
+    }
+    del abbreviations["BWBR0000002"]
+    assert choose_short_titles(abbreviations, titles) == {
+        "BWBR0001827": "Rv",
+        "BWBR0039872": None,
+    }
+    # without titles nothing relates them
+    assert choose_short_titles(abbreviations)["BWBR0001827"] is None
+
+
 def test_case_variants_of_one_regulation_are_one_claim() -> None:
     assert choose_short_titles({"BWBR0001840": ["GW", "Gw"]}) == {"BWBR0001840": "Gw"}
 
@@ -272,3 +299,38 @@ def test_every_citation_title_the_regulation_has_had() -> None:
         "Wet werk en bijstand",
     ]
     assert parse_citation_titles(BW1_GENERAL) == ["Burgerlijk Wetboek Boek 1"]
+
+
+def test_versions_with_one_citation_title_give_the_abbreviation_to_the_one_in_force() -> (
+    None
+):
+    titles = {"old": "Besluit X 2019", "new": "besluit  x", "gone": "Besluit X 2018"}
+    abbreviations = {i: ["BX"] for i in titles}
+    standing = {
+        "old": (True, "2019-01-01"),
+        "new": (True, "2021-01-01"),
+        "gone": (False, "2020-01-01"),
+    }
+
+    assert choose_short_titles(abbreviations, titles, standing) == {
+        "old": None,
+        "new": "BX",
+        "gone": None,
+    }
+    # none in force: the one that expired last
+    standing = {
+        "old": (False, "2019-01-01"),
+        "new": (False, "2021-01-01"),
+        "gone": (False, ""),
+    }
+    assert choose_short_titles(abbreviations, titles, standing)["new"] == "BX"
+
+
+def test_different_titles_sharing_an_abbreviation_stay_without_it() -> None:
+    titles = {"a": "Wet op de ontsluiting", "b": "Wet op de organisatie"}
+    standing = {"a": (True, "2020-01-01"), "b": (True, "2021-01-01")}
+
+    assert choose_short_titles({"a": ["WO"], "b": ["WO"]}, titles, standing) == {
+        "a": None,
+        "b": None,
+    }

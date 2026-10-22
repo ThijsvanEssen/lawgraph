@@ -184,7 +184,7 @@ def _build(store: GraphStore) -> None:
     edges.flush()
 
 
-def _explanations(store: GraphStore, **page: int) -> dict[str, Any]:
+def _explanations(store: GraphStore, **page: Any) -> dict[str, Any]:
     page = {"limit": 100, "offset": 0, **page}
     return get_article_explanations(store, BWB, "5", **page)
 
@@ -215,6 +215,20 @@ def test_an_article_is_explained_through_itself_and_its_versions_not_its_law(
     # the document of another article is nowhere, nor one that explains only the law:
     # it says nothing about this article
     assert {"mvt_other", "mvt_law"}.isdisjoint(row["key"] for row in page["items"])
+
+
+def test_by_importance_the_passage_that_names_the_article_comes_first(
+    store: GraphStore,
+) -> None:
+    _build(store)
+
+    ranked = _summary(_explanations(store, importance=True))
+
+    assert ranked[0] == ("mvt_anchor", AV_OLD, "artikel-5")
+    # the rest as by date
+    assert ranked[1:] == [
+        row for row in _summary(_explanations(store)) if row[2] is None
+    ]
 
 
 def test_a_row_carries_what_the_dto_needs(store: GraphStore) -> None:

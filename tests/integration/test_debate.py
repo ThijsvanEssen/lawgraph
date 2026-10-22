@@ -350,6 +350,19 @@ def test_the_debate_has_its_head_and_its_records(api: Api) -> None:
     failing = [c for c in records["cases"] if c["path"] != f"/zaken/{c['number']}"]
     assert not failing, show_items(failing)
 
+    # by importance: the verslag newest first, the bill before the motions on the agenda
+    ranked = api.get_json(f"/api/activities/{_key(DEBATE)}/records", sort="importance")
+    dates = [d["date"] or "" for d in ranked["documents"]]
+    assert dates == sorted(dates, reverse=True)
+    assert {d["key"] for d in ranked["documents"]} == {
+        d["key"] for d in records["documents"]
+    }
+    assert ranked["cases"][0]["number"] == "2025Z11344"
+    assert [m["sequence"] for m in ranked["motions"]] == [
+        23,
+        28,
+    ]  # none adopted: by number
+
     votes = api.get_json(f"/api/activities/{_key(VOTES)}/records")
     assert (votes["motions"], votes["documents"]) == ([], [])
     (decision,) = votes["decisions"]

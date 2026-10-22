@@ -202,6 +202,36 @@ def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
     assert past["dossiers"] == [] and past["dossier_total"] == 5
 
 
+def test_the_dossiers_of_a_committee_by_importance_open_first_then_most_led(
+    store: GraphStore,
+) -> None:
+    committee_graph(store)
+    detail = get_committee_detail(store, "b", sort="importance")
+    assert detail is not None
+    # d1 is on the agenda of two activities, the others of one; d4 is closed
+    assert _keys(detail["dossiers"]) == ["d1", "d2", "d5", "d3", "d4"]
+    assert detail["dossier_total"] == 5
+    opened = get_committee_detail(store, "b", status="open", sort="importance")
+    assert opened is not None and _keys(opened["dossiers"]) == ["d1", "d2", "d5", "d3"]
+
+
+def test_the_activities_of_a_committee_by_importance_held_then_planned_then_undated(
+    store: GraphStore,
+) -> None:
+    committee_graph(store)
+    page = get_committee_activities(store, "b", sort="importance", today="2023-06-01")
+    assert page is not None and page["total"] == 5
+    # held: the latest first; planned: the soonest first; the undated last
+    assert [row["key"] for row in page["items"]] == ["a5", "a6", "a1", "a2", "a3"]
+    later = get_committee_activities(store, "b", sort="importance", today="2030-01-01")
+    assert later is not None
+    assert [row["key"] for row in later["items"]] == ["a1", "a2", "a5", "a6", "a3"]
+    second = get_committee_activities(
+        store, "b", limit=2, offset=2, sort="importance", today="2023-06-01"
+    )
+    assert second is not None and [r["key"] for r in second["items"]] == ["a1", "a2"]
+
+
 def test_the_activities_of_a_committee_newest_first_with_their_fields(
     store: GraphStore,
 ) -> None:
@@ -943,6 +973,10 @@ def test_a_member_and_a_faction_list_the_dossiers_they_authored_in(
 
     assert get_actor_dossiers(store, "members/nobody") == {"total": 0, "items": []}
 
+    # by importance: the dossier with the most documents signed first
+    ranked = get_actor_dossiers(store, "members/m1", sort="importance")
+    assert [r["dossier"]["key"] for r in ranked["items"]] == ["38001", "38002"]
+
 
 def test_the_dossiers_of_an_actor_carry_distinct_roles_functions_and_capacities(
     store: GraphStore,
@@ -1124,9 +1158,11 @@ def test_a_page_of_a_factions_dossiers_is_read_once_per_version_of_its_tables(
     reads: list[tuple[str, int, int]] = []
     read = get_actor_dossiers
 
-    def counted(store_: Any, actor_id: str, *, limit: int, offset: int) -> Any:
+    def counted(
+        store_: Any, actor_id: str, *, limit: int, offset: int, sort: str
+    ) -> Any:
         reads.append((actor_id, limit, offset))
-        return read(store_, actor_id, limit=limit, offset=offset)
+        return read(store_, actor_id, limit=limit, offset=offset, sort=sort)
 
     monkeypatch.setattr(actors, "get_actor_dossiers", counted)
     first = client.get("/api/factions/vvd/dossiers").json()

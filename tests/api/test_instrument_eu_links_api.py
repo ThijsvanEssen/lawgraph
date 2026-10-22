@@ -171,7 +171,9 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
     _stub(monkeypatch, _DIRECTIVE)
     seen: dict[str, Any] = {}
 
-    def eu_links(store: Any, instrument_id: str, *, limit: int) -> EuLinksData:
+    def eu_links(
+        store: Any, instrument_id: str, *, limit: int, importance: bool
+    ) -> EuLinksData:
         seen["eu"] = (instrument_id, limit)
         row = {
             "instrument": _REGULATION,
@@ -189,7 +191,13 @@ def test_the_eu_links_route(monkeypatch: pytest.MonkeyPatch) -> None:
         return EuLinksData([], 0, [row], 7, [], 0, [mention], 3)
 
     def international(
-        store: Any, instrument_id: str, scope: Any, *, limit: int, cited: int | None
+        store: Any,
+        instrument_id: str,
+        scope: Any,
+        *,
+        limit: int,
+        cited: int | None,
+        importance: bool,
     ) -> InternationalLinksData:
         seen["international"] = (instrument_id, scope, limit)
         treaty = {

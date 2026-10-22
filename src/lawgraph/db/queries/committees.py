@@ -128,6 +128,7 @@ def get_committee_detail(
     status: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    sort: str = "opened",
 ) -> dict[str, Any] | None:
     """One committee with its members and a page of the dossiers it leads.
 
@@ -135,15 +136,17 @@ def get_committee_detail(
     members are those whose seat has no end date, or an end date still ahead; None
     when the data has no seat on it at all.
     *status* (``open`` or ``closed``) keeps the dossiers of that state, newest
-    first; ``dossier_total`` counts them all.
+    first, or with *sort* ``importance`` the open ones first, then those with the most
+    items the committee led (activities and cases), then the newest opened;
+    ``dossier_total`` counts them all.
     """
     committee = find_committee(store, slug)
     if committee is None:
         return None
     total, dossiers = cached(
         store,
-        ("committee-dossiers", committee["id"], status, limit, offset),
-        lambda: _led_dossiers(store, committee["id"], status, limit, offset),
+        ("committee-dossiers", committee["id"], status, limit, offset, sort),
+        lambda: _led_dossiers(store, committee["id"], status, limit, offset, sort),
         tables=(COLLECTION_EDGES, COLLECTION_DOSSIERS),
     )
     return {
@@ -165,15 +168,24 @@ _LED_DOSSIERS = """
 """
 
 
+# The orders of the dossiers of a committee: newest opened, or the open ones first, with the
+# most items led, then newest opened.
+_DOSSIER_ORDER = {
+    "opened": "opened_on DESC NULLS LAST, key ASC",
+    "importance": "is_closed ASC NULLS LAST, led DESC NULLS LAST, opened_on DESC NULLS LAST, key ASC",
+}
+
+
 def _led_dossiers(
     store: GraphStore,
     committee_id: str,
     status: str | None,
     limit: int,
     offset: int,
+    sort: str,
 ) -> tuple[int, list[dict[str, Any]]]:
     """The dossiers the activities and cases of a committee are about: how many, and a
-    page of them, newest opened first; kept per data version."""
+    page of them in the order of *sort*; kept per data version."""
     # A dossier is open until ``semantic tk-dossier-outcomes`` closed it (as
     # ``/dossiers?status=open``).
     by_status = {
@@ -182,12 +194,17 @@ def _led_dossiers(
     }.get(status, "AND d.closed IS NOT TRUE")
     rows = store.query(
         f"""
-        WITH matching AS (
-            SELECT {NODE.format(t="d")}, d.opened_on
-            FROM {COLLECTION_DOSSIERS} d
-            WHERE d.id IN ({_LED_DOSSIERS}) {by_status}
+        WITH led AS (
+            SELECT x.dossier_id, count(*)::int AS led
+            FROM ({_LED_DOSSIERS}) x GROUP BY x.dossier_id
+        ),
+        matching AS (
+            SELECT {NODE.format(t="d")}, d.opened_on, l.led,
+                   d.closed IS TRUE AS is_closed
+            FROM led l JOIN {COLLECTION_DOSSIERS} d ON d.id = l.dossier_id
+            WHERE true {by_status}
         )
-        {paged("matching", page_of("matching", "opened_on DESC NULLS LAST, key ASC"))}
+        {paged("matching", page_of("matching", _DOSSIER_ORDER[sort]))}
         """,
         {"committee_id": committee_id, "limit": limit, "offset": offset},
     )
@@ -200,9 +217,18 @@ def _led_dossiers(
 
 
 def get_committee_activities(
-    store: GraphStore, slug: str, *, limit: int = 100, offset: int = 0
+    store: GraphStore,
+    slug: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+    sort: str = "date",
+    today: str = "",
 ) -> dict[str, Any] | None:
     """A page of the activities a committee leads, newest first; None when unknown.
+
+    With *sort* ``importance`` those held (dated on or before *today*) come first, the
+    latest first, then those planned, the soonest first, then those without a date.
 
     Accepts the committee's ``slug`` or its ``key``. Returns ``{total, items}``.
     """
@@ -211,8 +237,8 @@ def get_committee_activities(
         return None
     return cached(
         store,
-        ("committee-activities", committee["id"], limit, offset),
-        lambda: _led_activities(store, committee["id"], limit, offset),
+        ("committee-activities", committee["id"], limit, offset, sort, today),
+        lambda: _led_activities(store, committee["id"], limit, offset, sort, today),
         tables=(COLLECTION_EDGES, COLLECTION_ACTIVITIES),
     )
 
@@ -227,15 +253,32 @@ _LED_ACTIVITIES = f"""
 """
 
 
+# The orders of the activities of a committee: the newest date first, or the held ones from
+# the latest, then the planned from the soonest, then the undated.
+_ACTIVITY_ORDER = {
+    "date": "date DESC NULLS LAST, id ASC",
+    "importance": (
+        "(date IS NULL) ASC NULLS LAST, (date > %(today)s) ASC NULLS LAST,"
+        " CASE WHEN date <= %(today)s THEN date END DESC NULLS LAST,"
+        " CASE WHEN date > %(today)s THEN date END ASC NULLS LAST, id ASC"
+    ),
+}
+
+
 def _led_activities(
-    store: GraphStore, committee_id: str, limit: int, offset: int
+    store: GraphStore,
+    committee_id: str,
+    limit: int,
+    offset: int,
+    sort: str,
+    today: str,
 ) -> dict[str, Any]:
-    """``{total, items}``: a page of the activities a committee leads, newest first; kept
-    per data version."""
+    """``{total, items}``: a page of the activities a committee leads, in the order of
+    *sort*; kept per data version."""
     rows = store.query(
         f"""
         WITH led AS ({_LED_ACTIVITIES}),
-        listed AS ({paged("led", page_of("led", "date DESC NULLS LAST, id ASC"))})
+        listed AS ({paged("led", page_of("led", _ACTIVITY_ORDER[sort]))})
         SELECT listed.total, a.id, json_build_object(
             'id', a.id,
             'key', a.key,
@@ -247,9 +290,14 @@ def _led_activities(
         ) AS item
         FROM listed
         LEFT JOIN {COLLECTION_ACTIVITIES} a ON a.id = listed.id
-        ORDER BY listed.date DESC NULLS LAST, listed.key ASC
+        ORDER BY listed.n
         """,
-        {"committee_id": committee_id, "limit": limit, "offset": offset},
+        {
+            "committee_id": committee_id,
+            "limit": limit,
+            "offset": offset,
+            "today": today,
+        },
     )
     total, items = 0, []
     for row in rows:

@@ -19,6 +19,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     ActiveFrom,
     ActiveTo,
+    ActorDossierSort,
     ListChamber,
     ListLimit,
     MemberListLimit,
@@ -275,7 +276,8 @@ def list_member_documents(
         "(``AUTHORED``), newest opened first. Each dossier carries the roles "
         "the member had there, the functions and capacities they signed in "
         "(``kamerlid``, ``bewindspersoon``, ``overig``) and the number of documents. "
-        "``total`` is the absolute count."
+        "``sort`` ``opened`` (default) is newest opened first; ``importance`` puts the "
+        "dossier with the most documents signed first. ``total`` is the absolute count."
     ),
     tags=["members"],
 )
@@ -284,9 +286,10 @@ def list_member_dossiers(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort: ActorDossierSort = "opened",
 ) -> ActorDossiersResponse:
     member = require_node(store, COLLECTION_MEMBERS, key, "Member")
-    return actor_dossiers(store, member["id"], limit, offset)
+    return actor_dossiers(store, member["id"], limit, offset, sort)
 
 
 @router.get(

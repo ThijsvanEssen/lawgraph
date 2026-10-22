@@ -29,7 +29,7 @@ def test_eight_threads_on_a_cache_of_one(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setattr(
         faction_routes,
         "actor_dossiers",
-        lambda store, actor, limit, offset: (actor, limit, offset),
+        lambda store, actor, limit, offset, sort: (actor, limit, offset),
     )
     monkeypatch.setattr(version_cache, "MAX_ENTRIES", 1)
     store: Any = _VersionedStore(

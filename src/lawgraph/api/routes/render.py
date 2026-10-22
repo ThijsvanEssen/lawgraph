@@ -31,6 +31,7 @@ with its title alone. Cacheable: an ETag of the API, the shell and the data vers
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Annotated, Any
 from urllib.parse import quote, unquote, urlencode
@@ -45,6 +46,7 @@ from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
 from lawgraph.api.seo.pages.home import home_page
 from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
+from lawgraph.api.seo.paint import PAINT_BUDGET
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import (
@@ -168,6 +170,9 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         page = source.build(row)
         page.image = source.image
         page.focus = node_id
+        # read only for a front end that paints it (its first-paint.js beside the shell)
+        if source.paint is not None and shell.shell().first_paint:
+            page.first_paint = _first_paint(store, source.paint, row)
         return page
     props: dict[str, Any] = (lookup.answer(store, node_id) or {}).get("props") or {}
     name = str(props.get("display_name") or "")
@@ -178,6 +183,19 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         index=bool(name) and not props.get("stub"),
         focus=node_id,
     )
+
+
+def _first_paint(
+    store: GraphStore,
+    paint: Callable[[GraphStore, dict[str, Any]], dict[str, Any] | None],
+    row: dict[str, Any],
+) -> dict[str, Any] | None:
+    """What the front end's first paint of the source of *row* reads (``api/seo/paint``),
+    within ``PAINT_BUDGET``; None past it: the page goes without."""
+    found: dict[str, Any] | None = None
+    with read_budget(PAINT_BUDGET, "The first paint of a page") as budget:
+        found = paint(store, row)
+    return None if budget.ran_out else found
 
 
 def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
@@ -263,10 +281,26 @@ def render_page(
         source = _source_page(store, pad, node_id)
         stamp = version_cache.current_version(store)
     if budget.ran_out:
-        return _html(
-            request, _title_page(store, node_id, canonical), 200, "no-store", None
-        )
+        return _late(request, _title_page(store, node_id, canonical))
     return _html(request, source, 200, CACHE_PAGE, stamp)
+
+
+# The seconds a crawler is asked to wait before it asks a page that was not ready again: the
+# reads go on in the background and are kept for the next request.
+LATE_RETRY_AFTER = "5"
+# The header Caddy passes such an answer by (``deploy/server/caddy/concordans.caddy``).
+LATE_HEADER = "X-Render-Late"
+
+
+def _late(request: Request, page: Page) -> Response:
+    """A page whose reads ran past ``RENDER_BUDGET``: 503 with ``Retry-After``, not 200. A
+    200 with a ``<main>`` without content is read as a page with nothing on it (a soft 404,
+    or indexed empty); a 503 is asked again and keeps what the search engine had. The body
+    is *page* (its title and node), so the app still opens for a visitor."""
+    response = _html(request, page, 503, "no-store", None)
+    response.headers["Retry-After"] = LATE_RETRY_AFTER
+    response.headers[LATE_HEADER] = "1"
+    return response
 
 
 # How long a page whose reads ran past ``RENDER_BUDGET`` may read the props of its node for

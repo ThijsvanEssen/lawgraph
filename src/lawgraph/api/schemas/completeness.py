@@ -67,7 +67,7 @@ COMPLETENESS = (
 )
 
 
-_COMPLETENESS: TypeAdapter[Completeness] = TypeAdapter(Completeness)
+COMPLETENESS_ADAPTER: TypeAdapter[Completeness] = TypeAdapter(Completeness)
 
 
 def completeness_dto(
@@ -86,7 +86,7 @@ def completeness_dto(
     ) or publication_completeness(props)
     if found is None and (part := references_part(references)) is not None:
         found = {Part.REFERENCES.value: part}
-    return _COMPLETENESS.validate_python(found) if found is not None else None
+    return COMPLETENESS_ADAPTER.validate_python(found) if found is not None else None
 
 
 def document_completeness(
@@ -102,10 +102,12 @@ def document_completeness(
     found = document_text_parts(props, labels, retrieval, today=dutch_today()) or {}
     if (own := completeness_dto(props, references=references)) is not None:
         found.update({part.value: state.model_dump() for part, state in own.items()})
-    return _COMPLETENESS.validate_python(found) if found else None
+    return COMPLETENESS_ADAPTER.validate_python(found) if found else None
 
 
 def dossier_completeness(props: dict[str, Any]) -> Completeness:
     """The ``completeness`` of a dossier with these *props*: its ``outcome``
     (``core.dossier_stages.outcome_part``)."""
-    return _COMPLETENESS.validate_python({Part.OUTCOME.value: outcome_part(props)})
+    return COMPLETENESS_ADAPTER.validate_python(
+        {Part.OUTCOME.value: outcome_part(props)}
+    )

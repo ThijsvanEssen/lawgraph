@@ -651,7 +651,7 @@ def _seed_explanations(store: GraphStore) -> None:
     store.bulk_insert_or_update_edges(edges)
 
 
-def _explanations(store: GraphStore, **page: int) -> dict[str, Any]:
+def _explanations(store: GraphStore, **page: Any) -> dict[str, Any]:
     page = {"limit": 100, "offset": 0, **page}
     return get_article_explanations(store, BWB, "5", **page)
 

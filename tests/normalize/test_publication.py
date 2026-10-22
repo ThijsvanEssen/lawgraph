@@ -72,11 +72,11 @@ def test_stb_nvt_text_extraction_uses_space_join_and_fallback_section() -> None:
 def test_bwb_id_extraction_uppercases_first_hit() -> None:
     several = "<r>see bwbr0001234 and BWBR0005678 and BWBV0001000</r>"
     assert _stb("stb-2015-1", several).props["bwb_id"] == "BWBR0001234"
-    assert "bwb_id" not in _stb("stb-2015-1", "<r>none</r>").props
+    assert _stb("stb-2015-1", "<r>none</r>").props["bwb_id"] is None
     assert _stb("stb-2015-1", '<r a="BWBV0001000"/>').props["bwb_id"] == "BWBV0001000"
     assert _stb("stb-2015-1", "<r>bwbr0001234</r>").props["bwb_id"] == "BWBR0001234"
     assert _stcrt("stcrt-2020-5", "<r>bwbr0001234</r>").props["bwb_id"] == "BWBR0001234"
-    assert "bwb_id" not in _stcrt("stcrt-2020-5", "<r/>").props
+    assert _stcrt("stcrt-2020-5", "<r/>").props["bwb_id"] is None
 
 
 def test_stcrt_parsing() -> None:

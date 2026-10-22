@@ -66,6 +66,7 @@ def patch_bwb_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         ("article_versions", article_versions),
         ("article_identities", article_identities),
         ("toestand_starts", lambda store, bwb_ids: {}),
+        ("instrument_dates", lambda store, keys: iter(())),
         ("update_abbreviations", lambda store, rows: 0),
         ("update_instrument_abbreviations", lambda store, rows: 0),
     ):

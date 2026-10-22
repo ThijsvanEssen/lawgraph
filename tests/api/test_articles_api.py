@@ -238,7 +238,7 @@ def test_an_explanation_of_a_document_without_dates_or_dossier_is_still_one() ->
 def test_explained_by_answers_a_page_with_its_total(monkeypatch) -> None:
     asked: list[tuple] = []
 
-    def fake(store, bwb_id, article_number, *, limit, offset):
+    def fake(store, bwb_id, article_number, *, limit, offset, importance):
         asked.append((bwb_id, article_number, limit, offset))
         return {"total": 41, "items": [_EXPLANATION_ROW]}
 

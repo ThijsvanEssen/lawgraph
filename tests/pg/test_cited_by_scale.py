@@ -2,7 +2,10 @@
 
 5,000 judgments of 60 KB are 300 MB: a query that reads the judgments of an article whole,
 or sorts them whole, is slow here as it would be on the full database (thousands of
-judgments per article, each with its text and paragraphs).
+judgments per article, each with its text and paragraphs). And a query that reads the edge
+of every citing judgment for its mentions is as slow cold as on prod (6:162 BW, 10,500
+edges: 25 s, 22 Oct): the plan reads the range of the article in the index of
+``lg_cited_by``, and the edges and judgments of the page alone.
 """
 
 from __future__ import annotations
@@ -10,9 +13,12 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from lawgraph.db import GraphStore
+import pytest
+
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.articles import get_article_cited_by
 from tests.fakes import assert_fast
+from tests.pg.plans import explain, plan_nodes, recorded
 
 JUDGMENTS = 5_000
 MENTIONS = 3
@@ -133,3 +139,39 @@ def test_a_much_cited_article_lists_its_passages_in_time(store: GraphStore) -> N
     rows = cited_by.rows
     assert cited_by.total == (JUDGMENTS // 3 + 1) * 1 and len(rows) == 10
     assert {r["judgment"]["props"]["court_code"] for r in rows} == {"HR"}
+
+
+@pytest.mark.parametrize("sort", ["date_desc", "citation_count"])
+def test_the_passages_are_counted_from_the_index_and_read_for_the_page_alone(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, sort: str
+) -> None:
+    """Every mention is counted, filtered and sorted from the range of the article in the
+    index of ``lg_cited_by``; an edge (its mentions, with their snippets) and a judgment are
+    read for a row of the page alone, never by the article's end of the edges."""
+    _seed(store)
+    store.vacuum_analyze()
+    version_cache.clear()
+    calls = recorded(store, monkeypatch, "_stream")
+    limit = 20
+    cited_by = get_article_cited_by(
+        store, ARTICLE, sort=sort, tiers=("hoge_raad", "rechtbank"), limit=limit
+    )
+    # every judgment but those of the gerechtshof (the second of COURTS)
+    assert cited_by.total == (JUDGMENTS - len(range(1, JUDGMENTS, 3))) * MENTIONS
+    ((statement, params, *_),) = [(c.statement, c.params) for c in calls]
+    plan = explain(store, statement, params, disable=("seqscan",), analyze=True)
+    scans = [n for n in plan_nodes(plan) if "Relation Name" in n]
+    assert {
+        (n["Node Type"], n.get("Index Name"))
+        for n in scans
+        if n["Relation Name"] == "lg_cited_by"
+    } == {("Index Only Scan", "lg_cited_by_article")}
+    for node in scans:
+        if node["Relation Name"] in ("edges", "judgments"):
+            assert node.get("Index Name") in ("edges_pkey", "judgments_pkey"), node
+            assert node["Actual Loops"] * node["Actual Rows"] <= limit, (
+                node["Relation Name"],
+                node.get("Index Name"),
+                node["Actual Loops"],
+                node["Actual Rows"],
+            )

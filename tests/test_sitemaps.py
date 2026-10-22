@@ -75,7 +75,9 @@ def test_a_day_before_1970_is_no_lastmod() -> None:
     # a search engine refuses a lastmod before 1970 (a law in force since 1821)
     assert sitemaps.day("1821-08-01", "2026-10-09") is None
     assert sitemaps.day("1969-12-31", "2026-10-09") is None
-    assert sitemaps.day("1970-01-01", "2026-10-09") == "1970-01-01"
+    # 1970-01-01 is the placeholder of a source that knows no day
+    assert sitemaps.day("1970-01-01", "2026-10-09") is None
+    assert sitemaps.day("1970-01-02", "2026-10-09") == "1970-01-02"
     rows = [
         {"id": "dossiers/30000", "props": {"label": "30000"}, "lastmod": "1838-01-26"},
         {"id": "dossiers/30001", "props": {"label": "30001"}, "lastmod": "2027-01-01"},

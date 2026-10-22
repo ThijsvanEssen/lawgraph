@@ -42,6 +42,15 @@ concordans.nl {
 				dial_timeout 1s
 				response_header_timeout 2s
 			}
+			# a page the API answered late (503 with Retry-After and its title as body): as
+			# it is, so a crawler asks again instead of reading an empty 200
+			@late {
+				status 503
+				header X-Render-Late 1
+			}
+			handle_response @late {
+				copy_response
+			}
 			# the API slow or down: the static shell, so the site stays up
 			@down status 502 503 504
 			handle_response @down {
