@@ -15,9 +15,10 @@ def test_the_tier_filters_of_the_api_are_the_tiers() -> None:
 
     for route in (articles.get_article_cited_by_passages, judgments.list_judgments):
         hint = typing.get_type_hints(route, include_extras=True)["tier"]
-        enum = next(
+        chosen = next(
             a for a in typing.get_args(typing.get_args(hint)[0]) if a is not type(None)
         )
+        (enum,) = typing.get_args(chosen)  # repeated: any of several
         assert [member.value for member in enum] == list(TIERS), route.__name__
 
 

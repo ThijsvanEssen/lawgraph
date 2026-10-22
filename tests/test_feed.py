@@ -290,13 +290,15 @@ def test_a_page_is_an_atom_feed() -> None:
     root = ElementTree.fromstring(body)
     ns = {"a": "http://www.w3.org/2005/Atom"}
     assert present(root.find("a:title", ns)).text == "Concordans: stemmingen"
-    assert present(root.find("a:updated", ns)).text == "2026-05-12T00:00:00Z"
+    # no writing of the events known: the start of the newest day, in Dutch time
+    assert present(root.find("a:updated", ns)).text == "2026-05-12T00:00:00+02:00"
     links = {link.get("rel"): link.get("href") for link in root.findall("a:link", ns)}
     assert present(links["next"]).endswith("cursor=abc")
     assert links["alternate"] == "https://site/actueel?soort=stemming"
     entry = root.find("a:entry", ns)
     assert entry is not None
     assert present(entry.find("a:title", ns)).text == "Motie van het lid Bakker"
+    assert present(entry.find("a:updated", ns)).text == "2026-05-12T00:00:00+02:00"
     entry_links = {
         link.get("rel"): link.get("href") for link in entry.findall("a:link", ns)
     }
@@ -305,6 +307,23 @@ def test_a_page_is_an_atom_feed() -> None:
     assert (
         present(entry.find("a:summary", ns)).text == "Verworpen.\n37001-VII Begroting"
     )
+
+
+def test_the_feed_is_updated_when_its_events_were_written() -> None:
+    page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)])
+    written = dt.datetime(2026, 10, 21, 5, 12, 9, 431, tzinfo=dt.UTC)
+    body = atom_feed(
+        page,
+        title="Concordans",
+        self_url="http://x/api/feed.atom",
+        next_url=None,
+        page_url="https://site/actueel",
+        site_url="https://site",
+        updated=written,
+    )
+    root = ElementTree.fromstring(body)
+    updated = root.find("{http://www.w3.org/2005/Atom}updated")
+    assert present(updated).text == "2026-10-21T05:12:09+00:00"
 
 
 def test_the_feed_title_and_page_say_the_filters() -> None:

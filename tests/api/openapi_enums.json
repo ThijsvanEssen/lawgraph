@@ -1625,12 +1625,17 @@
   "bewindspersoon",
   "overig"
  ],
+ "/components/schemas/ValidityState": [
+  "in_force",
+  "expired",
+  "not_in_force_yet"
+ ],
  "/components/schemas/VersionPartChangeDTO/properties/change": [
   "added",
   "removed",
   "changed"
  ],
- "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/7/schema": [
+ "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/8/schema": [
   "date_desc",
   "citation_count"
  ],

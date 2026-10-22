@@ -342,7 +342,7 @@ def test_the_judgment_list_filters_by_area_of_law_and_carries_facets(monkeypatch
     ).json()
 
     assert asked[0][0] == JudgmentFilters(
-        tier="andere_instantie",
+        tiers=("andere_instantie",),
         court_kind="ambtenarengerecht",
         subject="Strafrecht",
         subject_area="Strafrecht",

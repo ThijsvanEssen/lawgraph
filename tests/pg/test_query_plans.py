@@ -90,6 +90,7 @@ URLS = [
     "/api/judgments?sort=citation_count",
     "/api/judgments?court=HR",
     "/api/judgments?tier=hoge_raad&from=2000-01-01",
+    "/api/judgments?tier=hoge_raad&tier=raad_van_state",
     "/api/judgments?subject=Strafrecht",
     "/api/judgments?subject_area=Strafrecht",
     "/api/judgments?procedure=Cassatie",
@@ -133,6 +134,7 @@ URLS = [
     f"/api/articles/{BWB}/1",
     f"/api/articles/{BWB}/1/cited-by",
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
+    f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad&tier=rechtbank&year=2020",
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/explained-by",
     # the passages, with the names of the dossiers (once per data version of them)

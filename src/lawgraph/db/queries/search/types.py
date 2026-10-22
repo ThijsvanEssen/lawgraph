@@ -33,6 +33,7 @@ from lawgraph.db.queries.search.text import (
     text_query,
     two_phase_search,
 )
+from lawgraph.db.queries.validity import article_end_sql
 from lawgraph.db.schema import instrument_date_in_force, search_column, search_words
 
 # ── articles ─────────────────────────────────────────────────────────────────
@@ -76,7 +77,10 @@ _ARTICLE_HIT = f"""
 },
             'citation_title', {_INSTRUMENT_PROPS} -> 'citation_title',
             'short_title', {_INSTRUMENT_PROPS} -> 'short_title',
-            'instrument_abbreviation', r.props -> 'instrument_abbreviation'
+            'instrument_abbreviation', r.props -> 'instrument_abbreviation',
+            'expired_on', least(
+                lg_str({_INSTRUMENT_PROPS} -> 'date_expired'), {article_end_sql("r")}
+            )
         )
     )
 """
@@ -183,7 +187,8 @@ _INSTRUMENT_HIT = f"""
             'kind', r.props -> 'kind',
             'date_published', r.props -> 'date_published',
             'date_in_force', r.props -> 'date_in_force',
-            'version_date_in_force', r.props -> 'version_date_in_force'
+            'version_date_in_force', r.props -> 'version_date_in_force',
+            'expired_on', lg_str(r.props -> 'date_expired')
         )
     )
 """
