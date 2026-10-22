@@ -264,7 +264,7 @@ def _variant_owner(ids: set[str], titles: Mapping[str, str]) -> str | None:
 
 
 def _title_key(title: str) -> str:
-    return " ".join(title.casefold().split())
+    return collapse_ws(title).casefold()
 
 
 def _book_aliases(family: str, book: str) -> list[str]:
