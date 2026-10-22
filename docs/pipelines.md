@@ -1484,7 +1484,8 @@ dossier (its metadata names none: most laws of 2009 and before) is not found thi
 `toelichting`, in older formats), `title` = the `citeertitel`, else the official title, else
 the `DC.title` of the metadata, else its `intitule` (`Wet van 8 juli 2026, houdende …`), else
 the first `titel` that is not the masthead of the series (`Staatsblad`), `bwb_id` = the regulation retrieve found it
-for, else the first BWB id in the XML), key
+for when its stored toestand names this publication, read from its XML as retrieve reads it (not
+from its `meta.staatsblad_ref`), else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
 
