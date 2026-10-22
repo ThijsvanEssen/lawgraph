@@ -21,7 +21,9 @@ RESOLVE_MAX_LENGTH = 200
     summary="Resolve a citation, identifier or law name to one node",
     description=(
         "Reads `q` as a citation (`art. 6:162 BW`, `artikel 287 Sr`, `Sr 287`), an "
-        "identifier (ECLI, BWB id, CELEX id), a Kamerstuk (`36327`, `36327-3`, "
+        "identifier (ECLI, BWB id, CELEX id; an LJN, `LJN AU3313` or `AU3313`, as the "
+        "judgment whose ECLI ends in it, and as words when none does), a Kamerstuk "
+        "(`36327`, `36327-3`, "
         "`Kamerstukken II 2020/21, 36327, nr. 3`) or the name of a law, and answers with "
         "the one best match (`id`, `key`, `collection`) and up to five alternatives. "
         "A citation that leaves the book of the Burgerlijk Wetboek open (`art. 3 BW`) "

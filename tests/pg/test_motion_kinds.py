@@ -208,3 +208,43 @@ def test_a_run_since_reads_the_new_and_a_full_run_clears_what_no_longer_holds(
     assert TKMotionKindsSemanticPipeline(store).run().updated == 1
     paper = client.get("/api/documents/kst_37020_xvi_61").json()
     assert paper["motion_kind"] is None
+
+
+def test_the_name_of_a_kind_finds_its_motions_and_the_votes_on_them(
+    client: TestClient, store: GraphStore
+) -> None:
+    """ "wantrouwen" and "motie van wantrouwen" find the motion of no confidence and the vote
+    on it, whose subject says "het opzeggen van het vertrouwen", in full and while typing;
+    "afkeuring" the motion of censure before the near miss that only holds the word; and
+    ``motion_kind`` keeps a search to those motions."""
+    TKMotionKindsSemanticPipeline(store).run()
+
+    def found(q: str, mode: str, **params: str) -> dict[str, list[str]]:
+        answer = client.get(
+            "/api/search",
+            params={
+                "q": q,
+                "types": ["documents", "decisions"],
+                "mode": mode,
+                **params,
+            },
+        )
+        assert_status(answer, 200)
+        results = answer.json()["results"]
+        return {t: [h["key"] for h in hits] for t, hits in results.items()}
+
+    for mode in ("full", "live"):
+        for q in ("wantrouwen", "motie van wantrouwen"):
+            assert found(q, mode) == {
+                "documents": ["kst_37020_xvi_61"],
+                "decisions": ["d_61"],
+            }, (q, mode)
+        assert found("afkeuring", mode)["documents"][0] == "kst_37020_xvi_60", mode
+        assert found("motie", mode, motion_kind="no_confidence") == {
+            "documents": ["kst_37020_xvi_61"],
+            "decisions": ["d_61"],
+        }, mode
+    assert_status(
+        client.get("/api/search", params={"q": "motie", "motion_kind": "afkeuring"}),
+        422,
+    )

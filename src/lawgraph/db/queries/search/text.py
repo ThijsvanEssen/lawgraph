@@ -79,11 +79,13 @@ def two_phase_search(
     text: Query,
     limit: int,
     precise_score: float | None = SCORE_IDENTIFIER,
+    exact: bool = False,
 ) -> list[Hit]:
     """Run a precise lookup then a full-text fallback, deduplicating by id.
 
     What the precise lookup finds is what the query names, so it scores as an identifier
-    unless *precise_score* is None: then ``score_hit`` scores it like any hit.
+    unless *precise_score* is None: then ``score_hit`` scores it like any hit. With *exact*
+    it is the thing the query names (``ranking.exact_hit``).
     """
     seen: set[str] = set()
     results: list[Hit] = []
@@ -91,9 +93,8 @@ def two_phase_search(
         rid = row.get("id")
         if rid and rid not in seen:
             seen.add(rid)
-            results.append(
-                row if precise_score is None else {**row, "score": precise_score}
-            )
+            found = row if precise_score is None else {**row, "score": precise_score}
+            results.append({**found, "exact": True} if exact else found)
     if len(results) < limit:
         for row in store.query(*text, indexes_only=True):
             if row.get("id") not in seen:
@@ -116,9 +117,11 @@ def text_query(
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
     named: set[str] | None = None,
+    any_word: bool = False,
 ) -> Query:
-    """The hits of *kind* that hold every token in its fields, the best ranked first (the
-    key settles ties); *live* as ``live_query``. *termed*: per token the rows that have
+    """The hits of *kind* that hold every token in its fields (with *any_word*: one at
+    least, ranked by those they hold), the best ranked first (the key settles ties); *live*
+    as ``live_query``. *termed*: per token the rows that have
     it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher, those
     it *named* in a tier above (``tier_sql``); *laws*:
     per token the laws whose articles it matches (``abbreviated_laws``). One word
@@ -130,11 +133,21 @@ def text_query(
     common word it would scan the whole table instead of using the indexes."""
     if live:
         return live_query(
-            kind, hit, tokens, limit, joins, where, params, termed, laws, named
+            kind,
+            hit,
+            tokens,
+            limit,
+            joins,
+            where,
+            params,
+            termed,
+            laws,
+            named,
+            any_word,
         )
     table = kind.table
     clause, clause_params = build_search_clause(
-        table, tokens, kind.fields, termed=termed, laws=laws
+        table, tokens, kind.fields, termed=termed, laws=laws, any_word=any_word
     )
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     bm25 = bm25_sql(
@@ -244,9 +257,10 @@ def live_query(
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
     named: set[str] | None = None,
+    any_word: bool = False,
 ) -> Query:
     """``text_query`` while typing: no word counted (the df of BM25) and none ranked.
-    Every token is a word of the fields of *kind*, a whole value of one, or, from three
+    Every token (with *any_word*: one at least) is a word of the fields of *kind*, a whole value of one, or, from three
     characters, the start of a word of a name or title (``stik``: Stikstofwet); of the first
     ``LIVE_CANDIDATES`` found, in the tiers of ``score_hit``: those the query *named* (an
     article its case law calls so), those whose name or title starts with the query, those
@@ -254,7 +268,9 @@ def live_query(
     *termed*, then those first in its ``live_order``. The rows of a term and those of a
     title are candidates whatever the first found."""
     table = kind.table
-    clause, clause_params = live_clause(table, tokens, kind.fields, termed, laws)
+    clause, clause_params = live_clause(
+        table, tokens, kind.fields, termed, laws, any_word
+    )
     starts = " OR ".join(
         f"r.{column} LIKE {_LIVE_START} OR r.{column} LIKE '%%' || chr(31) || {_LIVE_START}"
         for column in (

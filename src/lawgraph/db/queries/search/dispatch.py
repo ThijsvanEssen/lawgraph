@@ -11,14 +11,19 @@ from concurrent.futures import ThreadPoolExecutor
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import side_by_side
-from lawgraph.db.queries.search.clause import NO_PERIOD, Period, tokenize_search_query
-from lawgraph.db.queries.search.parser import notation
+from lawgraph.db.queries.search.clause import (
+    NO_PERIOD,
+    Period,
+    QueryWords,
+    query_words,
+)
+from lawgraph.db.queries.search.parser import kept_notation_parser, notation
 from lawgraph.db.queries.search.ranking import rank_hits
 from lawgraph.db.queries.search.signers import Signed, signed_for
 from lawgraph.db.queries.search.spec import Asked, Hit
 from lawgraph.db.queries.search.types import SEARCHES
 from lawgraph.db.store import read_budget
-from lawgraph.db.version_cache import stale_wait
+from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 Searches = dict[str, Callable[[], list[Hit]]]
 
@@ -37,13 +42,56 @@ LIVE_STALE_WAIT = 0.05
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
 
 
-def signed_of(store: GraphStore, q: str, types: list[str]) -> Signed | None:
-    """The factions *q* names (``signers.signed_for``), when a type of *types* is kept to
-    the hits signed for them: what a search of *q* filters on, and its answer says."""
-    tokens = tokenize_search_query(q)
+def signed_of(
+    store: GraphStore, q: str, types: list[str], words: QueryWords | None = None
+) -> Signed | None:
+    """The factions *q* names (``signers.signed_for``; of its *words*,
+    ``clause.query_words``), when a type of *types* is kept to the hits signed for them:
+    what a search of *q* filters on, and its answer says."""
+    tokens = (words or query_words(store, q)).words
     if not tokens or not any(t in SEARCHES and SEARCHES[t].signatures for t in types):
         return None
     return signed_for(store, tokens)
+
+
+def _asked(
+    store: GraphStore,
+    q: str,
+    types: list[str],
+    *,
+    kinds: list[str] | None,
+    limit: int,
+    period: Period,
+    signed: Signed | None,
+    words: QueryWords | None,
+    any_word: bool,
+    motion_kinds: list[str] | None,
+    wait: float = STALE_WAIT,
+) -> Asked | None:
+    """The search of *q* in *types*, of its *words* (``clause.query_words``); None when it
+    has none, or when a citation is asked for by *any_word* (one of its parts is no word
+    of what it cites). *wait*: how long the parser of citations is waited for."""
+    words = words or query_words(store, q)
+    if not words.words or (any_word and _cites(store, q, wait)):
+        return None
+    return Asked(
+        store,
+        q,
+        words.words,
+        notation(store, q, types, wait),
+        kinds,
+        limit,
+        period,
+        signed or signed_of(store, q, types, words),
+        any_word,
+        motion_kinds,
+    )
+
+
+def _cites(store: GraphStore, q: str, wait: float) -> bool:
+    """Whether *q* is a citation (``core.notation``): an article, an ECLI, a Kamerstuk."""
+    parser = kept_notation_parser(store, wait)
+    return parser is not None and parser.parse(q) is not None
 
 
 def _searches(asked: Asked, types: list[str], live: bool) -> Searches:
@@ -69,30 +117,35 @@ def search_all(
     limit: int = 20,
     period: Period = NO_PERIOD,
     signed: Signed | None = None,
+    words: QueryWords | None = None,
+    any_word: bool = False,
+    motion_kinds: list[str] | None = None,
 ) -> dict[str, list[Hit]]:
     """Full-text search across requested entity types (of *period*: ``Period``).
 
     Returns a dict keyed by type name with a list of hit dicts each containing
     {id, key, collection, type, display_name, snippet, extra, score}, best score first.
 
-    Every token must appear — AND semantics: in the searched fields of the indexed types,
-    in the names of members and factions; of the papers and the votes but those that name
-    a faction (*signed*, ``signed_of``; found here without it), whose hits are signed for
-    it.
+    Every word of *q* but its stop words (*words*, ``clause.query_words``) must appear, or
+    with *any_word* one of them at least: in the searched fields of the indexed types, in
+    the names of members and factions; of the papers and the votes but those that name a
+    faction (*signed*, ``signed_of``; found here without it), whose hits are signed for
+    it; of these two only the motions of *motion_kinds* when it is given.
     """
-    tokens = tokenize_search_query(q)
-    if not tokens:
-        return {t: [] for t in types}
-    asked = Asked(
+    asked = _asked(
         store,
         q,
-        tokens,
-        notation(store, q, types),
-        kinds,
-        limit,
-        period,
-        signed or signed_of(store, q, types),
+        types,
+        kinds=kinds,
+        limit=limit,
+        period=period,
+        signed=signed,
+        words=words,
+        any_word=any_word,
+        motion_kinds=motion_kinds,
     )
+    if asked is None:
+        return {t: [] for t in types}
     found = _heavy_first(_searches(asked, types, live=False))
     return {t: rank_hits(q, hits) for t, hits in found.items()}
 
@@ -106,25 +159,29 @@ def search_full(
     limit: int = 20,
     period: Period = NO_PERIOD,
     signed: Signed | None = None,
+    words: QueryWords | None = None,
+    any_word: bool = False,
+    motion_kinds: list[str] | None = None,
 ) -> tuple[dict[str, list[Hit]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
     cited first, else the newest that hold the words; the other types by the start of a
     word of a name, without a rank).
     Returns the hits per type and the types that fell back."""
-    tokens = tokenize_search_query(q)
-    if not tokens:
-        return {t: [] for t in types}, set()
-    asked = Asked(
+    asked = _asked(
         store,
         q,
-        tokens,
-        notation(store, q, types),
-        kinds,
-        limit,
-        period,
-        signed or signed_of(store, q, types),
+        types,
+        kinds=kinds,
+        limit=limit,
+        period=period,
+        signed=signed,
+        words=words,
+        any_word=any_word,
+        motion_kinds=motion_kinds,
     )
+    if asked is None:
+        return {t: [] for t in types}, set()
     full = _searches(asked, types, live=False)
     live = _searches(asked, types, live=True)
     found = _heavy_first(
@@ -168,6 +225,9 @@ def search_live(
     limit: int = 10,
     period: Period = NO_PERIOD,
     signed: Signed | None = None,
+    words: QueryWords | None = None,
+    any_word: bool = False,
+    motion_kinds: list[str] | None = None,
 ) -> tuple[dict[str, list[Hit]], set[str]]:
     """``search_all`` while typing: all types within ``LIVE_BUDGET``, nothing ranked by
     its words (``text.live_query``), and the judgments without their summaries: an ECLI,
@@ -175,20 +235,22 @@ def search_live(
     number) holds every word, the most cited first; when none does (a subject:
     ``onrechtmatige daad``), the newest that hold the words. Returns the hits per type and
     the types cut off at their budget."""
-    tokens = tokenize_search_query(q)
-    if not tokens:
-        return {t: [] for t in types}, set()
     with stale_wait(LIVE_STALE_WAIT):
-        asked = Asked(
+        asked = _asked(
             store,
             q,
-            tokens,
-            notation(store, q, types, LIVE_STALE_WAIT),
-            kinds,
-            limit,
-            period,
-            signed or signed_of(store, q, types),
+            types,
+            kinds=kinds,
+            limit=limit,
+            period=period,
+            signed=signed,
+            words=words,
+            any_word=any_word,
+            motion_kinds=motion_kinds,
+            wait=LIVE_STALE_WAIT,
         )
+        if asked is None:
+            return {t: [] for t in types}, set()
         searches = _searches(asked, types, live=True)
         # one budget for them all: a type that waited for a thread (``side_by_side`` runs
         # those for which none is free one after another) has what is left of it

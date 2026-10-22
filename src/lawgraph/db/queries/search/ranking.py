@@ -60,7 +60,9 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     """The rank tier of *hit* for *query*: identifier, whole name, name prefix, name part.
 
     Pure: compares the query with the key, the identifiers and the names the hit carries
-    (its display name, citation title, heading and aliases). A query that is part of the
+    (its display name, citation title, heading and aliases); of a member also its name
+    without the names or initials before it ("Rutte": Mark Rutte, a whole name, above the
+    P.J. Rutten that holds it). A query that is part of the
     title of a division an article stands in counts as part of its name; the name of its
     law only with its number ("art 2 klimaatfonds"): every article of the Wet
     conflictenrecht onrechtmatige daad would hold "onrechtmatige daad", where art. 6:162 BW
@@ -82,7 +84,7 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
         *(folded(name) for name in extra.get("names") or []),
     ]
     names = [n for n in names if n] + _folded_list(extra, _NAME_LIST_FIELDS)
-    if wanted in names:
+    if wanted in names or _surname_of(wanted, hit):
         return SCORE_TITLE
     if any(n.startswith(wanted) for n in names):
         return SCORE_PREFIX
@@ -105,6 +107,55 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     if any(all(w in n for w in words) for n in own + context if n):
         return SCORE_CONTAINS
     return SCORE_WORDS
+
+
+def _surname_of(wanted: str, hit: Mapping[str, Any]) -> bool:
+    """Whether *wanted* (folded) is the name of the member *hit* without the names or
+    initials before it: "rutte" of Mark Rutte, not of P.J. Rutten."""
+    if hit.get("collection") != "members":
+        return False
+    return folded(hit.get("display_name")).endswith(" " + wanted)
+
+
+# What names a hit exactly, per collection: the fields of ``extra`` and its display name
+# (``display_name``) that are its identifiers or its own whole name. Not the heading of an
+# article (many have "Definities"), nor the title of a paper or a dossier (one title is that
+# of many papers), nor the dossier of a paper: what holds the name is no hit that is it.
+_EXACT_FIELDS: dict[str, tuple[str, ...]] = {
+    "instruments": (
+        "bwb_id",
+        "celex",
+        "short_title",
+        "citation_title",
+        "display_name",
+        "aliases",
+    ),
+    "judgments": ("ecli", "appno", "names"),
+    "dossiers": ("number",),
+    "documents": ("external_id",),
+    "members": ("display_name",),
+    "factions": ("abbreviation", "display_name"),
+    "committees": ("abbreviation", "display_name"),
+    "cabinets": ("display_name",),
+    "commitments": ("number",),
+}
+
+
+def exact_hit(query: str, hit: Mapping[str, Any]) -> bool:
+    """Whether *hit* is the one thing *query* names: found by what identifies it (an
+    article by its citation of a law, a judgment by its ECLI, LJN or name, a law by its
+    abbreviation: ``exact`` set by its search), or *query* is one of its identifiers or its
+    own whole name (``_EXACT_FIELDS``). An article is exact only by its citation."""
+    if hit.get("exact"):
+        return True
+    wanted = folded(query)
+    extra = hit.get("extra") or {}
+    for field in _EXACT_FIELDS.get(str(hit.get("collection")), ()):
+        value = hit.get(field) if field == "display_name" else extra.get(field)
+        values = value if isinstance(value, list) else [value]
+        if wanted and wanted in {folded(v) for v in values if isinstance(v, str)}:
+            return True
+    return False
 
 
 def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:

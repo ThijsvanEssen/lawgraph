@@ -23,13 +23,14 @@ from lawgraph.core.citations import (
     parse_article_numbers,
 )
 from lawgraph.core.code_families import CODE_FAMILIES, family_named, is_code_family
-from lawgraph.core.ecli import is_ecli
+from lawgraph.core.ecli import is_ecli, ljn_cited
 from lawgraph.core.identifiers import COMMITMENT_NUMBER, is_bwb_id, parse_celex
 from lawgraph.core.publications import SERIES, koop_id
 from lawgraph.core.xml import collapse_ws
 
 NotationKind = Literal[
     "ecli",
+    "ljn",
     "bwb",
     "celex",
     "dossier",
@@ -111,6 +112,8 @@ class Notation:
     """A recognised notation.
 
     * ``ecli``, ``bwb``, ``celex``: *identifier* (upper case).
+    * ``ljn``: the LJN of a decision published before 2013 (``AU3313``), the number of its
+      ECLI (``ECLI:NL:HR:2005:AU3313``).
     * ``publication``: *identifier* of a publication in the Staatsblad, the Staatscourant
       or the Tractatenblad (``stb-2026-94``, ``stcrt-2026-12345``, ``trb-2018-201``).
     * ``dossier``: *dossier* number and its *suffix* (``29684``, ``I``), or ``None``.
@@ -211,6 +214,8 @@ class NotationParser:
             return None
         if is_ecli(text):
             return Notation(kind="ecli", identifier=text.upper())
+        if ljn := ljn_cited(text):
+            return Notation(kind="ljn", identifier=ljn)
         if is_bwb_id(text):
             return Notation(kind="bwb", identifier=text.upper())
         if parse_celex(text):

@@ -8,6 +8,8 @@ from typing import Any
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
+from lawgraph.core.motion_kinds import kinds_named
+from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
@@ -16,6 +18,7 @@ from lawgraph.db.queries.search.clause import (
     Query,
     Termed,
     abbreviated_laws,
+    joined,
     legislated_dossiers,
     termed_articles,
 )
@@ -127,6 +130,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         termed=termed.ids if termed else None,
         laws=laws,
         named=termed.named if termed else None,
+        any_word=asked.any_word,
     )
     if notation is None or notation.kind != "article":
         hits = list(store.query(*text, indexes_only=True))[:limit]
@@ -158,7 +162,9 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
                 **period.params(),
             },
         )
-    return _with_terms(two_phase_search(store, precise, text, limit), asked, termed)
+    # an article of a law the citation names is the one it names
+    found = two_phase_search(store, precise, text, limit, exact=bool(keys))
+    return _with_terms(found, asked, termed)
 
 
 # ── instruments ──────────────────────────────────────────────────────────────
@@ -213,8 +219,10 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
         where=period.where(kind.period_date),
         params=period.params(),
         live=live,
+        any_word=asked.any_word,
     )
-    return two_phase_search(store, precise, text, limit, precise_score=None)
+    # a law whose abbreviation or short title is the query is the one it names
+    return two_phase_search(store, precise, text, limit, precise_score=None, exact=True)
 
 
 # ── judgments ────────────────────────────────────────────────────────────────
@@ -253,12 +261,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     those that name a person it is. While typing: ``_judgments_while_typing``."""
     if live:
         return _judgments_while_typing(kind, asked)
-    store, tokens, notation, limit = (
-        asked.store,
-        asked.tokens,
-        asked.notation,
-        asked.limit,
-    )
+    store, tokens, limit = asked.store, asked.tokens, asked.limit
     period, q = asked.period, asked.q
     text = text_query(
         kind,
@@ -268,18 +271,11 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         limit,
         where=period.where(kind.period_date),
         params=period.params(),
+        any_word=asked.any_word,
     )
-    if notation is not None and notation.kind == "ecli":
-        ecli: Query = (
-            f"""
-            SELECT {_ECLI_HIT} FROM judgments r
-            WHERE r.ecli = %(ecli)s {period.where(kind.period_date)}
-            ORDER BY r.key
-            LIMIT %(limit)s
-            """,
-            {"ecli": notation.identifier, "limit": limit, **period.params()},
-        )
-        return two_phase_search(store, ecli, text, limit)
+    identified = _identified_judgments(kind, asked)
+    if identified is not None:
+        return two_phase_search(store, identified, text, limit, exact=True)
 
     # The query may be the name of a judgment ("Urgenda", "Lindenbaum/Cohen"): those first,
     # the latest decision first (of one case: the highest court), a translation after the
@@ -302,7 +298,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         """,
         {"name": q.strip(), "limit": limit, **period.params()},
     )
-    found = two_phase_search(store, name, text, limit)
+    found = two_phase_search(store, name, text, limit, exact=True)
     persons = judgments_by_person(
         store, tokens, limit, period, kind.period_date, typing=False
     )
@@ -314,9 +310,9 @@ def _judgments_while_typing(kind: SearchType, asked: Asked) -> list[Hit]:
     person it is (``judgments_by_person``, the last word by its start); when none, the
     newest that hold its words."""
     named = _judgments_named(kind, asked)
-    notation, q = asked.notation, asked.q
-    if notation is not None and notation.kind == "ecli":
+    if named and named[0].get("exact") or _is_ecli(asked):
         return named
+    q = asked.q
     persons = (
         judgments_by_person(
             asked.store,
@@ -351,41 +347,71 @@ def _judgments_with_words(kind: SearchType, asked: Asked) -> list[Hit]:
                 where="AND r.stub IS NOT TRUE AND r.same_as IS NULL"
                 + period.where(kind.period_date),
                 params=period.params(),
+                any_word=asked.any_word,
             ),
             indexes_only=True,
         )
     )
 
 
+# A judgment by the LJN that is the number of its ECLI (``core.ecli.LJN_ECLI``): the end of
+# the ECLI, on the trigrams of its column of prefixes.
+_BY_LJN = f"r.{search_column('ecli', 'prefix')} LIKE '%%:' || %(ljn)s"
+
+
+def _identified_judgments(kind: SearchType, asked: Asked) -> Query | None:
+    """The judgment the query identifies, an ECLI or an LJN (``LJN AU3313``: the judgment
+    whose ECLI ends in it, ``ECLI:NL:HR:2005:AU3313``); None for a query that is neither."""
+    notation, period = asked.notation, asked.period
+    if notation is None or notation.kind not in ("ecli", "ljn"):
+        return None
+    where = "r.ecli = %(ecli)s" if notation.kind == "ecli" else _BY_LJN
+    return (
+        f"""
+        SELECT {_ECLI_HIT} FROM judgments r
+        WHERE {where} {period.where(kind.period_date)}
+        ORDER BY r.key
+        LIMIT %(limit)s
+        """,
+        {
+            "ecli": notation.identifier,
+            "ljn": notation.identifier,
+            "limit": asked.limit,
+            **period.params(),
+        },
+    )
+
+
+def _is_ecli(asked: Asked) -> bool:
+    """Whether the query is an ECLI: what no judgment has, none has (an LJN of none may be
+    words: ``IB2001``)."""
+    return asked.notation is not None and asked.notation.kind == "ecli"
+
+
 def _judgments_named(kind: SearchType, asked: Asked) -> list[Hit]:
     """The judgments a typed query names, without ranking a summary: an ECLI; a judgment
     whose name holds the query (``Urgenda``, ``Lindenbaum``); then those whose display name
     holds every word of three characters or more, the most cited first."""
-    store, notation, limit, period = (
-        asked.store,
-        asked.notation,
-        asked.limit,
-        asked.period,
-    )
+    store, limit, period = asked.store, asked.limit, asked.period
     if len(asked.q.strip()) < LIVE_MIN_JUDGMENT:
         return []
-    if notation is not None and notation.kind == "ecli":
-        return list(
-            store.query(
-                f"SELECT {_ECLI_HIT} FROM judgments r WHERE r.ecli = %(ecli)s"
-                f"{period.where(kind.period_date)} ORDER BY r.key LIMIT %(limit)s",
-                {"ecli": notation.identifier, "limit": limit, **period.params()},
-            )
-        )
+    identified = _identified_judgments(kind, asked)
+    if identified is not None:
+        known = [{**hit, "exact": True} for hit in store.query(*identified)]
+        if known or _is_ecli(asked):
+            return known
     words = [t for t in asked.tokens if len(t) >= LIVE_MIN_JUDGMENT]
     if not words:
         return []
     params: dict[str, Any] = {f"_w{n}": w for n, w in enumerate(words)}
     params["limit"] = limit
     params.update(period.params())
-    holds = " AND ".join(
-        f"r.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
-        for n in range(len(words))
+    holds = joined(
+        [
+            f"r.{{column}} LIKE '%%' || lg_like(lg_fold(%(_w{n})s)) || '%%'"
+            for n in range(len(words))
+        ],
+        asked.any_word,
     )
     params["candidates"] = LIVE_CANDIDATES
     found: list[Hit] = []
@@ -464,6 +490,7 @@ def _search_dossiers(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
         live=live,
         termed=legislated_dossiers(store, words),
+        any_word=asked.any_word,
     )
     hits = list(store.query(*query, indexes_only=True))
     for hit in hits:
@@ -488,7 +515,13 @@ _COMMITTEE_HIT = """
 
 def _search_committees(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     query = text_query(
-        kind, asked.store, _COMMITTEE_HIT, asked.tokens, asked.limit, live=live
+        kind,
+        asked.store,
+        _COMMITTEE_HIT,
+        asked.tokens,
+        asked.limit,
+        live=live,
+        any_word=asked.any_word,
     )
     return list(asked.store.query(*query, indexes_only=True))
 
@@ -525,57 +558,121 @@ _DOCUMENT_HIT = f"""
     """
 
 
+# The motions of the kinds asked for (``%(motion_kinds)s``), by the partial index
+# ``lg_document_light_motion_kind``.
+_MOTIONS_OF_KINDS = """
+    SELECT l.id FROM lg_document_light l
+    WHERE lg_str(l.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[])
+"""
+
+
 def _search_documents(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
-    kinds, period = asked.kinds, asked.period
+    """The papers that hold the words, of the factions the query names; a word of the name
+    of a kind of motion (``wantrouwen``) also finds the motions of that kind, which rank
+    above those that only hold the word."""
+    kinds, period, words = asked.kinds, asked.period, asked.words(kind)
     signed, signed_params = asked.signed_where(kind)
+    motions = f" AND r.id IN ({_MOTIONS_OF_KINDS})" if asked.motion_kinds else ""
     query = text_query(
         kind,
         asked.store,
         _DOCUMENT_HIT,
-        asked.words(kind),
+        words,
         asked.limit,
-        where=(_KIND if kinds else "") + period.where(kind.period_date) + signed,
+        where=(_KIND if kinds else "")
+        + period.where(kind.period_date)
+        + signed
+        + motions,
         params={
             "kind_filter": [k.lower() for k in kinds or []],
+            "motion_kinds": asked.motion_kinds,
             **period.params(),
             **signed_params,
         },
         live=live,
+        termed=_motions_named(asked.store, words),
+        any_word=asked.any_word,
     )
     return list(asked.store.query(*query, indexes_only=True))
+
+
+def _motions_named(store: GraphStore, words: list[str]) -> list[list[str]] | None:
+    """Per word the motions of the kinds whose name holds it (``kinds_named``): a name of
+    each, as a word of its title would be. None when no word names a kind."""
+    kinds = [kinds_named(word) for word in words]
+    if not any(kinds):
+        return None
+    rows = store.query(
+        """
+        SELECT lg_str(l.props -> 'motion_kind') AS kind, array_agg(l.id) AS ids
+        FROM lg_document_light l
+        WHERE lg_str(l.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[])
+        GROUP BY 1
+        """,
+        {"motion_kinds": sorted({k for named in kinds for k in named})},
+    )
+    of_kind = {row["kind"]: row["ids"] for row in rows}
+    return [sorted(i for k in named for i in of_kind.get(k, [])) for named in kinds]
 
 
 # ── members, factions, cabinets, commitments, votes: every word in their names ─
 
 
+# A stem this long or longer finds the forms of its word (``_all_words``): shorter ones are
+# part of too many other words ("wet" of "wetten").
+STEM_MIN = 4
+
+
 def _all_words(
-    tokens: list[str], words: str = "r.search_names"
+    tokens: list[str],
+    words: str = "r.search_names",
+    any_word: bool = False,
+    also: dict[int, str] | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Every token is a part of *words* (the names of a member or faction, the words of a
-    cabinet or commitment: lower case): a trigram lookup each."""
+    """Every token (with *any_word*: one at least) is a part of *words* (the words of a
+    cabinet, commitment or vote: lower case), or its stem is (``lg_tokens``, of
+    ``STEM_MIN`` characters or more: "pensioenen" finds "pensioen"): a trigram lookup each.
+    *also*: per token a condition that finds a row besides its words."""
     params = {f"_word_{i}": token for i, token in enumerate(tokens)}
-    condition = " AND ".join(
-        f"{words} LIKE '%%' || lg_like(%({name})s) || '%%'" for name in params
+    stem = "(lg_tokens(%({name})s))[1]"
+    condition = joined(
+        [
+            f"({words} LIKE '%%' || lg_like(%({name})s) || '%%'"
+            f" OR (char_length({stem.format(name=name)}) >= {STEM_MIN}"
+            f" AND {words} LIKE '%%' || lg_like({stem.format(name=name)}) || '%%')"
+            + (f" OR {also[i]}" if also and i in also else "")
+            + ")"
+            for i, name in enumerate(params)
+        ],
+        any_word,
     )
     return condition, params
 
 
-def _all_words_folded(tokens: list[str], names: str) -> tuple[str, dict[str, Any]]:
-    """``_all_words``, and a token also found in the folded *names*, both folded as the
-    search folds them (``lg_fold``: ``yesilgoz`` finds Yeşilgöz), on a trigram index of
-    their own (``schema._search_indexes``): ``search_names`` is lower case only."""
+def _all_words_folded(
+    tokens: list[str], names: str, any_word: bool = False
+) -> tuple[str, dict[str, Any]]:
+    """Every token (with *any_word*: one at least) is a part of ``search_names`` or of the
+    folded *names*, both folded as the search folds them (``lg_fold``: ``yesilgoz`` finds
+    Yeşilgöz), on a trigram index of their own (``schema._search_indexes``):
+    ``search_names`` is lower case only."""
     params = {f"_word_{i}": token for i, token in enumerate(tokens)}
-    condition = " AND ".join(
-        f"(r.search_names LIKE '%%' || lg_like(%({name})s) || '%%'"
-        f" OR {names} LIKE '%%' || lg_like(lg_fold(%({name})s)) || '%%')"
-        for name in params
+    condition = joined(
+        [
+            f"(r.search_names LIKE '%%' || lg_like(%({name})s) || '%%'"
+            f" OR {names} LIKE '%%' || lg_like(lg_fold(%({name})s)) || '%%')"
+            for name in params
+        ],
+        any_word,
     )
     return condition, params
 
 
 def _search_members(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     # a member's own name folded: the factions of a timeline are found as they are written
-    condition, params = _all_words_folded(asked.tokens, "lg_fold(r.name)")
+    condition, params = _all_words_folded(
+        asked.tokens, "lg_fold(r.name)", asked.any_word
+    )
     statement = f"""
         SELECT json_build_object(
             'id', r.id, 'key', r.key,
@@ -597,7 +694,9 @@ def _search_members(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
 
 
 def _search_factions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
-    condition, params = _all_words_folded(asked.tokens, "lg_fold(r.search_names)")
+    condition, params = _all_words_folded(
+        asked.tokens, "lg_fold(r.search_names)", asked.any_word
+    )
     statement = f"""
         SELECT json_build_object(
             'id', r.id, 'key', r.key,
@@ -621,7 +720,9 @@ def _search_factions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
 
 def _search_cabinets(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """Every word in the name of the cabinet (``kabinet-Schoof``), newest first."""
-    condition, params = _all_words(asked.tokens, search_words("cabinets", "r"))
+    condition, params = _all_words(
+        asked.tokens, search_words("cabinets", "r"), asked.any_word
+    )
     statement = f"""
         SELECT json_build_object(
             'id', r.id, 'key', r.key,
@@ -641,11 +742,19 @@ def _search_cabinets(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     return list(asked.store.query(statement, {**params, "limit": asked.limit}))
 
 
+# Words that name the type of a commitment rather than what it is about: "toezeggingen
+# pensioenen" asks for the commitments on pensions. Left out unless they are all that is asked.
+_COMMITMENT_WORDS = frozenset({"toezegging", "toezeggingen"})
+
+
 def _search_commitments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
-    """Every word in the text or the number of the commitment (``TZ202609-011``), newest
-    first."""
+    """Every word (but those of ``_COMMITMENT_WORDS``) in the text or the number of the
+    commitment (``TZ202609-011``), newest first."""
     period = asked.period
-    condition, params = _all_words(asked.tokens, search_words("commitments", "r"))
+    words = [t for t in asked.tokens if t not in _COMMITMENT_WORDS] or asked.tokens
+    condition, params = _all_words(
+        words, search_words("commitments", "r"), asked.any_word
+    )
     statement = f"""
         SELECT json_build_object(
             'id', r.id, 'key', r.key,
@@ -698,6 +807,8 @@ _DECISION_HIT = """
     )
 """
 _NEWEST_FIRST = "date DESC NULLS LAST, key"
+# The kind of motion a vote was on, as the partial index ``decisions_motion_kind`` reads it.
+_MOTION_KIND = "lg_str(r.props -> 'motion_kind')"
 
 
 def _search_decisions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
@@ -712,9 +823,24 @@ def _search_decisions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     words = [t for t in asked.words(kind) if t not in _VOTE_WORDS]
     if not words:
         return []
-    condition, params = _all_words(words, search_words("decisions", "r"))
+    named = {i: kinds_named(word) for i, word in enumerate(words)}
+    condition, params = _all_words(
+        words,
+        search_words("decisions", "r"),
+        asked.any_word,
+        # a word of the name of a kind of motion (``wantrouwen``): the votes on those
+        {
+            i: f"{_MOTION_KIND} = ANY(%(_kinds_{i})s::text[])"
+            for i, k in named.items()
+            if k
+        },
+    )
+    params.update({f"_kinds_{i}": k for i, k in named.items() if k})
     signed, signed_params = asked.signed_where(kind)
     params.update(signed_params)
+    if asked.motion_kinds:
+        signed += f" AND {_MOTION_KIND} = ANY(%(motion_kinds)s::text[])"
+        params["motion_kinds"] = asked.motion_kinds
     where = f"{condition} {asked.period.where(kind.period_date)}{signed}"
     statement = f"""
         WITH recent AS MATERIALIZED (

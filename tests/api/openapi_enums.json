@@ -1340,6 +1340,7 @@
  ],
  "/components/schemas/NotationDTO/properties/kind": [
   "ecli",
+  "ljn",
   "bwb",
   "celex",
   "dossier",
@@ -1505,6 +1506,10 @@
  ],
  "/components/schemas/ResolveResponse/properties/kind/anyOf/1#const": [
   "none"
+ ],
+ "/components/schemas/SearchResponse/properties/matched": [
+  "all",
+  "any"
  ],
  "/components/schemas/SearchResultItem/properties/collection": [
   "instruments",

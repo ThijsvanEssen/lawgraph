@@ -202,6 +202,16 @@ def ljn_mentions(text: str | None) -> list[tuple[str, int, int]]:
     ]
 
 
+def ljn_cited(text: str) -> str | None:
+    """The LJN *text* is, whole, upper-cased: as a text cites it ("LJN BK9271", "LJN: BK
+    9271") or bare ("BK9271", any case); None for any other text."""
+    text = text.strip()
+    match = _CITED_LJN.fullmatch(text)
+    if match:
+        return (match["letters"] + match["digits"]).upper()
+    return text.upper() if _LJN.fullmatch(text.upper()) else None
+
+
 def eu_ecli_mentions(text: str | None) -> list[tuple[str, int, int]]:
     """Every place *text* names a judgment of a court of the European Union by its ECLI, also
     as the Court writes it ("EU:C:2015:650"): ``(ecli, start, end)``, the ECLI whole, in
