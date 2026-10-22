@@ -324,7 +324,7 @@ def test_members_and_factions_list_their_dossiers(
 
     body = client.get(f"/api/{path}/dossiers?limit=5&offset=10").json()
 
-    assert seen == {"actor": actor_id, "limit": 5, "offset": 10}
+    assert seen == {"actor": actor_id, "limit": 5, "offset": 10, "sort": "opened"}
     assert body["actor_id"] == actor_id and body["total"] == 12
     assert body["items"][0]["number"] == "36000"
     assert body["items"][0]["roles"] == ["Eerste ondertekenaar"]

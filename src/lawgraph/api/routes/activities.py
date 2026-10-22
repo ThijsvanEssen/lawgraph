@@ -6,9 +6,9 @@ GET /api/activities/{key}/records  — what was made in it and what was on its a
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.schemas.activities import ActivityDTO, ActivityRecordsResponse
@@ -51,17 +51,22 @@ def get_activity_detail(
         "What is `MADE_IN` the activity: its `documents` (the stenogram and the verslag "
         "of a debate, its convocatie), the `motions` submitted in it, the `commitments` "
         "made in it and the `decisions` taken in it; and the `cases` on its agenda. Each "
-        "with its readable address. 404 when unknown."
+        "with its readable address. `sort` `number` (default): as the Kamer numbers them; "
+        "`importance`: the documents newest first, the motions adopted before the others, "
+        "the commitments still open before the done, the decisions that passed before "
+        "those that did not, the cases that are no motion before the motions. 404 when "
+        "unknown."
     ),
     tags=["activities"],
 )
 def get_activity_records_route(
     key: str,
     store: Annotated[GraphStore, Depends(get_store)],
+    sort: Annotated[Literal["number", "importance"], Query()] = "number",
 ) -> ActivityRecordsResponse:
     if not store.has_node(COLLECTION_ACTIVITIES, key):
         raise NotFound("Activity", key)
     activity_id = node_id(COLLECTION_ACTIVITIES, key)
     return ActivityRecordsResponse.from_row(
-        activity_id, get_activity_records(store, activity_id)
+        activity_id, get_activity_records(store, activity_id, sort)
     )

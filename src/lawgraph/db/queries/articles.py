@@ -580,9 +580,15 @@ def get_article_legislative_history(
 # article (rank 1) or one of its versions (rank 0); ``picked``: per document and section
 # anchor the edge that says most (a version before the article, the newest version
 # first); ``ranked``: the order of the answer, newest document first.
-def _explanations_sql(targets: str) -> str:
+def _explanations_sql(targets: str, importance: bool = False) -> str:
     """The statement of ``get_article_explanations``, of the *targets* of
-    ``explained_targets``."""
+    ``explained_targets``; with *importance* the passages that name the article come before
+    the explanations written for a whole dossier, then the most confident."""
+    first = (
+        "(p.section_anchor IS NULL) ASC NULLS LAST, lg_num(p.confidence) DESC NULLS LAST,"
+        if importance
+        else ""
+    )
     return f"""
 WITH targets AS ({targets}
 ),
@@ -608,7 +614,7 @@ picked AS (
 ),
 ranked AS (
     SELECT p.*, row_number() OVER (
-        ORDER BY p.date DESC NULLS LAST, p.key NULLS FIRST,
+        ORDER BY {first} p.date DESC NULLS LAST, p.key NULLS FIRST,
                  lg_str(p.section_anchor::json) NULLS FIRST
     ) AS n
     FROM picked p
@@ -668,6 +674,7 @@ def get_article_explanations(
     *,
     limit: int,
     offset: int,
+    importance: bool = False,
 ) -> dict[str, Any]:
     """A page of the documents that EXPLAIN an article, and how many there are in all.
 
@@ -699,7 +706,7 @@ def get_article_explanations(
             "opening": EXPLANATION_OPENING,
         }
     )
-    rows = list(store.query(_explanations_sql(targets), bind))
+    rows = list(store.query(_explanations_sql(targets, importance), bind))
     return rows[0] if rows else {"total": 0, "items": []}
 
 
