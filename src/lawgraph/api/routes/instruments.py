@@ -8,7 +8,14 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ListLimit, LongListLimit, PageLimit, Tier
+from lawgraph.api.params import (
+    DateSort,
+    ListLimit,
+    LongListLimit,
+    OpenedSort,
+    PageLimit,
+    Tier,
+)
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
     FacetCountDTO,
@@ -489,7 +496,7 @@ def get_instrument_dossiers_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: LongListLimit = 500,
-    sort: Annotated[Literal["opened", "importance"], Query()] = "opened",
+    sort: Annotated[OpenedSort, Query()] = "opened",
 ) -> InstrumentDossiersResponse:
     rows, total = get_instrument_dossiers(store, bwb_id, limit=limit, sort=sort)
     items = [InstrumentDossierItem.from_row(row) for row in rows]
@@ -519,7 +526,7 @@ def get_instrument_amended_by_route(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    sort: Annotated[Literal["date", "importance"], Query()] = "date",
+    sort: Annotated[DateSort, Query()] = "date",
 ) -> AmendedByResponse:
     data = get_instrument_amended_by(
         store, bwb_id, limit=limit, offset=offset, sort=sort

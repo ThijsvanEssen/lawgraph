@@ -42,8 +42,10 @@ MemberListLimit = Annotated[int, Query(ge=1, le=MEMBER_LIST_MAX)]
 # The order of a list of connections (the "Verbonden" lists of a page): ``recent``/``opened`` by
 # date as before, the other by a measure named per route (``docs/api.md``, "Order of the
 # connections"); the default of each is the order the route has always had.
+OpenedSort = Literal["opened", "importance"]
+DateSort = Literal["date", "importance"]
 ActorDossierSort = Annotated[
-    Literal["opened", "importance"],
+    OpenedSort,
     Query(
         description="`opened` (default): newest opened first; `importance`: the dossier "
         "with the most documents signed first, then the newest opened."

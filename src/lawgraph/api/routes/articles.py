@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ArticleAddress, ListLimit, PageLimit, Tier
+from lawgraph.api.params import ArticleAddress, DateSort, ListLimit, PageLimit, Tier
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -404,7 +404,7 @@ def get_explained_by(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    sort: Annotated[Literal["date", "importance"], Query()] = "date",
+    sort: Annotated[DateSort, Query()] = "date",
 ) -> ArticleExplanationsResponse:
     page = get_article_explanations(
         store,

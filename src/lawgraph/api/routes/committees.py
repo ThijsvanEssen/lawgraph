@@ -16,8 +16,10 @@ from lawgraph.api.params import (
     LIST_MAX,
     ActiveFrom,
     ActiveTo,
+    DateSort,
     ListChamber,
     ListLimit,
+    OpenedSort,
 )
 from lawgraph.api.schemas.committees import (
     CommitteeActivitiesResponse,
@@ -113,7 +115,7 @@ def get_committee(
     ] = 100,
     offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
     sort: Annotated[
-        Literal["opened", "importance"],
+        OpenedSort,
         Query(
             description="`opened` (default): newest opened first; `importance`: the "
             "open dossiers first, then those with the most items the committee led, "
@@ -155,7 +157,7 @@ def list_committee_activities(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    sort: Annotated[Literal["date", "importance"], Query()] = "date",
+    sort: Annotated[DateSort, Query()] = "date",
 ) -> CommitteeActivitiesResponse:
     raw = require(
         get_committee_activities(
