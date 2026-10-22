@@ -29,7 +29,7 @@ from lawgraph.api.schemas.decisions import (
 from lawgraph.api.schemas.documents import DocumentTextResponse
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.time import iso_day
-from lawgraph.core.votes import VOTE_PARAMETER
+from lawgraph.core.votes import VOTE_PARAMETER, VoteParameter
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
@@ -166,7 +166,7 @@ def list_decisions(
         str | None, Query(description="Only decisions this party voted on.")
     ] = None,
     vote: Annotated[
-        Literal["voor", "tegen"] | None,
+        VoteParameter | None,
         Query(description="With `party`: only decisions it voted for, or against."),
     ] = None,
     chamber: Annotated[str | None, Query(description="'TK' or 'EK'.")] = None,

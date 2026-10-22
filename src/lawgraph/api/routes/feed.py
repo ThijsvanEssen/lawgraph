@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import replace
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -58,7 +58,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.core.time import dutch_today, iso_day
-from lawgraph.core.votes import VOTE_PARAMETER
+from lawgraph.core.votes import VOTE_PARAMETER, VoteParameter
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
@@ -137,7 +137,7 @@ def scope_filters(
         ),
     ] = None,
     vote: Annotated[
-        Literal["voor", "tegen"] | None,
+        VoteParameter | None,
         Query(description="With ``party``: the votes it voted for, or against."),
     ] = None,
     q: Annotated[
