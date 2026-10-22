@@ -1487,7 +1487,8 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
 ) -> None:
     """Past the render budget (a zaak with many votes, cold on prod: 10 Oct) the page is not
     the shell titled "Concordans": its own title and description from its node, its node
-    as focus, without its content, not kept (the next request may have it whole)."""
+    as focus, without its content, as a 503 with ``Retry-After`` (never a 200 with an
+    empty ``<main>``: a soft 404) and not kept (the next request may have it whole)."""
     from lawgraph.db.request_context import ReadTimedOut
 
     _seed_annex_and_case(store)
@@ -1497,8 +1498,10 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
 
     monkeypatch.setattr(render, "_source_page", slow)
     response = _get(client, path)
-    assert_status(response, 200)
+    assert_status(response, 503)
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["retry-after"] == render.LATE_RETRY_AFTER
+    assert response.headers[render.LATE_HEADER] == "1"
     page = _head(response.text)
     assert page["title"] == title
     assert page["description"]
@@ -2214,10 +2217,11 @@ def test_the_start_page_is_its_core_without_a_read(
     assert page["canonical"] == "https://concordans.nl/"
     main = page["main"]
     assert (
-        '<h1 class="blad__titel">Wetten, uitspraken en Kamerstukken in samenhang'
-        in main
+        '<h1 class="blad__titel">Het artikel, en de uitspraken en Kamerstukken die '
+        "ernaar verwijzen.</h1>" in main
     )
-    assert "Concordans is een onderzoeksinstrument" in main
+    # One self-description, and no name of the maker (A171).
+    assert "onderzoeksinstrument" not in response.text and "TMvE" not in response.text
     form = re.search(r'<form action="/" method="get"[^>]*>(.*?)</form>', main, re.S)
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
@@ -2272,5 +2276,5 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
-    assert "Wetten, uitspraken en Kamerstukken in samenhang" in main
+    assert "Het artikel, en de uitspraken en Kamerstukken die ernaar" in main
     assert "Half" not in main

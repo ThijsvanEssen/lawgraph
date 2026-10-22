@@ -182,12 +182,13 @@ def test_each_kind_by_its_readable_address(store: GraphStore) -> None:
         ("/wetten/BWBR0005289", "2025-07-01"),
         ("/wetten/STB-2026-56", "2026-03-13"),
     ]
-    # per law in its order; a repealed article left out; every article with a text of a
+    # per law in its order, without a day (the law's is not the article's); a repealed
+    # article left out; every article with a text of a
     # law of the Staatsblad
     assert _paths(kinds, "artikelen") == [
         ("/wetten/BWBR0001854/artikel/1", None),
-        ("/wetten/BWBR0005289/artikel/6:162", "2025-07-01"),
-        ("/wetten/BWBR0005289/artikel/6:163", "2025-07-01"),
+        ("/wetten/BWBR0005289/artikel/6:162", None),
+        ("/wetten/BWBR0005289/artikel/6:163", None),
         ("/wetten/STB-2026-56/artikel/2.8.6", None),
     ]
     # voted on since 2018, on the last day; one withdrawn is no page of a vote
@@ -442,6 +443,52 @@ def test_only_the_most_cited_laws_have_their_articles(store: GraphStore) -> None
         "articles/bwbr0005289_163",
         "articles/stb_2026_56_2_8_6",  # a law of the Staatsblad, cited by none yet
     ]
+
+
+def test_the_judgments_are_those_the_article_pages_list(store: GraphStore) -> None:
+    """The most cited judgments that cite an article of a listed law (``seo.LINKS`` per
+    article), no stub; a judgment that cites an unlisted article is left out; no lastmod."""
+    _seed(store)
+
+    def judgment(key: str, cited: int, **props: Any) -> dict[str, Any]:
+        return {"key": key, "type": "judgment", "labels": ["Rechtspraak"],
+                "props": {"ecli": key.upper().replace("_", ":"),
+                          "inbound_citation_count": cited, **props}}  # fmt: skip
+
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            judgment("ecli_nl_hr_2019_2006", 9),
+            judgment("ecli_nl_hr_2020_1", 5),
+            judgment("ecli_nl_hr_2020_2", 1),
+            judgment("ecli_nl_hr_2021_3", 6, stub=True),
+            judgment("ecli_nl_hr_2022_4", 3),
+        ],
+    )
+    cites = [
+        ("ecli_nl_hr_2019_2006", "articles/bwbr0005289_162"),
+        ("ecli_nl_hr_2020_1", "articles/bwbr0005289_162"),
+        ("ecli_nl_hr_2020_2", "articles/bwbr0005289_162"),
+        ("ecli_nl_hr_2021_3", "articles/bwbr0005289_162"),
+        # the law is not among the most cited
+        ("ecli_nl_hr_2022_4", "articles/bwbr0001854_1"),
+    ]
+    store.bulk_insert_or_update_edges(
+        [
+            {**_edge(f"c_{j}", f"judgments/{j}", a, "REFERS_TO"),
+             "meta": {"mentions": []}}
+            for j, a in cites
+        ]
+    )  # fmt: skip
+    listed = [
+        (e.path, e.lastmod)
+        for e in command.entries(queries.judgments(store, top=1, per_article=3))
+    ]
+    assert listed == [
+        ("/uitspraken/ECLI:NL:HR:2019:2006", None),
+        ("/uitspraken/ECLI:NL:HR:2020:1", None),
+    ]
+    assert "uitspraken" in command.kinds(store)
 
 
 def test_the_command_writes_the_index_and_its_parts(

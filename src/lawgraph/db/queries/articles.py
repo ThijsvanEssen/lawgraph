@@ -46,7 +46,7 @@ from lawgraph.db.queries._json_sql import array_or_empty, first_present
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.not_found import NotFound, require_node
-from lawgraph.db.schema import dossiers_of_sql, node_of
+from lawgraph.db.schema import CITED_BY_TABLE, dossiers_of_sql, node_of
 from lawgraph.db.version_cache import cached, lasting
 
 
@@ -820,10 +820,12 @@ class CitedBy:
     )
 
 
-# ``hits``: per edge of a judgment to the article, one row per mention that passes the
-# court and lid filters, with only what sorts and counts it; ``kept``: those of the tiers
-# and the year asked for; ``ranked``: their order. The mentions of the page are read whole
-# after the cut. Each facet counts the judgments of ``hits`` under the other filter.
+# ``hits``: per judgment that cites the article (a row of ``lg_cited_by``), one row per
+# mention that passes the court and lid filters, with only what sorts and counts it; ``kept``:
+# those of the tiers and the year asked for; ``page``: those of the page, cut by a limit (so
+# the planner reads their edges by key, not every edge). The mentions of the page are read
+# whole from their edges after the cut. Each facet counts the judgments of ``hits`` under
+# the other filter.
 _TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR h.tier = ANY(%(tiers)s::text[]))"
 _YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
 
@@ -840,31 +842,37 @@ def _cited_by_facet(value: str, where: str, order: str) -> str:
         )"""
 
 
-def _cited_by_sql(order: str) -> str:
-    """The statement of ``get_article_cited_by``, its passages in *order*."""
+# The mentions of a row ``c`` of ``lg_cited_by`` as ``m.position`` (from 0): every one by
+# its number, read from the index alone; under a ``lid`` those that name it, read from the
+# leden kept with the row.
+_EVERY_MENTION = "generate_series(0, c.mentions - 1) AS m(position)"
+_MENTIONS_OF_LID = """(
+            SELECT x.n - 1 AS position
+            FROM json_array_elements(c.leden) WITH ORDINALITY AS x(leden, n)
+            WHERE %(lid)s::text = ANY(lg_text_array(x.leden))
+        ) m"""
+
+
+def _cited_by_sql(order: str, *, lid: bool) -> str:
+    """The statement of ``get_article_cited_by``, its passages in *order*; with *lid*, of
+    the passages that name ``%(lid)s`` alone."""
     return f"""
     WITH hits AS MATERIALIZED (
-        SELECT e.key AS edge, m.position - 1 AS position, j.date_eff AS date, j.ecli,
-               j.inbound_citation_count AS cited, j.tier, substr(j.date_eff, 1, 4) AS year
-        FROM {COLLECTION_EDGES} e
-        JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-        CROSS JOIN LATERAL json_array_elements(
-            {array_or_empty("e.doc -> 'meta' -> 'mentions'")}
-        ) WITH ORDINALITY AS m(mention, position)
-        WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-          AND e.from_collection = '{COLLECTION_JUDGMENTS}'
-          AND (%(court)s::text IS NULL OR j.court_code = %(court)s::text)
-          AND (
-              %(lid)s::text IS NULL
-              OR %(lid)s::text = ANY(lg_text_array(m.mention -> 'leden'))
-          )
+        SELECT c.edge_key AS edge, m.position, c.date_eff AS date, c.ecli, c.cited, c.tier,
+               substr(c.date_eff, 1, 4) AS year
+        FROM {CITED_BY_TABLE} c
+        CROSS JOIN LATERAL {_MENTIONS_OF_LID if lid else _EVERY_MENTION}
+        WHERE c.article_id = %(article_id)s
+          AND (%(court)s::text IS NULL OR c.court_code = %(court)s::text)
     ),
     kept AS (
         SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT}
     ),
-    ranked AS (
-        SELECT h.*, row_number() OVER (ORDER BY {order}) AS n
+    page AS (
+        SELECT h.edge, h.position, row_number() OVER (ORDER BY {order}) AS n
         FROM kept h
+        ORDER BY n
+        LIMIT %(limit)s OFFSET %(offset)s
     )
     SELECT
         (SELECT count(*)::int FROM kept) AS total,
@@ -876,22 +884,18 @@ def _cited_by_sql(order: str) -> str:
         ) AS facets,
         -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
         (
-            SELECT count(DISTINCT e.from_id)::int
-            FROM {COLLECTION_EDGES} e
-            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
-            WHERE e.to_id = %(article_id)s AND e.relation = %(relation)s
-              AND e.from_collection = '{COLLECTION_JUDGMENTS}' AND j.court_code = '{CODE_ECHR}'
+            SELECT count(DISTINCT c.judgment_id)::int FROM {CITED_BY_TABLE} c
+            WHERE c.article_id = %(article_id)s AND c.court_code = '{CODE_ECHR}'
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(
                 'judgment', {listed_judgment("j", "l", "'inbound_citation_count', j.pj_inbound_citation_count")},
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
             ) ORDER BY r.n), '[]'::json)
-            FROM ranked r
+            FROM page r
             JOIN {COLLECTION_EDGES} e ON e.key = r.edge
             JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
             LEFT JOIN lg_judgment_light l ON l.id = j.id
-            WHERE r.n > %(offset)s AND r.n <= %(offset)s + %(limit)s
         ) AS items
     """
 
@@ -922,8 +926,7 @@ def most_cited_articles(store: GraphStore, at_least: int) -> list[dict[str, Any]
 
 
 # How long the passages citing an article are kept per request (seconds), whatever the data
-# does: of a much cited article (6:162 BW, Awb 1:3) they are thousands, each edge's meta read;
-# a poll adds a handful. A newer answer computes in the background while the kept one is
+# does: of a much cited article (6:162 BW, Awb 1:3) they are thousands; a poll adds a handful. A newer answer computes in the background while the kept one is
 # served.
 CITED_BY_MAX_AGE = 3600.0
 
@@ -962,17 +965,16 @@ def get_article_cited_by(
     tier filter. ``sort`` (``CITED_BY_SORTS``): the newest judgment first, or the most
     cited first.
 
-    A much cited article has thousands of judgments (Sr 287, Awb 6:2) and a judgment is
-    its text and its paragraphs. The first pass reads the edges of the article by
-    ``(to_id, relation)`` and keeps only what filters, sorts and counts a mention (the
-    edge, its position, the date, the ECLI and the tier, from the generated columns of the
-    judgment); the mentions of the page, with their snippets, are read after the cut, for
-    ``limit`` rows and not for all of them.
+    A much cited article has thousands of judgments (6:162 BW: 10,500), each an edge with
+    its mentions and a judgment with its text. The first pass reads only what filters,
+    sorts and counts a mention, from the range of the article in the index of
+    ``lg_cited_by`` (its leden from the rows, under a ``lid``); the mentions of the page,
+    with their snippets, are read from their edges after the cut, for ``limit`` rows and
+    not for all of them.
     """
     chosen = tuple(dict.fromkeys(tiers))
     bind = {
         "article_id": article_id,
-        "relation": RELATION_REFERS_TO,
         "court": court.upper() if court else None,
         "tiers": list(chosen) or None,
         "year": year,
@@ -985,7 +987,14 @@ def get_article_cited_by(
         store,
         ("cited-by", sort, *sorted(key.items())),
         lambda: (
-            next(iter(store.query(_cited_by_sql(CITED_BY_SORTS[sort]), bind)), None)
+            next(
+                iter(
+                    store.query(
+                        _cited_by_sql(CITED_BY_SORTS[sort], lid=bool(lid)), bind
+                    )
+                ),
+                None,
+            )
             or {}
         ),
         CITED_BY_MAX_AGE,

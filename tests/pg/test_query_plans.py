@@ -132,6 +132,7 @@ URLS = [
     f"/api/instruments/{BWB}/judgments",
     f"/api/instruments/{BWB}/judgments?sort=cited&offset=1",
     f"/api/instruments/{BWB}/judgments?year=2020",
+    f"/api/instruments/{BWB}/judgments?sort=citation_count&tier=hoge_raad",
     f"/api/instruments/{BWB}/dossiers",
     f"/api/instruments/{BWB}/related-instruments",
     # the regulations issued under the law: its articles, then their BASED_ON edges
@@ -146,6 +147,7 @@ URLS = [
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad",
     f"/api/articles/{BWB}/1/cited-by?tier=hoge_raad&tier=rechtbank&year=2020",
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
+    f"/api/articles/{BWB}/1/cited-by?lid=1&court=HR",
     f"/api/articles/{BWB}/1/explained-by",
     # the passages, with the names of the dossiers (once per data version of them)
     f"/api/articles/{BWB}/1/explanations",

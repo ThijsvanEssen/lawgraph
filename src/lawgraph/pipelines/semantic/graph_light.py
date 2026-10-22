@@ -9,7 +9,9 @@ its decision's date, which the votes of a member are read from; ``lg_authored`` 
 member signed with its dossiers and date, which the dossiers of a member and the counts of a
 cabinet are read from; ``lg_led`` every activity and case a committee leads with its date
 and dossiers, which the pages of a committee are read from; ``lg_judgment_persons`` per
-judgment the persons it names, which the search finds it by. Triggers on ``judgments``,
+judgment the persons it names, which the search finds it by; ``lg_cited_by`` every edge from
+a judgment into an article with its passages and the judgment's date, court and citations,
+which the judgments citing an article or a law are read from. Triggers on ``judgments``,
 ``documents``, ``cases``, ``activities``, ``instruments``, ``edges`` and ``decisions`` keep
 them with every write: this step adds the rows written before them (once, after the deploy
 that brought a table), and with ``--all`` keeps every row again (after the props kept
@@ -26,6 +28,7 @@ from typing import Any, NamedTuple
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.cited_by_table import fill_cited_by
 from lawgraph.db.queries.committee_led import fill_led
 from lawgraph.db.queries.document_light import fill_document_light
 from lawgraph.db.queries.faction_votes import fill_faction_votes
@@ -78,6 +81,11 @@ _FILLS = (
         "judgment-persons",
         fill_judgment_persons,
         "Kept the persons of %d judgments for the search.",
+    ),
+    _Fill(
+        "cited-by",
+        fill_cited_by,
+        "Kept %d citations of articles for the judgments citing them.",
     ),
 )
 
