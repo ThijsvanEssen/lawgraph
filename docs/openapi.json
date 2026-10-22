@@ -14578,9 +14578,9 @@
               }
             ],
             "title": "Date",
-            "description": "The day the Kamer registered it (``Aanmaakdatum``), which may be weeks after the debate (``made_on``)."
+            "description": "The day it was made: that of the activity it was made in (the debate), else ``registered_on``."
           },
-          "made_on": {
+          "registered_on": {
             "anyOf": [
               {
                 "type": "string"
@@ -14589,8 +14589,8 @@
                 "type": "null"
               }
             ],
-            "title": "Made On",
-            "description": "The day it was made: the day of the activity it was made in (``activity.date``); null without one."
+            "title": "Registered On",
+            "description": "The day the Kamer registered it (``Aanmaakdatum``), often weeks after the debate."
           },
           "expected_resolution": {
             "anyOf": [
@@ -14707,7 +14707,7 @@
           "text",
           "status",
           "date",
-          "made_on",
+          "registered_on",
           "expected_resolution",
           "minister_name",
           "member",
@@ -17865,6 +17865,30 @@
             "title": "Number",
             "description": "Its number in the dossier: of the Tweede Kamer the nr. (``5``), of the Eerste Kamer the letter (``C``); null for none."
           },
+          "document_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Number",
+            "description": "The number the Tweede Kamer gives every paper (``2026D41234``), also one that is no Kamerstuk; null for an Eerste Kamer paper."
+          },
+          "tk_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tk Url",
+            "description": "The paper on tweedekamer.nl, by its ``document_number``: the page of a paper without a ``path`` here."
+          },
           "date": {
             "anyOf": [
               {
@@ -17963,6 +17987,8 @@
           "dossier_numbers",
           "dossiers",
           "number",
+          "document_number",
+          "tk_url",
           "date",
           "title",
           "session_year",
@@ -27594,7 +27620,32 @@
                 "type": "null"
               }
             ],
-            "title": "Kind"
+            "title": "Kind",
+            "description": "Lower case: BWB `wetgeving@soort` (`wet`, `amvb`); a treaty of the Verdragenbank `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; an EU act by its CELEX letter (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`)."
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of a publication its id at officielebekendmakingen.nl (`stb-2019-33`); of a law of the Staatsblad that of the publication that enacted it (`stb-2026-56`)."
+          },
+          "treaty_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Treaty Number",
+            "description": "A treaty: its Verdragenbank id (six digits, `010783`)."
           },
           "article_count": {
             "type": "integer",
@@ -27676,6 +27727,8 @@
           "display_name",
           "jurisdiction",
           "kind",
+          "official_id",
+          "treaty_number",
           "article_count",
           "inbound_citation_count",
           "next_version_from",

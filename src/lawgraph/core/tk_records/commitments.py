@@ -34,6 +34,18 @@ def due_date(value: Any) -> str | None:
     return value if value and value != NO_DUE_DATE else None
 
 
+def made_on(payload: Payload) -> str | None:
+    """The day a commitment was made: that of the activity it was made in (``Activiteit``,
+    the debate), else the day the Kamer registered it (``Aanmaakdatum``, often weeks
+    later)."""
+    days = sorted(
+        day
+        for a in dicts(payload.get("Activiteit"))
+        if (day := iso_date(a.get("Datum")))
+    )
+    return days[0] if days else iso_date(payload.get("Aanmaakdatum"))
+
+
 def commitment(payload: Payload) -> Record | None:
     """Node key and props for a Toezegging record."""
     external_id = id_of(payload)
@@ -50,7 +62,8 @@ def commitment(payload: Payload) -> Record | None:
         "minister_role": first_text(payload, "Functie", "MinisterTitel"),
         # the ministry the Tweede Kamer gives the commitment (``Justitie en Veiligheid``)
         "ministry_name": first_text(payload, "Ministerie") or None,
-        "made_on": iso_date(payload.get("Aanmaakdatum")),
+        "made_on": made_on(payload),
+        "registered_on": iso_date(payload.get("Aanmaakdatum")),
         "expected_resolution": iso_date(payload.get("DatumNakoming")),
         "status": raw_status,
         "activity_number": str(payload.get("ActiviteitNummer") or ""),

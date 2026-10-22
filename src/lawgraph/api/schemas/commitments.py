@@ -99,13 +99,13 @@ class CommitmentDTO(WithPath):
     status: str | None = Field(None, description=COMMITMENT_STATUS_DESCRIPTION)
     date: str | None = Field(
         None,
-        description="The day the Kamer registered it (``Aanmaakdatum``), which may be "
-        "weeks after the debate (``made_on``).",
+        description="The day it was made: that of the activity it was made in (the "
+        "debate), else ``registered_on``.",
     )
-    made_on: str | None = Field(
+    registered_on: str | None = Field(
         None,
-        description="The day it was made: the day of the activity it was made in "
-        "(``activity.date``); null without one.",
+        description="The day the Kamer registered it (``Aanmaakdatum``), often weeks "
+        "after the debate.",
     )
     expected_resolution: str | None = Field(
         None, description="The day it is due; null when the Kamer names none."
@@ -142,6 +142,7 @@ class CommitmentDTO(WithPath):
             text=props.get("text"),
             status=props.get("status"),
             date=props.get("made_on"),
+            registered_on=props.get("registered_on"),
             expected_resolution=due_date(due),
             minister_name=props.get("minister_name"),
             member=(
@@ -159,7 +160,6 @@ class CommitmentDTO(WithPath):
                 for d in row.get("dossiers") or []
             ],
             activity=activity,
-            made_on=activity.date if activity else None,
             fulfilled_by=[
                 CommitmentLetterDTO(
                     **{
