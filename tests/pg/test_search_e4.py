@@ -8,7 +8,9 @@ nothing or the wrong thing, run for real on the small test server:
   ("wat is de opzegtermijn van mijn huurcontract"), "toezeggingen" names the type, and
   without a hit of every word the hits of one say so (``matched``);
 * "Rutte" found the Besluit archief Rutten before the member;
-* an LJN was not read as the judgment it numbers.
+* an LJN was not read as the judgment it numbers;
+* a term ("wanprestatie", "GDPR", "minimum wage") found the words, not the article or law it
+  is about: the curated list of concepts names it (``core.concepts``).
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.commands.curated import concept_notes
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_COMMITMENTS,
@@ -24,13 +27,15 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
 )
+from lawgraph.core import concepts
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.search import dispatch
 from lawgraph.db.queries.search.ranking import SCORE_CONTAINS, SCORE_TITLE
 from tests.databases import Api
 
-AWB, BW7, REPAIR = "BWBR0005537", "BWBR0005290", "BWBR0035000"
+AWB, BW6, BW7, REPAIR = "BWBR0005537", "BWBR0005289", "BWBR0005290", "BWBR0035000"
+RSKR, WML, AVG = "BWBR0036000", "BWBR0002638", "32016R0679"
 LJN_ECLI = "ECLI:NL:HR:2005:AU3313"
 
 
@@ -84,6 +89,71 @@ def store(store: GraphStore, monkeypatch: pytest.MonkeyPatch) -> GraphStore:
     )
     _put(
         store,
+        COLLECTION_ARTICLES,
+        make_node_key(BW6, "74"),
+        bwb_id=BW6,
+        article_number="74",
+        display_name="Artikel 74 Burgerlijk Wetboek Boek 6",
+        text="Iedere tekortkoming in de nakoming van een verbintenis verplicht de "
+        "schuldenaar de schade die de schuldeiser daardoor lijdt te vergoeden.",
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        make_node_key(RSKR, "4:5"),
+        bwb_id=RSKR,
+        article_number="4:5",
+        heading="Wanprestatie",
+        display_name="Artikel 4:5 Rskr",
+        text="Bij wanprestatie van de subsidieontvanger kan de subsidie worden verlaagd.",
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        make_node_key(BW7, "248"),
+        bwb_id=BW7,
+        article_number="248",
+        display_name="Artikel 248 Burgerlijk Wetboek Boek 7",
+        text="De verhuurder kan tot aan het tijdstip waarop de huurprijs door de rechter "
+        "is vastgesteld, jaarlijks een voorstel doen tot verhoging van de huurprijs.",
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        make_node_key(WML, "7"),
+        bwb_id=WML,
+        article_number="7",
+        display_name="Artikel 7 Wet minimumloon en minimumvakantiebijslag",
+        text="De werknemer heeft aanspraak op ten minste het minimumloon.",
+    )
+    _put(
+        store,
+        COLLECTION_ARTICLES,
+        "stuwage_6",
+        bwb_id="BWBR0039000",
+        article_number="6",
+        display_name="Artikel 6 Besluit stuwage",
+        text="Stuwage van ten minimum wage cargo.",
+    )
+    _put(
+        store,
+        COLLECTION_INSTRUMENTS,
+        make_node_key(AVG),
+        celex=AVG,
+        title="Verordening (EU) 2016/679 (algemene verordening gegevensbescherming)",
+        citation_title="Verordening (EU) 2016/679",
+    )
+    _put(
+        store,
+        COLLECTION_INSTRUMENTS,
+        "bwbr0045000",
+        bwb_id="BWBR0045000",
+        title="NL accreditation requirements for GDPR code of conduct monitoring bodies",
+        citation_title="NL accreditation requirements for GDPR code of conduct monitoring "
+        "bodies",
+    )
+    _put(
+        store,
         COLLECTION_MEMBERS,
         "mark_rutte",
         name="Mark Rutte",
@@ -121,12 +191,15 @@ def _keys(answer: dict[str, Any], kind: str) -> list[str]:
 
 @pytest.mark.parametrize("mode", ["full", "live"])
 def test_best_is_only_what_the_query_names_exactly(
-    store: GraphStore, api: Api, mode: str
+    store: GraphStore, api: Api, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """ "huurverhoging" is the heading of Art. IX of a Reparatiewet, no hit it names: no
-    ``best``. "Awb" is the abbreviation of the Awb, "LJN AU3313" the number of the ECLI of
-    a judgment (``ECLI:NL:HR:2005:AU3313``): each the ``best`` and ``exact``."""
+    ``best`` (without the list of concepts, which names art. 7:248 BW by it). "Awb" is the
+    abbreviation of the Awb, "LJN AU3313" the number of the ECLI of a judgment
+    (``ECLI:NL:HR:2005:AU3313``): each the ``best`` and ``exact``."""
+    monkeypatch.setattr(concepts, "concepts", dict)
     words = _search(api, "huurverhoging", mode=mode, resolve="true")
+    # art. 7:248 BW, whose words do not hold it, is no hit
     assert _keys(words, "articles") == [make_node_key(REPAIR, "IX")]
     assert words["best"] is None
     exact = [h["key"] for hits in words["results"].values() for h in hits if h["exact"]]
@@ -201,3 +274,81 @@ def test_a_surname_finds_the_member_before_a_title_that_holds_it(
     assert scores == {"members": [SCORE_TITLE], "instruments": [SCORE_CONTAINS]}
     # two members may have the name: no hit it names exactly
     assert answer["best"] is None
+
+
+# The questions of E4 a term answers: the query, the article or law the list names by it.
+E4_CONCEPTS = [
+    ("wanprestatie", f"articles/{make_node_key(BW6, '74')}"),  # 23: Art. 4:5 Rskr
+    (
+        "huurverhoging",
+        f"articles/{make_node_key(BW7, '248')}",
+    ),  # 2: Art. IX Reparatiewet
+    ("GDPR", f"instruments/{make_node_key(AVG)}"),  # 20: a title that holds GDPR
+    ("minimum wage", f"articles/{make_node_key(WML, '7')}"),  # 21: Besluit stuwage
+    # 30: its words without the stop words
+    (
+        "wat is de opzegtermijn van mijn huurcontract",
+        f"articles/{make_node_key(BW7, '271')}",
+    ),
+]
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+@pytest.mark.parametrize(("q", "named"), E4_CONCEPTS)
+def test_a_term_opens_the_article_or_law_the_list_names_by_it(
+    store: GraphStore,
+    api: Api,
+    mode: str,
+    q: str,
+    named: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Before the list (none): no ``best``, or the wrong one. With it: the article or law
+    first among the hits of its type, ``exact``, ``concept`` its term, and ``best``."""
+    collection = named.split("/")[0]
+    with monkeypatch.context() as before:
+        before.setattr(concepts, "concepts", dict)
+        answer = _search(api, q, mode=mode, resolve="true")
+        assert answer["best"] != named
+        by_concept = [
+            h["id"] for hits in answer["results"].values() for h in hits if h["concept"]
+        ]
+        assert by_concept == []
+
+    answer = _search(api, q, mode=mode, resolve="true")
+    assert answer["best"] == named
+    first = answer["results"][collection][0]
+    assert (first["id"], first["exact"], first["score"]) == (named, True, 1.0)
+    assert first["concept"] in {
+        "wanprestatie",
+        "huurverhoging",
+        "gdpr",
+        "minimumloon",
+        "opzegtermijn huur",
+    }
+    assert [h["id"] for h in answer["results"][collection]].count(named) == 1
+
+
+def test_a_term_is_no_hit_of_a_type_not_searched_or_within_a_period(
+    store: GraphStore, api: Api
+) -> None:
+    other = _search(api, "wanprestatie", types="instruments")
+    assert other["best"] is None
+    dated = _search(api, "wanprestatie", types="articles", **{"from": "2020-01-01"})
+    assert dated["best"] is None
+
+
+def test_the_check_names_a_concept_whose_article_the_graph_lacks(
+    store: GraphStore,
+) -> None:
+    found = concept_notes(store)
+    lacking = [p for p in found if p.startswith("concepts: ontslag op staande voet: ")]
+    assert len(lacking) == 1, found
+    named = {
+        "wanprestatie",
+        "huurverhoging",
+        "gdpr",
+        "minimumloon",
+        "opzegtermijn huur",
+    }
+    assert not [p for p in found if p.split(": ")[1] in named]

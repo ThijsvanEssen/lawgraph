@@ -230,6 +230,26 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
     return two_phase_search(store, precise, text, limit, precise_score=None, exact=True)
 
 
+# What a hit of one node is made of, by the table it is in: its SQL and its joins.
+_HIT_SQL = {
+    "articles": (_ARTICLE_HIT, _ARTICLE_INSTRUMENT),
+    "instruments": (_INSTRUMENT_HIT, ""),
+}
+
+
+def hit_by_key(store: GraphStore, table: str, key: str) -> Hit | None:
+    """The node *key* of *table* (``articles`` or ``instruments``) as its search makes a
+    hit of it, without a score; None when the graph does not have it."""
+    hit_sql, joins = _HIT_SQL[table]
+    rows: list[Hit] = list(
+        store.query(
+            f"SELECT {hit_sql} FROM {table} r {joins} WHERE r.key = %(key)s",
+            {"key": key},
+        )
+    )
+    return rows[0] if rows else None
+
+
 # ── judgments ────────────────────────────────────────────────────────────────
 
 _JUDGMENT_HIT = f"""

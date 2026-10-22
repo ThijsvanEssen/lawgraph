@@ -32,8 +32,15 @@ class SearchResultItem(WithPath):
         description="Whether the hit is the one thing the query names: by its citation "
         "(an article of the law it names), its ECLI or LJN, its number or identifier, "
         "the abbreviation or whole title of a law, the name of a judgment, the whole "
-        "name of a member, faction, committee or cabinet. Never by a heading or words "
-        "of its text, however well they score.",
+        "name of a member, faction, committee or cabinet, a term of the curated list "
+        "of concepts (`concept`). Never by a heading or words of its text, however well "
+        "they score.",
+    )
+    concept: str | None = Field(
+        default=None,
+        description="The term of the curated list of concepts the query is (`wanprestatie`, "
+        "`GDPR`), when the hit is the article or law that term is about (art. 6:74 BW, the "
+        "AVG): a hit found by the list, not by its own words. Null for every other hit.",
     )
     extra: dict[str, Any] = Field(default_factory=dict)
 
@@ -122,6 +129,7 @@ class SearchResponse(StrictModel):
         description="The id of what `q` names exactly, for a search box to open on "
         "Enter: the match of `resolved` when its confidence is 0.9 or more (a citation, "
         "an identifier, a law, faction or member by its whole name or abbreviation), "
-        "else the one hit of `results` that is `exact`. Null when none is, or more than "
+        "else the hit of the concept `q` is the term of (`concept`), else the one hit of "
+        "`results` that is `exact`. Null when none is, or more than "
         "one (`BW`: each book), however well words match (`huurverhoging`).",
     )

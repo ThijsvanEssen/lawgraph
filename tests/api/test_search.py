@@ -687,7 +687,7 @@ def _item(key: str, collection: str, score: float, **extra: Any) -> dict[str, An
 def test_best_is_the_one_hit_the_query_names_exactly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``best``: the one ``exact`` hit; none when only words match ("huurverhoging": an
+    """``best``: the one ``exact`` hit; none when only words match ("huurtoeslag": an
     article whose heading it is) or when several are exact ("BW": every book)."""
     found: dict[str, list[dict[str, Any]]] = {}
     stub_route(
@@ -698,9 +698,9 @@ def test_best_is_the_one_hit_the_query_names_exactly(
     )
     client = TestClient(app)
 
-    found["articles"] = [_item("ix", "articles", SCORE_TITLE, heading="huurverhoging")]
+    found["articles"] = [_item("ix", "articles", SCORE_TITLE, heading="huurtoeslag")]
     found["documents"] = [_item("d", "documents", SCORE_CONTAINS)]
-    body = client.get("/api/search", params={"q": "huurverhoging"}).json()
+    body = client.get("/api/search", params={"q": "huurtoeslag"}).json()
     assert body["best"] is None
     assert [h["exact"] for h in body["results"]["articles"]] == [False]
 
@@ -772,6 +772,7 @@ def test_no_hit_of_every_word_answers_those_of_one(
         query_words=lambda store, q: QueryWords(
             ["opzegtermijn", "huurcontract"], ["wat", "is", "de", "van", "mijn"]
         ),
+        concept_named=lambda q, words: None,  # no term of the list of concepts
     )
     body = (
         TestClient(app)
