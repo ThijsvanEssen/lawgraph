@@ -368,7 +368,11 @@ def test_every_filter_is_a_parameter_of_the_page_or_named_as_none() -> None:
 
     from lawgraph.api.routes.feed import _SITE_PARAMETERS
 
-    not_on_site = {"tiers"}  # the filters /actueel has no parameter for
+    not_on_site = {
+        "tiers",
+        "party",
+        "vote",
+    }  # the filters /actueel has no parameter for
     names = {field.name for field in fields(FeedFilters)}
     assert names == set(_SITE_PARAMETERS) | not_on_site
     assert not set(_SITE_PARAMETERS) & not_on_site

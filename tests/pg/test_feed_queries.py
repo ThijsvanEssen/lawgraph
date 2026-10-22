@@ -276,6 +276,8 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         # no cabinet in the data: no coalition
         "coalition": None,
         "coalition_factions": [],
+        # how a faction voted, under ``party`` alone
+        "party_choice": None,
     }
     assert vote["subkind"] == "Motie"
     assert vote["summary"] == "Aangenomen."
@@ -370,6 +372,12 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         ),
         ({"member": "nobody"}, []),
         ({"faction": "vvd"}, ["documents/amendment_004"]),
+        # how a faction voted (B5): the votes alone
+        ({"party": "vvd"}, ["decisions/stemming_1"]),
+        ({"party": "vvd", "vote": "tegen"}, ["decisions/stemming_1"]),
+        ({"party": "vvd", "vote": "voor"}, []),
+        ({"party": "d66", "vote": "voor"}, ["decisions/stemming_1"]),
+        ({"party": "nobody"}, []),
         (
             {"faction": "d66"},
             [
@@ -397,6 +405,23 @@ def test_a_filter_keeps_its_events(
         assert answer["total"] == len(expected)
     else:
         assert answer["total"] is None and answer["facets"] is None
+
+
+@ON_THE_GRAPH
+def test_a_vote_says_how_the_faction_asked_voted(client: TestClient) -> None:
+    """B5: ``party`` keeps the votes a faction voted on, each with its choice; who signed
+    the motion (``faction``) is another filter."""
+    (vote,) = _feed(client, party="vvd")["items"]
+    assert vote["vote"]["party_choice"] == "Tegen"
+    (vote,) = _feed(client, party="d66", facets=False)["items"]
+    assert vote["vote"]["party_choice"] == "Voor"
+    unasked = _feed(client, kind="stemming")["items"][0]
+    assert unasked["vote"]["party_choice"] is None
+    counted = _feed(client, party="vvd")
+    assert counted["total"] == 1
+    assert _counts(counted["facets"]["kind"]) == {"stemming": 1}
+    assert_status(client.get("/api/feed", params={"vote": "voor"}), 422)
+    assert_status(client.get("/api/feed", params={"party": "vvd", "vote": "x"}), 422)
 
 
 @ON_THE_GRAPH
@@ -954,6 +979,7 @@ ITEM_KEYS = [
     "via",
     "coalition",
     "coalition_factions",
+    "party_choice",
 ]
 
 

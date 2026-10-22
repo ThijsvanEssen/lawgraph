@@ -158,6 +158,24 @@ def test_the_members_of_a_committee_by_name_then_key_with_their_seat(
     assert list(every)[-3:] == ["members", "dossiers", "dossier_total"]
 
 
+def test_the_members_of_a_committee_the_data_has_no_seat_on_are_not_known(
+    store: GraphStore,
+) -> None:
+    """B11: a committee no seat in the data is on has members that are not known (None),
+    not none; one whose seats all ended has none now."""
+    committee_graph(store)
+    unseated = get_committee_detail(store, "ix")
+    assert unseated is not None and unseated["members"] is None
+    every = get_committee_detail(store, "ix", current_only=False)
+    assert every is not None and every["members"] is None
+    store.execute(
+        "DELETE FROM edges WHERE to_id = 'committees/c_b' AND relation = 'MEMBER_OF'"
+        " AND from_id <> 'members/m2'"
+    )
+    ended = get_committee_detail(store, "b")
+    assert ended is not None and ended["members"] == []
+
+
 def test_the_dossiers_of_a_committee_newest_opened_first_by_status_and_paged(
     store: GraphStore,
 ) -> None:

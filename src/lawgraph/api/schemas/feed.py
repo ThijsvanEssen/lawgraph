@@ -184,6 +184,11 @@ class FeedVoteDTO(StrictModel):
         description="Of the Tweede Kamer: each coalition faction that cast a seat, with its "
         "choice, most seats first; empty where ``coalition`` is null.",
     )
+    party_choice: str | None = Field(
+        None,
+        description="With ``party``: how that faction voted, as the source writes it "
+        "(``Voor``, ``Tegen``); null without ``party``.",
+    )
 
 
 class FeedCommitmentDTO(StrictModel):
@@ -783,6 +788,7 @@ def _vote(props: dict[str, Any], row: dict[str, Any]) -> FeedVoteDTO:
         decision_kind=props.get("decision_kind"),
         coalition=row.get("coalition"),
         coalition_factions=row.get("coalition_factions") or [],
+        party_choice=row.get("party_choice"),
     )
 
 

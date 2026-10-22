@@ -58,6 +58,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.core.time import dutch_today, iso_day
+from lawgraph.core.votes import VOTE_PARAMETER, VoteParameter
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
@@ -128,6 +129,17 @@ def scope_filters(
         str | None,
         Query(description="Faction key: what its Kamerleden signed for it."),
     ] = None,
+    party: Annotated[
+        str | None,
+        Query(
+            description="Faction key: the votes it voted on (how it voted, not what it "
+            "signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone."
+        ),
+    ] = None,
+    vote: Annotated[
+        VoteParameter | None,
+        Query(description="With ``party``: the votes it voted for, or against."),
+    ] = None,
     q: Annotated[
         list[str] | None,
         Query(
@@ -189,6 +201,8 @@ def scope_filters(
     """The filters of every feed route but its dates."""
     if article and not instrument:
         raise Invalid("article", "needs `instrument`.")
+    if vote and not party:
+        raise Invalid("vote", "needs `party`.")
     return FeedFilters(
         kinds=parse_choices(kind, FEED_KINDS, "kind"),
         cabinet=cabinet or None,
@@ -196,6 +210,8 @@ def scope_filters(
         dossier=dossier or None,
         member=member or None,
         faction=faction or None,
+        party=party or None,
+        vote=VOTE_PARAMETER[vote] if vote else None,
         q=_words(q),
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
@@ -286,7 +302,11 @@ _Cursor = Annotated[
         "has none), `member` (a member key: the papers they "
         "signed, the votes on them, the commitments they made), `faction` (a faction "
         "key: the papers its Kamerleden signed for it and the votes on them; without "
-        "`since` its page is read as under `q`), `q` (words of the title or of "
+        "`since` its page is read as under `q`), `party` (a faction key: the votes it "
+        "voted on, how it voted rather than what it signed, each with "
+        "`vote.party_choice`; keeps votes alone; without `since` its page is read as "
+        "under `q`) with `vote` (`voor`, `tegen`: the votes it voted that way on; 422 "
+        "without `party`), `q` (words of the title or of "
         "the title of the event's dossier, or of a publication the names of the laws "
         "it changes or enacts and the official title of a law it enacts (from "
         "`lg_feed_events`: a publication is found by them once `lawgraph feed-events` "
