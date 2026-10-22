@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
 )
+from lawgraph.core.concepts import Concept, concept_named
 from lawgraph.core.logging import get_logger
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
@@ -39,10 +40,10 @@ from lawgraph.db.queries.search.dispatch import (
     signed_of,
 )
 from lawgraph.db.queries.search.parser import kept_notation_parser
-from lawgraph.db.queries.search.ranking import exact_hit
+from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, exact_hit
 from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.signers import Signed
-from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
+from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES, hit_by_key
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
@@ -225,8 +226,17 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "citation, ECLI, LJN, number, the abbreviation or whole title of a law, the name of a "
         "judgment, the whole name of a member, faction, committee or cabinet), never by a "
         "heading or words; `best` is the id of what a search box opens on Enter: the match of "
-        "`resolved` of confidence 0.9 or more, else the one `exact` hit, else null "
+        "`resolved` of confidence 0.9 or more, else the hit of a concept, else the one "
+        "`exact` hit, else null "
         "(`huurverhoging`: no hit it names, however its words match)."
+        "\n\n"
+        "A query that is a term of the curated list of concepts (`wanprestatie`, `ontslag "
+        "op staande voet`, `GDPR`, `minimum wage`; the whole query or its words without its "
+        'stop words, any case, without accents and punctuation; docs/api.md "Concepts") '
+        "has the article or law the term is about first among the hits of its type, score "
+        "1, `exact`, with `concept` the term (not with a period, nor when its type is not "
+        "in `types`); it is `best` unless `resolved` names something with confidence 0.9 "
+        "or more."
     ),
     tags=["search"],
 )
@@ -329,13 +339,16 @@ def search(
         raw, partial = search(store, **asked, any_word=True)
         any_word = any(raw.values())
 
-    grouped: dict[str, list[SearchResultItem]] = {}
-    total = 0
     names = load_dossier_names(store) if "documents" in raw else {}
-    for type_key, hits in raw.items():
-        items = [_item(q, hit, names) for hit in hits]
-        grouped[type_key] = items
-        total += len(items)
+    grouped = {t: [_item(q, hit, names) for hit in hits] for t, hits in raw.items()}
+    named = None if period else concept_named(q, words.words)
+    concept = _concept_item(store, q, named, requested_types) if named else None
+    if concept is not None:
+        others = [
+            i for i in grouped.get(concept.collection, []) if i.key != concept.key
+        ]
+        grouped[concept.collection] = [concept, *others][:limit]
+    total = sum(len(items) for items in grouped.values())
 
     logger.debug("Search '%s' → %d hits across %s", q, total, requested_types)
     resolved = _resolved(store, q, mode) if resolve else None
@@ -354,8 +367,23 @@ def search(
         words=words.words,
         left_out=words.left_out,
         matched="any" if any_word else "all",
-        best=_best(grouped, resolved),
+        best=_best(grouped, resolved, concept),
     )
+
+
+def _concept_item(
+    store: GraphStore, q: str, named: Concept, types: list[str]
+) -> SearchResultItem | None:
+    """The article or law of the concept *q* names (``core.concepts``) as a hit of score 1,
+    ``exact``, with ``concept`` its term; None when its type is not searched or the graph
+    does not have it."""
+    if named.collection not in types:
+        return None
+    hit = hit_by_key(store, named.collection, named.key)
+    if hit is None:
+        return None
+    item = _item(q, {**hit, "score": SCORE_IDENTIFIER, "exact": True}, {})
+    return item.model_copy(update={"concept": named.term})
 
 
 # A match of ``/api/resolve`` this sure is what the query names (``resolve.CONFIDENCE_NAME``:
@@ -364,14 +392,20 @@ BEST_CONFIDENCE = CONFIDENCE_NAME
 
 
 def _best(
-    grouped: dict[str, list[SearchResultItem]], resolved: ResolveResponse | None
+    grouped: dict[str, list[SearchResultItem]],
+    resolved: ResolveResponse | None,
+    concept: SearchResultItem | None = None,
 ) -> str | None:
     """The id of what the query names exactly: the match of *resolved* of
-    ``BEST_CONFIDENCE`` or more, else the one hit that is ``exact``; None when there is
-    none or more than one (``BW``: every book), however well the words match."""
+    ``BEST_CONFIDENCE`` or more (what the sources name: a citation, a law by its
+    abbreviation), else the hit of the *concept* it names (``_concept_item``), else the one
+    hit that is ``exact``; None when there is none or more than one (``BW``: every book),
+    however well the words match."""
     match = resolved.match if resolved else None
     if match is not None and resolved and resolved.confidence >= BEST_CONFIDENCE:
         return match.id
+    if concept is not None:
+        return concept.id
     exact = {hit.id for hits in grouped.values() for hit in hits if hit.exact}
     return exact.pop() if len(exact) == 1 else None
 

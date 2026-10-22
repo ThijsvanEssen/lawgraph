@@ -214,3 +214,22 @@ def test_the_tables_are_the_curated_lists() -> None:
     )
     for alias, key in LISTS["ministry-aliases"].entries().items():
         assert ministry_named(alias) == key
+
+
+def test_a_concept_needs_a_law_a_reason_and_terms_of_its_own(copy: Path) -> None:
+    def concept(value: str) -> list[str]:
+        return command.main(["set", "concepts", "nieuw begrip", value]).errors
+
+    good = (
+        '{"law": "BWBR0005289", "article": "74", "why": "art. 6:74 BW", "variants": []}'
+    )
+    assert not concept(good)
+    for wrong in (
+        '{"law": "BW", "article": "74", "why": "x"}',  # no BWB id
+        '{"law": "BWBR0005289", "article": 74, "why": "x"}',  # no article number
+        '{"law": "BWBR0005289", "article": "74"}',  # no reason
+        '{"law": "BWBR0005289", "why": "x", "variants": [" x"]}',  # untrimmed
+        # a variant that is another term, compared without case, accents or punctuation
+        '{"law": "BWBR0005289", "why": "x", "variants": ["Wanprestatie!"]}',
+    ):
+        assert concept(wrong), wrong

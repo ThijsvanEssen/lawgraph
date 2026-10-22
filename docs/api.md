@@ -429,6 +429,24 @@ citation title or its title; a name two laws share names no article but lists bo
 alternatives, and several equally good nodes cap the confidence at 0.5. A bare number needs five
 digits (`36327`) unless it follows `Kamerstuk` or `dossier`.
 
+### Concepts
+
+A search names an article or a law by a term of its own when no source does: a term of the
+law or of its practice (`wanprestatie`, `ontslag op staande voet`, `tbs`) or an English word
+(`GDPR`, `minimum wage`). The curated list
+`concepts` (`data/curated/concepts.json`, `core/concepts.py`) gives each term its variants,
+the one article (or law) it is about and `why`, the source that ties them (the article that
+defines or rules it). `/api/search` puts that article or law first among the hits of its
+type, score 1 and `exact`, with `concept` the term, and makes it `best` unless `resolved`
+names something with confidence 0.9 or more: what the sources name goes before the list.
+
+The list is kept by hand with `lawgraph curated set concepts <term> '<json>'` (docs/operations.md):
+one article per term, a term or variant of one concept only, compared in lower case without
+accents and punctuation. An entry is added only after its article has been read (it exists,
+holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `AVG`) needs
+none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
+names a term whose article the graph does not have.
+
 ### Neighbour filters
 
 `/api/nodes/{collection}/{key}` and `.../neighborhood` take the same filters:
