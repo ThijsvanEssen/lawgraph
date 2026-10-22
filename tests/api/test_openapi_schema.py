@@ -168,7 +168,7 @@ def _parameters(path: str) -> set[str]:
 def test_the_node_routes_declare_their_filters_and_the_edge_of_a_neighbor() -> None:
     filters = {"relations", "node_types", "direction", "status"}
     node = "/api/nodes/{collection}/{key}"
-    views = {"props", "edge_meta"}
+    views = {"props", "edge_meta", "sort"}
     assert _parameters(node) == filters | views | {"limit", "offset"}
     assert _parameters(f"{node}/neighborhood") == filters | views | {
         "depth",
