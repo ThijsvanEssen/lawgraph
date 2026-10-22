@@ -34,6 +34,39 @@ def tokenize_search_query(q: str) -> list[str]:
     return [t for t in q.strip().lower().split() if len(t) > 1]
 
 
+# The dictionary whose stop words a search leaves out: PostgreSQL's Dutch snowball stemmer
+# with the stop words of the Snowball project (``dutch.stop``: "de", "van", "wat", "mijn").
+STOP_WORDS_OF = "pg_catalog.dutch_stem"
+_STOP_WORDS_SQL = (
+    "SELECT w FROM unnest(%(words)s::text[]) AS w"
+    f" WHERE ts_lexize('{STOP_WORDS_OF}', w) = '{{}}'"
+)
+
+
+@dataclass(frozen=True)
+class QueryWords:
+    """The tokens of a query (``tokenize_search_query``) a search looks for (*words*) and
+    the stop words it leaves out of them (*left_out*): "wat is de opzegtermijn van mijn
+    huurcontract" looks for "opzegtermijn" and "huurcontract". A query of stop words alone
+    is looked for as it is."""
+
+    words: list[str]
+    left_out: list[str]
+
+
+def query_words(store: GraphStore, q: str) -> QueryWords:
+    """The words *q* is searched by: its tokens without the stop words of ``STOP_WORDS_OF``,
+    unless they are all it has."""
+    tokens = tokenize_search_query(q)
+    if len(tokens) < 2:
+        return QueryWords(tokens, [])
+    stop = set(store.query(_STOP_WORDS_SQL, {"words": tokens}))
+    words = [t for t in tokens if t not in stop]
+    if not words:
+        return QueryWords(tokens, [])
+    return QueryWords(words, [t for t in tokens if t in stop])
+
+
 # ── a period ──────────────────────────────────────────────────────────────────
 
 
@@ -126,8 +159,10 @@ def build_search_clause(
     row: str = "r",
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
+    any_word: bool = False,
 ) -> tuple[str, dict[str, Any]]:
-    """A condition on *row* (a row of *table*): every token matches one of *fields*.
+    """A condition on *row* (a row of *table*): every token matches one of *fields* (with
+    *any_word*: one token at least).
 
     Returns ``(condition, params)``; the parameters are ``_tok_0``, ``_tok_1``, … so they
     do not collide with those of the caller. A token is taken as typed (lower case, from
@@ -159,7 +194,14 @@ def build_search_clause(
             per_field.append(f"{row}.id = ANY(%(_termed_{i})s::text[])")
         per_field += _of_laws(laws, i, params, row)
         parts.append("(" + " OR ".join(per_field) + ")")
-    return " AND ".join(parts), params
+    return joined(parts, any_word), params
+
+
+def joined(parts: list[str], any_word: bool) -> str:
+    """The condition of every one of *parts* (with *any_word*: of one at least)."""
+    if any_word and len(parts) > 1:
+        return "(" + " OR ".join(parts) + ")"
+    return " AND ".join(parts)
 
 
 def _of_laws(
@@ -190,10 +232,11 @@ def live_clause(
     fields: list[str],
     termed: list[list[str]] | None = None,
     laws: list[list[str]] | None = None,
+    any_word: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """The condition of a search while typing: each an index lookup, none a part of a
     value within a word (``tikst``), which a short part finds in a large share of the
-    rows."""
+    rows; with *any_word* one token at least."""
     params: dict[str, Any] = {}
     parts: list[str] = []
     for i, token in enumerate(tokens):
@@ -223,7 +266,7 @@ def live_clause(
             per_field.append(f"r.id = ANY(%(_termed_{i})s::text[])")
         per_field += _of_laws(laws, i, params)
         parts.append("(" + " OR ".join(per_field or ["false"]) + ")")
-    return " AND ".join(parts) or "true", params
+    return joined(parts, any_word) or "true", params
 
 
 # ── what a word stands for besides its fields ─────────────────────────────────

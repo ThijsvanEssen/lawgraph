@@ -52,6 +52,7 @@
     },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+    "exact": true,
     "extra": {
      "ecli": "ECLI:NL:HR:1919:1"
     },
@@ -86,6 +87,7 @@
     },
     "collection": "judgments",
     "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+    "exact": true,
     "extra": {
      "appno": null,
      "ecli": "ECLI:NL:HR:1919:1",
@@ -201,6 +203,7 @@
    {
     "collection": "instruments",
     "display_name": "Wetboek van Strafrecht",
+    "exact": true,
     "extra": {
      "aliases": [
       "WvSr",
@@ -828,6 +831,7 @@
    {
     "collection": "articles",
     "display_name": "Artikel 1 Wetboek van Strafrecht",
+    "exact": true,
     "extra": {
      "article_number": "1",
      "bwb_id": "BWBR0001854",
@@ -2191,6 +2195,7 @@
    {
     "collection": "instruments",
     "display_name": "Cyberbeveiligingswet",
+    "exact": true,
     "extra": {
      "aliases": null,
      "bwb_id": "BWBR0050000",
@@ -2308,7 +2313,7 @@
     },
     "id": "members/m1",
     "key": "m1",
-    "score": 0.25,
+    "score": 0.75,
     "snippet": "VVD",
     "type": "member"
    },
@@ -2322,7 +2327,7 @@
     },
     "id": "members/m2",
     "key": "m2",
-    "score": 0.25,
+    "score": 0.75,
     "snippet": "CDA",
     "type": "member"
    }
@@ -4673,6 +4678,7 @@
     },
     "collection": "judgments",
     "display_name": "Hoge Raad 2019",
+    "exact": true,
     "extra": {
      "ecli": "ECLI:NL:HR:2019:9"
     },
@@ -5897,6 +5903,7 @@
    {
     "collection": "instruments",
     "display_name": "Wetboek van Strafrecht",
+    "exact": true,
     "extra": {
      "aliases": [
       "WvSr",
@@ -6041,6 +6048,7 @@
      },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+     "exact": true,
      "extra": {
       "ecli": "ECLI:NL:HR:1919:1"
      },
@@ -6078,6 +6086,7 @@
      },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+     "exact": true,
      "extra": {
       "appno": null,
       "ecli": "ECLI:NL:HR:1919:1",
@@ -6199,6 +6208,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",
@@ -6479,6 +6489,7 @@
     {
      "collection": "articles",
      "display_name": "Artikel 1 Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "article_number": "1",
       "bwb_id": "BWBR0001854",
@@ -6832,6 +6843,7 @@
     {
      "collection": "instruments",
      "display_name": "Cyberbeveiligingswet",
+     "exact": true,
      "extra": {
       "aliases": null,
       "bwb_id": "BWBR0050000",
@@ -6958,7 +6970,7 @@
      },
      "id": "members/m1",
      "key": "m1",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     },
@@ -6972,7 +6984,7 @@
      },
      "id": "members/m2",
      "key": "m2",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "CDA",
      "type": "member"
     }
@@ -8443,6 +8455,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",
@@ -10506,6 +10519,7 @@
      },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+     "exact": true,
      "extra": {
       "ecli": "ECLI:NL:HR:1919:1"
      },
@@ -10641,6 +10655,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",
@@ -10839,6 +10854,7 @@
     {
      "collection": "articles",
      "display_name": "Artikel 1 Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "article_number": "1",
       "bwb_id": "BWBR0001854",
@@ -11058,6 +11074,7 @@
     {
      "collection": "instruments",
      "display_name": "Cyberbeveiligingswet",
+     "exact": true,
      "extra": {
       "aliases": null,
       "bwb_id": "BWBR0050000",
@@ -11184,7 +11201,7 @@
      },
      "id": "members/m1",
      "key": "m1",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     }
@@ -12230,6 +12247,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",
@@ -12382,6 +12400,7 @@
      },
      "collection": "judgments",
      "display_name": "Hoge Raad 1919 Lindenbaum/Cohen",
+     "exact": true,
      "extra": {
       "ecli": "ECLI:NL:HR:1919:1"
      },
@@ -12540,6 +12559,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",
@@ -12969,6 +12989,7 @@
     {
      "collection": "articles",
      "display_name": "Artikel 1 Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "article_number": "1",
       "bwb_id": "BWBR0001854",
@@ -13791,6 +13812,7 @@
     {
      "collection": "instruments",
      "display_name": "Cyberbeveiligingswet",
+     "exact": true,
      "extra": {
       "aliases": null,
       "bwb_id": "BWBR0050000",
@@ -13917,7 +13939,7 @@
      },
      "id": "members/m1",
      "key": "m1",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     },
@@ -13931,7 +13953,7 @@
      },
      "id": "members/m2",
      "key": "m2",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "CDA",
      "type": "member"
     }
@@ -15456,6 +15478,7 @@
      },
      "collection": "judgments",
      "display_name": "Hoge Raad 2019",
+     "exact": true,
      "extra": {
       "ecli": "ECLI:NL:HR:2019:9"
      },
@@ -16435,6 +16458,7 @@
     {
      "collection": "instruments",
      "display_name": "Wetboek van Strafrecht",
+     "exact": true,
      "extra": {
       "aliases": [
        "WvSr",

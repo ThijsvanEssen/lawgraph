@@ -223,6 +223,11 @@ def test_what_names_no_article_is_no_article(query: str) -> None:
         ("32016R0679", "celex", "32016R0679"),
         ("32016r0679", "celex", "32016R0679"),
         ("32009L0128", "celex", "32009L0128"),
+        # the LJN of a decision before 2013, as it is cited and bare
+        ("LJN AU3313", "ljn", "AU3313"),
+        ("LJN: au3313", "ljn", "AU3313"),
+        ("LJN-nummer AU 3313", "ljn", "AU3313"),
+        ("au3313", "ljn", "AU3313"),
     ],
 )
 def test_an_identifier_is_recognised(
@@ -233,7 +238,15 @@ def test_an_identifier_is_recognised(
 
 @pytest.mark.parametrize(
     "query",
-    ["ECLI:NL:HR", "BWBR001854", "BWBX0001854", "32016R", "ECLI"],
+    [
+        "ECLI:NL:HR",
+        "BWBR001854",
+        "BWBX0001854",
+        "32016R",
+        "ECLI",
+        "LJN AU331",
+        "IB 2001",
+    ],
 )
 def test_an_incomplete_identifier_is_not_one(query: str) -> None:
     assert parse(query) is None

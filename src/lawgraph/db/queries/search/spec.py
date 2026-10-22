@@ -27,9 +27,11 @@ JUDGMENT_CITE_PROPS = """'cite_props', json_build_object(
 
 @dataclass(frozen=True)
 class Asked:
-    """One search: the query and its tokens (``tokenize_search_query``), the citation it is
+    """One search: the query and its words (``clause.query_words``), the citation it is
     (``parser.notation``), the kinds of documents and dossiers asked for, the most hits per
-    type, the period and the factions it names (``signers.signed_for``)."""
+    type, the period, the factions it names (``signers.signed_for``), whether a hit holds
+    one of its words at least (*any_word*) instead of every one, and the kinds of motion
+    asked for (*motion_kinds*, ``core.motion_kinds``: of the papers and the votes)."""
 
     store: GraphStore
     q: str
@@ -39,6 +41,8 @@ class Asked:
     limit: int
     period: Period
     signed: Signed | None = None
+    any_word: bool = False
+    motion_kinds: list[str] | None = None
 
     def words(self, kind: SearchType) -> list[str]:
         """The tokens *kind* is searched by: of a type with signatures, without those that

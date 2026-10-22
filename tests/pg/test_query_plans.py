@@ -81,6 +81,16 @@ URLS = [
     "/api/search?q=motie+vvd&types=decisions&types=documents&mode=live",
     "/api/search?q=R.+van+Gelder&types=judgments",
     "/api/search?q=R.+van+Geld&types=judgments&mode=live",
+    # a judgment by its LJN: the trigrams of the end of its ECLI
+    "/api/search?q=LJN+AU3313&resolve=true",
+    "/api/search?q=AU3313&types=judgments&mode=live",
+    # the motions of a kind by its name, and kept to a kind; a stem of a word of a vote
+    "/api/search?q=motie+van+wantrouwen&types=decisions&types=documents",
+    "/api/search?q=wantrouwen&types=decisions&types=documents&mode=live",
+    "/api/search?q=motie&types=decisions&types=documents&motion_kind=no_confidence",
+    "/api/search?q=toezeggingen+pensioenen&types=commitments",
+    # no hit of every word: the hits of one at least
+    "/api/search?q=wat+is+de+opzegtermijn+van+mijn+huurcontract",
     f"/api/lookup?kind=judgment&ecli={ECLI}",
     # a paper by its number: by the index on lg_document_light, not the props of every
     # paper of the dossier (a budget dossier holds thousands)
