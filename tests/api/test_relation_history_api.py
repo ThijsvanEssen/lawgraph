@@ -103,7 +103,7 @@ def _amended_by(
     asked: list[dict[str, Any]] = []
 
     def get_instrument_amended_by(
-        store: Any, identifier: str, *, limit: int, offset: int
+        store: Any, identifier: str, *, limit: int, offset: int, sort: str
     ) -> AmendedByData:
         asked.append({"identifier": identifier, "limit": limit, "offset": offset})
         return data
@@ -498,7 +498,7 @@ def _instrument_dossiers(
     asked: list[tuple[str, int]] = []
 
     def get_instrument_dossiers(
-        store: Any, identifier: str, *, limit: int
+        store: Any, identifier: str, *, limit: int, sort: str
     ) -> tuple[list[dict[str, Any]], int]:
         asked.append((identifier, limit))
         return rows, total

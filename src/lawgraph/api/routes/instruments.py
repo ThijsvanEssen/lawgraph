@@ -283,7 +283,9 @@ def get_instrument_definitions(
         "each with the evidence of its edge; the graph holds no other links to treaties "
         "or to the articles of the ECHR Convention from Dutch text. The instrument is "
         "named by BWB id, CELEX number or node key; 404 when unknown. `limit` bounds "
-        "each list; the `*_total` fields are absolute."
+        "each list; the `*_total` fields are absolute. `sort`: `confidence` (default) puts the "
+        "most certain link first; `importance` the one whose instrument (treaty, EU act, "
+        "ECHR judgment) is cited most often (`inbound_citation_count`), then the most certain."
     ),
     tags=["instruments"],
 )
@@ -291,9 +293,11 @@ def get_instrument_eu_links(
     identifier: str,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: LongListLimit = 500,
+    sort: Annotated[Literal["confidence", "importance"], Query()] = "confidence",
 ) -> InstrumentEuLinksResponse:
     doc = require(resolve_instrument(store, identifier), "Instrument", identifier)
-    eu = get_eu_links(store, doc["id"], limit=limit)
+    importance = sort == "importance"
+    eu = get_eu_links(store, doc["id"], limit=limit, importance=importance)
     cited = (doc.get("props") or {}).get("inbound_citation_count")
     international = get_international_links(
         store,
@@ -301,6 +305,7 @@ def get_instrument_eu_links(
         scope_of_node(doc),
         limit=limit,
         cited=cited if isinstance(cited, int) else None,
+        importance=importance,
     )
     links = [
         InternationalLinkDTO.from_row(r, "treaty") for r in international.treaties
@@ -474,7 +479,9 @@ def get_instrument_judgments_route(
         "repeal one of its articles. ``via`` says how the dossier is linked "
         "(``instrument`` or ``amending_publication``; in the latter case "
         "``publication`` names the newest publication). ``total`` is the "
-        "absolute count, independent of ``limit``."
+        "absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest "
+        "opened first; ``importance``: the dossiers of the regulation itself first, then "
+        "those with the most amending publications, then the newest opened."
     ),
     tags=["instruments"],
 )
@@ -482,8 +489,9 @@ def get_instrument_dossiers_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
     limit: LongListLimit = 500,
+    sort: Annotated[Literal["opened", "importance"], Query()] = "opened",
 ) -> InstrumentDossiersResponse:
-    rows, total = get_instrument_dossiers(store, bwb_id, limit=limit)
+    rows, total = get_instrument_dossiers(store, bwb_id, limit=limit, sort=sort)
     items = [InstrumentDossierItem.from_row(row) for row in rows]
     return InstrumentDossiersResponse(bwb_id=bwb_id, total=total, items=items)
 
@@ -500,7 +508,9 @@ def get_instrument_dossiers_route(
         "kind, the number of articles affected, the first effective date and the "
         "dossiers. ``total`` is the absolute count, independent of ``limit`` "
         "and ``offset``. Apart from them, in ``proposals``, the papers of the "
-        "Tweede Kamer that propose to change it and are pending."
+        "Tweede Kamer that propose to change it and are pending. ``sort`` ``date`` "
+        "(default) is newest first; ``importance`` puts the publication that affected the "
+        "most articles first (``articles_affected``), then the newest."
     ),
     tags=["instruments"],
 )
@@ -509,8 +519,11 @@ def get_instrument_amended_by_route(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort: Annotated[Literal["date", "importance"], Query()] = "date",
 ) -> AmendedByResponse:
-    data = get_instrument_amended_by(store, bwb_id, limit=limit, offset=offset)
+    data = get_instrument_amended_by(
+        store, bwb_id, limit=limit, offset=offset, sort=sort
+    )
     titles = data.dossier_titles
     return AmendedByResponse(
         bwb_id=bwb_id,

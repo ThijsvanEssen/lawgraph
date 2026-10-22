@@ -402,8 +402,19 @@ def _citing_judgments(
     )
 
 
+# The orders of the dossiers of a law: newest opened, or the dossier that made the law first,
+# then those with the most publications that changed it, then the newest opened.
+_DOSSIER_ORDER = {
+    "opened": "g.opened_on DESC NULLS LAST, g.number NULLS FIRST, g.key",
+    "importance": (
+        "g.direct DESC NULLS LAST, g.publication_count DESC NULLS LAST, g.opened_on DESC NULLS LAST,"
+        " g.number NULLS FIRST, g.key"
+    ),
+}
+
+
 def get_instrument_dossiers(
-    store: GraphStore, identifier: str, *, limit: int = 500
+    store: GraphStore, identifier: str, *, limit: int = 500, sort: str = "opened"
 ) -> tuple[list[dict[str, Any]], int]:
     """Parliamentary dossiers linked to this regulation, one query.
 
@@ -412,7 +423,9 @@ def get_instrument_dossiers(
       * the amending publications that AMEND / INTRODUCE / REPEAL one of its
         articles -> ``via = "amending_publication"`` (``publication`` names the
         newest such publication).
-    A dossier linked both ways is reported as ``instrument``.
+    A dossier linked both ways is reported as ``instrument``. Newest opened first, or with
+    *sort* ``importance`` the dossiers of the regulation itself first, then those with the
+    most amending publications, then the newest opened.
 
     Returns ``(items, total)``; each item is ``{dossier, via, publication}``.
     """
@@ -435,7 +448,9 @@ def get_instrument_dossiers(
         ),
         grouped AS (
             SELECT d.id, d.key, d.type, d.labels, d.props, d.opened_on, d.number,
-                   bool_or(l.source_id = %(instrument_id)s) AS direct
+                   bool_or(l.source_id = %(instrument_id)s) AS direct,
+                   (count(*) FILTER (WHERE l.source_id <> %(instrument_id)s))::int
+                       AS publication_count
             FROM links l JOIN dossiers d ON d.id = l.dossier_id
             GROUP BY d.id
         )
@@ -453,9 +468,7 @@ def get_instrument_dossiers(
                    CROSS JOIN {node_of("l.source_id", "split_part(l.source_id, '/', 1)")} s
                    WHERE l.dossier_id = g.id AND l.source_id <> %(instrument_id)s
                ) AS publications,
-               row_number() OVER (
-                   ORDER BY g.opened_on DESC NULLS LAST, g.number NULLS FIRST, g.key
-               ) AS n
+               row_number() OVER (ORDER BY {_DOSSIER_ORDER[sort]}) AS n
         FROM grouped g
         ORDER BY n
         LIMIT %(limit)s
@@ -501,7 +514,12 @@ def _dossier_link(group: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_instrument_amended_by(
-    store: GraphStore, identifier: str, *, limit: int = 50, offset: int = 0
+    store: GraphStore,
+    identifier: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    sort: str = "date",
 ) -> AmendedByData:
     """The publications that enacted or changed a regulation, newest first, and the pending
     proposals to change it (3 queries at most).
@@ -511,11 +529,13 @@ def get_instrument_amended_by(
     article ids), grouped per publication that made them; one the same per document of the
     Tweede Kamer that proposes them and is still pending (``queries.proposals``), up to
     ``PROPOSALS_SHOWN``; a bulk query resolves the titles of every dossier the answer names.
+    The publications newest first, or with *sort* ``importance`` the one that touched the
+    most articles first, then the newest.
     """
     scope = scope_of(identifier)
     rows = store.query(
         _amending_ctes(COLLECTION_INSTRUMENTS, scope.prop)
-        + paged("grouped", _newest("date_published")),
+        + paged("grouped", _newest("date_published", by_articles=sort == "importance")),
         {**_amending_bind(scope.value), "limit": limit, "offset": offset},
     )
     page_rows, total = split_page(rows)
@@ -555,11 +575,13 @@ _DOCUMENT_PROPS = """(
 )"""
 
 
-def _newest(date: str) -> str:
-    """A page of ``grouped`` newest first: by the prop *date*, then the date signed."""
+def _newest(date: str, *, by_articles: bool = False) -> str:
+    """A page of ``grouped`` newest first: by the prop *date*, then the date signed; with
+    *by_articles* the node that affected the most articles first."""
+    first = "g.articles_affected DESC NULLS LAST," if by_articles else ""
     return f"""
         SELECT g.*, row_number() OVER (
-            ORDER BY lg_str(g.props -> '{date}') DESC NULLS LAST,
+            ORDER BY {first} lg_str(g.props -> '{date}') DESC NULLS LAST,
                      lg_str(g.props -> 'date_signed') DESC NULLS LAST,
                      g.key DESC
         ) AS n

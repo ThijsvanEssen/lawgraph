@@ -1641,9 +1641,17 @@
   "removed",
   "changed"
  ],
+ "/paths//api/activities/{key}/records/get/parameters/1/schema": [
+  "number",
+  "importance"
+ ],
  "/paths//api/articles/{bwb_id}/{article_number}/cited-by/get/parameters/8/schema": [
   "date_desc",
   "citation_count"
+ ],
+ "/paths//api/articles/{bwb_id}/{article_number}/explained-by/get/parameters/4/schema": [
+  "date",
+  "importance"
  ],
  "/paths//api/commitments/get/parameters/10/schema": [
   "date",
@@ -1653,9 +1661,17 @@
   "TK",
   "EK"
  ],
+ "/paths//api/committees/{slug}/activities/get/parameters/3/schema": [
+  "date",
+  "importance"
+ ],
  "/paths//api/committees/{slug}/get/parameters/2/schema/anyOf/0": [
   "open",
   "closed"
+ ],
+ "/paths//api/committees/{slug}/get/parameters/5/schema": [
+  "opened",
+  "importance"
  ],
  "/paths//api/decisions/get/parameters/10/schema/anyOf/0": [
   "together",
@@ -1696,6 +1712,10 @@
  "/paths//api/factions/get/parameters/2/schema": [
   "TK",
   "EK"
+ ],
+ "/paths//api/factions/{key}/dossiers/get/parameters/3/schema": [
+  "opened",
+  "importance"
  ],
  "/paths//api/feed.atom/get/parameters/11/schema/anyOf/0": [
   "voor",
@@ -1776,13 +1796,25 @@
   "title",
   "article_count"
  ],
+ "/paths//api/instruments/{bwb_id}/amended-by/get/parameters/3/schema": [
+  "date",
+  "importance"
+ ],
  "/paths//api/instruments/{bwb_id}/articles/at/{at_date}/get/parameters/7/schema/anyOf/0#const": [
   "references"
+ ],
+ "/paths//api/instruments/{bwb_id}/dossiers/get/parameters/2/schema": [
+  "opened",
+  "importance"
  ],
  "/paths//api/instruments/{bwb_id}/judgments/get/parameters/3/schema": [
   "date",
   "cited",
   "citation_count"
+ ],
+ "/paths//api/instruments/{identifier}/eu-links/get/parameters/2/schema": [
+  "confidence",
+  "importance"
  ],
  "/paths//api/judgments/get/parameters/15/schema": [
   "date_desc",
@@ -1816,6 +1848,10 @@
  "/paths//api/members/get/parameters/7/schema": [
   "name",
   "family_name"
+ ],
+ "/paths//api/members/{key}/dossiers/get/parameters/3/schema": [
+  "opened",
+  "importance"
  ],
  "/paths//api/nodes/{collection}/{key}/get/parameters/4/schema": [
   "full",

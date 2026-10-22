@@ -20,6 +20,7 @@ from lawgraph.api.errors import Invalid
 from lawgraph.api.params import (
     ActiveFrom,
     ActiveTo,
+    ActorDossierSort,
     ListChamber,
     ListLimit,
     TopLimit,
@@ -134,8 +135,8 @@ def get_faction(
     description=(
         "The dossiers in which members of this faction signed or submitted "
         "documents while they belonged to it, newest opened first. Same shape "
-        "as the member variant; ``roles`` and ``document_count`` cover all "
-        "those members."
+        "as the member variant, with its ``sort``; ``roles`` and ``document_count`` "
+        "cover all those members."
     ),
     tags=["factions"],
 )
@@ -144,14 +145,15 @@ def list_faction_dossiers(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort: ActorDossierSort = "opened",
 ) -> ActorDossiersResponse:
     faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["id"]
     # every paper every member of the faction ever signed: kept for the next click, per
     # data version (the date of a paper of any kind is read from ``nodes``)
     return cached(
         store,
-        ("faction dossiers", faction_id, limit, offset),
-        lambda: actor_dossiers(store, faction_id, limit, offset),
+        ("faction dossiers", faction_id, limit, offset, sort),
+        lambda: actor_dossiers(store, faction_id, limit, offset, sort),
     )
 
 

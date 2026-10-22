@@ -393,6 +393,20 @@ def test_dossiers_direct_and_through_amending_publications(store: GraphStore) ->
     assert (total, [i["dossier"]["key"] for i in items]) == (7, ["d_both", "d_pub2"])
     assert instruments.get_instrument_dossiers(store, "BWBR9999999") == ([], 0)
 
+    # by importance: the regulation's own dossiers first (the one a publication also
+    # changed ahead of the rest), then those with the most amending publications
+    items, total = instruments.get_instrument_dossiers(store, BWB, sort="importance")
+    assert total == 7
+    assert [i["dossier"]["key"] for i in items] == [
+        "d_both",
+        "d_direct",
+        "d_tie_a",
+        "d_tie_b",
+        "d_pub",
+        "d_pub2",
+        "d_none",
+    ]
+
 
 # ── amended by ───────────────────────────────────────────────────────────────
 
@@ -506,6 +520,12 @@ def test_amended_by_grouped_per_instrument_newest_first(
     assert [i["instrument"]["key"] for i in page.items] == ["p3c", "p4"]
     beyond = instruments.get_instrument_amended_by(store, BWB, offset=10)
     assert (beyond.items, beyond.total) == ([], 6)
+
+    # by importance: the publication that affected the most articles first, then the newest
+    ranked = instruments.get_instrument_amended_by(store, BWB, sort="importance")
+    assert ranked.total == 6 and ranked.items[0]["instrument"]["key"] == "p1"
+    counts = [i["articles_affected"] for i in ranked.items]
+    assert counts == sorted(counts, reverse=True) and counts[0] == 3
 
 
 def _seed_proposals(store: GraphStore) -> None:

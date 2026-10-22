@@ -391,8 +391,11 @@ def get_legislative_history(
         "the section about this article in `section_anchor` (the `id` of a "
         "section of the document; `GET /api/documents/{key}/passages` gives its "
         "text). One document appears once per level. `total` counts all "
-        "explanations, independent of `limit` and `offset`. Returns an empty list "
-        "for an unknown article — never a 404."
+        "explanations, independent of `limit` and `offset`. `sort` `date` (default) is "
+        "newest first; `importance` puts the explanations that name a section about "
+        "this article before those written for the dossier, the most confident first "
+        "(`confidence`), then the newest. Returns an empty list for an unknown article "
+        "— never a 404."
     ),
     tags=["articles"],
 )
@@ -401,9 +404,15 @@ def get_explained_by(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort: Annotated[Literal["date", "importance"], Query()] = "date",
 ) -> ArticleExplanationsResponse:
     page = get_article_explanations(
-        store, article.bwb_id, article.number, limit=limit, offset=offset
+        store,
+        article.bwb_id,
+        article.number,
+        limit=limit,
+        offset=offset,
+        importance=sort == "importance",
     )
     names = load_dossier_names(store)
     return ArticleExplanationsResponse(

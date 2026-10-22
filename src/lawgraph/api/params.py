@@ -39,6 +39,17 @@ LongListLimit = Annotated[int, Query(ge=1, le=LONG_LIST_MAX)]
 TopLimit = Annotated[int, Query(ge=1, le=TOP_MAX)]
 MemberListLimit = Annotated[int, Query(ge=1, le=MEMBER_LIST_MAX)]
 
+# The order of a list of connections (the "Verbonden" lists of a page): ``recent``/``opened`` by
+# date as before, the other by a measure named per route (``docs/api.md``, "Order of the
+# connections"); the default of each is the order the route has always had.
+ActorDossierSort = Annotated[
+    Literal["opened", "importance"],
+    Query(
+        description="`opened` (default): newest opened first; `importance`: the dossier "
+        "with the most documents signed first, then the newest opened."
+    ),
+]
+
 # The tier of a judgment and its kind of court, as query parameters (``core.courts.TIERS``
 # and ``COURT_KINDS``), so the schema lists them and a value that is none is 422.
 Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]

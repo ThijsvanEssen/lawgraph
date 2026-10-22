@@ -92,7 +92,20 @@ def _article_ref(a: str) -> str:
     )
 
 
-def _eu_side(name: str, end: str, other: str, relation: str) -> str:
+# What an EU or international link is ranked by after its confidence: the instrument (the
+# judgment) at the other end, by how often it is cited, then by key; with *importance* before it.
+def _link_order(importance: bool, confidence: str, cited: str, rest: str) -> str:
+    """SQL ``ORDER BY`` of links: by *confidence*, then *rest*; with *importance* by how often
+    the other end is cited (*cited*) first."""
+    by_confidence = f"{confidence} DESC NULLS LAST"
+    if importance:
+        return f"{cited} DESC NULLS LAST, {by_confidence}, {rest}"
+    return f"{by_confidence}, {rest}"
+
+
+def _eu_side(
+    name: str, end: str, other: str, relation: str, *, importance: bool = False
+) -> str:
     """SQL of one side of `eu-links`, two columns: the rows of the edges of *relation*
     whose *end* is the instrument, with the instrument at their *other* end, highest
     confidence first (``name``), and how many there are (``name_total``)."""
@@ -113,7 +126,7 @@ def _eu_side(name: str, end: str, other: str, relation: str) -> str:
                 'edge', {_edge_json("e", relation=True)}
             ) AS row,
             row_number() OVER (
-                ORDER BY e.confidence DESC NULLS LAST, i.key, e.key
+                ORDER BY {_link_order(importance, "e.confidence", "lg_num(i.props -> 'inbound_citation_count')", "i.key, e.key")}
             ) AS n
             {rows}
         ) r
@@ -124,13 +137,14 @@ def _eu_side(name: str, end: str, other: str, relation: str) -> str:
 
 
 def get_eu_links(
-    store: GraphStore, instrument_id: str, *, limit: int = 500
+    store: GraphStore, instrument_id: str, *, limit: int = 500, importance: bool = False
 ) -> EuLinksData:
     """The `IMPLEMENTS` edges out of and into an instrument, and the `REFERS_TO` edges of
     `semantic bwb-implements` (the EU acts a regulation names), one query.
 
     Each row is `{instrument, edge}`: the instrument at the other end and `{relation,
-    confidence, source, meta}` of the edge. Highest confidence first.
+    confidence, source, meta}` of the edge. Highest confidence first; with *importance* the
+    instrument cited most first, then the highest confidence.
     """
     sides = (
         ("implements", "from", "to", "implements"),
@@ -138,7 +152,7 @@ def get_eu_links(
         ("mentions", "from", "to", "mentions"),
         ("mentioned_by", "to", "from", "mentions"),
     )
-    columns = ",".join(_eu_side(*side) for side in sides)
+    columns = ",".join(_eu_side(*side, importance=importance) for side in sides)
     bind = {
         "id": instrument_id,
         "implements": RELATION_IMPLEMENTS,
@@ -167,7 +181,9 @@ def get_eu_links(
     )
 
 
-def _international_sql(scope: str, judgment_edges: str) -> str:
+def _international_sql(
+    scope: str, judgment_edges: str, importance: bool = False
+) -> str:
     """SQL: ``own``, the articles of the instrument (*scope*: a condition on ``a``).
     ``treaty_rows``: their REFERS_TO edges into a treaty instrument, or into an article of
     one (whose instrument is the first by key with its ``bwb_id``). ``judgment_edges`` (the
@@ -221,9 +237,7 @@ SELECT
         FROM (
             -- The edge key only settles ties; the answer does not carry it.
             SELECT r.*, row_number() OVER (
-                ORDER BY r.confidence DESC NULLS LAST, r.treaty_key, r.own_key,
-                         CASE WHEN r.is_article THEN r.target_key END NULLS FIRST,
-                         r.edge_key
+                ORDER BY {_link_order(importance, "r.confidence", "(SELECT lg_num(t.props -> 'inbound_citation_count') FROM instruments t WHERE t.id = r.treaty_id)", "r.treaty_key, r.own_key, CASE WHEN r.is_article THEN r.target_key END NULLS FIRST, r.edge_key")}
             ) AS n
             FROM treaty_rows r
         ) t
@@ -239,7 +253,7 @@ SELECT
         ) ORDER BY page.n), '[]'::json)
         FROM (
             SELECT r.key, row_number() OVER (
-                ORDER BY r.confidence DESC NULLS LAST, r.date DESC NULLS LAST, r.key
+                ORDER BY {_link_order(importance, "r.confidence", "r.cited", "r.date DESC NULLS LAST, r.key")}
             ) AS n
             FROM judgment_edges r
         ) page
@@ -257,7 +271,8 @@ SELECT
 # does not grow with the law (``ECHR_SIDE_FROM``).
 _JUDGMENT_EDGES_BY_TARGET = f"""
 judgment_edges AS (
-    SELECT e.key, e.confidence, lg_str(j.props -> 'date') AS date
+    SELECT e.key, e.confidence, lg_str(j.props -> 'date') AS date,
+           lg_num(j.props -> 'inbound_citation_count') AS cited
     FROM {COLLECTION_EDGES} e
     JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.from_id
     WHERE e.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
@@ -274,7 +289,8 @@ echr_edges AS MATERIALIZED (
     WHERE j.source = %(echr)s
 ),
 judgment_edges AS (
-    SELECT r.key, r.confidence, lg_str(j.props -> 'date') AS date
+    SELECT r.key, r.confidence, lg_str(j.props -> 'date') AS date,
+           lg_num(j.props -> 'inbound_citation_count') AS cited
     FROM echr_edges r
     JOIN {COLLECTION_JUDGMENTS} j ON j.id = r.from_id
     WHERE r.to_id IN (SELECT id FROM own UNION ALL SELECT %(instrument_id)s)
@@ -291,6 +307,7 @@ def get_international_links(
     *,
     limit: int = 500,
     cited: int | None = None,
+    importance: bool = False,
 ) -> InternationalLinksData:
     """Treaties the articles of an instrument refer to, ECHR judgments that refer to it.
 
@@ -298,7 +315,8 @@ def get_international_links(
     `REFERS_TO` edges of the instrument's articles into a treaty (an instrument of kind
     `verdrag` or jurisdiction `int`, or one of its articles). Judgment rows: `{judgment,
     own_article, edge}`, from the `REFERS_TO` edges of ECHR judgments into the instrument or
-    one of its articles. Most confident first; the totals are independent of `limit`.
+    one of its articles. Most confident first, or with *importance* the most cited first; the
+    totals are independent of `limit`.
     *cited*: the citations of the instrument, which choose how its ECHR judgments are found.
     """
     # The scope is the indexed column of the articles: `bwb_id` or `celex`; without one
@@ -318,7 +336,7 @@ def get_international_links(
         if (cited or 0) >= ECHR_SIDE_FROM
         else _JUDGMENT_EDGES_BY_TARGET
     )
-    sql = _international_sql(condition, judgment_edges.strip())
+    sql = _international_sql(condition, judgment_edges.strip(), importance)
     rows = list(store.query(sql, bind))
     row = rows[0] if rows else {}
     return InternationalLinksData(

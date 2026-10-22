@@ -129,6 +129,9 @@ URLS = [
     f"/api/instruments/{BWB}/articles?division=deel-hoofdstuk-1",
     f"/api/instruments/{BWB}/articles/at/2020-01-01?division=deel-hoofdstuk-1",
     f"/api/instruments/{BWB}/amended-by",
+    # the connections ranked (``sort=importance``): each by a measure of fields it reads anyway
+    f"/api/instruments/{BWB}/amended-by?sort=importance",
+    f"/api/instruments/{BWB}/dossiers?sort=importance",
     f"/api/instruments/{BWB}/judgments",
     f"/api/instruments/{BWB}/judgments?sort=cited&offset=1",
     f"/api/instruments/{BWB}/judgments?year=2020",
@@ -149,6 +152,7 @@ URLS = [
     f"/api/articles/{BWB}/1/cited-by?sort=citation_count",
     f"/api/articles/{BWB}/1/cited-by?lid=1&court=HR",
     f"/api/articles/{BWB}/1/explained-by",
+    f"/api/articles/{BWB}/1/explained-by?sort=importance",
     # the passages, with the names of the dossiers (once per data version of them)
     f"/api/articles/{BWB}/1/explanations",
     f"/api/articles/{BWB}/1/delegated",
@@ -211,6 +215,12 @@ URLS = [
     # a debate, and what was made in it: by the edges into it, a paper by its light row
     "/api/activities/act1",
     "/api/activities/act1/records",
+    "/api/activities/act1/records?sort=importance",
+    # a committee: the dossiers it leads and its activities, held before planned
+    "/api/committees/c1",
+    "/api/committees/c1?sort=importance",
+    "/api/committees/c1/activities",
+    "/api/committees/c1/activities?sort=importance",
     "/api/commitments/tz1",
     # the events per month of a topic, by the index on their words
     "/api/feed/periods?q=proef&chamber=TK",
@@ -223,7 +233,9 @@ URLS = [
     "/api/members/m1/documents?limit=3",
     "/api/members/m1/dossiers",
     "/api/members/m1/touched-instruments",
+    "/api/members/m1/dossiers?sort=importance",
     "/api/factions/f1/dossiers",
+    "/api/factions/f1/dossiers?sort=importance",
     "/api/nodes/members/m1",
     f"/api/paths?ids=factions/f1,instruments/{BWB.lower()}&expand=members",
 ]

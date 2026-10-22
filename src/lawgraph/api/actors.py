@@ -26,9 +26,9 @@ def touched_instruments(
 
 
 def actor_dossiers(
-    store: GraphStore, actor_id: str, limit: int, offset: int
+    store: GraphStore, actor_id: str, limit: int, offset: int, sort: str = "opened"
 ) -> ActorDossiersResponse:
-    raw = get_actor_dossiers(store, actor_id, limit=limit, offset=offset)
+    raw = get_actor_dossiers(store, actor_id, limit=limit, offset=offset, sort=sort)
     rows = raw.get("items") or []
     enrich_dossier_docs(store, [row["dossier"] for row in rows])
     return ActorDossiersResponse(

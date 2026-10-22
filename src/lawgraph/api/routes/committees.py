@@ -26,7 +26,7 @@ from lawgraph.api.schemas.committees import (
     CommitteeDTO,
 )
 from lawgraph.api.schemas.common import dossier_names_of
-from lawgraph.core.time import iso_day
+from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.committees import (
     get_committee_activities,
@@ -112,6 +112,14 @@ def get_committee(
         int, Query(ge=1, le=LIST_MAX, description="Dossiers per page.")
     ] = 100,
     offset: Annotated[int, Query(ge=0, description="Dossiers to skip.")] = 0,
+    sort: Annotated[
+        Literal["opened", "importance"],
+        Query(
+            description="`opened` (default): newest opened first; `importance`: the "
+            "open dossiers first, then those with the most items the committee led, "
+            "then the newest opened."
+        ),
+    ] = "opened",
 ) -> CommitteeDetailDTO:
     doc = require(
         get_committee_detail(
@@ -121,6 +129,7 @@ def get_committee(
             status=status,
             limit=limit,
             offset=offset,
+            sort=sort,
         ),
         "Committee",
         slug,
@@ -134,7 +143,10 @@ def get_committee(
     summary="Committee activities",
     description=(
         "The activities (debates, hearings) a committee leads, newest first, "
-        "with the dossiers on their agenda. ``total`` is the absolute count."
+        "with the dossiers on their agenda. ``sort`` ``importance``: the activities held "
+        "first, the latest first, then those planned, the soonest first, then those "
+        "without a date (``date``, the default, is the newest date first, a planned "
+        "activity before any held). ``total`` is the absolute count."
     ),
     tags=["committees"],
 )
@@ -143,9 +155,17 @@ def list_committee_activities(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    sort: Annotated[Literal["date", "importance"], Query()] = "date",
 ) -> CommitteeActivitiesResponse:
     raw = require(
-        get_committee_activities(store, slug, limit=limit, offset=offset),
+        get_committee_activities(
+            store,
+            slug,
+            limit=limit,
+            offset=offset,
+            sort=sort,
+            today=dutch_today().isoformat() if sort == "importance" else "",
+        ),
         "Committee",
         slug,
     )
