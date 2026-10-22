@@ -3,9 +3,9 @@
 
 The link of the XML is written by hand beside the words and is sometimes wrong where the
 words are not: "artikel 230m" linked to article 230, "Artikel 62 leden 2 en 3 van Boek 4"
-to article 178 of Boek 4. The words count; an edge an earlier run made to the linked
-article goes. An article keeps how many of its references name an article the graph does not
-hold (``completeness.references``).
+to article 178 of Boek 4. The words count, "artikel 1 064" as article 1064; an edge an
+earlier run made to the linked article goes. An article keeps how many of its references name
+an article the graph does not hold (``completeness.references``).
 """
 
 from __future__ import annotations
@@ -26,12 +26,18 @@ from lawgraph.db.edges import make_edge_doc
 from tests.databases import Api, module_store
 
 BW4, BW6, BW7 = "BWBR0002761", "BWBR0005289", "BWBR0005290"
+RV, ADV = "BWBR0001827", "BWBR0032898"
 SOURCE = "bwb-article-references"
 TEXT_178 = (
     "1. Een schenking is vernietigbaar.\n"
     "3. Artikel 62 leden 2 en 3 van Boek 4 is van overeenkomstige toepassing."
 )
 TEXT_179 = "Artikel 62 van Boek 4 en artikel 1 van de Wet elders zijn van toepassing."
+# Art. 3.13 of the Aanbestedingswet op defensie- en veiligheidsgebied, as the BWB prints it
+TEXT_313 = (
+    "b. kan tegen een arbitraal vonnis een vordering tot vernietiging als bedoeld in "
+    "artikel 1 064 van het Wetboek van Burgerlijke Rechtsvordering worden ingesteld."
+)
 TEXT_230N = (
     "1. Aan de in artikel 230m lid 1, onderdelen h, i en j, bedoelde verplichtingen kan "
     "worden voldaan door verstrekking van modelinstructies."
@@ -41,7 +47,7 @@ TEXT_230N = (
 def _ref(text: str, needle: str, bwb_id: str, article: str) -> dict[str, Any]:
     start = text.index(needle)
     return {
-        "kind": "extref" if bwb_id == BW4 else "intref",
+        "kind": "extref" if bwb_id in (BW4, RV) else "intref",
         "bwb_id": bwb_id,
         "article": article,
         "doc": f"jci1.3:c:{bwb_id}&artikel={article}",
@@ -84,8 +90,29 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
                 bwb_id=law,
                 title=f"Burgerlijk Wetboek {title}",
             )
-        for law, number in ((BW4, "62"), (BW4, "178"), (BW6, "230"), (BW6, "230m")):
+        for law, number in (
+            (BW4, "62"),
+            (BW4, "178"),
+            (BW6, "230"),
+            (BW6, "230m"),
+            (RV, "1"),
+            (RV, "1064"),
+        ):
             _article(store, law, number)
+        _article(
+            store,
+            ADV,
+            "3.13",
+            TEXT_313,
+            references=[
+                _ref(
+                    TEXT_313,
+                    "artikel 1 064 van het Wetboek van Burgerlijke Rechtsvordering",
+                    RV,
+                    "1064",
+                ),
+            ],
+        )
         _article(
             store,
             BW7,
@@ -144,6 +171,12 @@ def _targets(store: GraphStore, law: str, number: str) -> list[str]:
 def test_the_words_of_a_reference_win_over_its_link(store: GraphStore) -> None:
     assert _targets(store, BW7, "178") == ["bwbr0002761_62"]
     assert _targets(store, BW6, "230n") == ["bwbr0005289_230m"]
+
+
+def test_a_number_with_a_space_between_its_thousands_is_one_number(
+    store: GraphStore,
+) -> None:
+    assert _targets(store, ADV, "3.13") == ["bwbr0001827_1064"]
 
 
 def test_a_type_from_a_pattern_is_not_certain_and_says_what_it_rests_on(

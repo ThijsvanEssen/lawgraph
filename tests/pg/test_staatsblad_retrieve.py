@@ -93,6 +93,37 @@ def test_a_toestand_without_the_ref_gets_it_in_its_meta_once(store: GraphStore) 
     assert read["payload_text"] == xml
 
 
+def test_a_treaty_published_in_the_tractatenblad_names_no_staatsblad(
+    store: GraphStore,
+) -> None:
+    """Trb. 2018, 100 of a treaty is no Stb. 2018, 100: that decree is not fetched for it,
+    and its explanation explains no treaty."""
+    xml = (
+        "<toestand><brondata><oorspronkelijk><publicatie soort='Trb'>"
+        "<publicatiejaar>2018</publicatiejaar><publicatienr>100</publicatienr>"
+        "</publicatie></oorspronkelijk></brondata></toestand>"
+    )
+    with RawSourceWriter(store) as writer:
+        writer.add(
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND,
+                external_id="BWBV0001911",
+                payload_text=xml,
+                meta={"bwb_id": "BWBV0001911"},
+            )
+        )
+    client = _Client()
+    StaatsbladRetrievePipeline(
+        store, cast(KoopPublicationClient, client)
+    ).run_from_bwb_graph(store)
+
+    assert client.asked == []
+    assert list(raw_queries.toestand_staatsblad_refs(store)) == [
+        {"bwb_id": "BWBV0001911", "ref": None}
+    ]
+
+
 class _Laws:
     """The laws the SRU lists per dossier: the Wetboek van Strafvordering of 36327 and the
     Verlengingswet of the same dossier, which changes the law of the BWB; the budget law of

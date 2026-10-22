@@ -31,6 +31,9 @@ _TEXT_NUMBERS_RE = re.compile(
     rf"(?P<nums>{ARTICLE_NUMBERS_PATTERN})(?![\w:]|\.\d)",
     re.IGNORECASE,
 )
+# A space between the thousands of a number: "artikel 1 064 van het Wetboek van Burgerlijke
+# Rechtsvordering" names article 1064, not article 1.
+_THOUSANDS_RE = re.compile(r"(?<=\d)[ \u00a0](?=\d{3}(?!\d))")
 # "van Boek 4": the book of the code whose article the text names.
 _OF_BOOK_RE = re.compile(r"\bvan\s+Boek\s+(?P<book>\d+[A-Z]?)\b", re.IGNORECASE)
 
@@ -74,9 +77,11 @@ def text_target(text: str, bwb_id: str, number: str) -> tuple[str, str]:
     per article), or the two are numbered in different ways (``6.1`` beside ``6:21``: the
     text names an article of another law). Where the link points into a book of a code, a
     book the text names ("van Boek 4", ``6:162``) wins over the linked book. A text that
-    names no number leaves the link as it is.
+    names no number leaves the link as it is. A number written with a space between its
+    thousands ("artikel 1 064") is one number.
     """
-    head = _TEXT_NUMBERS_RE.match(text or "")
+    text = _THOUSANDS_RE.sub("", text or "")
+    head = _TEXT_NUMBERS_RE.match(text)
     if not head:
         return bwb_id, number
     books = _books_of(bwb_id)
