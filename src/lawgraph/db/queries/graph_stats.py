@@ -17,6 +17,7 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
+from lawgraph.core.identifiers import EU_ACT_KINDS
 from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.time import dutch_today
@@ -76,7 +77,12 @@ _INSTRUMENTS = f"""
            )) AS jurisdiction,
            -- what the list of its articles holds by default
            {article_count("i")} AS article_count,
-           lower(lg_str(i.props -> 'kind')) AS kind,
+           -- an EU act by the letter of its CELEX number (no source names its kind)
+           coalesce(
+               CASE WHEN i.bwb_id IS NULL AND i.celex ~ '^3[0-9]{{4}}[A-Z]'
+                    THEN %(eu_kinds)s::jsonb ->> substr(i.celex, 6, 1) END,
+               lower(lg_str(i.props -> 'kind'))
+           ) AS kind,
            -- what refers to the law: to the law itself, and to each of its articles and
            -- annexes (not to a treaty that belongs to it)
            (SELECT count(*)::int FROM edges e
@@ -107,13 +113,22 @@ _INSTRUMENTS = f"""
 """
 
 
+# The kind of an EU act by the letter of its CELEX number, in lower case as the BWB kinds:
+# ``L`` ``richtlijn``.
+EU_KINDS = {act.letter: act.noun.lower() for act in EU_ACT_KINDS.values()}
+
+
 def refresh_instruments(store: Store, *, dry_run: bool) -> int:
     return _run(
         store,
         "instruments",
         _INSTRUMENTS,
         ["jurisdiction", "article_count", "kind", "inbound_citation_count", "amending"],
-        {"part_of": RELATION_PART_OF, "refers_to": RELATION_REFERS_TO},
+        {
+            "part_of": RELATION_PART_OF,
+            "refers_to": RELATION_REFERS_TO,
+            "eu_kinds": Jsonb(EU_KINDS),
+        },
         dry_run=dry_run,
     )
 

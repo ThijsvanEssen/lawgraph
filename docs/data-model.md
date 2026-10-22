@@ -1474,7 +1474,8 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `minister_name` | `str` | Who made it, as the Kamer writes it. |
 | `minister_role` | `str` | Their role, as the Kamer writes it. |
 | `ministry_name` | `str` | The ministry the Kamer gives it (`Toezegging.Ministerie`). |
-| `made_on` | `str` | The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate: the day it was made is that of its activity). |
+| `made_on` | `str` | The day it was made: that of its activity (`Activiteit.Datum`, the debate), else `registered_on`. |
+| `registered_on` | `str` | The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate). |
 | `expected_resolution` | `str` | The day it is due; `0001-01-01` when the Kamer names none. |
 | `status` | `str` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen`. |
 | `activity_number` | `str` | The number of its activity. |
