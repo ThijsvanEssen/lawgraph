@@ -187,7 +187,7 @@ def test_a_judgment_normalized_before_parties_has_none_yet(api: Api) -> None:
 
 
 def test_the_openapi_schema_names_the_parties(api: Api) -> None:
-    schemas = api.get_json("/openapi.json")["components"]["schemas"]
+    schemas = api.get_json("/api/openapi.json")["components"]["schemas"]
 
     assert "parties" in schemas["JudgmentDTO"]["properties"]
     assert schemas["JudgmentParty"]["properties"]["side"]["enum"] == [

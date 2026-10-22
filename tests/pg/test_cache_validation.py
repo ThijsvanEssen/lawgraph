@@ -82,6 +82,8 @@ def test_a_large_answer_is_compressed_and_still_validated(store: GraphStore) -> 
     # the Atom feed of an empty graph is small; its headers say what a large one gets
     assert_status(atom, 200)
     assert atom.headers["etag"] == first.headers["etag"]
+    # a feed reader polls: any cache may keep it a quarter of an hour
+    assert atom.headers["cache-control"] == "public, max-age=900"
 
 
 def test_a_release_changes_the_etag_and_every_answer_says_how_to_keep_it(

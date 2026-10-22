@@ -396,10 +396,13 @@ def get_feed_route(
         "`soort`, `van`, `tot`, `kabinet`, `ministerie`, `dossier`, `persoon`, "
         "`fractie`, `q` once per word, `kamer`, `coalitie`, `wet`, `artikel`; not the "
         "tier) and a `next` link with the cursor; an entry per event (`id` "
-        "`tag:lawgraph,2026:<id>`, `title`, `updated` the date, an `alternate` link to "
+        "`tag:lawgraph,2026:<id>`, `title`, `updated` the start of its day in the "
+        "Netherlands (the source gives no time of day), an `alternate` link to "
         "the event on Concordans (its `path`, else `/explore?focus=<id>`) and a "
         "`related` one to its `official_url` or `tk_url`, `category` its kind, an "
-        "`author` per person, `summary` its summary and dossier)"
+        "`author` per person, `summary` its summary and dossier). The feed is `updated` "
+        "when the events were last written (`lawgraph feed-events`), and may be kept "
+        "15 minutes by any cache (`public, max-age=900`)."
     ),
     responses={
         200: {
@@ -430,6 +433,7 @@ def get_feed_atom(
         next_url=next_url,
         page_url=f"{SITE_URL}/actueel" + (f"?{query}" if query else ""),
         site_url=SITE_URL,
+        updated=feed_events.written_at(store),
     )
     return Response(content=body, media_type=ATOM_MEDIA_TYPE)
 
