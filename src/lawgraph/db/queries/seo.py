@@ -42,6 +42,7 @@ from lawgraph.config.constants import (
     RELATION_RELATED_TO,
     RELATION_SAME_AS,
     RELATION_SERVED_IN,
+    RELATION_TRANSPOSED_TO,
     SOURCE_CJEU,
     SOURCE_ECHR,
 )
@@ -58,6 +59,7 @@ from lawgraph.core.readable_paths import Pad
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
+from lawgraph.db.queries._helpers import _find_instrument_for_article
 from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.queries.feed import official_short
@@ -187,6 +189,60 @@ def node_of(store: GraphStore, pad: Pad) -> str | None:
     if s == "stemming" and store.has_node(COLLECTION_DECISIONS, pad.a):
         return models.node_id(COLLECTION_DECISIONS, pad.a)
     return None
+
+
+def transposed(store: GraphStore, node_id: str) -> bool:
+    """Whether the node *node_id* stands in a recodification (a ``TRANSPOSED_TO`` edge
+    from it or to it): the head of its reader names its successors, its predecessors or
+    what became of it."""
+    rows = store.query(
+        f"""
+        SELECT 1 FROM {COLLECTION_EDGES} e
+        WHERE e.from_id = %(id)s AND e.relation = %(transposed)s
+        UNION ALL
+        SELECT 1 FROM {COLLECTION_EDGES} e
+        WHERE e.to_id = %(id)s AND e.relation = %(transposed)s
+        LIMIT 1
+        """,
+        {"id": node_id, "transposed": RELATION_TRANSPOSED_TO},
+    )
+    return next(iter(rows), None) is not None
+
+
+def article_law_node(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """The law the article *node_id* is part of (its ``PART_OF`` edge), as a whole node."""
+    return _find_instrument_for_article(store, node_id)
+
+
+def listed_around(store: GraphStore, props: dict[str, Any]) -> tuple[bool, bool] | None:
+    """Of the article of *props*, whether its law lists an article before it and one after
+    it, as ``/api/instruments/{law}/articles`` lists them (in their order, without the
+    repealed ones and the stubs); None for an article that list leaves out."""
+    column = law_column(props)
+    position = props.get("position")
+    if (
+        props.get("repealed")
+        or props.get("stub")
+        or not props.get(column)
+        or not isinstance(position, int | float)
+    ):
+        return None
+    listed = f"""
+        SELECT 1 FROM {COLLECTION_ARTICLES} a
+        WHERE a.{column} = %(law)s AND a.position {{side}} %(position)s
+          AND a.repealed IS NOT TRUE AND a.stub IS NOT TRUE
+          AND (a.article_number IS NOT NULL OR lg_str(a.props -> 'label') IS NOT NULL)
+        LIMIT 1"""
+    row = next(
+        iter(
+            store.query(
+                f"SELECT EXISTS ({listed.format(side='<')}) AS before, "
+                f"EXISTS ({listed.format(side='>')}) AS after",
+                {"law": props[column], "position": position},
+            )
+        )
+    )
+    return bool(row["before"]), bool(row["after"])
 
 
 def law_enacted_by(store: GraphStore, official: str) -> str | None:

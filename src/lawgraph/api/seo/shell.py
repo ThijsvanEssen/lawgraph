@@ -8,7 +8,8 @@ description; a ``[param]`` in a path stands for any one segment): any other path
 no readable address is not found. ``moved.json`` beside it maps the addresses that moved
 (``/wetten``, the bare collection, to its list in the app) to where they are now: a 301.
 ``start.json`` beside it holds the fixed text of the start page, the one source of the app
-and of ``/``.
+and of ``/``. ``first-paint.js`` beside it paints a reader's address before the app has
+come: the page holds the source as that script reads it, and the script after it.
 """
 
 from __future__ import annotations
@@ -51,6 +52,8 @@ class Shell:
     start: dict[str, Any]
     # the addresses that moved, to where they are now (``moved.json``), or empty
     moved: dict[str, str]
+    # the script of the first paint of a reader's address (``first-paint.js``), or empty
+    first_paint: str = ""
 
 
 _lock = threading.Lock()
@@ -78,6 +81,7 @@ def shell() -> Shell:
                 _routes(path),
                 _start(path),
                 _moved(path),
+                _first_paint(path),
             )
         _kept["shell"] = fresh
         return fresh
@@ -109,6 +113,15 @@ def _moved(index: Path) -> dict[str, str]:
         for path, to in listed.items()
         if isinstance(to, str) and to.startswith("/")
     }
+
+
+def _first_paint(index: Path) -> str:
+    """The script that paints a reader's address before the app has come, from
+    ``first-paint.js`` beside the shell; a front end of before has none."""
+    try:
+        return (index.parent / "first-paint.js").read_text("utf-8")
+    except OSError:
+        return ""
 
 
 def _beside[T](index: Path, name: str, kind: type[T]) -> T | None:
@@ -215,12 +228,29 @@ def render(page: Page) -> str:
     if page.lang != "nl":
         html = re.sub(r'<html lang="[^"]*"', f'<html lang="{page.lang}"', html, count=1)
     if page.body:
-        main = f'<main id="seo">{crumbs_nav(page.crumbs)}{page.body}</main>\n\t\t'
+        main = (
+            f'<main id="seo">{crumbs_nav(page.crumbs)}{page.body}</main>\n\t\t'
+            + _paint(page)
+        )
         if _APP in html:
             html = html.replace(_APP, main + _APP, 1)
         else:
             html = re.sub(r"(<body[^>]*>)", lambda m: m[1] + main, html, count=1)
     return html
+
+
+def _paint(page: Page) -> str:
+    """The source of *page* as the front end paints it first, and the script that paints
+    it, after the content: it runs before the browser paints. Nothing for a page the front
+    end does not paint first, or a front end without the script."""
+    script = shell().first_paint
+    if page.first_paint is None or not script:
+        return ""
+    data = json.dumps(page.first_paint, ensure_ascii=False).replace("</", "<\\/")
+    return (
+        f'<script type="application/json" id="first-paint-data">{data}</script>'
+        f"<script>{script}</script>\n\t\t"
+    )
 
 
 def stamp() -> str:

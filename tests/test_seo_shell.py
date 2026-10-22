@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from lawgraph.api.seo import shell
+from lawgraph.api.seo.pages.base import Page
 from lawgraph.config import settings
 
 
@@ -32,9 +33,51 @@ def _errors(caplog: pytest.LogCaptureFixture) -> list[str]:
 def test_a_whole_build_is_read_without_a_word(
     index: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
+    (index.parent / "first-paint.js").write_text("paint()")
     read = shell.shell()
     assert set(read.routes) == {"/zoeken"} and read.start == {"heading": "Kop"}
+    assert read.first_paint == "paint()"
     assert _errors(caplog) == []
+
+
+def test_a_build_without_the_first_paint_paints_nothing_first(
+    index: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A front end of before has no ``first-paint.js``: no word, no first paint."""
+    page = Page(
+        title="T",
+        description="D",
+        path="/wetten/X",
+        body="<h1>T</h1>",
+        first_paint={"kind": "article"},
+    )
+    assert shell.shell().first_paint == ""
+    assert "first-paint-data" not in shell.render(page)
+    assert _errors(caplog) == []
+
+
+def test_the_source_a_page_paints_first_stands_after_its_content_with_the_script(
+    index: Path,
+) -> None:
+    (index.parent / "first-paint.js").write_text("paint()")
+    page = Page(
+        title="T",
+        description="D",
+        path="/wetten/X",
+        body="<h1>T</h1>",
+        first_paint={"kind": "article", "text": "a </script> b"},
+    )
+    html = shell.render(page)
+    data = '<script type="application/json" id="first-paint-data">'
+    assert (
+        html.index("</main>")
+        < html.index(data)
+        < html.index("<script>paint()</script>")
+    )
+    # no end of the script inside its data
+    assert '"a <\\/script> b"' in html
+    page.first_paint = None
+    assert "first-paint" not in shell.render(page)
 
 
 @pytest.mark.parametrize(

@@ -31,6 +31,7 @@ with its title alone. Cacheable: an ETag of the API, the shell and the data vers
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Annotated, Any
 from urllib.parse import quote, unquote, urlencode
@@ -45,6 +46,7 @@ from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
 from lawgraph.api.seo.pages.home import home_page
 from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
+from lawgraph.api.seo.paint import PAINT_BUDGET
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import (
@@ -168,6 +170,9 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         page = source.build(row)
         page.image = source.image
         page.focus = node_id
+        # read only for a front end that paints it (its first-paint.js beside the shell)
+        if source.paint is not None and shell.shell().first_paint:
+            page.first_paint = _first_paint(store, source.paint, row)
         return page
     props: dict[str, Any] = (lookup.answer(store, node_id) or {}).get("props") or {}
     name = str(props.get("display_name") or "")
@@ -178,6 +183,19 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         index=bool(name) and not props.get("stub"),
         focus=node_id,
     )
+
+
+def _first_paint(
+    store: GraphStore,
+    paint: Callable[[GraphStore, dict[str, Any]], dict[str, Any] | None],
+    row: dict[str, Any],
+) -> dict[str, Any] | None:
+    """What the front end's first paint of the source of *row* reads (``api/seo/paint``),
+    within ``PAINT_BUDGET``; None past it: the page goes without."""
+    found: dict[str, Any] | None = None
+    with read_budget(PAINT_BUDGET, "The first paint of a page") as budget:
+        found = paint(store, row)
+    return None if budget.ran_out else found
 
 
 def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
