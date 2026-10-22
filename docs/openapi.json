@@ -5440,10 +5440,13 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 10000,
               "minimum": 0,
+              "description": "Papers to skip, at most 10,000: further back, `to` the date of the last paper of a page (and `offset` the papers of that date it showed).",
               "default": 0,
               "title": "Offset"
-            }
+            },
+            "description": "Papers to skip, at most 10,000: further back, `to` the date of the last paper of a page (and `offset` the papers of that date it showed)."
           }
         ],
         "responses": {
@@ -7654,7 +7657,7 @@
           "feed"
         ],
         "summary": "News feed as Atom",
-        "description": "A page of ``GET /api/feed`` under the same filters as an Atom 1.0 feed, for a feed reader, named after its filters (``Concordans: moties``): an ``alternate`` link to the same view on Concordans (``LAWGRAPH_SITE_URL``/actueel), per entry an ``alternate`` link to the event there and a ``related`` link to its official page, and a ``next`` link to the next page. ``dossier`` follows one dossier.\n\nthe same page under the same parameters (without `facets`) as an Atom 1.0 feed (`application/atom+xml`), named after its filters (`Concordans`, `Concordans: moties`, `Concordans: dossier 36600`), with an `alternate` link to the same view on Concordans (`<LAWGRAPH_SITE_URL>/actueel?soort=Motie`: `soort`, `van`, `tot`, `kabinet`, `ministerie`, `dossier`, `persoon`, `fractie`, `q` once per word, `kamer`, `coalitie`, `wet`, `artikel`; not the tier) and a `next` link with the cursor; an entry per event (`id` `tag:lawgraph,2026:<id>`, `title`, `updated` the date, an `alternate` link to the event on Concordans (its `path`, else `/explore?focus=<id>`) and a `related` one to its `official_url` or `tk_url`, `category` its kind, an `author` per person, `summary` its summary and dossier)",
+        "description": "A page of ``GET /api/feed`` under the same filters as an Atom 1.0 feed, for a feed reader, named after its filters (``Concordans: moties``): an ``alternate`` link to the same view on Concordans (``LAWGRAPH_SITE_URL``/actueel), per entry an ``alternate`` link to the event there and a ``related`` link to its official page, and a ``next`` link to the next page. ``dossier`` follows one dossier.\n\nthe same page under the same parameters (without `facets`) as an Atom 1.0 feed (`application/atom+xml`), named after its filters (`Concordans`, `Concordans: moties`, `Concordans: dossier 36600`), with an `alternate` link to the same view on Concordans (`<LAWGRAPH_SITE_URL>/actueel?soort=Motie`: `soort`, `van`, `tot`, `kabinet`, `ministerie`, `dossier`, `persoon`, `fractie`, `q` once per word, `kamer`, `coalitie`, `wet`, `artikel`; not the tier) and a `next` link with the cursor; an entry per event (`id` `tag:lawgraph,2026:<id>`, `title`, `updated` the start of its day in the Netherlands (the source gives no time of day), an `alternate` link to the event on Concordans (its `path`, else `/explore?focus=<id>`) and a `related` one to its `official_url` or `tk_url`, `category` its kind, an `author` per person, `summary` its summary and dossier). The feed is `updated` when the events were last written (`lawgraph feed-events`), and may be kept 15 minutes by any cache (`public, max-age=900`).",
         "operationId": "get_feed_atom_api_feed_atom_get",
         "parameters": [
           {

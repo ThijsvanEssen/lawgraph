@@ -45,6 +45,10 @@ from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
 
+# The deepest page of the list: a page reads every paper before it, newest first (prod, 22
+# Oct: 22 s at offset 50,000, past the read ceiling at 300,000). Deeper, a window of dates.
+OFFSET_MAX = 10_000
+
 
 @router.get(
     "",
@@ -93,7 +97,16 @@ def list_chamber_documents(
     ] = None,
     facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
     limit: PageLimit = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=OFFSET_MAX,
+            description=f"Papers to skip, at most {OFFSET_MAX:,}: further back, `to` the "
+            "date of the last paper of a page (and `offset` the papers of that date it "
+            "showed).",
+        ),
+    ] = 0,
 ) -> DocumentListResponse:
     raw = list_documents(
         store,
