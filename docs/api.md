@@ -370,6 +370,41 @@ summary only; a paper: its title only); a type without a text of its own has no 
 come from what the search reads (`SEARCH_FIELDS`, `SEARCH_WORDS`, `search_names`) and the
 props of the type (`db/queries/search/searched.py`), so no hit does not read as "not there".
 
+### Validity
+
+Whether a law or an article holds today has one shape, on `/api/instruments/{identifier}`
+(`validity`) and on `/api/articles/{bwb_id}/{article_number}` (`article.validity`)
+(`core/validity.py`, `api/validity.py`):
+
+```
+validity: {state, date, as_of, successors}
+```
+
+| State | Meaning | `date` |
+|-------|---------|--------|
+| `in_force` | in force today | the first day it will no longer hold, when the source says so already |
+| `expired` | repealed or lapsed | the first day it no longer held |
+| `not_in_force_yet` | enacted, not in force | the day it comes into force, when known |
+
+A BWB regulation is `expired` from `date_expired` on (the SRU record of its toestand),
+`not_in_force_yet` before `date_in_force`; a law of the Staatsblad the BWB does not hold (yet)
+is `not_in_force_yet`; a treaty of the Verdragenbank is `in_force` when the register says
+`inwerkinggetreden`. An article holds as long as its law does, and until the `valid_until` of
+its newest version (the version that says it lapsed, or the first toestand without it), the
+earlier of the two. Where the source says none of this (an EU act, another treaty) `validity`
+is null: not known, not in force.
+
+`as_of` is the day the data of its source stands on: the Dutch day of
+`data_as_of.<source>.completeness.source.as_of` (`/api/stats`), the day to cite its text as
+holding on. `successors` are the laws an official source places its articles in
+(`TRANSPOSED_TO`), the one most articles pass to first, each with `articles` (how many): of a
+law those of its articles; of an article those of its own `successors`, else, when it has
+expired, those of its law.
+
+In `/api/search` a law or an article has `extra.expired_on` (of an article the earlier of its
+law's `date_expired` and its own end); one that has expired by today comes after every hit of
+its score that holds, and is not left out.
+
 ### Resolve notations
 
 `/api/resolve` reads `q` as, in this order:
