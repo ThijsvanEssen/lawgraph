@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     ChangeEffect,
     DefinitionDTO,
+    FacetCountDTO,
     InstrumentSummaryDTO,
     JudgmentOutcomeFields,
     PathSource,
@@ -898,6 +899,19 @@ class ArticleCitedByItem(QualifierFields):
         )
 
 
+class CitedByFacets(StrictModel):
+    """The judgments that cite an article, counted whatever the page, each facet under the
+    other filters."""
+
+    year: list[FacetCountDTO] = Field(
+        description="Per year of the judgment's date, oldest first, null (no date) "
+        "first; without the `year` filter."
+    )
+    tier: list[FacetCountDTO] = Field(
+        description="Per tier, most first; without the `tier` filter."
+    )
+
+
 class ArticleCitedByResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."""
 
@@ -917,6 +931,7 @@ class ArticleCitedByResponse(StrictModel):
         "row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them "
         "(`international`).",
     )
+    facets: CitedByFacets
 
 
 DOSSIER_SHORT_TITLE = (

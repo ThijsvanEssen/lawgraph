@@ -71,7 +71,7 @@
           "articles"
         ],
         "summary": "Passages of judgments that cite an article",
-        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). 404 when the article is unknown.",
+        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, each under the other filters. 404 when the article is unknown.",
         "operationId": "get_article_cited_by_passages_api_articles__bwb_id___article_number__cited_by_get",
         "parameters": [
           {
@@ -140,16 +140,38 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/Tier"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tier"
+                  }
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …",
+              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them.",
               "title": "Tier"
             },
-            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them."
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year.",
+              "title": "Year"
+            },
+            "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year."
           },
           {
             "name": "lid",
@@ -568,7 +590,7 @@
           "judgments"
         ],
         "summary": "Paginated list of judgments",
-        "description": "A paginated list of judgments with filters on court (the ECLI court code), tier (the Type of the court in the Instanties value list of the Rechtspraak: hoge_raad, raad_van_state, gerechtshof, rechtbank, tuchtcollege, andere_instantie, koninkrijksinstantie, …), court_kind (the kind of court within the tier: ambtenarengerecht, raad_van_beroep, gerecht_in_eerste_aanleg, …), area of law (`subject`), source, date range and a minimum citation count. `facets` counts the judgments under the filters per `tier` (without the tier and court_kind filters), per `court_kind` (without its own filter), per `source` (without the source filter), per year of `date` (without `from` and `to`), per area of law (`subjects`, without `subject`) and per `procedure` (without its filter). `facets=false` leaves them out (null): the pages after the first need none.\n\npaged list, without the judgments known only because something cites them (stubs: no date, court or text) unless `include_stubs=true`, and without a publication of a decision that another publication replaces (`same_as`; `q` its exact ECLI finds it); `q` (a query that is the whole of an ECLI or of a case number, `18/04298`, gives the judgments with it and only those; other text is searched), `court` (ECLI code), `tier` (the `Type` of the court in the Instanties list, one of `core.courts.TIERS`: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, `college_van_beroep_bedrijfsleven`, `parket` (the conclusions of the Parket bij de Hoge Raad), `gerechtshof`, `rechtbank`, `kantongerecht`, `tuchtcollege`, `andere_instantie`, `koninkrijksinstantie`, `kroon`, `buitenlandse_instantie`, `hvj_eu`, `ehrm`), `court_kind` (the kind of court within the tier, one of `core.courts.COURT_KINDS`: `ambtenarengerecht`, `raad_van_beroep`, `gerecht_in_eerste_aanleg`, …; a tier of one kind of court is its own; see pipelines (docs/pipelines.md#courts)), `source`, `subject` (an area of law, one of `subjects` as written: `Strafrecht`, `Bestuursrecht; Belastingrecht`), `subject_area` (a main area of law, the part of a subject before its first `;`: `Bestuursrecht` holds `Bestuursrecht` and `Bestuursrecht; Belastingrecht` alike), `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`); each item has `tier`, `court_kind`, `subjects` (the areas of law of the source, empty when it gives none), `names` (what lawyers call it, `Haviltex`; empty for most), `decision_kind` (`arrest`, `vonnis`, `beschikking`, `uitspraak`, `conclusie`, `prejudiciële beslissing`, or null; see pipelines (docs/pipelines.md#rechtspraak)), `series_id` and `series_size`, `inbound_citation_count` (the judgments that cite it or a publication `SAME_AS` it) and `outbound_citation_count` (the judgments it cites); `q` also matches `names`. `facets` counts the judgments under the filters, each without its own: `tier` (`value`, `count`, most first; without the `tier` and `court_kind` filters), `court_kind` (the same, without the `court_kind` filter), `source` (`value` `rechtspraak`, `echr`, `cjeu`, `count`, most first; without the `source` filter) `year` (`value` the year of `date`, `count`, oldest first after null, no date; without `from` and `to`), `subjects` (per area of law as written, `Strafrecht`, `Bestuursrecht; Belastingrecht`, most first; a judgment counts for each of its areas; without the `subject` filter), `subject_area` (per main area of law, most first; a judgment counts once for each of its main areas; with `narrower`, the subjects of the source under it, `value` as written for the `subject` filter, `label` the part after its first `;`, `count`; the whole tree without the `subject_area` and `subject` filters) and `procedure` (per Rechtspraak `psi:procedure` as written, `Hoger beroep`, `Cassatie`, null for none, most first; without the `procedure` filter, which filters on that value); the counts of `tier`, `court_kind`, `source` and `year` read an index, not the judgments; the facets and `total` are kept an hour whatever the data does (`db/version_cache.py`), the page itself is read fresh; `facets=false` gives `facets` null and counts nothing but `total`, the choice for the pages after the first",
+        "description": "A paginated list of judgments with filters on court (the ECLI court code), tier (the Type of the court in the Instanties value list of the Rechtspraak: hoge_raad, raad_van_state, gerechtshof, rechtbank, tuchtcollege, andere_instantie, koninkrijksinstantie, …), court_kind (the kind of court within the tier: ambtenarengerecht, raad_van_beroep, gerecht_in_eerste_aanleg, …), area of law (`subject`), source, date range and a minimum citation count. `facets` counts the judgments under the filters per `tier` (without the tier and court_kind filters), per `court_kind` (without its own filter), per `source` (without the source filter), per year of `date` (without `from` and `to`), per area of law (`subjects`, without `subject`) and per `procedure` (without its filter). `facets=false` leaves them out (null): the pages after the first need none.\n\npaged list, without the judgments known only because something cites them (stubs: no date, court or text) unless `include_stubs=true`, and without a publication of a decision that another publication replaces (`same_as`; `q` its exact ECLI finds it); `q` (a query that is the whole of an ECLI or of a case number, `18/04298`, gives the judgments with it and only those; other text is searched), `court` (ECLI code), `tier` (the `Type` of the court in the Instanties list, repeated for any of several, one of `core.courts.TIERS`: `hoge_raad`, `raad_van_state`, `centrale_raad_van_beroep`, `college_van_beroep_bedrijfsleven`, `parket` (the conclusions of the Parket bij de Hoge Raad), `gerechtshof`, `rechtbank`, `kantongerecht`, `tuchtcollege`, `andere_instantie`, `koninkrijksinstantie`, `kroon`, `buitenlandse_instantie`, `hvj_eu`, `ehrm`), `court_kind` (the kind of court within the tier, one of `core.courts.COURT_KINDS`: `ambtenarengerecht`, `raad_van_beroep`, `gerecht_in_eerste_aanleg`, …; a tier of one kind of court is its own; see pipelines (docs/pipelines.md#courts)), `source`, `subject` (an area of law, one of `subjects` as written: `Strafrecht`, `Bestuursrecht; Belastingrecht`), `subject_area` (a main area of law, the part of a subject before its first `;`: `Bestuursrecht` holds `Bestuursrecht` and `Bestuursrecht; Belastingrecht` alike), `from`, `to`, `cited_by_min`, `sort` (`date_desc`, `date_asc`, `citation_count`); each item has `tier`, `court_kind`, `subjects` (the areas of law of the source, empty when it gives none), `names` (what lawyers call it, `Haviltex`; empty for most), `decision_kind` (`arrest`, `vonnis`, `beschikking`, `uitspraak`, `conclusie`, `prejudiciële beslissing`, or null; see pipelines (docs/pipelines.md#rechtspraak)), `series_id` and `series_size`, `inbound_citation_count` (the judgments that cite it or a publication `SAME_AS` it) and `outbound_citation_count` (the judgments it cites); `q` also matches `names`. `facets` counts the judgments under the filters, each without its own: `tier` (`value`, `count`, most first; without the `tier` and `court_kind` filters), `court_kind` (the same, without the `court_kind` filter), `source` (`value` `rechtspraak`, `echr`, `cjeu`, `count`, most first; without the `source` filter) `year` (`value` the year of `date`, `count`, oldest first after null, no date; without `from` and `to`), `subjects` (per area of law as written, `Strafrecht`, `Bestuursrecht; Belastingrecht`, most first; a judgment counts for each of its areas; without the `subject` filter), `subject_area` (per main area of law, most first; a judgment counts once for each of its main areas; with `narrower`, the subjects of the source under it, `value` as written for the `subject` filter, `label` the part after its first `;`, `count`; the whole tree without the `subject_area` and `subject` filters) and `procedure` (per Rechtspraak `psi:procedure` as written, `Hoger beroep`, `Cassatie`, null for none, most first; without the `procedure` filter, which filters on that value); the counts of `tier`, `court_kind`, `source` and `year` read an index, not the judgments; the facets and `total` are kept an hour whatever the data does (`db/version_cache.py`), the page itself is read fresh; `facets=false` gives `facets` null and counts nothing but `total`, the choice for the pages after the first",
         "operationId": "list_judgments_api_judgments_get",
         "parameters": [
           {
@@ -649,16 +671,19 @@
             "schema": {
               "anyOf": [
                 {
-                  "$ref": "#/components/schemas/Tier"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tier"
+                  }
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …",
+              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them.",
               "title": "Tier"
             },
-            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …"
+            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them."
           },
           {
             "name": "court_kind",
@@ -10713,6 +10738,9 @@
             "title": "Echr Judgment Total",
             "description": "The ECHR judgments that cite the article, whatever the filters. HUDOC names the articles a judgment applies, not the passage, so they are no row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them (`international`).",
             "default": 0
+          },
+          "facets": {
+            "$ref": "#/components/schemas/CitedByFacets"
           }
         },
         "additionalProperties": false,
@@ -10722,7 +10750,8 @@
           "items",
           "total",
           "judgment_total",
-          "echr_judgment_total"
+          "echr_judgment_total",
+          "facets"
         ],
         "title": "ArticleCitedByResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."
@@ -14047,6 +14076,34 @@
         ],
         "title": "CitedArticleRef",
         "description": "Reference to one cited article inside a judgment-citation list."
+      },
+      "CitedByFacets": {
+        "properties": {
+          "year": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Year",
+            "description": "Per year of the judgment's date, oldest first, null (no date) first; without the `year` filter."
+          },
+          "tier": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Tier",
+            "description": "Per tier, most first; without the `tier` filter."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "year",
+          "tier"
+        ],
+        "title": "CitedByFacets",
+        "description": "The judgments that cite an article, counted whatever the page, each facet under the\nother filters."
       },
       "CitedByJudgment": {
         "properties": {

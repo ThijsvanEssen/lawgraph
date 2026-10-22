@@ -195,7 +195,7 @@ def test_the_facets_by_count_then_value_and_the_years_by_year(
 
 def test_each_facet_leaves_its_own_filter_out(corpus: GraphStore) -> None:
     result = get_judgments_list(
-        corpus, JudgmentFilters(tier="hoogste", court_kind="civiel")
+        corpus, JudgmentFilters(tiers=("hoogste",), court_kind="civiel")
     )
     assert _ids(result) == [_jid(HR10), _jid(HR1)]
     assert result["total"] == 2
@@ -209,6 +209,15 @@ def test_each_facet_leaves_its_own_filter_out(corpus: GraphStore) -> None:
     assert _ids(years) == [_jid(HR10), _jid(HR1)]  # no date is not after a date
     assert [f["value"] for f in years["facets"]["year"]] == [None, "2019", "2020"]
     assert years["facets"]["tier"] == [{"value": "hoogste", "count": 2}]
+
+
+def test_several_tiers_keep_the_judgments_of_any_of_them(corpus: GraphStore) -> None:
+    """B25: the tier facet is a choice of several; its counts leave the tiers out."""
+    result = get_judgments_list(corpus, JudgmentFilters(tiers=("hoogste", "rechtbank")))
+    assert _ids(result) == [_jid(HR10), _jid(HR1), _jid(RB)]
+    assert result["total"] == 3
+    tiers = [f["value"] for f in result["facets"]["tier"]]
+    assert tiers == ["hoogste", "ehrm", "rechtbank"]
 
 
 def test_the_filters(corpus: GraphStore) -> None:
@@ -265,7 +274,7 @@ def test_the_unfiltered_total_takes_a_replaced_stub_off_twice(
     result = get_judgments_list(corpus)
     assert len(result["items"]) == 4
     assert result["total"] == 3  # 7 - 2 stubs - 2 replaced, as COLLECTION_COUNT did
-    assert get_judgments_list(corpus, JudgmentFilters(tier="hoogste"))["total"] == 2
+    assert get_judgments_list(corpus, JudgmentFilters(tiers=("hoogste",)))["total"] == 2
 
 
 def test_an_empty_table(store: GraphStore) -> None:
@@ -682,10 +691,10 @@ def test_without_facets_the_page_and_the_total_alone(
 ) -> None:
     """``facets=False``: the same page and total, ``facets`` None, and no count of a facet
     sent to the database (eight statements over every judgment on the full graph)."""
-    with_facets = get_judgments_list(corpus, JudgmentFilters(tier="hoge_raad"))
+    with_facets = get_judgments_list(corpus, JudgmentFilters(tiers=("hoge_raad",)))
     calls = recorded(corpus, monkeypatch)
     without = get_judgments_list(
-        corpus, JudgmentFilters(tier="hoge_raad"), facets=False
+        corpus, JudgmentFilters(tiers=("hoge_raad",)), facets=False
     )
     statements = [c.text for c in calls]
     assert without["items"] == with_facets["items"]
