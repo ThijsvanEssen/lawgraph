@@ -902,7 +902,8 @@
  ],
  "/components/schemas/InstrumentJudgmentsResponse/properties/sort": [
   "date",
-  "cited"
+  "cited",
+  "citation_count"
  ],
  "/components/schemas/InstrumentListItemDTO/properties/collection": [
   "instruments",
@@ -1780,7 +1781,8 @@
  ],
  "/paths//api/instruments/{bwb_id}/judgments/get/parameters/3/schema": [
   "date",
-  "cited"
+  "cited",
+  "citation_count"
  ],
  "/paths//api/judgments/get/parameters/15/schema": [
   "date_desc",

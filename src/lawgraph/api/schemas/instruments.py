@@ -383,17 +383,22 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithCite, WithPath):
 
 
 class InstrumentJudgmentFacets(StrictModel):
-    """Every judgment that cites this instrument counted, not the page."""
+    """The judgments that cite this instrument counted, not the page, each facet under the
+    other filter."""
 
     year: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per year of the judgment, the oldest first; `value` null counts "
-        "those without a date.",
+        "those without a date. Without the `year` filter.",
+    )
+    tier: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per tier, the most first. Without the `tier` filter.",
     )
 
 
 # The order of the judgments citing an instrument.
-JudgmentSort = Literal["date", "cited"]
+JudgmentSort = Literal["date", "cited", "citation_count"]
 
 
 class InstrumentJudgmentsResponse(StrictModel):
@@ -413,7 +418,8 @@ class InstrumentJudgmentsResponse(StrictModel):
     sort: JudgmentSort = Field(
         "date",
         description="The order of `items`: `date`, the newest first; `cited`, the most "
-        "cited articles of this law first, then the newest. Ties by id.",
+        "cited articles of this law first; `citation_count`, the most cited judgment "
+        "first; each then the newest. Ties by id.",
     )
     facets: InstrumentJudgmentFacets = Field(default_factory=InstrumentJudgmentFacets)
     items: list[InstrumentJudgmentItem]
