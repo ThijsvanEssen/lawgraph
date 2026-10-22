@@ -146,9 +146,10 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             "year": year,
             "number": number,
             **spec.own_props(root, parsed),
+            # always written: an upsert merges props, so a regulation no longer derived
+            # would otherwise stay
+            "bwb_id": bwb_id or find_bwb_id(xml_text),
         }
-        if bwb_id := bwb_id or find_bwb_id(xml_text):
-            props["bwb_id"] = bwb_id
         return Node(
             collection=COLLECTION_DOCUMENTS,
             key=make_node_key(spec.key_prefix, identifier),
