@@ -200,6 +200,8 @@ URLS = [
     "/api/commitments/tz1",
     # the events per month of a topic, by the index on their words
     "/api/feed/periods?q=proef&chamber=TK",
+    # the votes of a faction: those of its rows of lg_faction_votes
+    "/api/feed/periods?party=f1&vote=tegen",
     "/api/dossiers/36000/changed-articles",
     # a member: their votes (by roll-call and through their faction), dossiers, node, and
     # a path from their faction through its members

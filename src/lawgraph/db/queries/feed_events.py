@@ -37,6 +37,7 @@ from lawgraph.db.queries.feed_sql import (
     FeedFilters,
     Kind,
     Plan,
+    bind_party,
     coalition_of,
     dimension_facet,
     dimension_filters,
@@ -44,6 +45,7 @@ from lawgraph.db.queries.feed_sql import (
     in_period,
     kinds_to_read,
     lit,
+    party_voted,
     words_of,
 )
 from lawgraph.db.schema import (
@@ -336,6 +338,9 @@ def _matching(
             f"e.kind = {lit(EVENT_VOTE)} AND %(coalition)s = ANY({_COALITION})"
         )
         bind["coalition"] = filters.coalition
+    if filters.party:
+        where.append(f"e.kind = {lit(EVENT_VOTE)} AND {party_voted('e.id')}")
+        bind_party(filters, bind)
     if filters.dossier:
         where.append(
             "EXISTS (SELECT 1 FROM unnest(e.labels) AS label"

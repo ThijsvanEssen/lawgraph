@@ -51,8 +51,10 @@ router = APIRouter()
         "the others with the year they started, `ez-2010`), `kind` (`vast`, "
         "`algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, "
         "`ended_on` (null while it sits) and `active_dossier_count` (the open dossiers "
-        "it leads an activity about, the same in list and detail; 0 once it ended); "
-        "detail lists current members (`current_only=true`, the default) and a page of "
+        "it leads: its activities are about them, its cases part of them; the same in "
+        "list and detail and as `dossier_total` under `status=open`; 0 once it ended); "
+        "detail lists current members (`current_only=true`, the default; null when the "
+        "data has no seat on it at all, not known rather than none) and a page of "
         "the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, "
         "`offset`; `dossier_total` counts the matches). `?chamber=EK` lists the "
         "committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, "
@@ -90,8 +92,9 @@ def list_committees(
         "newest first; ``dossier_total`` is the absolute count. By default "
         "only current members are returned — a seat with no end date, or an "
         "end date still ahead. Pass ``?current_only=false`` for every member "
-        "the committee ever had. ``limit``, ``offset`` and ``status`` page and "
-        "filter the dossiers."
+        "the committee ever had; ``members`` is null when the data has no seat on "
+        "it at all (not known, not none). ``limit``, ``offset`` and ``status`` page "
+        "and filter the dossiers."
     ),
     tags=["committees"],
 )

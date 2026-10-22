@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_ABOUT,
     RELATION_AMENDS,
     RELATION_PART_OF,
+    RELATION_VOTED,
 )
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
@@ -306,6 +307,15 @@ def seed_feed(store: GraphStore) -> None:
             RELATION_AMENDS,
             source="t",
         )
+        # how the factions voted on the motion
+        for faction, choice in (("d66", "Voor"), ("vvd", "Tegen")):
+            edges.add(
+                f"{COLLECTION_FACTIONS}/{faction}",
+                f"{COLLECTION_DECISIONS}/stemming_1",
+                RELATION_VOTED,
+                source="t",
+                meta={"choice": choice, "seats": 20},
+            )
 
 
 # TK GUIDs: a member's key is its GUID made a node key.

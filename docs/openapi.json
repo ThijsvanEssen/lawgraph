@@ -3313,7 +3313,7 @@
           "committees"
         ],
         "summary": "All committees",
-        "description": "Every parliamentary committee with its number of open dossiers.\n\ncommittees, each with `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (null while it sits) and `active_dossier_count` (the open dossiers it leads an activity about, the same in list and detail; 0 once it ended); detail lists current members (`current_only=true`, the default) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
+        "description": "Every parliamentary committee with its number of open dossiers.\n\ncommittees, each with `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (null while it sits) and `active_dossier_count` (the open dossiers it leads: its activities are about them, its cases part of them; the same in list and detail and as `dossier_total` under `status=open`; 0 once it ended); detail lists current members (`current_only=true`, the default; null when the data has no seat on it at all, not known rather than none) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
         "operationId": "list_committees_api_committees_get",
         "parameters": [
           {
@@ -3406,7 +3406,7 @@
           "committees"
         ],
         "summary": "Committee detail",
-        "description": "One committee with its members and a page of the dossiers it leads, newest first; ``dossier_total`` is the absolute count. By default only current members are returned — a seat with no end date, or an end date still ahead. Pass ``?current_only=false`` for every member the committee ever had. ``limit``, ``offset`` and ``status`` page and filter the dossiers.",
+        "description": "One committee with its members and a page of the dossiers it leads, newest first; ``dossier_total`` is the absolute count. By default only current members are returned — a seat with no end date, or an end date still ahead. Pass ``?current_only=false`` for every member the committee ever had; ``members`` is null when the data has no seat on it at all (not known, not none). ``limit``, ``offset`` and ``status`` page and filter the dossiers.",
         "operationId": "get_committee_api_committees__slug__get",
         "parameters": [
           {
@@ -6329,7 +6329,7 @@
           "feed"
         ],
         "summary": "News feed",
-        "description": "What was promised and proposed, as a stream of events, newest first: ``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, ``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by its ``Document.Soort`` before `` (``), ``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in force) and ``uitspraak`` (a judgment or conclusion, on the day it was published; only with ``kind=uitspraak`` or ``tier``, of the highest courts and the Parket unless ``tier`` asks for others). Ordered by date, then by ``id``, both descending; ``next_cursor`` gives the next page, which neither repeats nor skips an event. ``facets`` counts per ``kind``, ``ministry``, ``faction`` and ``cabinet`` the events under the other filters, with ``total``; ``facets=false`` leaves both out and reads only one page.\n\n`items`, `next_cursor`, `total`, `facets`, `partial`, `searched_from` and `data_as_of` (as in `/api/stats`). `total` and `facets` are counted from `lg_feed_events` (`/api/feed/periods`; as `lawgraph feed-events` last wrote it: the last 14 days after every poll, every event each night), by its indexes, each facet as the feed counts it, and kept an hour; under `member`, `tier` or `instrument`, or before that table is ever written, over every event under the filters itself. A request waits for them 3 s at most: under filters not counted before (cold, a minute or more on the full graph) the page comes at once with both null and `partial` true, and a request after the count has them. Filters: `kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` (a key: the events from its beëdiging to that of the next cabinet), `ministry`, `dossier` (the start of a dossier label: `36600` holds `36600-VII`, `37020-` the chapters; each kind with dossiers finds its events of them by the index on their dossier numbers, under the labels of the dossiers that start with it and itself; a kind without, a judgment or a commencement, has none), `member` (a member key: the papers they signed, the votes on them, the commitments they made), `faction` (a faction key: the papers its Kamerleden signed for it and the votes on them; without `since` its page is read as under `q`), `q` (words of the title or of the title of the event's dossier, or of a publication the names of the laws it changes or enacts and the official title of a law it enacts (from `lg_feed_events`: a publication is found by them once `lawgraph feed-events` wrote it), any case; each word from the start of a word, one of at most four characters as a whole word (`ai`: the AI-verordening, not universitaire; `stikstof`: Stikstofbank, not natuurstikstof; repeated, at most ten times, any of them: `q=AI&q=kunstmatige intelligentie`, each event once); each kind finds them by index where it can (from three characters); without `since` the page is read once from the first day it reaches back to, the day of the (`limit` + 1)-th newest matching event in `lg_feed_events` (`/api/feed/periods`; no later than 14 days ago, what that table may still lack, nor than the day of the cursor), when that table is written and the filters are ones it keeps; else, or when that read finds less than the table counted, the events are searched back from `until`, the cursor or today in windows of 90 days, a year, three years and then the rest, newest first, until the page is full or 8 s are spent: then the page has what was found, `partial` true and `searched_from`, the first day searched, and a request with `until` the day before goes on; `searched_from` is null when every day was searched), `tier` (comma-separated tiers as in `/api/judgments`: keeps judgments alone, of those tiers; without it the feed's judgments are of the default tiers), `chamber` (`EK`: the votes of the Eerste Kamer, only the one that decided each bill; `TK`: the papers, votes and commitments of the Tweede Kamer; publications and commencements are of neither), `coalition` (what the coalition did on a vote of the Tweede Kamer, as `vote.coalition` says it: `together`, `split` (on both sides, a wisselmeerderheid too), `wissel`, `decisive`; keeps votes alone), `instrument` (a BWB id: the events tied to that law: the publications that enact it or change it or its articles, the papers that propose to (a `voorgesteld` change), the events of the dossiers it or such a publication was `LEGISLATED_IN` and of the dossiers of those papers, its new versions and those of the regulations `BASED_ON` it, the judgments that cite it; without `since` read as under `q`, in windows; its total and facets are counted from the events themselves), `article` (with `instrument`, an article number of that law, `3:2`: the events tied to that article, the versions of the law that changed it, the dossiers of the publications and papers that change it, not those of the law itself nor its enactment; 422 without `instrument`); `limit` (1-200, default 50), `cursor` (the `next_cursor` of the page before; 422 for a token the API did not hand out). Order: `date`, newest first; within a day by kind, in the order `Voorstel van wet`, `stemming`, `toezegging`, `inwerkingtreding`, `publicatie`, `Nota van wijziging`, `Amendement`, `Motie`, `Brief regering`; within a kind by `id`. The cursor holds the date, kind and id of the last event of its page, and a page starts after it, so pages neither repeat nor skip an event. `facets` (default true) counts per `kind`, `ministry`, `faction`, `cabinet`, `chamber` (`TK`, `EK`, null for a publication or a commencement) and `coalition` (the values of the filter; a vote counts for each that holds, `split` with every `wissel`, an event without a coalition vote for none) (`{value, count}`, the largest first, `value` null for none) the events under the other filters, and `total` under all of them, whatever the cursor; `facets=false` gives null for both and reads one page only, the choice for the pages after the first. Each item says what it is tied to, read for the items of the page alone: `matched` (with `q`, per word the event holds `{term, field}`, `term` as it was asked and `field` the first of `title` (its own title, of a bill not that of its dossier), `dossier_title` (the whole title of its first dossier) and `laws` (of a publication, the names of its laws) that holds it; empty without `q`), `via` (with `instrument`, how the event is tied to the law: `relation` `establishes`, `amends`, `introduces` or `repeals` (a publication), `proposes` (a paper with a `voorgesteld` change of it, or an event of the dossier of such a paper), `version_of` (a new version of the law), `based_on` (of a regulation issued under it), `refers_to` (a judgment), `legislated_in` (an event of a dossier the law or a publication of it was legislated in); `article` the number of the article of the law it touches, the first in the order of the law; `dossier` the label of the dossier it came through; the closest tie of all it has), `answers` (of a `Brief regering`: the motions and commitments it `ANSWERS`), `answered_by` (of a `toezegging`: the letters that fulfil it), `replaces` (of a changed `Motie` or `Amendement`: the paper it replaces, `REVISES`, \"ter vervanging van nr. 19\"), each such paper or commitment `{id, kind, title, date, number, dossier, surname, path}` (`kind` its `Document.Soort` or `toezegging`, `number` its nr. or the number of the commitment, `dossier` the label of its own dossier, `surname` its first signatory), at most twenty; `amends_articles` (of an `Amendement`: the articles it proposes to change, add or repeal, `effect` `amends`/`introduces`/`repeals`, in the order of their law, at most twenty) and `cites` (of an `uitspraak`: the articles it cites, the most mentioned first, at most five), each article `{key, bwb_id, number, law, law_short, effect, path}`; empty or null for the other kinds",
+        "description": "What was promised and proposed, as a stream of events, newest first: ``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, ``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by its ``Document.Soort`` before `` (``), ``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in force) and ``uitspraak`` (a judgment or conclusion, on the day it was published; only with ``kind=uitspraak`` or ``tier``, of the highest courts and the Parket unless ``tier`` asks for others). Ordered by date, then by ``id``, both descending; ``next_cursor`` gives the next page, which neither repeats nor skips an event. ``facets`` counts per ``kind``, ``ministry``, ``faction`` and ``cabinet`` the events under the other filters, with ``total``; ``facets=false`` leaves both out and reads only one page.\n\n`items`, `next_cursor`, `total`, `facets`, `partial`, `searched_from` and `data_as_of` (as in `/api/stats`). `total` and `facets` are counted from `lg_feed_events` (`/api/feed/periods`; as `lawgraph feed-events` last wrote it: the last 14 days after every poll, every event each night), by its indexes, each facet as the feed counts it, and kept an hour; under `member`, `tier` or `instrument`, or before that table is ever written, over every event under the filters itself. A request waits for them 3 s at most: under filters not counted before (cold, a minute or more on the full graph) the page comes at once with both null and `partial` true, and a request after the count has them. Filters: `kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` (a key: the events from its beëdiging to that of the next cabinet), `ministry`, `dossier` (the start of a dossier label: `36600` holds `36600-VII`, `37020-` the chapters; each kind with dossiers finds its events of them by the index on their dossier numbers, under the labels of the dossiers that start with it and itself; a kind without, a judgment or a commencement, has none), `member` (a member key: the papers they signed, the votes on them, the commitments they made), `faction` (a faction key: the papers its Kamerleden signed for it and the votes on them; without `since` its page is read as under `q`), `party` (a faction key: the votes it voted on, how it voted rather than what it signed, each with `vote.party_choice`; keeps votes alone; without `since` its page is read as under `q`) with `vote` (`voor`, `tegen`: the votes it voted that way on; 422 without `party`), `q` (words of the title or of the title of the event's dossier, or of a publication the names of the laws it changes or enacts and the official title of a law it enacts (from `lg_feed_events`: a publication is found by them once `lawgraph feed-events` wrote it), any case; each word from the start of a word, one of at most four characters as a whole word (`ai`: the AI-verordening, not universitaire; `stikstof`: Stikstofbank, not natuurstikstof; repeated, at most ten times, any of them: `q=AI&q=kunstmatige intelligentie`, each event once); each kind finds them by index where it can (from three characters); without `since` the page is read once from the first day it reaches back to, the day of the (`limit` + 1)-th newest matching event in `lg_feed_events` (`/api/feed/periods`; no later than 14 days ago, what that table may still lack, nor than the day of the cursor), when that table is written and the filters are ones it keeps; else, or when that read finds less than the table counted, the events are searched back from `until`, the cursor or today in windows of 90 days, a year, three years and then the rest, newest first, until the page is full or 8 s are spent: then the page has what was found, `partial` true and `searched_from`, the first day searched, and a request with `until` the day before goes on; `searched_from` is null when every day was searched), `tier` (comma-separated tiers as in `/api/judgments`: keeps judgments alone, of those tiers; without it the feed's judgments are of the default tiers), `chamber` (`EK`: the votes of the Eerste Kamer, only the one that decided each bill; `TK`: the papers, votes and commitments of the Tweede Kamer; publications and commencements are of neither), `coalition` (what the coalition did on a vote of the Tweede Kamer, as `vote.coalition` says it: `together`, `split` (on both sides, a wisselmeerderheid too), `wissel`, `decisive`; keeps votes alone), `instrument` (a BWB id: the events tied to that law: the publications that enact it or change it or its articles, the papers that propose to (a `voorgesteld` change), the events of the dossiers it or such a publication was `LEGISLATED_IN` and of the dossiers of those papers, its new versions and those of the regulations `BASED_ON` it, the judgments that cite it; without `since` read as under `q`, in windows; its total and facets are counted from the events themselves), `article` (with `instrument`, an article number of that law, `3:2`: the events tied to that article, the versions of the law that changed it, the dossiers of the publications and papers that change it, not those of the law itself nor its enactment; 422 without `instrument`); `limit` (1-200, default 50), `cursor` (the `next_cursor` of the page before; 422 for a token the API did not hand out). Order: `date`, newest first; within a day by kind, in the order `Voorstel van wet`, `stemming`, `toezegging`, `inwerkingtreding`, `publicatie`, `Nota van wijziging`, `Amendement`, `Motie`, `Brief regering`; within a kind by `id`. The cursor holds the date, kind and id of the last event of its page, and a page starts after it, so pages neither repeat nor skip an event. `facets` (default true) counts per `kind`, `ministry`, `faction`, `cabinet`, `chamber` (`TK`, `EK`, null for a publication or a commencement) and `coalition` (the values of the filter; a vote counts for each that holds, `split` with every `wissel`, an event without a coalition vote for none) (`{value, count}`, the largest first, `value` null for none) the events under the other filters, and `total` under all of them, whatever the cursor; `facets=false` gives null for both and reads one page only, the choice for the pages after the first. Each item says what it is tied to, read for the items of the page alone: `matched` (with `q`, per word the event holds `{term, field}`, `term` as it was asked and `field` the first of `title` (its own title, of a bill not that of its dossier), `dossier_title` (the whole title of its first dossier) and `laws` (of a publication, the names of its laws) that holds it; empty without `q`), `via` (with `instrument`, how the event is tied to the law: `relation` `establishes`, `amends`, `introduces` or `repeals` (a publication), `proposes` (a paper with a `voorgesteld` change of it, or an event of the dossier of such a paper), `version_of` (a new version of the law), `based_on` (of a regulation issued under it), `refers_to` (a judgment), `legislated_in` (an event of a dossier the law or a publication of it was legislated in); `article` the number of the article of the law it touches, the first in the order of the law; `dossier` the label of the dossier it came through; the closest tie of all it has), `answers` (of a `Brief regering`: the motions and commitments it `ANSWERS`), `answered_by` (of a `toezegging`: the letters that fulfil it), `replaces` (of a changed `Motie` or `Amendement`: the paper it replaces, `REVISES`, \"ter vervanging van nr. 19\"), each such paper or commitment `{id, kind, title, date, number, dossier, surname, path}` (`kind` its `Document.Soort` or `toezegging`, `number` its nr. or the number of the commitment, `dossier` the label of its own dossier, `surname` its first signatory), at most twenty; `amends_articles` (of an `Amendement`: the articles it proposes to change, add or repeal, `effect` `amends`/`introduces`/`repeals`, in the order of their law, at most twenty) and `cites` (of an `uitspraak`: the articles it cites, the most mentioned first, at most five), each article `{key, bwb_id, number, law, law_short, effect, path}`; empty or null for the other kinds",
         "operationId": "get_feed_route_api_feed_get",
         "parameters": [
           {
@@ -6518,6 +6518,46 @@
               "title": "Faction"
             },
             "description": "Faction key: what its Kamerleden signed for it."
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone.",
+              "title": "Party"
+            },
+            "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone."
+          },
+          {
+            "name": "vote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "voor",
+                    "tegen"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With ``party``: the votes it voted for, or against.",
+              "title": "Vote"
+            },
+            "description": "With ``party``: the votes it voted for, or against."
           },
           {
             "name": "q",
@@ -6860,6 +6900,46 @@
             "description": "Faction key: what its Kamerleden signed for it."
           },
           {
+            "name": "party",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone.",
+              "title": "Party"
+            },
+            "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone."
+          },
+          {
+            "name": "vote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "voor",
+                    "tegen"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With ``party``: the votes it voted for, or against.",
+              "title": "Vote"
+            },
+            "description": "With ``party``: the votes it voted for, or against."
+          },
+          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -7175,6 +7255,46 @@
               "title": "Faction"
             },
             "description": "Faction key: what its Kamerleden signed for it."
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone.",
+              "title": "Party"
+            },
+            "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone."
+          },
+          {
+            "name": "vote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "voor",
+                    "tegen"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With ``party``: the votes it voted for, or against.",
+              "title": "Vote"
+            },
+            "description": "With ``party``: the votes it voted for, or against."
           },
           {
             "name": "q",
@@ -7831,6 +7951,46 @@
               "title": "Faction"
             },
             "description": "Faction key: what its Kamerleden signed for it."
+          },
+          {
+            "name": "party",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone.",
+              "title": "Party"
+            },
+            "description": "Faction key: the votes it voted on (how it voted, not what it signed: ``faction``), each with ``vote.party_choice``. Keeps votes alone."
+          },
+          {
+            "name": "vote",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "voor",
+                    "tegen"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With ``party``: the votes it voted for, or against.",
+              "title": "Vote"
+            },
+            "description": "With ``party``: the votes it voted for, or against."
           },
           {
             "name": "q",
@@ -15302,7 +15462,7 @@
           "active_dossier_count": {
             "type": "integer",
             "title": "Active Dossier Count",
-            "description": "The open dossiers it leads an activity about; none once ended.",
+            "description": "The open dossiers it leads (its activities are about them, its cases part of them): of a sitting committee ``dossier_total`` under ``status=open``; none once ended.",
             "default": 0
           },
           "path": {
@@ -15474,16 +15634,23 @@
           "active_dossier_count": {
             "type": "integer",
             "title": "Active Dossier Count",
-            "description": "The open dossiers it leads an activity about; none once ended.",
+            "description": "The open dossiers it leads (its activities are about them, its cases part of them): of a sitting committee ``dossier_total`` under ``status=open``; none once ended.",
             "default": 0
           },
           "members": {
-            "items": {
-              "$ref": "#/components/schemas/MemberDTO"
-            },
-            "type": "array",
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MemberDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Members",
-            "default": []
+            "description": "Null when the data has no seat on it at all (not known, not none); empty when no seat is current (``current_only``)."
           },
           "dossiers": {
             "items": {
@@ -24798,6 +24965,18 @@
             "type": "array",
             "title": "Coalition Factions",
             "description": "Of the Tweede Kamer: each coalition faction that cast a seat, with its choice, most seats first; empty where ``coalition`` is null."
+          },
+          "party_choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Choice",
+            "description": "With ``party``: how that faction voted, as the source writes it (``Voor``, ``Tegen``); null without ``party``."
           }
         },
         "additionalProperties": false,
@@ -24811,7 +24990,8 @@
           "method",
           "decision_kind",
           "coalition",
-          "coalition_factions"
+          "coalition_factions",
+          "party_choice"
         ],
         "title": "FeedVoteDTO",
         "description": "The outcome of a ``stemming``."

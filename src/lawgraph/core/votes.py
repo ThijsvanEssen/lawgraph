@@ -27,6 +27,8 @@ VoteChoice = Literal["Voor", "Tegen"]
 VOTE_FOR: Final[VoteChoice] = "Voor"
 VOTE_AGAINST: Final[VoteChoice] = "Tegen"
 VOTE_NOTED: Final = "Aantekening gevraagd"
+# The choice as a ``vote`` parameter of the API takes it (``voor``, ``tegen``).
+VOTE_PARAMETER: Final[dict[str, VoteChoice]] = {"voor": VOTE_FOR, "tegen": VOTE_AGAINST}
 
 # What a vote decided; a document can also end without one.
 VoteOutcome = Literal["aangenomen", "verworpen"]

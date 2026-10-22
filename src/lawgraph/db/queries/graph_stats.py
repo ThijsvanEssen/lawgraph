@@ -223,7 +223,8 @@ def refresh_articles(store: Store, *, dry_run: bool) -> int:
     )
 
 
-# The open dossiers each committee leads an activity about, each once; a dissolved
+# The open dossiers each committee leads, each once: those its activities are about and its
+# cases are part of, as its page lists them (``lg_led``, ``queries/committees``); a dissolved
 # committee leads none.
 _COMMITTEES = """
     SELECT c.id,
@@ -233,9 +234,10 @@ _COMMITTEES = """
     LEFT JOIN (
         SELECT l.to_id AS committee, count(DISTINCT a.to_id)::int AS n
         FROM edges l
-        JOIN edges a ON a.from_id = l.from_id AND a.relation = %(about)s
+        JOIN edges a ON a.from_id = l.from_id AND a.relation = ANY(%(in_dossier)s)
+                    AND a.to_collection = 'dossiers'
         JOIN dossiers d ON d.id = a.to_id AND d.closed IS NOT TRUE
-        WHERE l.relation = %(led_by)s
+        WHERE l.relation = %(led_by)s AND l.to_collection = 'committees'
         GROUP BY l.to_id
     ) led ON led.committee = c.id
 """
@@ -248,7 +250,7 @@ def refresh_committees(store: Store, *, dry_run: bool) -> int:
         _COMMITTEES,
         ["active_dossier_count"],
         {
-            "about": RELATION_ABOUT,
+            "in_dossier": [RELATION_ABOUT, RELATION_PART_OF],
             "led_by": RELATION_LED_BY,
             "today": dutch_today().isoformat(),
         },
