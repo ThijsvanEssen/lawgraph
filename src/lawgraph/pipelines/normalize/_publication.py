@@ -6,8 +6,9 @@ from __future__ import annotations
 import datetime as dt
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
+from itertools import batched
 from typing import Any, ClassVar
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
@@ -18,6 +19,7 @@ from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.xml import find_text
 from lawgraph.db import NodeWriter
+from lawgraph.db.counting import Store
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -51,12 +53,19 @@ class PublicationSpec:
     kind: str
     # the props of its own: ``text``, ``display_name`` and, when known, ``date``
     own_props: Callable[[ET.Element, Parsed], dict[str, Any]]
+    # Of ``{identifier: bwb_id}``, the regulation retrieve fetched each publication for, the
+    # identifiers whose regulation its source confirms names that publication; None: all.
+    confirmed: Callable[[Store, Mapping[str, str]], set[str]] | None = None
+
+
+# The records a claim of their regulation is checked for at once.
+_CLAIMS_AT_ONCE = 200
 
 
 class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
     """A document per publication of the spec: its text, year, number, title and the
-    regulation it belongs to (``bwb_id``: the one retrieve found it for, else the first
-    its text names)."""
+    regulation it belongs to (``bwb_id``: the one retrieve found it for, where the spec's
+    source confirms it, else the first its text names)."""
 
     spec: ClassVar[PublicationSpec]
 
@@ -74,21 +83,38 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
         EXPLAINS."""
         count = 0
         writer = NodeWriter(self.store)
-        for record in raw:
-            identifier = record.get("external_id") or ""
-            text = payload_text(record)
-            if not text:
-                self.progress.skip("no payload", identifier or record.get("key"))
-                continue
-            node = self._parse_publication(identifier, text, meta(record).get("bwb_id"))
-            if node is None:
-                continue
-            writer.add(node)
-            count += 1
+        for chunk in batched(raw, _CLAIMS_AT_ONCE, strict=False):
+            claims = self._claims(chunk)
+            for record in chunk:
+                identifier = record.get("external_id") or ""
+                text = payload_text(record)
+                if not text:
+                    self.progress.skip("no payload", identifier or record.get("key"))
+                    continue
+                node = self._parse_publication(identifier, text, claims.get(identifier))
+                if node is None:
+                    continue
+                writer.add(node)
+                count += 1
         writer.flush()
         logger.info(
             "%s normalize: %d publications processed.", self.spec.publication, count
         )
+
+    def _claims(self, records: tuple[dict[str, Any], ...]) -> dict[str, str]:
+        """``{identifier: bwb_id}``: the regulation retrieve fetched each of *records* for,
+        where the spec's source confirms it (``PublicationSpec.confirmed``)."""
+        claims = {
+            identifier: bwb_id
+            for record in records
+            if (identifier := record.get("external_id"))
+            and isinstance(bwb_id := meta(record).get("bwb_id"), str)
+            and bwb_id
+        }
+        if not claims or self.spec.confirmed is None:
+            return claims
+        kept = self.spec.confirmed(self.store, claims)
+        return {identifier: claims[identifier] for identifier in kept}
 
     def _parse_publication(
         self, identifier: str, xml_text: str, bwb_id: str | None = None

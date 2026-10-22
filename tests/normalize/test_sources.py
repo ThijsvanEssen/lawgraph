@@ -98,18 +98,34 @@ def test_the_nota_van_toelichting_of_a_real_amvb_is_its_text():
     )
 
 
-def test_staatsblad_normalize_keeps_the_regulation_retrieve_found_it_for():
-    """The toestand of BWBR0009999 named this publication: that is the regulation it
-    explains, not BWBR0001234, the first law its text cites."""
+@pytest.mark.parametrize(
+    ("series", "bwb_id"), [("Stb", "BWBR0009999"), ("Trb", "BWBR0001234")]
+)
+def test_staatsblad_normalize_keeps_the_regulation_whose_toestand_names_it(
+    monkeypatch: pytest.MonkeyPatch, series: str, bwb_id: str
+) -> None:
+    """The toestand of BWBR0009999 names this publication: that is the regulation it
+    explains, not BWBR0001234, the first law its text cites. A toestand that names it in
+    another series (``Trb. 2015, 134``) does not."""
     from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
 
+    toestand = (
+        f"<toestand><publicatie soort='{series}'><publicatiejaar>2015</publicatiejaar>"
+        "<publicatienr>134</publicatienr></publicatie></toestand>"
+    )
+
+    def toestanden_of(store: Any, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+        assert bwb_ids == ["BWBR0009999"]
+        yield {"external_id": "BWBR0009999", "payload_text": toestand}
+
+    monkeypatch.setattr(raw_queries, "toestanden_of", toestanden_of)
     store = InMemoryStore()
     pipeline = StaatsbladNormalizePipeline(store=store)
     pipeline.write(
         [_raw("stb-2015-134", payload_text=_STB_XML, meta={"bwb_id": "BWBR0009999"})],
         PipelineResult(),
     )
-    assert _written(store).props["bwb_id"] == "BWBR0009999"
+    assert _written(store).props["bwb_id"] == bwb_id
 
 
 def test_staatsblad_normalize_skips_empty_payload():

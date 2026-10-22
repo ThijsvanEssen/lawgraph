@@ -222,6 +222,7 @@ def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
                 "citation_title": "Wetboek van Strafrecht",
                 "short_title": "Sr",
                 "instrument_abbreviation": None,
+                "expired_on": None,
             },
             "score": ranking.SCORE_WORDS,
         }

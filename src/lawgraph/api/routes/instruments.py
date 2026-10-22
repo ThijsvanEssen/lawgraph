@@ -51,6 +51,7 @@ from lawgraph.api.schemas.instruments import (
     JudgmentSort,
     LinkedInstrumentDTO,
 )
+from lawgraph.api.validity import instrument_validity_dto
 from lawgraph.core.division_anchor import as_anchor
 from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.core.time import iso_day
@@ -232,7 +233,10 @@ def get_instrument(
         else None
     )
     return InstrumentDetailDTO.from_document(
-        doc, same_treaty=same_treaty(store, doc), references=references
+        doc,
+        same_treaty=same_treaty(store, doc),
+        references=references,
+        validity=instrument_validity_dto(store, doc),
     )
 
 
