@@ -113,6 +113,33 @@ def test_an_abbreviation_claimed_by_several_regulations_never_wins() -> None:
     }
 
 
+def test_a_base_regulation_wins_an_abbreviation_it_shares_with_its_variants() -> None:
+    titles = {
+        "BWBR0001827": "Wetboek van Burgerlijke Rechtsvordering",
+        "BWBR0039872": "Wetboek van Burgerlijke Rechtsvordering (geldt in geval van "
+        "niet-digitaal procederen)",
+        "BWBR0000002": "Andere wet",
+    }
+    abbreviations = {
+        "BWBR0001827": ["Rv"],
+        "BWBR0039872": ["Rv"],
+        "BWBR0000002": ["Rv"],
+    }
+
+    assert choose_short_titles(abbreviations, titles) == {
+        "BWBR0001827": None,
+        "BWBR0039872": None,
+        "BWBR0000002": None,
+    }
+    del abbreviations["BWBR0000002"]
+    assert choose_short_titles(abbreviations, titles) == {
+        "BWBR0001827": "Rv",
+        "BWBR0039872": None,
+    }
+    # without titles nothing relates them
+    assert choose_short_titles(abbreviations)["BWBR0001827"] is None
+
+
 def test_case_variants_of_one_regulation_are_one_claim() -> None:
     assert choose_short_titles({"BWBR0001840": ["GW", "Gw"]}) == {"BWBR0001840": "Gw"}
 

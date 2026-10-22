@@ -2217,10 +2217,11 @@ def test_the_start_page_is_its_core_without_a_read(
     assert page["canonical"] == "https://concordans.nl/"
     main = page["main"]
     assert (
-        '<h1 class="blad__titel">Wetten, uitspraken en Kamerstukken in samenhang'
-        in main
+        '<h1 class="blad__titel">Het artikel, en de uitspraken en Kamerstukken die '
+        "ernaar verwijzen.</h1>" in main
     )
-    assert "Concordans is een onderzoeksinstrument" in main
+    # One self-description, and no name of the maker (A171).
+    assert "onderzoeksinstrument" not in response.text and "TMvE" not in response.text
     form = re.search(r'<form action="/" method="get"[^>]*>(.*?)</form>', main, re.S)
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
@@ -2275,7 +2276,7 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
-    assert "Wetten, uitspraken en Kamerstukken in samenhang" in main
+    assert "Het artikel, en de uitspraken en Kamerstukken die ernaar" in main
     assert "Half" not in main
 
 
