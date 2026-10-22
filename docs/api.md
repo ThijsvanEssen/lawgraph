@@ -2,8 +2,8 @@
 
 A FastAPI service over the graph (`lawgraph.api.app:app`); it only reads. Start it with
 `lawgraph-api` (uvicorn, `LAWGRAPH_API_HOST`:`LAWGRAPH_API_PORT`, default `127.0.0.1:8000`; set the host to `0.0.0.0` to serve other machines) or
-`uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/docs`, the machine
-schema at `/openapi.json`: every route has a summary, a tag and a typed answer, and every
+`uvicorn lawgraph.api.app:app --reload`. The interactive schema is at `/api/docs`, the machine
+schema at `/api/openapi.json` (under `/api`, the prefix the proxy sends to the API): every route has a summary, a tag and a typed answer, and every
 route is a `GET` (`tests/api/test_openapi_schema.py` holds the schema to that), so a client
 can generate its types from it. `lawgraph openapi` prints that schema without a server;
 `docs/openapi.json` is its output with the defaults of the settings, and
@@ -45,7 +45,7 @@ matches `^\d+(-[A-Za-z0-9()]+)?$` (`29684`, `29684-I`, `21501-31`, `36956-(R2220
 of its own: `37020-XV` is not `37020`. Every dossier number the API returns (`number` of a
 dossier, `dossier_number`, `dossier_numbers`, in either chamber) is written this way, so it can be used in a path
 or a `dossier` filter as it is. Next to bare numbers stand their names as `/api/dossiers` gives them: `dossiers` (`{number, short_title, title}` per number, once each, in their order; null names for a number no dossier has) on a decision (list and detail), a paper of `/api/documents` (of `dossier_numbers`, else of `dossier_number`), a vote of an Eerste Kamer faction and an activity of a committee; `dossier_short_title` in the props of a paper, an activity or a decision among the neighbours of a node (of its first dossier); `short_title` on the dossier of a commitment and of a publication, in the props of a dossier node (`/api/nodes`, as the node, a neighbour and in a neighbourhood, also with `props=canvas`) and on each dossier of a law (`/api/instruments/{identifier}/dossiers`); `dossier_short_title` on each entry of an article's legislative history and on the paper of each of its explanations (`explained-by`) and passages (`explanations`). List parameters `limit` and `offset` have the bounds shown in
-`/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
+`/api/docs`. Every paged list has a total order (its sort ends in a unique key, or reads an index
 that orders ties by key), so walking its pages gives each row once.
 
 A period on a list is two days, YYYY-MM-DD, both inclusive; one alone leaves the other side open: `from`/`to` on `/api/instruments` (the day it came into force, `date_in_force`; `published_from`/`published_to` the day it was published), `/api/commitments` (the day it was made: that of its debate, else the day the Kamer registered it, `registered_on`) and `/api/decisions` and `/api/documents` (their date); `active_from`/`active_to` on `/api/members` (a seat or a post in a cabinet that overlaps it; of the Eerste Kamer the period the snapshots showed them), `/api/factions` (`active_from` to `active_until`) and `/api/committees` (`started_on` to `ended_on`; with a period also those that ended since). A period without a first day began at the start, one without a last day goes on. A row of a list names its source by more than its `path`: a paper of `/api/documents` its `document_number` and `tk_url` (a paper that is no Kamerstuk has no `path`), a law of `/api/instruments` its `official_id` (Staatsblad) or `treaty_number` (Verdragenbank) and its `kind`, of an EU act by its CELEX letter (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`; `semantic graph-list-stats`).
@@ -370,6 +370,41 @@ summary only; a paper: its title only); a type without a text of its own has no 
 come from what the search reads (`SEARCH_FIELDS`, `SEARCH_WORDS`, `search_names`) and the
 props of the type (`db/queries/search/searched.py`), so no hit does not read as "not there".
 
+### Validity
+
+Whether a law or an article holds today has one shape, on `/api/instruments/{identifier}`
+(`validity`) and on `/api/articles/{bwb_id}/{article_number}` (`article.validity`)
+(`core/validity.py`, `api/validity.py`):
+
+```
+validity: {state, date, as_of, successors}
+```
+
+| State | Meaning | `date` |
+|-------|---------|--------|
+| `in_force` | in force today | the first day it will no longer hold, when the source says so already |
+| `expired` | repealed or lapsed | the first day it no longer held |
+| `not_in_force_yet` | enacted, not in force | the day it comes into force, when known |
+
+A BWB regulation is `expired` from `date_expired` on (the SRU record of its toestand),
+`not_in_force_yet` before `date_in_force`; a law of the Staatsblad the BWB does not hold (yet)
+is `not_in_force_yet`; a treaty of the Verdragenbank is `in_force` when the register says
+`inwerkinggetreden`. An article holds as long as its law does, and until the `valid_until` of
+its newest version (the version that says it lapsed, or the first toestand without it), the
+earlier of the two. Where the source says none of this (an EU act, another treaty) `validity`
+is null: not known, not in force.
+
+`as_of` is the day the data of its source stands on: the Dutch day of
+`data_as_of.<source>.completeness.source.as_of` (`/api/stats`), the day to cite its text as
+holding on. `successors` are the laws an official source places its articles in
+(`TRANSPOSED_TO`), the one most articles pass to first, each with `articles` (how many): of a
+law those of its articles; of an article those of its own `successors`, else, when it has
+expired, those of its law.
+
+In `/api/search` a law or an article has `extra.expired_on` (of an article the earlier of its
+law's `date_expired` and its own end); one that has expired by today comes after every hit of
+its score that holds, and is not left out.
+
 ### Resolve notations
 
 `/api/resolve` reads `q` as, in this order:
@@ -463,8 +498,8 @@ touches (the papers of a paper's dossier), not to what its signers signed elsewh
 | Middleware | Behaviour |
 |------------|-----------|
 | CORS | origins from `LAWGRAPH_ALLOWED_ORIGINS` (default `localhost:5173`, `5174`, `127.0.0.1` variants); credentials allowed |
-| Rate limit | sliding window per client (an IPv4 address, an IPv6 /64), on a monotonic clock: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After`. Every request counts, whatever its `Origin`. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`, and then its right-most address that is no such proxy is the client. State is per process, so N workers allow N times the limit; clients without a request in the window are forgotten once per window |
-| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
+| Rate limit | sliding window per client (an IPv4 address, an IPv6 /64), on a monotonic clock: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After` (the seconds until the oldest request of the window leaves it), a small page to a request that accepts `text/html` (a browser asking for a page; it loads again by itself then), else the JSON of every error; each 429 has a line in the log (the network and the path, as the request log). `LAWGRAPH_RATE_LIMIT_EXEMPT` networks are not counted. Every request counts, whatever its `Origin`. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`, and then its right-most address that is no such proxy is the client. State is per process, so N workers allow N times the limit; clients without a request in the window are forgotten once per window |
+| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, the Atom feed (`/api/feed.atom`) `public, max-age=900`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
 | Request log | `[id] client METHOD path -> status size latency`; sets `X-Request-ID`; answers an error no handler answers with the 500 of `api/errors.py` |
 | Compression | a response of 1 KB or more is sent gzip-compressed to a client that accepts it (`Accept-Encoding: gzip`), JSON and the Atom feed alike, with `Vary: Accept-Encoding`; a 304 has no body |
 

@@ -1625,6 +1625,11 @@
   "bewindspersoon",
   "overig"
  ],
+ "/components/schemas/ValidityState": [
+  "in_force",
+  "expired",
+  "not_in_force_yet"
+ ],
  "/components/schemas/VersionPartChangeDTO/properties/change": [
   "added",
   "removed",

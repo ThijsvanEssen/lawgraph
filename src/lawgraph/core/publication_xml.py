@@ -65,7 +65,8 @@ def staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
     """Find the Staatsblad ``(year, number)`` a BWB toestand XML refers to.
 
     The ``<publicatie soort="Stb">`` of its brondata, the one that made the regulation
-    (``effect="nieuwe-regeling"``) before any other; else a year and a number outside one;
+    (``effect="nieuwe-regeling"``) before any other; else a year and a number outside one
+    (not those of a ``<publicatie>`` of another series: the ``Trb`` of a treaty);
     else an ``stb-<year>-<number>`` reference in any attribute, then anywhere in the raw
     text. Returns ``None`` when nothing is found; raises ``ET.ParseError`` for XML that does
     not read.
@@ -83,9 +84,16 @@ def staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
         made = [r for e, r in published if e.get("effect") == "nieuwe-regeling"]
         return (made or [r for _, r in published])[0]
 
-    # a year and a number outside a <publicatie>, as the KOOP XML writes them
+    # a year and a number outside a <publicatie>, as the KOOP XML writes them; not those of
+    # a publication of another series (the Tractatenblad of a treaty: Trb. 2018, 100 is no
+    # Stb. 2018, 100)
     loose = _year_and_number(root) or next(
-        (ref for element in root.iter() if (ref := _year_and_number(element))), None
+        (
+            ref
+            for element in root.iter()
+            if not _of_another_series(element) and (ref := _year_and_number(element))
+        ),
+        None,
     )
     if loose:
         return loose
@@ -97,6 +105,12 @@ def staatsblad_ref_from_bwb_xml(bwb_xml: str) -> tuple[str, str] | None:
                 return match.group(1), match.group(2)
     match = STB_ID_PATTERN.search(bwb_xml)
     return (match.group(1), match.group(2)) if match else None
+
+
+def _of_another_series(element: ET.Element) -> bool:
+    """Whether *element* is a ``<publicatie>`` of a series other than the Staatsblad."""
+    series = (element.get("soort") or "").lower()
+    return local_name(element.tag) == "publicatie" and series not in ("", "stb")
 
 
 def _year_and_number(publication: ET.Element) -> tuple[str, str] | None:

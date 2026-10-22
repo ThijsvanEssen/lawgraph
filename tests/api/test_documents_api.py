@@ -137,3 +137,15 @@ def test_an_eerste_kamer_document_is_not_explanatory_and_has_no_tk_url(
     assert body["official_url"] == (
         "https://zoek.officielebekendmakingen.nl/kst-1274216.html"
     )
+
+
+def test_an_offset_past_the_deepest_page_is_a_422_that_says_how_to_go_on() -> None:
+    """A page deep in 650,000 papers reads every paper before it (prod: 22 s at 50,000,
+    past the read ceiling at 300,000); past ``OFFSET_MAX`` the list asks for a window."""
+    response = TestClient(app).get("/api/documents?offset=10001&facets=false")
+    assert_status(response, 422)
+    assert "`offset`" in response.json()["detail"]
+    schema = app.openapi()["paths"]["/api/documents"]["get"]["parameters"]
+    offset = next(p for p in schema if p["name"] == "offset")
+    assert offset["schema"]["maximum"] == 10_000
+    assert "`to`" in offset["description"]

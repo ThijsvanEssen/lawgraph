@@ -9,6 +9,7 @@ from typing import Any
 
 from lawgraph.core.models import make_node_key
 from lawgraph.core.text_fold import ACCENTS
+from lawgraph.core.time import dutch_today
 from lawgraph.core.xml import collapse_ws
 
 SCORE_IDENTIFIER = 1.0  # the query is the hit's key or one of its identifiers
@@ -107,11 +108,27 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
     return SCORE_WORDS
 
 
-def rank_hits(query: str, hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def expired(hit: Mapping[str, Any], today: str) -> bool:
+    """Whether the law or article *hit* no longer holds on *today*: its ``extra.expired_on``
+    (the first day it did not) is not after it."""
+    ended = (hit.get("extra") or {}).get("expired_on")
+    return isinstance(ended, str) and bool(ended) and ended[:10] <= today
+
+
+def rank_hits(
+    query: str, hits: list[dict[str, Any]], today: str | None = None
+) -> list[dict[str, Any]]:
     """*hits* with a ``score`` each (a hit that has one keeps it), best first; a member
-    without a role (``member_role``) after every hit with one, whatever its score."""
+    without a role (``member_role``) after every hit with one, whatever its score; a law or
+    an article that no longer holds on *today* (the Dutch day by default) after every hit
+    of its score that does, not left out (a name that is the query still goes first)."""
+    day = today or dutch_today().isoformat()
     scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
     return sorted(
         scored,
-        key=lambda h: ((h.get("extra") or {}).get("has_role") is False, -h["score"]),
+        key=lambda h: (
+            (h.get("extra") or {}).get("has_role") is False,
+            -h["score"],
+            expired(h, day),
+        ),
     )

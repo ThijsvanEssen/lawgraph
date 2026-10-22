@@ -67,6 +67,10 @@ def test_the_staatsblad_refs_are_those_of_the_toestanden_alone(
     ]
     without = raw_queries.toestanden_without_staatsblad_ref(store)
     assert [r["external_id"] for r in without] == ["BWBR0000003"]
+    of = raw_queries.toestanden_of(store, ["BWBR0004092", "BWBR0000001"])
+    assert [(r["source"], r["external_id"]) for r in of] == [
+        (SOURCE_BWB, "BWBR0004092")
+    ]
 
 
 def test_the_stored_staatsblad_ids_are_those_asked_for_and_stored(
