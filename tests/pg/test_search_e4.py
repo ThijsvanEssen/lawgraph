@@ -19,7 +19,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.commands.curated import concept_problems
+from lawgraph.commands.curated import concept_notes
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_COMMITMENTS,
@@ -341,7 +341,7 @@ def test_a_term_is_no_hit_of_a_type_not_searched_or_within_a_period(
 def test_the_check_names_a_concept_whose_article_the_graph_lacks(
     store: GraphStore,
 ) -> None:
-    found = concept_problems(store)
+    found = concept_notes(store)
     lacking = [p for p in found if p.startswith("concepts: ontslag op staande voet: ")]
     assert len(lacking) == 1, found
     named = {

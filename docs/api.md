@@ -445,7 +445,7 @@ one article per term, a term or variant of one concept only, compared in lower c
 accents and punctuation. An entry is added only after its article has been read (it exists,
 holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `AVG`) needs
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
-names a term whose article the graph does not have.
+notes a term whose article the graph does not have.
 
 ### Neighbour filters
 

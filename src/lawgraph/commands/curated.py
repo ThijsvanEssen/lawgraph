@@ -102,19 +102,14 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
 
 def database_problems(store: GraphStore) -> list[str]:
     """What the database says is wrong with the lists: the seating plan
-    (``_seating_problems``), the abbreviations of instruments the graph does not have and
-    the concepts whose article or law it does not have (``concept_problems``)."""
-    return (
-        _seating_problems(store)
-        + _abbreviation_problems(store)
-        + concept_problems(store)
-    )
+    (``_seating_problems``) and the abbreviations of instruments the graph does not have."""
+    return _seating_problems(store) + _abbreviation_problems(store)
 
 
-def concept_problems(store: GraphStore) -> list[str]:
+def concept_notes(store: GraphStore) -> list[str]:
     """A concept whose article or law no node of the graph is: a typing error in its law or
-    article number, an article renumbered or a law not loaded; a search for the term then
-    names nothing."""
+    article number, an article renumbered, or a law a partial database does not hold; a
+    search for the term then names nothing. A note, as a key of the seating plan is."""
     found = []
     by_collection: dict[str, dict[str, str]] = {}
     for term, value in LISTS["concepts"].entries().items():
@@ -177,7 +172,8 @@ def database_notes(store: GraphStore) -> list[str]:
     a seat that changed after the plan's date (a replacement within a faction leaves the
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
-    in the database has (a typo, a spelling the Kamer changed, or a partial database)."""
+    in the database has (a typo, a spelling the Kamer changed, or a partial database); of
+    the concepts an article or law the graph does not have (``concept_notes``)."""
     factions = get_factions(store)
     known = {doc["key"] for doc in factions}
     notes = [
@@ -207,7 +203,7 @@ def database_notes(store: GraphStore) -> list[str]:
                 for v in (value or {}).get(part) or []
                 if in_use[part] and v not in in_use[part]
             ]
-    return notes
+    return notes + concept_notes(store)
 
 
 def _change(args: argparse.Namespace) -> list[str]:
