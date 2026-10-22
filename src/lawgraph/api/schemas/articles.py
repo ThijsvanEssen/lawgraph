@@ -43,6 +43,7 @@ from lawgraph.api.schemas.documents import (
 )
 from lawgraph.api.schemas.dossiers import DocumentEntryDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
+from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.config.constants import (
     COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
@@ -407,6 +408,12 @@ class ArticleSummaryDTO(WithPath):
     )
     address: str = Field(..., description=ARTICLE_ADDRESS)
     repealed: bool = False
+    validity: ValidityDTO | None = Field(
+        None,
+        description=f"{VALIDITY} An article holds as long as its law does, and until "
+        "the `valid_until` of its newest version (the version that says it lapsed, or "
+        "the first toestand without it).",
+    )
     display_name: str | None
     official_url: str | None = Field(
         None,
@@ -439,6 +446,7 @@ class ArticleSummaryDTO(WithPath):
     def from_document(
         cls,
         doc: dict[str, Any],
+        validity: ValidityDTO | None = None,
     ) -> ArticleSummaryDTO:
         props = doc.get("props") or {}
         return cls(
@@ -451,6 +459,7 @@ class ArticleSummaryDTO(WithPath):
             heading=props.get("heading"),
             address=address_of(doc),
             repealed=bool(props.get("repealed")),
+            validity=validity,
             display_name=article_cite(props) or None,
             official_url=article_url(props.get("bwb_id"), props.get("article_number"))
             or enacting_publication_url(props.get("official_id")),

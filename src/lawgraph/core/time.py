@@ -58,6 +58,15 @@ def _moment(value: str) -> dt.datetime:
     return at if at.tzinfo else at.replace(tzinfo=dt.UTC)
 
 
+def dutch_day(moment: str | dt.datetime) -> str:
+    """The day in the Netherlands of *moment* (an ISO moment, one without an offset UTC):
+    ``2026-10-20T23:10:34Z`` is 21 October."""
+    at = _moment(moment) if isinstance(moment, str) else moment
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=dt.UTC)
+    return at.astimezone(DUTCH_TIME).date().isoformat()
+
+
 def utc_now_iso() -> str:
     """Now in UTC to the second, as ``iso_timestamp`` writes it: the stamp of a write."""
     return str(iso_timestamp(_now().replace(microsecond=0)))

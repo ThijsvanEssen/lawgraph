@@ -37,6 +37,7 @@ from lawgraph.api.schemas.common import (
     in_regulation_order,
 )
 from lawgraph.api.schemas.completeness import completeness_dto
+from lawgraph.api.validity import article_validity_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import (
     delegation_clauses,
@@ -115,7 +116,15 @@ def get_article_detail(
     counts = law_reference_counts if is_law(law) else reference_counts
 
     return ArticleDetailResponse(
-        article=ArticleSummaryDTO.from_document(data.article),
+        article=ArticleSummaryDTO.from_document(
+            data.article,
+            article_validity_dto(
+                store,
+                data.article,
+                data.instrument,
+                relationship_data.get("successors", []),
+            ),
+        ),
         instrument=instrument,
         completeness=completeness_dto(props, law, counts(store, data.article["id"])),
         citations=citations,

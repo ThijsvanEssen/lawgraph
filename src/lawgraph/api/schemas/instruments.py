@@ -52,6 +52,7 @@ from lawgraph.api.schemas.completeness import (
     completeness_dto,
 )
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
+from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     IMPLEMENTS_BASES,
@@ -1265,6 +1266,7 @@ class InstrumentDetailDTO(WithPath):
         "standing on its own, as on the list.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    validity: ValidityDTO | None = Field(None, description=VALIDITY)
     date_signed: str | None = Field(
         None,
         description="When the instrument itself was signed; for a BWB regulation that of "
@@ -1329,6 +1331,7 @@ class InstrumentDetailDTO(WithPath):
         *,
         same_treaty: list[dict[str, Any]] | None = None,
         references: ReferenceCounts | None = None,
+        validity: ValidityDTO | None = None,
     ) -> InstrumentDetailDTO:
         """Build from the node *doc*; *references* what the step that reads its references
         counted of them (``db.queries.unlinked_references``)."""
@@ -1359,6 +1362,7 @@ class InstrumentDetailDTO(WithPath):
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
             amending=props.get("amending") is True,
             expired_on=props.get("date_expired"),
+            validity=validity,
             date_signed=props.get("date_signed"),
             date_published=props.get("date_published"),
             date_in_force=props.get("date_in_force"),
