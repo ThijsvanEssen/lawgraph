@@ -68,6 +68,10 @@ class Page:
     # the page a search engine finds instead (``rel="canonical"``), when not this one: the
     # page of the one motion a vote is about
     canonical: str = ""
+    # what a reference manager reads (Zotero, Google Scholar): the ``citation_*`` and
+    # ``DC.*`` meta tags of the page, name → content; its address (``citation_public_url``)
+    # is added with them
+    citation: dict[str, str] = field(default_factory=dict)
 
 
 def present(**fields: Any) -> dict[str, Any]:
