@@ -133,8 +133,13 @@ def _store() -> GraphStore:
     return provide()
 
 
+# The schema and its interactive page under ``/api``, the one prefix the proxy sends to the
+# API (``deploy/server/caddy``): every other path is a page of the site.
 app = FastAPI(
     lifespan=lifespan,
+    openapi_url="/api/openapi.json",
+    docs_url="/api/docs",
+    redoc_url=None,
     title="Lawgraph API",
     version=__version__,
     description=(

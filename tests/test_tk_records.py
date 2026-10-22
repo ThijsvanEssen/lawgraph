@@ -504,7 +504,21 @@ def test_commitment_reads_the_minister_and_the_status() -> None:
     assert props["status"] == "Openstaand"
     assert props["minister_name"] == "Wiersma, F.M."
     assert props["activity_number"] == "2024A05766"
-    assert props["made_on"] == "2024-12-16"
+    # without its activity: made on the day it was registered
+    assert props["made_on"] == props["registered_on"] == "2024-12-16"
+
+
+def test_a_commitment_is_made_on_the_day_of_its_debate() -> None:
+    _, props = present(
+        commitments.commitment(
+            {
+                "Id": "t-2",
+                "Aanmaakdatum": "2026-10-21T10:54:48.983+02:00",
+                "Activiteit": [{"Datum": "2026-10-14T14:00:00+02:00"}],
+            }
+        )
+    )
+    assert (props["made_on"], props["registered_on"]) == ("2026-10-14", "2026-10-21")
 
 
 def test_a_commitment_reads_the_dossiers_of_the_letters_that_fulfil_it() -> None:

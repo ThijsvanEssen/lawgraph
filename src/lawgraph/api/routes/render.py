@@ -10,7 +10,9 @@ and no ``/api`` (Caddy rewrites it here):
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title; the
   start page (``/``) with its content too (``pages/home``), read of nothing;
 - an address of the app that moved (``/gemarkeerd`` to ``/bundels``): a 301 to the new
-  one, once the front end lists it and no longer the old one;
+  one, once the front end lists it and no longer the old one; a bare collection
+  (``/wetten``) and ``/zoeken`` as the front end's ``moved.json`` lists them: a 301 to
+  their list (``/explore?mode=index&kind=instruments``) or the field on the start page;
 - anything else, and an address of a source the graph does not have: 404, the shell with
   "Niet gevonden" and ``noindex``;
 - a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
@@ -145,6 +147,18 @@ def _moved_in_app(path: str, request: Request) -> str | None:
     return new + query
 
 
+def _moved_by_the_app(path: str, request: Request) -> str | None:
+    """Where the front end says the address *path* is now (``moved.json``), with the query
+    of the request after its own (``/zoeken?q=huur`` to ``/?q=huur#zoeken``)."""
+    to = shell.shell().moved.get(path)
+    if to is None:
+        return None
+    base, hash_mark, fragment = to.partition("#")
+    if rest := _query(request):
+        base += ("&" if "?" in base else "?") + rest[1:]
+    return base + hash_mark + fragment
+
+
 def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
     """The page of a source: its content where its kind has one (``SOURCE_PAGES``), else
     its name as the API gives it; with its node (``focus``)."""
@@ -219,7 +233,8 @@ def render_page(
     pad = parse_path(pathname)
     if pad is None:
         app_path = pathname.rstrip("/") or "/"
-        if (moved := _moved_in_app(app_path, request)) is not None:
+        moved = _moved_in_app(app_path, request) or _moved_by_the_app(app_path, request)
+        if moved is not None:
             return _redirect(moved)
         page = _app_page(app_path)
         if page is None:

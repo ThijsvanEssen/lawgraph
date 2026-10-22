@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import ipaddress
+import math
 import threading
 import time
 import uuid
@@ -20,6 +21,7 @@ from lawgraph.api.errors import internal_error
 from lawgraph.config.settings import (
     API_REQUEST_TIMEOUT_MS,
     RATE_LIMIT_CALLS,
+    RATE_LIMIT_EXEMPT,
     RATE_LIMIT_PERIOD,
     TRUSTED_PROXIES,
 )
@@ -38,6 +40,9 @@ logger = get_logger(__name__)
 # How long a browser or proxy may use a response without asking again. Short: after a
 # migration the new data shows within a minute, and asking again is cheap (``ETag``).
 CACHE_MAX_AGE = 60
+# The Atom feed: a reader polls it every so often, and its events are written after every
+# poll of the sources, not at once.
+ATOM_MAX_AGE = 900
 # How long a request waits for a new read of the data version when it knows one (seconds):
 # past it, it is tagged with the one it knows.
 VERSION_WAIT = 0.5
@@ -112,6 +117,8 @@ class CacheControlMiddleware:
             return known[0]
 
     def _cache_value(self, path: str) -> str:
+        if path == "/api/feed.atom":
+            return f"public, max-age={ATOM_MAX_AGE}"
         if path.startswith(self._PUBLIC):
             return f"public, max-age={CACHE_MAX_AGE}"
         return f"private, max-age={CACHE_MAX_AGE}"
@@ -260,9 +267,17 @@ class RateLimitMiddleware:
     Every request counts, also one with the ``Origin`` of our own front end: any client
     can send that header, and a visitor of the front end has an address of their own.
 
+    A refused request is a 429 with ``Retry-After`` (the seconds until the oldest request
+    of its window leaves it): to a browser that asks for a page (``Accept: text/html``) a
+    small page that says so, to any other client the JSON of every error. Each refusal has
+    a line in the log, as the request log writes one (the network of the client, the
+    path), which it never reaches.
+
     Configuration (env vars):
       LAWGRAPH_RATE_LIMIT_CALLS    — max requests per window (default 200)
       LAWGRAPH_RATE_LIMIT_PERIOD   — window in seconds (default 60)
+      LAWGRAPH_RATE_LIMIT_EXEMPT   — comma-separated addresses or networks
+                                     not counted (default none)
       LAWGRAPH_TRUSTED_PROXIES     — comma-separated IPs that may set
                                      X-Forwarded-For (default loopback only);
                                      its right-most address that is no such
@@ -323,7 +338,11 @@ class RateLimitMiddleware:
             return
 
         headers = dict(scope.get("headers") or [])
-        key = rate_limit_key(self._client_ip(scope, headers, self._trusted_proxies))
+        client = self._client_ip(scope, headers, self._trusted_proxies)
+        if _exempt(client):
+            await self._app(scope, receive, send)
+            return
+        key = rate_limit_key(client)
         now = self._clock()
         cutoff = now - self._period
         if now - self._swept_at >= self._period:
@@ -332,18 +351,63 @@ class RateLimitMiddleware:
         recent = [t for t in self._history.get(key, ()) if t > cutoff]
         if len(recent) >= self._calls:
             self._history[key] = recent
-            body = b'{"detail":"Rate limit exceeded. Try again later."}'
-            response = StarletteResponse(
-                content=body,
-                status_code=429,
-                media_type="application/json",
-                headers={"Retry-After": str(int(self._period))},
+            retry_after = max(1, math.ceil(recent[0] - cutoff))
+            logger.info(
+                "%s %s %s → 429 (rate limit)",
+                truncated_ip(client),
+                scope.get("method", "-"),
+                scope.get("path", "-"),
             )
-            await response(scope, receive, send)
+            await _refusal(headers, retry_after)(scope, receive, send)
             return
 
         self._history[key] = [*recent, now]
         await self._app(scope, receive, send)
+
+
+def _exempt(client: str) -> bool:
+    """Whether *client* is in ``LAWGRAPH_RATE_LIMIT_EXEMPT``."""
+    if not RATE_LIMIT_EXEMPT:
+        return False
+    try:
+        address = ipaddress.ip_address(client)
+    except ValueError:
+        return False
+    return any(address in network for network in RATE_LIMIT_EXEMPT)
+
+
+# What a browser that asks for a page sees when it asked too often: the reason and when to
+# come back, and the page asks again by itself then.
+_REFUSAL_PAGE = """<!doctype html>
+<html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="{seconds}">
+<title>Even wachten, Concordans</title>
+<style>body{{font:1.125rem/1.5 Georgia,serif;max-width:36rem;margin:4rem auto;padding:0 1rem;
+color:#1f1f1f;background:#fbfaf7}}@media (prefers-color-scheme:dark){{body{{color:#ece9e2;
+background:#191816}}}}</style></head>
+<body><h1>Even wachten</h1>
+<p>Er kwamen in korte tijd veel verzoeken van dit netwerk. Over {seconds} seconden laadt
+deze pagina vanzelf opnieuw.</p></body></html>
+"""
+
+
+def _refusal(headers: dict[bytes, bytes], retry_after: int) -> StarletteResponse:
+    """The 429 of the rate limit: a page for a browser that asks for one, else JSON."""
+    retry = {"Retry-After": str(retry_after)}
+    if b"text/html" in headers.get(b"accept", b""):
+        return StarletteResponse(
+            content=_REFUSAL_PAGE.format(seconds=retry_after),
+            status_code=429,
+            media_type="text/html",
+            headers=retry,
+        )
+    return StarletteResponse(
+        content=b'{"detail":"Rate limit exceeded. Try again later."}',
+        status_code=429,
+        media_type="application/json",
+        headers=retry,
+    )
 
 
 async def log_requests(

@@ -5,6 +5,7 @@ filter, the facets under the other filters, pages that neither repeat nor skip),
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import threading
 from collections.abc import Iterator
@@ -32,6 +33,7 @@ from lawgraph.config.settings import SITE_URL
 from lawgraph.core.feed import FeedCursor
 from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.time import DUTCH_TIME
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries import feed_sql
@@ -485,9 +487,11 @@ def test_the_atom_feed_of_a_dossier_is_its_events(client: TestClient) -> None:
     ids = [present(e.find("a:id", ns)).text for e in entries]
     assert ids == [f"tag:lawgraph,2026:{item['id']}" for item in feed["items"]]
     assert len(set(ids)) == len(ids) > 1
-    assert present(root.find("a:updated", ns)).text == (
-        f"{feed['items'][0]['date']}T00:00:00Z"
+    # the events never written: the start of the newest day, in Dutch time
+    newest = dt.datetime.combine(
+        dt.date.fromisoformat(feed["items"][0]["date"]), dt.time(), DUTCH_TIME
     )
+    assert present(root.find("a:updated", ns)).text == newest.isoformat()
     for entry, item in zip(entries, feed["items"], strict=True):
         alternate = present(entry.find("a:link[@rel='alternate']", ns)).get("href")
         expected = item["path"] or f"/explore?focus={item['id']}"

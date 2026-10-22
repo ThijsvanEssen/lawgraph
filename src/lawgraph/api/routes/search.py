@@ -128,7 +128,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "cited: `Art. 6:162 BW`), of an instrument `short_title`, `aliases`, `kind` and the "
         "dates `date_published`, `date_in_force` and `version_date_in_force` (as "
         "`/api/instruments/{identifier}` gives them; regulations of one title told "
-        "apart by them), of a judgment `ecli`, `appno`, `names` and `cite` (as "
+        "apart by them); an article and an instrument `expired_on`, the first day it no "
+        "longer holds (of an article the earlier of its law's and its own end, docs/api.md "
+        '"Validity"): one expired by today comes after every hit of its score that '
+        "holds, not left out; of a judgment `ecli`, `appno`, `names` and `cite` (as "
         "`/api/judgments` gives it; and `person` when it was found by one), of a "
         "document `dossier_number`, of a dossier `number`, "
         "`kind`, `current_phase`, `closed`, `outcome` and `short_title` (the name it "

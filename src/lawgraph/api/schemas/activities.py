@@ -167,7 +167,7 @@ class ActivityCommitmentDTO(WithPath):
             number=row.get("number"),
             text=row.get("text"),
             status=row.get("status"),
-            registered_on=row.get("made_on"),
+            registered_on=row.get("registered_on"),
             expected_resolution=due_date(due),
             minister_name=row.get("minister_name"),
             minister_role=row.get("minister_role"),

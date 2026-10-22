@@ -1199,8 +1199,10 @@ class CommitmentProps(_CommonProps):
     ministry_name: str | None = None
     """The ministry the Kamer gives it (`Toezegging.Ministerie`)."""
     made_on: str | None = None
-    """The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate: the
-    day it was made is that of its activity)."""
+    """The day it was made: that of its activity (`Activiteit.Datum`, the debate), else
+    `registered_on`."""
+    registered_on: str | None = None
+    """The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate)."""
     expected_resolution: str | None = None
     """The day it is due; `0001-01-01` when the Kamer names none."""
     status: str | None = None

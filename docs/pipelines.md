@@ -1335,7 +1335,7 @@ and an article becomes one edge with confidence 1.0, `meta` = `start`, `end`, `t
 `aanhef` the reference names. The link of the XML is written by hand beside the words and is
 sometimes wrong where the words are not ("artikel 230m" linked to article 230, "artikel 1133"
 to 113, "Artikel 62 leden 2 en 3 van Boek 4" to 178): where the words name another article,
-numbered the same way, they count. A
+numbered the same way, they count ("artikel 1 064", a space between the thousands, names 1064). A
 link inside a range the words name ("395a tot en met 397") stands; a book the words name
 ("van Boek 4", `6:162`) counts for a link into a book of a code. When the graph has no article
 the words name, the link counts.
@@ -1467,7 +1467,7 @@ BWB toestand from its `meta.staatsblad_ref` and fetches those not yet stored, wi
 of that regulation in `meta` (run `retrieve bwb` first). `retrieve bwb` takes it from the XML of
 the toestand when it stores it: the `<publicatie soort="Stb">` of the brondata (the one with
 `effect="nieuwe-regeling"` first; `publicatiejaar` and `publicatienr`), `stb-<year>-<number>`,
-null when it names none. A toestand stored without it is read once by `from-graph`, which
+null when it names none (the `<publicatie soort="Trb">` of a treaty names none). A toestand stored without it is read once by `from-graph`, which
 writes it into its meta. `full`: every AMvB from the SRU. A page that
 is not XML is not stored; a download that fails is skipped and asked for again the next run,
 and 25 failures in a row fail the step. `from-graph` also fetches the laws of the dossiers whose bill passed: of every dossier
@@ -1484,7 +1484,8 @@ dossier (its metadata names none: most laws of 2009 and before) is not found thi
 `toelichting`, in older formats), `title` = the `citeertitel`, else the official title, else
 the `DC.title` of the metadata, else its `intitule` (`Wet van 8 juli 2026, houdende …`), else
 the first `titel` that is not the masthead of the series (`Staatsblad`), `bwb_id` = the regulation retrieve found it
-for, else the first BWB id in the XML), key
+for when its stored toestand names this publication, read from its XML as retrieve reads it (not
+from its `meta.staatsblad_ref`), else the first BWB id in the XML), key
 `stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
 that node comes from `bwb-amendments`.
 
