@@ -38,6 +38,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role, seo, seo_links
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.instrument_scope import is_staatsblad_law
+from lawgraph.db.schema import CITED_BY_TABLE
 
 # The laws whose articles are listed: those whose articles are cited most.
 TOP_LAWS = 150
@@ -81,8 +82,7 @@ def laws(store: GraphStore) -> Iterator[dict[str, Any]]:
 
 def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]:
     """The articles in force with a text of the *top* laws by the citations of their
-    articles, in the order of each law, with the day of the version in force of their
-    law; then those of every law of the Staatsblad the BWB does not hold (yet), which no
+    articles, in the order of each law; then those of every law of the Staatsblad the BWB does not hold (yet), which no
     judgment cites yet, in the order of each law."""
     yield from _top_articles(store, top)
     yield from store.query(
@@ -100,29 +100,70 @@ def articles(store: GraphStore, top: int = TOP_LAWS) -> Iterator[dict[str, Any]]
     )
 
 
-def _top_articles(store: GraphStore, top: int) -> Iterator[dict[str, Any]]:
-    yield from store.query(
-        f"""
-        WITH top AS (
-            SELECT bwb_id
-            FROM {COLLECTION_ARTICLES}
-            WHERE bwb_id IS NOT NULL AND stub IS NOT TRUE
-            GROUP BY bwb_id
-            ORDER BY sum(coalesce(inbound_citation_count, 0)) DESC NULLS LAST, bwb_id
-            LIMIT %(top)s
-        )
-        SELECT a.id,
-               json_build_object('bwb_id', a.bwb_id, 'article_number', a.article_number)
-                   AS props,
-               v.valid_from AS lastmod
+# The articles of the *top* laws by the citations of their articles that are in force and
+# have a text (a CTE ``listed``): the articles and the judgments of the sitemaps.
+_TOP_ARTICLES = f"""
+    top AS (
+        SELECT bwb_id
+        FROM {COLLECTION_ARTICLES}
+        WHERE bwb_id IS NOT NULL AND stub IS NOT TRUE
+        GROUP BY bwb_id
+        ORDER BY sum(coalesce(inbound_citation_count, 0)) DESC NULLS LAST, bwb_id
+        LIMIT %(top)s
+    ),
+    listed AS (
+        SELECT a.id, a.bwb_id, a.article_number, a.position
         FROM {COLLECTION_ARTICLES} a
         JOIN top ON top.bwb_id = a.bwb_id
-        LEFT JOIN ({_IN_FORCE}) v ON v.bwb_id = a.bwb_id
         WHERE a.stub IS NOT TRUE AND a.repealed IS NOT TRUE
           AND nullif(btrim(lg_str(a.props -> 'text')), '') IS NOT NULL
-        ORDER BY a.bwb_id, a.position, a.id
+    )
+"""
+
+
+def _top_articles(store: GraphStore, top: int) -> Iterator[dict[str, Any]]:
+    # no lastmod: the day of the law's version in force is not the day of the article
+    yield from store.query(
+        f"""
+        WITH {_TOP_ARTICLES}
+        SELECT id,
+               json_build_object('bwb_id', bwb_id, 'article_number', article_number)
+                   AS props,
+               NULL::text AS lastmod
+        FROM listed
+        ORDER BY bwb_id, position, id
         """,
         {"top": top},
+    )
+
+
+def judgments(
+    store: GraphStore, top: int = TOP_LAWS, per_article: int = seo.LINKS
+) -> Iterator[dict[str, Any]]:
+    """The judgments no stub that an article of ``articles`` lists on its page: the
+    *per_article* most cited that cite it (``seo.cited``). No lastmod: the day of the
+    judgment is not the day its page last changed."""
+    yield from store.query(
+        f"""
+        WITH {_TOP_ARTICLES},
+        picked AS (
+            SELECT DISTINCT c.judgment_id
+            FROM listed a
+            CROSS JOIN LATERAL (
+                SELECT b.judgment_id
+                FROM {CITED_BY_TABLE} b
+                WHERE b.article_id = a.id
+                ORDER BY b.cited DESC NULLS LAST, b.judgment_id DESC
+                LIMIT %(per_article)s
+            ) c
+        )
+        SELECT l.id, l.props, NULL::text AS lastmod
+        FROM picked p
+        JOIN lg_judgment_light l ON l.id = p.judgment_id
+        WHERE lg_bool(l.props -> 'stub') IS NOT TRUE
+        ORDER BY l.id
+        """,
+        {"top": top, "per_article": per_article},
     )
 
 
