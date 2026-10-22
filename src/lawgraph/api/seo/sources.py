@@ -28,6 +28,7 @@ from lawgraph.api.seo.pages.parliament import (
     faction_page,
     member_page,
 )
+from lawgraph.api.seo.paint import article_paint
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -35,16 +36,20 @@ from lawgraph.db.queries import seo
 @dataclass(frozen=True)
 class SourcePage:
     """The read of a kind of page (store, node id → its row, or None), the page it builds
-    of the row, and its ``og:image``."""
+    of the row, its ``og:image``, and where the front end paints it first, what that paint
+    reads (store, row → ``Page.first_paint``; ``api/seo/paint``)."""
 
     read: Callable[[GraphStore, str], dict[str, Any] | None]
     build: Callable[[dict[str, Any]], Page]
     image: str = SITE_IMAGE
+    paint: Callable[[GraphStore, dict[str, Any]], dict[str, Any] | None] | None = None
 
 
 SOURCE_PAGES: dict[str, SourcePage] = {
     "wet": SourcePage(seo.law, law_page, "/og/wet.png"),
-    "artikel": SourcePage(seo.article, article_page, "/og/artikel.png"),
+    "artikel": SourcePage(
+        seo.article, article_page, "/og/artikel.png", paint=article_paint
+    ),
     "uitspraak": SourcePage(seo.judgment, judgment_page, "/og/uitspraak.png"),
     "kamerstuk": SourcePage(seo.paper, document_page, "/og/kamerstuk.png"),
     "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),

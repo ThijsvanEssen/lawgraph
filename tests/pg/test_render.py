@@ -2278,3 +2278,117 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     main = _head(_get(client, "/").text)["main"]
     assert "Het artikel, en de uitspraken en Kamerstukken die ernaar" in main
     assert "Half" not in main
+
+
+def _painted(text: str) -> dict[str, Any] | None:
+    """What the page gives the front end's first paint, or None."""
+    found = re.search(
+        r'<script type="application/json" id="first-paint-data">(.*?)</script>',
+        text,
+        re.S,
+    )
+    return json.loads(found[1].replace("<\\/", "</")) if found else None
+
+
+@pytest.fixture()
+def painting(client: TestClient, tmp_path: Path) -> TestClient:
+    """A front end with the script of its first paint beside its shell."""
+    (tmp_path / "first-paint.js").write_text("paint()")
+    shell.forget()
+    return client
+
+
+def test_an_article_is_painted_first_with_what_the_head_of_its_reader_shows(
+    painting: TestClient, store: GraphStore
+) -> None:
+    store.bulk_insert_or_update_edges(
+        [_edge("po1", "articles/bwbr0005289_162", "instruments/bwbr0005289", "PART_OF")]
+    )
+    response = _get(painting, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    paint = _painted(response.text)
+    assert paint is not None
+    assert paint["kind"] == "article"
+    article = paint["article"]
+    assert article["text"].startswith("1. Hij die jegens een ander")
+    assert (article["law_id"], article["article_number"]) == ("BWBR0005289", "162")
+    assert paint["law"]["props"]["citation_title"] == "Burgerlijk Wetboek Boek 6"
+    # 163 follows in its law's list; nothing stands before it there
+    assert paint["steps"] == {"listed": True, "prev": False, "next": True}
+    assert paint["versions"] == [] and paint["explained"] == []
+    assert paint["mvt"] is None and paint["delegations"] == []
+    # the data after the content, the script that paints it after the data
+    text = response.text
+    assert text.index("</main>") < text.index("first-paint-data")
+    assert text.index("first-paint-data") < text.index("<script>paint()</script>")
+
+
+def test_an_article_in_a_recodification_is_not_painted_first(
+    painting: TestClient, store: GraphStore
+) -> None:
+    """Its reader names its successor or predecessor in its head; the paint does not."""
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("t1", "articles/bwbr0001854_287", "articles/bwbr0005289_163",
+                  "TRANSPOSED_TO"),
+        ]
+    )  # fmt: skip
+    for path in (
+        "/wetten/BWBR0001854/artikel/287",
+        "/wetten/BWBR0005289/artikel/6:163",
+    ):
+        response = _get(painting, path)
+        assert_status(response, 200)
+        assert _painted(response.text) is None, path
+
+
+def test_a_page_whose_first_paint_takes_too_long_goes_without(
+    painting: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(render, "PAINT_BUDGET", 0.0)
+    response = _get(painting, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    assert _head(response.text)["main"] is not None
+    assert _painted(response.text) is None
+
+
+def test_only_an_article_is_painted_first(painting: TestClient) -> None:
+    response = _get(painting, "/uitspraken/ECLI:NL:HR:2019:2006")
+    assert_status(response, 200)
+    assert "first-paint" not in response.text
+
+
+def test_the_first_paint_lists_the_versions_of_an_article_lightly(
+    painting: TestClient, store: GraphStore
+) -> None:
+    """Its versions as the history lists them, each with what made it, read without what a
+    version holds beside its wording (its parts)."""
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [
+            _node("av_162", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="1992-01-01", current=True, text="1. Hij die …",
+                  parts=[{"id": "lid-1", "kind": "lid", "number": "1", "start": 3,
+                          "end": 12}],
+                  origin_publication={"dossiers": ["17541"]}),
+        ],
+    )  # fmt: skip
+    paint = _painted(_get(painting, "/wetten/BWBR0005289/artikel/6:162").text)
+    assert paint is not None
+    (version,) = paint["versions"]
+    assert (version["valid_from"], version["current"], version["text_changed"]) == (
+        "1992-01-01",
+        True,
+        True,
+    )
+    assert [d["number"] for d in version["amended_by"]["dossiers"]] == ["17541"]
+    assert set(version) == {
+        "key",
+        "valid_from",
+        "valid_until",
+        "current",
+        "change",
+        "text_changed",
+        "changes",
+        "amended_by",
+    }

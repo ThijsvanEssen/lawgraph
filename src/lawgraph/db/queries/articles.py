@@ -213,16 +213,41 @@ def get_article_version(
     return data
 
 
+def get_article_versions_light(
+    store: GraphStore, article: dict[str, Any], bwb_id: str, article_number: str
+) -> ArticleHistoryData:
+    """The versions of *article* (read already) as ``get_article_history`` finds them, each
+    without what it holds beside its wording, its dates and what made it (its parts, its
+    tables, its references): what the head of a reader names of them. Query budget as
+    ``get_article_history``."""
+    return _versions(store, bwb_id, article_number, article=article, light=True)
+
+
+# What a version holds beside its wording, its dates and the publications that made it.
+_VERSION_BULK = (
+    "parts",
+    "tables",
+    "headings",
+    "footnote_marks",
+    "footnotes",
+    "references",
+)
+
+
 def _versions(
     store: GraphStore,
     bwb_id: str,
     article_number: str,
     version_key: str | None = None,
+    *,
+    article: dict[str, Any] | None = None,
+    light: bool = False,
 ) -> ArticleHistoryData:
     """The versions of the article identity, oldest first; only *version_key* when
-    given."""
-    article_key = make_node_key(bwb_id, article_number)
-    article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
+    given. *article* when it is read already; *light* without ``_VERSION_BULK``."""
+    if article is None:
+        article_key = make_node_key(bwb_id, article_number)
+        article = require_node(store, COLLECTION_ARTICLES, article_key, "Article")
     if (article.get("props") or {}).get("source") == SOURCE_STAATSBLAD:
         versions = [
             v
@@ -235,9 +260,12 @@ def _versions(
     if version_key is not None:
         identity += " AND v.key = %(version_key)s"
         bind["version_key"] = version_key
+    props = "(v.props::jsonb - %(bulk)s::text[])::json" if light else "v.props"
+    if light:
+        bind["bulk"] = list(_VERSION_BULK)
     rows = store.query(
         f"""
-        SELECT v.id, v.key, v.type, v.labels, v.props
+        SELECT v.id, v.key, v.type, v.labels, {props} AS props
         FROM {COLLECTION_ARTICLE_VERSIONS} v
         WHERE {identity}
         ORDER BY v.valid_from NULLS FIRST, v.key
