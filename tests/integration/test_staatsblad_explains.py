@@ -89,7 +89,18 @@ def test_the_note_explains_the_regulation_its_toestand_names(
                     meta={"identifier": identifier, "bwb_id": bwb_id},
                 )
             )
-    # the edge a run made before the toestand was read again
+    # the document and the edge a run made before the toestand was read again
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {
+                "key": "stb_stb_2018_100",
+                "type": "document",
+                "labels": ["Staatsblad", "NvT"],
+                "props": {"source": SOURCE_STAATSBLAD, "bwb_id": TREATY},
+            }
+        ],
+    )
     store.bulk_insert_or_update_edges(
         [
             make_edge_doc(
