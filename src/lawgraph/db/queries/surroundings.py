@@ -120,11 +120,28 @@ class Ask:
     ids: list[str]
     reach: Reach
     limit: int = _READ_PER_NODE
+    # Reading decisions: only those whose own case (``primary_case_id``, the case the vote
+    # decided) is one of these, or that name none. A decision is ABOUT every case of its
+    # agenda item; this keeps the votes on this paper out of those on its neighbours.
+    cases: list[str] | None = None
 
 
 def _ends(side: Side) -> tuple[str, str]:
     """The column of the node asked for and that of the other end."""
     return ("from", "to") if side == "out" else ("to", "from")
+
+
+def _own_case(ask: Ask, n: int) -> str:
+    """SQL: the condition that keeps only the decisions of *ask* (the ends of its edges)
+    taken on one of ``ask.cases``, or on none."""
+    if ask.cases is None:
+        return ""
+    other = _ends(ask.reach.side)[1]
+    return f"""AND NOT EXISTS (
+            SELECT 1 FROM decisions d
+            WHERE d.id = e.{other}_id AND d.props ->> 'primary_case_id' IS NOT NULL
+              AND NOT ('cases/' || lg_node_key(d.props ->> 'primary_case_id')
+                       = ANY(%(cases_{n})s)))"""
 
 
 def _select(ask: Ask, n: int, counting: bool) -> str:
@@ -136,13 +153,14 @@ def _select(ask: Ask, n: int, counting: bool) -> str:
         if reach.collections
         else ""
     )
+    decided = _own_case(ask, n)
     if counting:
         return f"""
         SELECT {n} AS ask, e.relation, e.{other}_collection AS collection,
                count(DISTINCT e.{other}_id)::int AS n
         FROM edges e
         WHERE e.{own}_id = ANY(%(ids_{n})s) AND e.relation = ANY(%(relations_{n})s)
-              {collections}
+              {collections} {decided}
         GROUP BY 1, 2, 3"""
     meta = ", ".join(f"'{k}', e.doc #> '{{meta,{k}}}'" for k in reach.meta)
     return f"""
@@ -154,6 +172,7 @@ def _select(ask: Ask, n: int, counting: bool) -> str:
                e.key AS edge, e.status, json_build_object({meta}) AS meta
         FROM edges e
         WHERE e.{own}_id = f.id AND e.relation = ANY(%(relations_{n})s) {collections}
+              {decided}
         ORDER BY array_position(%(relations_{n})s::text[], e.relation),
                  e.{other}_collection, e.key
         LIMIT %(limit_{n})s) r"""
@@ -167,6 +186,8 @@ def _batch(asks: list[Ask], counting: bool) -> tuple[str, dict[str, Any]]:
         params[f"limit_{n}"] = ask.limit
         if ask.reach.collections:
             params[f"collections_{n}"] = list(ask.reach.collections)
+        if ask.cases is not None:
+            params[f"cases_{n}"] = ask.cases
     statement = " UNION ALL ".join(
         f"({_select(a, n, counting)})" for n, a in enumerate(asks)
     )
@@ -362,7 +383,7 @@ def _asks(
         ),
         COLLECTION_DECISIONS: Ask([], _DECIDED_ON),
         COLLECTION_COMMITMENTS: Ask([], _DECIDED_ON),
-    }.get(collection, Ask([*documents, *cases], _DECIDED_ON))
+    }.get(collection, Ask([*documents, *cases], _DECIDED_ON, cases=cases))
     asks = {
         "submitters": Ask(signed, _SIGNED_BY, MAX_CAP * 2),
         "dossier_part": Ask(own, _PART_OF_DOSSIER),

@@ -872,25 +872,13 @@ def test_regulations_of_publications_once_each(store: GraphStore) -> None:
             ),
         ],
     )
+    # a regulation a publication merely changed is not one it enacted
     store.bulk_insert_or_update_nodes(
         "article_versions",
-        [
-            _node("v1", "av", bwb_id="R9", origin_publication={"id": "stb-2"}),
-            _node("v2", "av", bwb_id="R2", origin_publication={"id": "stb-1"}),
-            _node("v3", "av", bwb_id="R9", origin_publication={"id": "stb-2"}),
-            _node("v4", "av", bwb_id="R8", origin_publication={"id": "stb-1"}),
-            _node("v5", "av", origin_publication={"id": "stb-1"}),
-            _node("v6", "av", bwb_id="R7", origin_publication={"id": "stb-3"}),
-        ],
+        [_node("v1", "av", bwb_id="R9", origin_publication={"id": "stb-2"})],
     )
     rows = list(semantic_eu.regulations_of_publications(store, ["stb-1", "stb-2"]))
-    assert rows == [
-        ["stb-2", "R1"],  # the regulations, by key
-        ["stb-1", "R2"],
-        ["stb-1", None],  # then the versions' pairs, sorted (null first)
-        ["stb-1", "R8"],
-        ["stb-2", "R9"],
-    ]
+    assert rows == [["stb-2", "R1"], ["stb-1", "R2"]]  # by key
 
 
 # ── short titles ─────────────────────────────────────────────────────────────

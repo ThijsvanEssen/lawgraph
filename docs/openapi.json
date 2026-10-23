@@ -23031,7 +23031,7 @@
           "meta"
         ],
         "title": "EuLinkDTO",
-        "description": "An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.\n\n`IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication\nas a national implementing measure of the act, or it enacted or changed the regulation\n(`national_implementing_measure`, `meta.publications`), or the considerans of the\nregulation says it implements the act (`considerans`). It links instruments: no source\nnames the article that implements. `REFERS_TO`: the text of the regulation names the\nCELEX number of an act it does not implement."
+        "description": "An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.\n\n`IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication\nas a national implementing measure of the act, or it enacted the regulation\n(`national_implementing_measure`, `meta.publications`), or the considerans of the\nregulation says it implements the act (`considerans`). It links instruments: no source\nnames the article that implements. `REFERS_TO`: the text of the regulation names the\nCELEX number of an act it does not implement."
       },
       "ExplainedTargetDTO": {
         "properties": {
