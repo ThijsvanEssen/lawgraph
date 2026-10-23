@@ -165,6 +165,9 @@ class InstrumentProps(_CommonProps):
     """How the WTI of a BWB regulation files it by legal area (`normalize bwb`)."""
     policy_domains: list[PolicyDomainProps] | None = None
     """How the WTI of a BWB regulation files it by government theme (`normalize bwb`)."""
+    ministry: str | None = None
+    """The key of the ministry first responsible for a BWB regulation: the one its WTI
+    names (`eerstverantwoordelijke`), under its name of today (`normalize bwb`)."""
     bwb_id: str | None = None
     """The BWB id: `BWBR0001854`, a treaty `BWBV...`."""
     celex: str | None = None
@@ -274,6 +277,9 @@ class InstrumentProps(_CommonProps):
     it)."""
     basis: list[dict[str, Any]] | None = None
     """The `Gelet op` references of its toestand: `{bwb_id, article, doc, text}`
+    (`BASED_ON`)."""
+    basis_preamble: str | None = None
+    """The text of its `Gelet op` paragraphs: a law it names without a link is read from it
     (`BASED_ON`)."""
     celex_refs: list[str] | None = None
     """The EU acts its text names."""
@@ -1502,6 +1508,41 @@ class CabinetProps(_CommonProps):
     """The day it went demissionary."""
     origin: SourceRefProps | None = None
     """The page or the record it was read from."""
+
+
+class MinistryPeriodProps(_StrictBase):
+    """A stretch in which a ministry had its name (``data/ministries.json``)."""
+
+    from_date: str | None = None
+    """The first day; null where no source dates it."""
+    to_date: str | None = None
+    """The last day; null while it has the name, or where no source says."""
+    successor: str | None = None
+    """The key of the name that followed."""
+    basis: str | None = None
+    """The Staatscourant decree the end rests on (TOOI)."""
+    source: str | None = None
+    """`tooi` or `rijksoverheid`."""
+    successor_source: str | None = None
+    """`curated` for a succession no source gives."""
+
+
+class MinistryProps(_CommonProps):
+    """A ministry under one of its names (`semantic ministries`, from
+    `data/ministries.json`)."""
+
+    name: str | None = None
+    """`Financiën`."""
+    abbreviation: str | None = None
+    """The abbreviation TOOI gives: `FIN`."""
+    tooi: str | None = None
+    """The TOOI code of the organisation: `mnre1090`."""
+    periods: list[MinistryPeriodProps] | None = None
+    """Its periods under this name, oldest first."""
+    successor: str | None = None
+    """The key of the name that followed its last period; null while it has it."""
+    to_date: str | None = None
+    """The last day it had this name; null while it has it."""
 
 
 # ---------------------------------------------------------------------------

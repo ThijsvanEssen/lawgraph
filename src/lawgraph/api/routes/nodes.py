@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
-from lawgraph.api.params import EdgeMeta, parse_choices
+from lawgraph.api.params import EdgeMeta, Tier, is_node_id, parse_choices
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NeighborBucketDTO,
@@ -17,6 +18,21 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
     NodeNeighborsDTO,
+    SharedBucketDTO,
+    SharedFacetsDTO,
+    SharedLinkDTO,
+    SharedNeighborDTO,
+    SharedNeighborsResponse,
+    SurroundingDossierDTO,
+    SurroundingFactionVoteDTO,
+    SurroundingGapDTO,
+    SurroundingHeldDTO,
+    SurroundingItemDTO,
+    SurroundingKindDTO,
+    SurroundingSectionDTO,
+    SurroundingsResponse,
+    SurroundingSubmitterDTO,
+    SurroundingVoteDTO,
     node_type_of,
 )
 from lawgraph.api.seo.pages.titles import title_and_description
@@ -31,7 +47,7 @@ from lawgraph.config.constants import (
     as_relation,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType
+from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES, without_unknown_relations
 from lawgraph.db import GraphStore, version_cache
@@ -45,16 +61,32 @@ from lawgraph.db.queries.nodes import (
     FULL_BUCKET_LIMIT,
     NEIGHBORHOOD_CAP,
     NeighborFilter,
+    NodeSort,
     UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
     version_law_name,
 )
+from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.queries.overlay import (
     HEAT_MAX_LIMIT,
     get_heat_counts,
     get_in_flux_counts,
     stored_heat,
+)
+from lawgraph.db.queries.shared_neighbors import (
+    MAX_SOURCES,
+    SharedFilter,
+    get_shared_neighbors,
+)
+from lawgraph.db.queries.surroundings import (
+    DEFAULT_CAP,
+    MAX_CAP,
+    SURROUNDED,
+    Hit,
+    Section,
+    Surroundings,
+    get_surroundings,
 )
 
 # How much of a node's props a neighbor carries.
@@ -217,6 +249,141 @@ def neighbor_filter(
 NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
 
 
+def _shared_ids(value: str) -> list[str]:
+    """The ids of *value* (comma-separated), each once; 422 for fewer than two, more than
+    ``MAX_SOURCES``, or one that is no ``collection/key`` of a node collection."""
+    ids = list(dict.fromkeys(p.strip() for p in value.split(",") if p.strip()))
+    if not 2 <= len(ids) <= MAX_SOURCES:
+        raise Invalid("ids", f"2 to {MAX_SOURCES} node ids, comma-separated.")
+    wrong = [i for i in ids if not is_node_id(i)]
+    if wrong:
+        raise Invalid("ids", f"not a node id: {', '.join(wrong)}.")
+    return ids
+
+
+@router.get(
+    "/shared",
+    response_model=SharedNeighborsResponse,
+    summary="The neighbours that several nodes share",
+    description=(
+        "The nodes at the other end of an edge of every node of `ids` (2 to "
+        f"{MAX_SOURCES} node ids, `collection/key`, comma-separated; an edge counts in "
+        "either direction, and a node asked for is not its own neighbour), in buckets "
+        "of one collection: what two sources have in common, the articles, the judgments "
+        "that cite both, the law they are in. A bucket holds one page (`limit` from "
+        "`offset`, as `/api/nodes/{collection}/{key}`), its `total` and the `next_offset`. "
+        "`sort=importance` (default): the most cited first (`inbound_citation_count` of a "
+        "judgment, an article or an instrument), then by key; `key`: by key. Each "
+        "neighbour has `links`: every edge between it and each node asked for (`source`, "
+        "`edge_id`, `relation`, `direction`, `status`, `confidence`). `relations`, "
+        "`node_types`, `direction` and `status` narrow the edges, as on the node route; "
+        "`tier` (repeated) and `subject_area` (a main area of law, `Strafrecht`) narrow "
+        "the judgments alone, the other buckets stay whole. `facets` count the "
+        "neighbours before the page: per collection, and of the judgments per tier "
+        "(under `subject_area`) and per main area of law (under `tier`). Reads the "
+        "edges of each node once, through their indexes: the cost grows with the edges "
+        "of the nodes asked for (6:162 BW has 10,500), not with the graph. 404 when a "
+        "node is not there."
+    ),
+    tags=["nodes"],
+)
+def get_shared_neighbors_route(
+    store: Annotated[GraphStore, Depends(get_store)],
+    filters: NeighborFilterParams,
+    ids: Annotated[
+        str,
+        Query(description="Node ids, comma-separated: `articles/x,articles/y`."),
+    ],
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=FULL_BUCKET_LIMIT,
+            description="Neighbours per bucket, not per response.",
+        ),
+    ] = DEFAULT_BUCKET_LIMIT,
+    offset: Annotated[
+        int, Query(ge=0, description="Neighbours to skip in every bucket.")
+    ] = 0,
+    sort: Annotated[
+        NodeSort,
+        Query(
+            description="`importance` (default): the most cited first; `key`: in key order."
+        ),
+    ] = "importance",
+    tier: Annotated[
+        list[Tier] | None,
+        Query(description="Of the judgments the tier (repeated: any of them)."),
+    ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="Of the judgments a main area of law of their source: "
+            "`Strafrecht`, `Civiel recht`, `Bestuursrecht`."
+        ),
+    ] = None,
+) -> SharedNeighborsResponse:
+    asked = _shared_ids(ids)
+    missing = [i for i in asked if not store.has_node(*parse_node_id(i))]
+    if missing:
+        raise NotFound("Nodes", ", ".join(missing))
+    data = get_shared_neighbors(
+        store,
+        asked,
+        filters=SharedFilter(
+            edges=filters,
+            tiers=tuple(t.value for t in tier or ()),
+            area=(subject_area or "").strip() or None,
+        ),
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+    names = load_dossier_names(store)
+    notes = seo_queries.notes_of(
+        store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
+    )
+    buckets = [
+        SharedBucketDTO(
+            collection=as_collection(bucket.collection),
+            type=node_type_of(bucket.collection),
+            total=bucket.total,
+            next_offset=bucket.next_offset,
+            items=[
+                SharedNeighborDTO.from_shared(
+                    entry.doc,
+                    [
+                        SharedLinkDTO(
+                            source=link.source,
+                            edge_id=link.edge_id,
+                            relation=link.relation,
+                            direction=link.direction,
+                            status=link.status,
+                            confidence=link.confidence,
+                        )
+                        for link in entry.links
+                    ],
+                    names=names,
+                    note=notes.get(entry.doc["id"]),
+                )
+                for entry in bucket.entries
+            ],
+        )
+        for bucket in data.buckets
+    ]
+    return SharedNeighborsResponse(
+        ids=asked,
+        total=sum(bucket.total for bucket in buckets),
+        buckets=buckets,
+        facets=SharedFacetsDTO(
+            **{
+                name: [FacetCountDTO(**row) for row in rows]
+                for name, rows in data.facets.items()
+            }
+        ),
+    )
+
+
 @router.get(
     "/{collection}/{key}",
     response_model=NodeGraphResponse,
@@ -339,7 +506,7 @@ def get_node_graph(
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
     sort: Annotated[
-        Literal["key", "importance"],
+        NodeSort,
         Query(
             description=(
                 "`key` (default): the neighbours of a bucket in key order; `importance`: "
@@ -558,4 +725,195 @@ def get_node_neighborhood_route(
             )
         ],
         buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
+    )
+
+
+def _node(result: Surroundings, node_id: str) -> BaseNodeDTO:
+    return BaseNodeDTO.from_document(
+        result.nodes[node_id], graph=True, note=result.notes.get(node_id)
+    )
+
+
+def _section_dto(result: Surroundings, found: Section) -> SurroundingSectionDTO:
+    return SurroundingSectionDTO(
+        total=found.total,
+        kinds=[
+            SurroundingKindDTO(
+                relation=as_relation(k.relation),
+                collection=as_collection(k.collection),
+                count=k.count,
+            )
+            for k in found.kinds
+        ],
+        items=[_item_dto(result, h) for h in found.hits if h.other in result.nodes],
+    )
+
+
+def _item_dto(result: Surroundings, hit: Hit) -> SurroundingItemDTO:
+    return SurroundingItemDTO(
+        node=_node(result, hit.other),
+        relation=as_relation(hit.relation),
+        direction="outbound" if hit.side == "out" else "inbound",
+        edge_id=f"edges/{hit.edge}",
+        status=hit.status,
+        via=hit.node,
+    )
+
+
+def _submitters(result: Surroundings) -> list[SurroundingSubmitterDTO]:
+    return [
+        SurroundingSubmitterDTO(
+            node=_node(result, h.other),
+            edge_id=f"edges/{h.edge}",
+            role=h.meta.get("role"),
+            function=h.meta.get("function"),
+            capacity=h.meta.get("capacity"),
+            faction=(
+                _node(result, result.factions[h.other])
+                if h.other in result.factions
+                else None
+            ),
+        )
+        for h in result.submitters.hits
+        if h.other in result.nodes
+    ]
+
+
+def _votes(result: Surroundings) -> list[SurroundingVoteDTO]:
+    return [
+        SurroundingVoteDTO(
+            node=_node(result, d),
+            about=result.votes_about.get(d),
+            factions=[
+                SurroundingFactionVoteDTO(
+                    faction=_node(result, h.other),
+                    choice=h.meta.get("choice"),
+                    seats=h.meta.get("seats"),
+                    members=None,
+                )
+                for h in result.by_faction.get(d, [])
+                if h.other in result.nodes
+            ]
+            + [
+                SurroundingFactionVoteDTO(
+                    faction=_node(result, faction),
+                    choice=next(iter(cast)) if len(cast) == 1 else "Verdeeld",
+                    seats=sum(cast.values()),
+                    members=cast,
+                )
+                for faction, cast in result.rolled.get(d, {}).items()
+                if faction in result.nodes
+            ],
+        )
+        for d in result.votes
+        if d in result.nodes
+    ]
+
+
+def _gaps(
+    collection: str, result: Surroundings, votes: list[SurroundingVoteDTO]
+) -> list[SurroundingGapDTO]:
+    """What the data lacks around the node, section by section."""
+    gaps: list[SurroundingGapDTO] = []
+
+    def gap(
+        section: Literal["submitters", "dossiers", "laws", "votes"], why: str
+    ) -> None:
+        gaps.append(SurroundingGapDTO(section=section, reason=why))
+
+    signed = collection in ("documents", "cases", "commitments", "decisions")
+    if signed and not result.submitters.hits:
+        gap("submitters", "No signer or maker is recorded for it.")
+    unplaced = [
+        h
+        for h in result.submitters.hits
+        if h.other not in result.factions and h.meta.get("capacity") != "bewindspersoon"
+    ]
+    if unplaced:
+        gap(
+            "submitters",
+            f"No faction is recorded for {len(unplaced)} of the "
+            f"{len(result.submitters.hits)} signers on that day.",
+        )
+    if not result.dossiers.hits:
+        gap("dossiers", "It is in no dossier the data holds.")
+    if not result.laws.hits:
+        gap(
+            "laws",
+            "No law or article is recorded that it changes or names, nor a law made "
+            "from its dossier.",
+        )
+    if collection != "commitments" and not votes:
+        gap("votes", "No vote on it is recorded.")
+    bare = [v for v in votes if not v.factions]
+    if bare:
+        gap(
+            "votes",
+            f"No vote per faction is recorded for {len(bare)} of the {len(votes)} "
+            "decisions shown (a hamerstuk, or a roll call without member votes).",
+        )
+    return gaps
+
+
+@router.get(
+    "/{collection}/{key}/surroundings",
+    response_model=SurroundingsResponse,
+    summary="What stands around a paper, case, vote, commitment or activity",
+    description=(
+        "The surroundings of a paper (`documents`), case (`cases`), decision "
+        "(`decisions`), commitment (`commitments`) or activity (`activities`) in one "
+        "compact answer, from the edges of the node and of its paper and case alone: "
+        "`submitters` (who signed or made it, the first signatory first, with the "
+        "faction they sat in on its day), `dossiers` (each as one node with what it "
+        "holds counted in `held`, never its members), `laws` (the laws and articles it "
+        "amends, introduces or repeals, then the law made from its dossier, then those "
+        "it names; each with its relation and status), `votes` (the decisions on it, "
+        "newest first, with the vote of each faction), `follows` (the commitments a "
+        "letter fulfils, the letters that answer it, the paper that replaces it; of an "
+        "activity what was made in it), `context` (the debate it was made in, the "
+        "committee that leads it). Every section has its total (`*_total`, `total`, "
+        "`kinds`) beside the `cap` items it shows, and `gaps` says what the data does "
+        "not hold. 422 for another collection, 404 when the node is not there."
+    ),
+    tags=["nodes"],
+)
+def get_surroundings_route(
+    collection: str,
+    key: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+    cap: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=MAX_CAP,
+            description="The items each section shows, at most.",
+        ),
+    ] = DEFAULT_CAP,
+) -> SurroundingsResponse:
+    if collection not in SURROUNDED:
+        raise Invalid("collection", f"Allowed: {', '.join(SURROUNDED)}.")
+    result = get_surroundings(store, collection, key, cap)
+    result.notes = seo_queries.notes_of(store, result.nodes.values())
+    votes = _votes(result)
+    held = [
+        SurroundingDossierDTO(
+            node=_node(result, h.other),
+            via=h.node,
+            held=SurroundingHeldDTO(**result.held[h.other]),
+        )
+        for h in result.dossiers.hits
+        if h.other in result.nodes
+    ]
+    return SurroundingsResponse(
+        focal=_node(result, result.focal),
+        submitters=_submitters(result),
+        submitters_total=result.submitters.total,
+        dossiers=held,
+        dossiers_total=result.dossiers.total,
+        laws=_section_dto(result, result.laws),
+        votes=votes,
+        votes_total=result.votes_total,
+        follows=_section_dto(result, result.follows),
+        context=_section_dto(result, result.context),
+        gaps=_gaps(collection, result, votes),
     )

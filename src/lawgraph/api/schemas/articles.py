@@ -910,6 +910,11 @@ class CitedByFacets(StrictModel):
     tier: list[FacetCountDTO] = Field(
         description="Per tier, most first; without the `tier` filter."
     )
+    subject_area: list[FacetCountDTO] = Field(
+        description="Per main area of law of the source (`Strafrecht`, `Civiel recht`, "
+        "`Bestuursrecht`), most first; a judgment counts for each of its areas; without "
+        "the `subject_area` filter."
+    )
 
 
 class ArticleCitedByResponse(StrictModel):

@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import render
-from lawgraph.api.seo import shell
+from lawgraph.api.seo import paint, shell
 from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
@@ -895,6 +895,44 @@ def test_a_cabinet_has_its_bewindspersonen_and_parties(
     assert page["data"]["@graph"][0]["foundingDate"] == "2026-02-23"
     before = _head(_get(client, "/kabinetten/schoof").text)
     assert before["title"] == "Kabinet-Schoof (2024–2026), Concordans"
+
+
+def test_a_ministry_has_its_names_and_its_bewindspersonen(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    store.bulk_insert_or_update_nodes(
+        "ministries",
+        [
+            _node("az", "ministry", name="Algemene Zaken", abbreviation="AZ",
+                  periods=[{"from_date": None, "to_date": None}]),
+            _node("hn", "ministry", name="Handel en Nijverheid", to_date="1946-07-02",
+                  successor="ez",
+                  periods=[{"from_date": "1945-06-24", "to_date": "1946-07-02"}]),
+            _node("ez", "ministry", name="Economische Zaken"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("s2", "members/m_jetten", "ministries/az", "SERVED_IN",
+                  posts=[{"function": "Minister van Algemene Zaken"}]),
+            _edge("n1", "ministries/ez", "ministries/hn", "CONTINUES"),
+        ]
+    )  # fmt: skip
+    page = _head(_get(client, "/ministeries/az").text)
+    assert page["title"] == "Ministerie van Algemene Zaken, Concordans"
+    assert 'href="/leden/rob-jetten"' in page["main"]
+    assert "Minister van Algemene Zaken" in page["main"]
+    assert page["data"]["@graph"][0]["@type"] == "GovernmentOrganization"
+    former = _head(_get(client, "/ministeries/hn").text)
+    assert (
+        former["title"] == "Ministerie van Handel en Nijverheid (tot 1946), Concordans"
+    )
+    assert 'href="/ministeries/ez"' in former["main"]  # what followed it
+    assert (
+        'href="/ministeries/hn"' in _head(_get(client, "/ministeries/ez").text)["main"]
+    )
+    assert_status(_get(client, "/ministeries/nope"), 404)
 
 
 def test_a_committee_lists_its_members_with_their_role(
@@ -2352,10 +2390,189 @@ def test_a_page_whose_first_paint_takes_too_long_goes_without(
     assert _painted(response.text) is None
 
 
-def test_only_an_article_is_painted_first(painting: TestClient) -> None:
+def test_a_judgment_without_paragraphs_is_not_painted_first(
+    painting: TestClient,
+) -> None:
     response = _get(painting, "/uitspraken/ECLI:NL:HR:2019:2006")
     assert_status(response, 200)
     assert "first-paint" not in response.text
+
+
+def _judgment(key: str, ecli: str, **props: Any) -> dict[str, Any]:
+    return _node(key, "judgment", ecli=ecli, court="Hoge Raad", parties=[], **props)
+
+
+def test_a_judgment_is_painted_first_with_its_first_paragraphs_and_its_band(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer with its first paragraphs (more than a screen) without their citations,
+    the numbers of all, its light node of its procesgang and conclusie, and the instances
+    before its eerdere aanleg, the nearest first."""
+    monkeypatch.setattr(paint, "_JUDGMENT_TEXT", 20)
+    paragraphs = [
+        {"id": "kop-1", "kind": "heading", "number": "1", "text": "Beoordeling"},
+        {"id": "rov-1.1", "kind": "body", "number": "1.1", "text": "Verworpen, want …"},
+        {"id": "rov-1.2", "kind": "body", "number": "1.2", "text": "Ook dit faalt."},
+    ]
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("ecli_nl_hr_2020_9", "ECLI:NL:HR:2020:9", outcome="verworpen",
+                      paragraphs=paragraphs, summary="Cassatie."),
+            _judgment("ecli_nl_ghdha_2019_9", "ECLI:NL:GHDHA:2019:9"),
+            _judgment("ecli_nl_rbdha_2018_9", "ECLI:NL:RBDHA:2018:9"),
+            _judgment("ecli_nl_rbdha_2017_9", "ECLI:NL:RBDHA:2017:9"),
+            _judgment("ecli_nl_phr_2020_9", "ECLI:NL:PHR:2020:9"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("ap1", "judgments/ecli_nl_hr_2020_9", "judgments/ecli_nl_ghdha_2019_9",
+                  "APPEAL_OF", procedure_type="Cassatie"),
+            _edge("ap2", "judgments/ecli_nl_ghdha_2019_9", "judgments/ecli_nl_rbdha_2018_9",
+                  "APPEAL_OF"),
+            _edge("ap3", "judgments/ecli_nl_rbdha_2018_9", "judgments/ecli_nl_rbdha_2017_9",
+                  "APPEAL_OF"),
+            _edge("ad1", "judgments/ecli_nl_phr_2020_9", "judgments/ecli_nl_hr_2020_9",
+                  "ADVISES_ON"),
+            _edge("ci1", "judgments/ecli_nl_hr_2020_9", "articles/bwbr0005289_162",
+                  "REFERS_TO"),
+        ]
+    )  # fmt: skip
+    response = _get(painting, "/uitspraken/ECLI:NL:HR:2020:9")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "judgment"
+    judgment = painted["judgment"]
+    assert [p["paragraph_id"] for p in judgment["paragraphs"]] == ["kop-1", "rov-1.1"]
+    assert painted["whole"] is False
+    assert painted["numbers"] == ["1", "1.1", "1.2"]
+    cited = [p["paragraph_id"] for p in judgment["paragraphs"] if p["citations"]]
+    assert cited == [], "a painted paragraph keeps no citations"
+    assert "paragraphs" not in judgment["props"] and "text" not in judgment["props"]
+    assert painted["light"]["node"] == {"props": {"outcome": "verworpen"}}
+    buckets = {
+        (b["relation"], b["direction"]): [i["key"] for i in b["items"]]
+        for b in painted["light"]["neighbors"]["buckets"]
+    }
+    assert buckets == {
+        ("APPEAL_OF", "outbound"): ["ecli_nl_ghdha_2019_9"],
+        ("ADVISES_ON", "inbound"): ["ecli_nl_phr_2020_9"],
+    }
+    assert [c["key"] for c in painted["chain"]] == [
+        "ecli_nl_rbdha_2018_9",
+        "ecli_nl_rbdha_2017_9",
+    ]
+
+
+def test_a_law_is_painted_first_with_its_first_articles_and_their_text(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer, its articles in force counted and the first of them, each with its text
+    of today (a preview only where that is not there), its basis and the bill that made it."""
+    # its six reads on a cold test database, however slow the runner
+    monkeypatch.setattr(render, "PAINT_BUDGET", 30.0)
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [
+            _node("av_162", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="1992-01-01", current=True, text="1. Hij die …",
+                  parts=[{"id": "lid-1", "kind": "lid", "number": "1", "start": 3,
+                          "end": 12}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instrument_versions",
+        [
+            _node(
+                "iv_6",
+                "instrument_version",
+                bwb_id="BWBR0005289",
+                valid_from="1992-01-01",
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge("li1", "instruments/bwbr0005289", "dossiers/36496", "LEGISLATED_IN")]
+    )
+    response = _get(painting, "/wetten/BWBR0005289")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "law"
+    assert painted["bwb_id"] == "BWBR0005289"
+    assert painted["instrument"]["citation_title"] == "Burgerlijk Wetboek Boek 6"
+    assert (painted["total"], painted["annexes"]) == (2, 0)
+    articles = {a["article_number"]: a for a in painted["articles"]}
+    assert set(articles) == {"162", "163"}
+    assert [t["article_number"] for t in painted["texts"]] == ["162"]
+    assert painted["texts"][0]["text"] == "1. Hij die …"
+    # the preview stands only where the text of today does not
+    assert articles["162"]["text_preview"] is None
+    assert articles["163"]["text_preview"].startswith("Geen verplichting")
+    assert painted["basis"] == []
+    (bucket,) = painted["light"]["neighbors"]["buckets"]
+    assert (bucket["relation"], [i["key"] for i in bucket["items"]]) == (
+        "LEGISLATED_IN",
+        ["36496"],
+    )
+
+
+def test_a_kamerstuk_is_painted_first_with_its_first_alineas(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer with its text up to the end of an alinea past the cut, the widest numbers
+    of all its alineas, a later heading a line repeats, its light node, and the vote on it."""
+    monkeypatch.setattr(render, "PAINT_BUDGET", 30.0)
+    monkeypatch.setattr(paint, "_DOCUMENT_TEXT", 20)
+    text = "Voorzitter: Kops\nDe eerste alinea.\nDe tweede.\nVoorzitter: Kops\nEind."
+    lines = [(0, 16), (17, 34), (35, 45), (46, 62), (63, 68)]
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("kst_36496_80", "document", kind="Verslag", date="2026-08-01",
+                  dossier_number="36496", dossier_numbers=["36496"], sequence=80,
+                  title="Verslag van een overleg", text=text,
+                  paragraphs=[{"id": f"p-{i}", "number": i, "kind": "body",
+                               "char_start": a, "char_end": b}
+                              for i, (a, b) in enumerate(lines, start=1)],
+                  sections=[{"id": "s-1", "heading": "Voorzitter: Kops", "level": 1,
+                             "kind": "other",
+                             "char_start": 46, "char_end": 68}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("p80", "documents/kst_36496_80", "cases/z_1", "PART_OF")]
+    )
+    response = _get(painting, "/kamerstukken/36496/80")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "paper"
+    doc = painted["document"]
+    assert doc["text"] == "Voorzitter: Kops\nDe eerste alinea."
+    assert [p["id"] for p in doc["paragraphs"]] == ["p-1", "p-2"]
+    assert doc["sections"] == []
+    assert (painted["whole"], painted["section_count"]) == (False, 1)
+    assert painted["headings"] == ["voorzitter: kops"]
+    assert painted["numbers"][0] in {"1", "2", "3", "4", "5"}
+    # the vote on it, which its head says
+    assert [d["key"] for d in doc["decisions"]] == ["s_1"]
+
+
+def test_a_judgment_whose_parties_were_not_read_is_not_painted_first(
+    painting: TestClient, store: GraphStore
+) -> None:
+    """The reader reads its parties from its whole text, which the paint has not."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("ecli_nl_hr_2020_8", "judgment", ecli="ECLI:NL:HR:2020:8",
+                  paragraphs=[{"id": "rov-1", "kind": "body", "number": "1",
+                               "text": "Verworpen."}]),
+        ],
+    )  # fmt: skip
+    response = _get(painting, "/uitspraken/ECLI:NL:HR:2020:8")
+    assert_status(response, 200)
+    assert _painted(response.text) is None
 
 
 def test_the_first_paint_lists_the_versions_of_an_article_lightly(

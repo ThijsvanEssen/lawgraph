@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -17,7 +17,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
-| TOOI | `tooi` | none (`lawgraph ministries build`) | none |
+| TOOI | `tooi` | none (`lawgraph ministries build`) | `tooi-ministries` |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
 | The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
@@ -453,6 +453,17 @@ initials (letters alone), all three given. The Kamer keeps some people twice, a 
 seats and a bare one it made for their seat in the Eerste Kamer. A bare member that matches two
 members with a role is left alone. The page of the bare member is a 301 to the other. Derived in
 full each run.
+
+**Semantic `tk-faction-succession`.** `CONTINUES` from a faction to the one it passed all its
+seats to (`core/faction_succession.py`), read from the `MEMBER_OF` periods of the Tweede Kamer
+alone. A faction that has ended has a successor when the holders of its last day who sit in
+the Kamer the day after all sit in one faction, which had no seat before and has at least as
+many holders on its first day (so no seat went elsewhere; a member who left the Kamer that
+day had the seat filled in the new faction). GroenLinks-PvdA ended on 9 June 2026, PRO began
+on the 10th. Two factions that merge into one both continue into it (PvdA and GroenLinks into
+GroenLinks-PvdA). A faction that split, dissolved or lost a member to another has no
+successor: a gap is not filled. `meta`: `reason` `alle_zetels`, `effective_date` (the first
+day of the new faction), `seats` (the holders that moved). Derived in full each run.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
 (`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
@@ -1275,7 +1286,10 @@ tooi`); a label they lack has no id or URI. Each gets a slug unique in its list
 (`core/bwb_wti.assign_slugs`): that of the label, for a narrower concept whose slug is taken the
 slug of its broader concept in front (`bestuursrecht-algemeen`), then a number. The slugs are
 made over the whole thesaurus, or without it over the labels of every WTI record. An empty list
-removes the prop.
+removes the prop. And `ministry`: the ministry its `<eerstverantwoordelijke>` names, read as the
+name of today (`core/ministries.ministry_of`: the WTI still writes `Veiligheid en Justitie`); a
+responsible that is no ministry gives none, and is logged. A change of the ministry table
+(`data/ministries.json`) makes the next run `--since` do the pass.
 
 **The code families.** `src/lawgraph/data/code_families.json` (`lawgraph code-families build`
 and `check`, see [operations](operations.md#other-commands)) is made from the stored WTI records
@@ -1409,7 +1423,11 @@ Every run reads all of them, also under `--since`.
    (`tekstplaatsing-wijziging`, `tekstplaatsing-vernummering`: the Grondwet placed again as a
    whole, Stb. 2019, 33) changes nothing and has no edge; the edges of the step into an article
    that it no longer derives are removed;
-4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
+4. writes `COMMENCES` from the commencement publication of a version that changes an article
+   to its origin publication when they differ (Stb. 2024, 197 sets the date of Stb. 2024, 108):
+   one edge per pair, confidence 1.0, `meta.effective_date` the earliest of its versions; the
+   `COMMENCES` of the step that it no longer derives are removed;
+5. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
    `dossier_numbers` that exist (`queries/dossier_keys`: the dossier of that number, else the
    one of a Rijkswet of that number, `33440-(R1990)` for `33440`), and removes its
    `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.
@@ -2145,6 +2163,13 @@ TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `ve
 31 December 2017, while the cabinets changed the names of the posts earlier; a post that
 uses a name before its first period keeps that name.
 
+**Semantic `tooi-ministries`.** Every name of the table is a node `ministries/<key>`
+([fields](data-model.md#ministry-ministries)), a name that followed another `CONTINUES` it. A
+regulation (its WTI, `normalize bwb`), a dossier and a commitment (`semantic tk-government`)
+whose `ministry` names one are `LED_BY` it; a member who held a post under one (`normalize
+rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
+what it no longer derives goes.
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it. A
@@ -2186,7 +2211,9 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
+| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize rijksoverheid` (the posts) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
+| semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
 | semantic `tk-motion-kinds` | `normalize tk-dossiers` (the motions and the decisions with their subject) |
 | semantic `tk-paper-outcomes` | `normalize tk-dossiers` (the decisions, the papers and their `PART_OF` cases), `normalize eerstekamer-votes` and `normalize eerstekamer-motions` (the votes and the status of a motion of the Eerste Kamer) and `tk-dossier-relations` (`REVISES`) |

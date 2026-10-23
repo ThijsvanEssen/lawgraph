@@ -337,6 +337,13 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 "REFERS_TO",
                 meta={"paragraphs": [1]},
             ),
+            # the judgment cites the second article too: both articles share it
+            edge(
+                "r3",
+                "judgments/ecli_nl_hr_2020_1",
+                f"articles/{BWB.lower()}_2",
+                "REFERS_TO",
+            ),
             edge("x1", "documents/d1", article, "EXPLAINS"),
             edge(
                 "b1",

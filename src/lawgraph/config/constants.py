@@ -26,6 +26,7 @@ COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
 COLLECTION_CABINETS = "cabinets"
+COLLECTION_MINISTRIES = "ministries"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
@@ -48,6 +49,7 @@ Collection = Literal[
     "members",
     "factions",
     "cabinets",
+    "ministries",
     "annexes",
 ]
 COLLECTION_NAMES: tuple[Collection, ...] = get_args(Collection)
@@ -78,6 +80,7 @@ RELATION_ESTABLISHES: Final = "ESTABLISHES"
 RELATION_AMENDS: Final = "AMENDS"
 RELATION_INTRODUCES: Final = "INTRODUCES"
 RELATION_REPEALS: Final = "REPEALS"
+RELATION_COMMENCES: Final = "COMMENCES"
 RELATION_TRANSPOSED_TO: Final = "TRANSPOSED_TO"
 RELATION_BASED_ON: Final = "BASED_ON"
 RELATION_IMPLEMENTS: Final = "IMPLEMENTS"
@@ -112,6 +115,7 @@ Relation = Literal[
     "AMENDS",
     "INTRODUCES",
     "REPEALS",
+    "COMMENCES",
     "TRANSPOSED_TO",
     "BASED_ON",
     "IMPLEMENTS",

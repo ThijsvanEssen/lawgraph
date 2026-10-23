@@ -10,6 +10,7 @@ import pytest
 
 from lawgraph.config.constants import (
     RELATION_AMENDS,
+    RELATION_COMMENCES,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
@@ -234,7 +235,8 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         "dossier_numbers": ["35786"],
         "stub": False,  # a node that is written says that it is not a stub
     }
-    # the commencement publication exists as an instrument, but amends nothing
+    # the commencement publication exists as an instrument, but amends nothing: it
+    # only commences the publication that made the version
     assert publication_key("stb-2020-99") in store.nodes["instruments"]
     assert (
         "dossier_numbers"
@@ -244,6 +246,7 @@ def test_documents_become_instruments_with_their_metadata() -> None:
         e
         for e in store.edges.values()
         if e["from_id"].endswith(publication_key("stb-2020-99"))
+        and e["relation"] != RELATION_COMMENCES
     ]
     assert not failing, show_items(failing)
 
@@ -446,3 +449,49 @@ def test_store_calls_do_not_grow_with_the_number_of_versions() -> None:
     assert large.article_queries == small.article_queries
     assert large_calls == small_calls
     assert large.article_queries == 1
+
+
+def test_a_publication_that_puts_a_change_in_force_commences_the_one_that_made_it() -> (
+    None
+):
+    """Stb. 2024, 197 sets the date the Wet betaalbare huur (Stb. 2024, 108) takes effect:
+    one edge for all its articles, over chunks, with the first effective date; a version
+    that names no other commencement, or only an unknown effect, makes none."""
+    law, decree = _pub("108", year=2024), _pub("197", year=2024)
+    store = _Store(
+        [
+            _version(
+                "1", "a", origin=law, commencement=decree, valid_from="2024-07-01"
+            ),
+            _version(
+                "2", "b", origin=law, commencement=decree, valid_from="2024-07-01"
+            ),
+            _version(
+                "2", "c", origin=law, commencement=decree, valid_from="2024-01-01"
+            ),
+            _version("3", "d", origin=law, commencement=law),
+            _version("4", "e", origin=_pub("5"), commencement=None),
+            _version("5", "f", effect="tekstplaatsing-wijziging", commencement=decree),
+        ]
+    )
+
+    _run(store, chunk=2)
+
+    (edge,) = _edges(store, RELATION_COMMENCES)
+    assert edge["from_id"] == f"instruments/{publication_key('stb-2024-197')}"
+    assert edge["to_id"] == f"instruments/{publication_key('stb-2024-108')}"
+    assert edge["meta"] == {"effective_date": "2024-01-01"}
+    assert edge["confidence"] == 1.0
+    assert _run(store, chunk=2).created == 0  # idempotent
+
+
+def test_a_commencement_the_source_no_longer_names_goes() -> None:
+    law, decree = _pub("108", year=2024), _pub("197", year=2024)
+    store = _Store([_version("1", "a", origin=law, commencement=decree)])
+    _run(store)
+    assert len(_edges(store, RELATION_COMMENCES)) == 1
+
+    store.versions[0]["commencement"] = None
+    _run(store)
+
+    assert _edges(store, RELATION_COMMENCES) == []

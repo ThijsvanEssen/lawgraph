@@ -208,13 +208,16 @@ def _build_relationship_dtos(
         "One row per passage: a judgment and the paragraph in it that cites the article, "
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
         "detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: "
-        "any of them), `year` (of the judgment's date) and `lid` (a lid number the "
-        "passage names) filter; `total` counts all passages that match, "
+        "any of them), `year` (of the judgment's date), `subject_area` (a main area of "
+        "law of the judgment's source, the part of a subject before its first `;`: "
+        "`Strafrecht`) and `lid` (a lid number the passage names) filter; `total` counts all "
+        "passages that match, "
         "`judgment_total` the judgments they are in, `echr_judgment_total` the ECHR "
         "judgments that cite the article (no passage: HUDOC names the article). "
         "`facets` counts the judgments, whatever the page: per `year` (oldest first, "
         "null for none first) without the `year` filter, per `tier` (most first) "
-        "without the `tier` filter, each under the other filters. "
+        "without the `tier` filter, per `subject_area` (most first) without the "
+        "`subject_area` filter, each under the other filters. "
         "404 when the article is unknown."
     ),
     tags=["articles"],
@@ -256,6 +259,14 @@ def get_article_cited_by_passages(
             "most cited judgment first (a standard judgment), then the newest."
         ),
     ] = "date_desc",
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law of the judgment's source, as "
+            "`facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, "
+            "`Bestuursrecht`; `facets.subject_area` still counts every area."
+        ),
+    ] = None,
 ) -> ArticleCitedByResponse:
     if not store.has_node(COLLECTION_ARTICLES, article.key):
         raise NotFound("Article", article.key)
@@ -265,6 +276,7 @@ def get_article_cited_by_passages(
         court=court,
         tiers=tuple(t.value for t in tier or ()),
         year=year,
+        area=(subject_area or "").strip() or None,
         lid=lid,
         sort=sort,
         limit=limit,

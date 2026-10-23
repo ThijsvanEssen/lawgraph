@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
     PUBLICATION_RELATIONS,
     RELATION_ABOUT,
     RELATION_ACCOMPANIES,
@@ -165,6 +166,7 @@ _BY_ONE: dict[str, Callable[[GraphStore, str], str | None]] = {
     "dossier": lookup.find_dossier,
     "lid": lookup.find_member,
     "kabinet": lookup.find_cabinet,
+    "ministerie": lookup.find_ministry,
     "fractie": lookup.find_faction,
     "commissie": lookup.find_committee,
     "toezegging": lookup.find_commitment,
@@ -883,6 +885,52 @@ def cabinet(store: GraphStore, node_id: str) -> dict[str, Any] | None:
         "factions": [(k, factions[k]) for k in keys if k in factions],
         "prime_minister": prime_minister,
         "previous": (before, previous) if previous else None,
+    }
+
+
+def ministry(store: GraphStore, node_id: str) -> dict[str, Any] | None:
+    """A ministry: its props, the bewindspersonen who held a post under it with those
+    posts (``SERVED_IN``), and the names it followed and that followed it (``CONTINUES``):
+    ``(key, name)`` each."""
+    row = _node(store, COLLECTION_MINISTRIES, node_id)
+    if row is None:
+        return None
+    served = list(
+        store.query(
+            f"""
+            SELECT m.id, {_member_name("m.props")},
+                   e.doc -> 'meta' -> 'posts' AS posts
+            FROM edges e
+            JOIN {COLLECTION_MEMBERS} m ON m.id = e.from_id
+            WHERE e.to_id = %(id)s AND e.relation = %(served_in)s
+              AND e.from_collection = '{COLLECTION_MEMBERS}'
+            ORDER BY name ASC NULLS LAST, m.id
+            LIMIT %(limit)s
+            """,
+            {"id": node_id, "served_in": RELATION_SERVED_IN, "limit": MEMBERS},
+        )
+    )
+    names = list(
+        store.query(
+            f"""
+            SELECT CASE WHEN e.from_id = %(id)s THEN 'before' ELSE 'after' END AS side,
+                   n.key, lg_str(n.props -> 'name') AS name
+            FROM edges e
+            JOIN {COLLECTION_MINISTRIES} n
+              ON n.id = CASE WHEN e.from_id = %(id)s THEN e.to_id ELSE e.from_id END
+            WHERE (e.from_id = %(id)s OR e.to_id = %(id)s)
+              AND e.relation = %(continues)s
+              AND e.from_collection = '{COLLECTION_MINISTRIES}'
+            ORDER BY n.key
+            """,
+            {"id": node_id, "continues": RELATION_CONTINUES},
+        )
+    )
+    return {
+        **row,
+        "served": served,
+        "before": [(n["key"], n["name"]) for n in names if n["side"] == "before"],
+        "after": [(n["key"], n["name"]) for n in names if n["side"] == "after"],
     }
 
 

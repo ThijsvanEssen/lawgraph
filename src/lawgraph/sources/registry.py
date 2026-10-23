@@ -214,6 +214,9 @@ from lawgraph.pipelines.semantic.tk_dossier_relations import (
 from lawgraph.pipelines.semantic.tk_dossier_titles import (
     TKDossierTitlesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_faction_succession import (
+    TKFactionSuccessionSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 from lawgraph.pipelines.semantic.tk_motion_kinds import (
     TKMotionKindsSemanticPipeline,
@@ -231,6 +234,7 @@ from lawgraph.pipelines.semantic.tk_person_duplicates import (
 from lawgraph.pipelines.semantic.tk_transposition_tables import (
     TKTranspositionTablesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPipeline
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
 
@@ -1120,9 +1124,21 @@ SEMANTIC: list[Pipeline] = [
         ),
     ),
     _pipeline(
+        TooiMinistriesSemanticPipeline,
+        "The ministries as nodes, each name that followed another CONTINUES it; LED_BY "
+        "from every regulation, dossier and commitment to its ministry, SERVED_IN from "
+        "every member to the ministries they held a post under.",
+        after=("tk-government",),
+    ),
+    _pipeline(
         TKCoalitionVotesSemanticPipeline,
         "What the coalition did on each vote of the Tweede Kamer: together, split or a "
         "wisselmeerderheid, and whether it carried or decided it.",
+    ),
+    _pipeline(
+        TKFactionSuccessionSemanticPipeline,
+        "CONTINUES from a faction to the new faction all its seats passed to without a gap "
+        "(GroenLinks-PvdA to PRO), read from the seats alone.",
     ),
     _pipeline(
         TKPersonDuplicatesSemanticPipeline,

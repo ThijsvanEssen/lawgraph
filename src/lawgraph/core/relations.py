@@ -51,6 +51,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
@@ -105,6 +106,13 @@ class BwbChangeMeta(_Meta):
     """The effect as the BWB writes it: `wijziging`, `nieuwe-regeling`, `vervallen`."""
     source_publication: str | None = None
     """The publication that made the change: `stb-2019-33`."""
+
+
+class CommencesMeta(_Meta):
+    """A commencement the BWB records (``semantic bwb-amendments``)."""
+
+    effective_date: str | None = None
+    """The first day a version the commencing publication put in force takes effect."""
 
 
 class ArticleChangeMeta(BwbChangeMeta):
@@ -309,7 +317,12 @@ class JudgmentLinkMeta(_Meta):
 
 class ContinuesMeta(JudgmentLinkMeta):
     reason: Reason | None = None
-    """`verplaatst`: an activity replaced a moved one."""
+    """`verplaatst`: an activity replaced a moved one; `alle_zetels`: a faction took over
+    all the seats of another."""
+    effective_date: str | None = None
+    """The first day of the new faction's seats (a faction)."""
+    seats: int | None = None
+    """The holders of the old faction's last day who sit in the new one (a faction)."""
 
 
 class AnswersMeta(_Meta):
@@ -368,7 +381,8 @@ class MemberOfMeta(CommitteePeriod):
 
 class ServedInMeta(_Meta):
     posts: list[GovernmentFunctionProps] | None = None
-    """The posts held in the cabinet, as in the member's `government_functions`."""
+    """The posts held in the cabinet or under the ministry, as in the member's
+    `government_functions`."""
 
 
 class AuthoredMeta(_Meta):
@@ -468,6 +482,7 @@ _COMMIT = COLLECTION_COMMITMENTS
 _MEMBER = COLLECTION_MEMBERS
 _FACTION = COLLECTION_FACTIONS
 _CABINET = COLLECTION_CABINETS
+_MINISTRY = COLLECTION_MINISTRIES
 _COMMITTEE = COLLECTION_COMMITTEES
 
 RELATIONS: tuple[RelationSpec, ...] = (
@@ -537,6 +552,16 @@ RELATIONS: tuple[RelationSpec, ...] = (
         meta=ArticleChangeMeta,
     ),
     RelationSpec(
+        "COMMENCES",
+        ((_I, _I),),
+        "A publication that sets the date a law takes effect (an inwerkingtredingsbesluit) → "
+        "the publication that enacted or changed that law, as the BWB names both on the "
+        "article versions it made (`commencement_publication` other than "
+        "`origin_publication`). `meta.effective_date` is the first day a version takes "
+        "effect. A law that enters into force by itself, on the date it names, has none.",
+        meta=CommencesMeta,
+    ),
+    RelationSpec(
         "TRANSPOSED_TO",
         ((_A, _A), (_A, _I)),
         "An article of the old law → the article of the new law that takes its place in a "
@@ -567,9 +592,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "BASED_ON",
         ((_I, _A),),
         "The legal basis (delegation basis) an instrument is issued under: "
-        "'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to "
-        "each article in force in it. `meta.text` is the reference without list word and "
-        "law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden "
+        "'Gelet op artikel …' in the preamble, the law linked or only named in words; a range "
+        "('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the "
+        "reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` "
+        "`delegates` when the leden "
         "named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), "
         "`mentioned` when the article is only named (Awb 3:4 by a policy rule).",
         meta=BasedOnMeta,
@@ -656,11 +682,20 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (
             (_J, _J),
             (_ACT, _ACT),
+            (_FACTION, _FACTION),
+            (_MINISTRY, _MINISTRY),
         ),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
         "shares its court and case number. An activity → the moved activity it replaced "
-        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`).",
+        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). A faction → the faction it "
+        "passed all its seats to: the holders of its last day who sit the day after sit in "
+        "the new faction, which had no seat before and has at least as many (`meta.reason` "
+        "`alle_zetels`, "
+        "`meta.effective_date`, `meta.seats`; `semantic tk-faction-succession`). A faction "
+        "whose seats do not pass that way has no successor. A ministry → the name it "
+        "followed (`data/ministries.json`: Justitie en Veiligheid → Veiligheid en "
+        "Justitie).",
         meta=ContinuesMeta,
     ),
     RelationSpec(
@@ -749,9 +784,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (
             (_ACT, _COMMITTEE),
             (_CASE, _COMMITTEE),
+            (_I, _MINISTRY),
+            (_DOSSIER, _MINISTRY),
+            (_COMMIT, _MINISTRY),
         ),
-        "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
-        "plenary.",
+        "Who leads it. The lead committee (`voortouwcommissie`) of an activity or case; "
+        "absent for plenary. The ministry of a BWB regulation (first responsible: its WTI "
+        "`eerstverantwoordelijke`), of a dossier (that of the bewindspersoon who brought it "
+        "in) and of a commitment: its `ministry`.",
     ),
     RelationSpec(
         "MADE_IN",
@@ -778,9 +818,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SERVED_IN",
-        ((_MEMBER, _CABINET),),
-        "The posts a member held in a cabinet, one edge per member and cabinet, "
-        "`meta.posts` as in the member's `government_functions`.",
+        ((_MEMBER, _CABINET), (_MEMBER, _MINISTRY)),
+        "The posts a member held in a cabinet, one edge per member and cabinet, and under "
+        "a ministry, one edge per member and ministry (the `ministry` of the post on its "
+        "day); `meta.posts` as in the member's `government_functions`.",
         meta=ServedInMeta,
     ),
     RelationSpec(

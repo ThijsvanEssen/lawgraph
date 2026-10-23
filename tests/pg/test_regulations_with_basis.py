@@ -35,4 +35,30 @@ def test_only_the_regulations_that_state_a_basis_are_read(store: GraphStore) -> 
 
     rows = list(semantic_bwb.regulations_with_basis(store))
 
-    assert rows == [{"key": "bwbr0001950", "bwb_id": "BWBR0001950", "basis": BASIS}]
+    assert rows == [
+        {
+            "key": "bwbr0001950",
+            "bwb_id": "BWBR0001950",
+            "basis": BASIS,
+            "basis_preamble": None,
+        }
+    ]
+
+
+def test_a_law_named_only_in_words_counts_as_a_basis(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_INSTRUMENTS,
+        [
+            _regulation(
+                "bwbr0008498",
+                SOURCE_BWB,
+                basis=[],
+                basis_preamble="Gelet op artikel 1;",
+            ),
+            _regulation("bwbr0000001", SOURCE_BWB, basis=[], basis_preamble=""),
+        ],
+    )
+
+    rows = list(semantic_bwb.regulations_with_basis(store))
+
+    assert [r["key"] for r in rows] == ["bwbr0008498"]

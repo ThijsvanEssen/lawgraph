@@ -236,6 +236,34 @@ def cabinet_posts(store: GraphStore, key: str) -> list[dict[str, Any]]:
     return [dict(post) for post in rows if isinstance(post, dict)]
 
 
+def ministry_posts(store: GraphStore, ministry: str) -> list[dict[str, Any]]:
+    """Every post held under the ministry *ministry* (``meta.posts`` of the ``SERVED_IN``
+    edges whose ``ministry`` it is): ``{member: {key, name, slug}, cabinet_key, cabinet,
+    from_date, to_date, post}``, the cabinet's name and period beside the post."""
+    rows = store.query(
+        f"""
+        SELECT json_build_object(
+            'member', {person_object("m")},
+            'cabinet_key', c.key,
+            'cabinet', lg_str(c.props -> 'name'),
+            'from_date', lg_str(c.props -> 'from_date'),
+            'to_date', lg_str(c.props -> 'to_date'),
+            'post', p.post
+        )
+        FROM cabinets c
+        JOIN edges e ON e.to_id = c.id AND e.relation = %(served_in)s
+        JOIN members m ON m.id = e.from_id
+        CROSS JOIN LATERAL json_array_elements(
+            {array_or_empty("e.doc -> 'meta' -> 'posts'")}
+        ) WITH ORDINALITY AS p(post, n)
+        WHERE lg_str(p.post -> 'ministry') = %(ministry)s
+        ORDER BY c.key ASC, e.key ASC, p.n ASC
+        """,
+        {"ministry": ministry, "served_in": RELATION_SERVED_IN},
+    )
+    return [dict(row) for row in rows]
+
+
 def memberships_between(store: Store, start: str, end: str) -> list[dict[str, Any]]:
     """``{member, faction_key, from_date, to_date}`` of every faction membership of the
     Tweede Kamer that overlaps *start*..*end* (inclusive), from the members'

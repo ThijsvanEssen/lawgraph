@@ -61,6 +61,7 @@ Reason = Literal[
     "amendment_text",
     "ingediend",
     "verplaatst",
+    "alle_zetels",
 ]
 
 BASIS_FORMAL: Final[Basis] = "formal_relation"
@@ -90,6 +91,7 @@ REASON_XML_REF: Final[Reason] = "bwb_xml_ref"
 REASON_AMENDMENT_TEXT: Final[Reason] = "amendment_text"
 REASON_SUBMITTED: Final[Reason] = "ingediend"
 REASON_MOVED: Final[Reason] = "verplaatst"
+REASON_ALL_SEATS: Final[Reason] = "alle_zetels"
 
 Field = Literal["basis", "bases", "reason"]
 
@@ -287,6 +289,13 @@ PROVENANCE: tuple[Provenance, ...] = (
         REASON_MOVED,
         (RELATION_CONTINUES,),
         "The activity replaced a moved one (`Activiteit.VervangenDoor`).",
+    ),
+    Provenance(
+        "reason",
+        REASON_ALL_SEATS,
+        (RELATION_CONTINUES,),
+        "The faction took over all the seats of the other without a gap "
+        "(`semantic tk-faction-succession`).",
     ),
 )
 

@@ -31,6 +31,12 @@ def expired(alias: str) -> str:
     return f"coalesce(lg_str({alias}.props -> 'date_expired') <= %(today)s, false)"
 
 
+def validity_clause(alias: str, param: str = "validity") -> str:
+    """The condition on the instrument *alias* for the validity asked for (``in_force``,
+    ``expired`` or ``all``, as the list of instruments has it), in ``%(param)s``."""
+    return f"(%({param})s = 'all' OR {expired(alias)} = (%({param})s = 'expired'))"
+
+
 def summary_json(alias: str) -> str:
     """An instrument as ``InstrumentSummaryDTO.from_document`` and the routes read it: the
     props it shows, not the whole node (``basis``, ``celex_refs`` of a large law)."""
@@ -47,6 +53,7 @@ def summary_json(alias: str) -> str:
         "inbound_citation_count",
         "kind",
         "date_in_force",
+        "date_expired",
     )
     props = ", ".join(f"'{f}', {alias}.props -> '{f}'" for f in fields)
     return (
@@ -248,26 +255,30 @@ _SUB_DELEGATED = f"""(
         GROUP BY u.sub_id
     ) sg
     JOIN {COLLECTION_INSTRUMENTS} si ON si.id = sg.sub_id
-    WHERE NOT {expired("si")}
+    WHERE {validity_clause("si")}
 )"""
 
-# One row per regulation in force issued under any article in force of a law: the
-# regulations by the edges into the articles of the law (their ``(bwb_id, …)`` index, then
-# the ``(to_id, relation, from_collection)`` index), then the parts of each.
-_DELEGATED_BY_LAW_SQL = f"""
-WITH based AS MATERIALIZED (
+# The regulations issued under any article in force of a law: by the edges into the articles
+# of the law (their ``(bwb_id, …)`` index, then the ``(to_id, relation, from_collection)``
+# index); the ones asked for by validity (``%(validity)s``).
+_BASED = f"""
+based AS MATERIALIZED (
     SELECT DISTINCT e.from_id
     FROM {COLLECTION_ARTICLES} a
     JOIN {COLLECTION_EDGES} e
       ON e.to_id = a.id AND e.relation = %(based_on)s
      AND e.from_collection = '{COLLECTION_INSTRUMENTS}'
     WHERE a.bwb_id = %(bwb)s AND a.repealed IS NOT TRUE
-),
+)"""
+
+# One row per regulation of the validity asked for, then the parts of each.
+_DELEGATED_BY_LAW_SQL = f"""
+WITH {_BASED},
 regulations AS MATERIALIZED (
     SELECT i.id, i.key, i.type, i.labels, i.props, i.bwb_id
     FROM based b
     JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
-    WHERE NOT {expired("i")}
+    WHERE {validity_clause("i")}
 )
 SELECT {summary_json("g")} AS instrument,
        p.articles,
@@ -289,34 +300,91 @@ CROSS JOIN LATERAL (
 ) p
 """
 
+# The light form: the regulation, the articles of the law it names and the regulations
+# issued under its own articles (``sub_delegated``, by the edges into them alone); nothing
+# read of the text of its articles, nor its co-bases.
+_DELEGATED_SUMMARY_SQL = f"""
+WITH {_BASED},
+regulations AS MATERIALIZED (
+    SELECT i.id, i.key, i.type, i.labels, i.props, i.bwb_id
+    FROM based b
+    JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
+    WHERE {validity_clause("i")}
+)
+SELECT {summary_json("g")} AS instrument, p.articles,
+       coalesce(p.sub_delegated, '[]'::json) AS sub_delegated
+FROM regulations g
+CROSS JOIN LATERAL (
+    WITH {_NAMED},
+    {_OWN}
+    SELECT (
+        SELECT json_agg(json_build_object(
+                   'id', b.id, 'key', b.key, 'article_number', b.article_number,
+                   'display_name', b.display_name, 'meta', b.meta
+               ) ORDER BY b.position NULLS LAST, b.key)
+        FROM named b
+        WHERE b.law = %(bwb)s
+    ) AS articles,
+    {_SUB_DELEGATED} AS sub_delegated
+) p
+"""
 
-def get_delegated_by_law(store: GraphStore, bwb_id: str) -> list[dict[str, Any]]:
-    """The regulations ``BASED_ON`` any article of the law *bwb_id*, in no order:
-    ``{instrument, articles, also_based_on, sub_delegated}``. ``articles``: the articles of
+# How many regulations of the law are no longer in force: whatever validity was asked for.
+_EXPIRED_COUNT_SQL = f"""
+WITH {_BASED}
+SELECT count(*) AS total
+FROM based b
+JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
+WHERE {expired("i")}
+"""
+
+
+def get_delegated_by_law(
+    store: GraphStore, bwb_id: str, validity: str = "in_force", summary: bool = False
+) -> list[dict[str, Any]]:
+    """The regulations ``BASED_ON`` any article of the law *bwb_id* of the *validity* (``in_force``,
+    ``expired`` or ``all``), in no order: ``{instrument, articles, also_based_on,
+    sub_delegated}``. ``articles``: the articles of
     the law its preamble names (``id``, ``key``, ``article_number``, ``display_name``,
     ``meta`` of the edge, ``referring``: the articles of the regulation that refer to it,
     each with the ``meta`` of that reference), in the order of the law. ``also_based_on``:
     the other laws it names (``instrument``, ``articles``), by title. ``sub_delegated``: the
-    regulations in force issued under its articles that are not issued under the law
+    regulations of the validity issued under its articles that are not issued under the law
     itself (``instrument``, ``articles``: those of the regulation they name). Repealed
-    articles and regulations are left out. One query."""
+    articles are left out. With *summary* only ``instrument``, ``articles`` without
+    ``referring`` and ``sub_delegated``. One query."""
     return list(
         store.query(
-            _DELEGATED_BY_LAW_SQL,
+            _DELEGATED_SUMMARY_SQL if summary else _DELEGATED_BY_LAW_SQL,
             {
                 "bwb": bwb_id.upper(),
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
                 "today": dutch_today().isoformat(),
+                "validity": validity,
             },
         )
     )
 
 
+def count_expired_delegated(store: GraphStore, bwb_id: str) -> int:
+    """How many regulations ``BASED_ON`` an article in force of the law *bwb_id* are no
+    longer in force."""
+    rows = store.query(
+        _EXPIRED_COUNT_SQL,
+        {
+            "bwb": bwb_id.upper(),
+            "based_on": RELATION_BASED_ON,
+            "today": dutch_today().isoformat(),
+        },
+    )
+    return int(next(iter(rows)))
+
+
 # The basis of one regulation: the articles its preamble names, per law (one per law, by
 # title), each with the meta of its edge and the articles of the regulation that refer to it.
 _BASIS_SQL = f"""
-SELECT {summary_json("li")} AS instrument, l.articles
+SELECT {summary_json("li")} AS instrument, l.articles, {expired("li")} AS expired
 FROM {COLLECTION_INSTRUMENTS} g
 CROSS JOIN LATERAL (
     WITH {_NAMED},
@@ -335,7 +403,8 @@ ORDER BY {_LAW_ORDER}
 
 def get_basis(store: GraphStore, instrument_id: str) -> list[dict[str, Any]]:
     """The basis of the regulation *instrument_id* (``instruments/…``): per law its
-    preamble names, by title, ``{instrument, articles}`` with ``articles`` as those of
+    preamble names, by title, ``{instrument, articles, expired}`` (``expired``: the law is no
+    longer in force) with ``articles`` as those of
     :func:`get_delegated_by_law` (in force, in the order of the law, with ``referring``:
     the articles of the regulation that refer to it). One query."""
     return list(
@@ -345,6 +414,7 @@ def get_basis(store: GraphStore, instrument_id: str) -> list[dict[str, Any]]:
                 "instrument_id": instrument_id,
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
+                "today": dutch_today().isoformat(),
             },
         )
     )

@@ -86,3 +86,15 @@ def test_an_article_number_with_a_long_latin_ordinal() -> None:
         "420bis.1",
     ]
     assert _cited("artikel 161sexies Sr", chains=False) == [(SR, "161sexies", None)]
+
+
+def test_a_comma_may_stand_before_the_last_member_and_der_may_name_the_law() -> None:
+    """Old legislation writes "36, en 41 van de ..." and "artikel 17 der Landbouwwet"."""
+    assert parse_article_numbers("1, 2, 36, en 41") == ["1", "2", "36", "41"]
+    extractor = DutchCitationExtractor({}, {"Landbouwwet": "BWBR0002276"})
+    text = "artikelen 17, tweede lid, 19, derde lid, en 51 der Landbouwwet (Stb. 1957, 342)"
+    cited = [
+        (hit.article_number, hit.qualifier)
+        for hit in extractor.extract(text, every_occurrence=True, chains=True)
+    ]
+    assert cited == [("17", "tweede lid"), ("19", "derde lid"), ("51", None)]

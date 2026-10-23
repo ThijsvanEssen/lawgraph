@@ -133,9 +133,14 @@ def test_regulations_with_basis_are_bwb_with_a_non_empty_basis(
 ) -> None:
     _instruments(store)
     assert list(semantic_bwb.regulations_with_basis(store)) == [
-        {"key": "bwbr2", "bwb_id": "BWBR2", "basis": ["BWBR1"]},
+        {"key": "bwbr2", "bwb_id": "BWBR2", "basis": ["BWBR1"], "basis_preamble": None},
         # LENGTH of a string is its number of characters
-        {"key": "bwbr3", "bwb_id": "BWBR3", "basis": "art. 1 Wet een"},
+        {
+            "key": "bwbr3",
+            "bwb_id": "BWBR3",
+            "basis": "art. 1 Wet een",
+            "basis_preamble": None,
+        },
     ]
 
 
@@ -937,21 +942,41 @@ def test_update_subjects_sets_and_removes(store: GraphStore) -> None:
                 title="B",
                 legal_areas=[area],
                 policy_domains=[domain],
+                ministry="fin",
             ),
-            _node("c", "instrument", title="C", legal_areas=[area]),
+            _node("c", "instrument", title="C", legal_areas=[area], ministry="fin"),
         ],
     )
     rows: list[dict[str, Any]] = [
-        {"key": "a", "legal_areas": [area], "policy_domains": [domain]},
-        {"key": "b", "legal_areas": [area], "policy_domains": [domain]},  # unchanged
-        {"key": "c", "legal_areas": [], "policy_domains": []},  # goes
+        {
+            "key": "a",
+            "legal_areas": [area],
+            "policy_domains": [domain],
+            "ministry": "fin",
+        },
+        {  # unchanged
+            "key": "b",
+            "legal_areas": [area],
+            "policy_domains": [domain],
+            "ministry": "fin",
+        },
+        {"key": "c", "legal_areas": [], "policy_domains": [], "ministry": None},  # goes
         {"key": "missing", "legal_areas": [area], "policy_domains": []},
     ]
     assert normalize_bwb.update_subjects(store, rows) == 2
     a = _props(store, "instruments", "a")
-    assert a == {"legal_areas": [area], "policy_domains": [domain], "title": "A"}
+    assert a == {
+        "legal_areas": [area],
+        "ministry": "fin",
+        "policy_domains": [domain],
+        "title": "A",
+    }
     assert list(a) == sorted(a)
     assert _props(store, "instruments", "c") == {"title": "C"}
+    # the column the ministry list filters on
+    assert list(store.query("SELECT ministry FROM instruments WHERE key = 'a'")) == [
+        "fin"
+    ]
     assert store.get_node("instruments", "missing") is None
     assert normalize_bwb.update_subjects(store, rows) == 0
     assert normalize_bwb.update_subjects(store, []) == 0

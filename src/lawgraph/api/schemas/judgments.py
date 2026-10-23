@@ -26,7 +26,9 @@ from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, text_tables
 from lawgraph.config.constants import Collection
 from lawgraph.core.ecli import ecli_source
+from lawgraph.core.judgment_chamber import chamber_of
 from lawgraph.core.judgment_kinds import JudgmentKind
+from lawgraph.core.judgment_metadata import subject_areas
 from lawgraph.core.judgment_outcome import ConclusionOutcome
 from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_paragraphs
 from lawgraph.core.models import Direction, judgment_id
@@ -80,6 +82,28 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
     )
     names: list[str] = Field(default_factory=list, description=_NAMES)
     decision_kind: JudgmentKind | None = Field(default=None, description=_JUDGMENT_KIND)
+    subjects: list[str] = Field(
+        default_factory=list,
+        description="The areas of law of the source as it writes them (`Strafrecht`, "
+        "`Bestuursrecht; Belastingrecht`); empty when it gives none.",
+    )
+    subject_areas: list[str] = Field(
+        default_factory=list,
+        description="The main areas of law: each of `subjects` up to its first `;`, each "
+        "once (`Strafrecht`, `Civiel recht`, `Bestuursrecht`). What the `subject_area` "
+        "filters of the lists take.",
+    )
+    procedure: str | None = Field(
+        default=None,
+        description="The procedure as the Rechtspraak gives it (`psi:procedure`): `Hoger "
+        "beroep`, `Cassatie`, `Eerste aanleg - meervoudig`; null when it gives none.",
+    )
+    chamber: str | None = Field(
+        default=None,
+        description="The chamber or division of the court that the kop names "
+        "(`Strafkamer`, `Civiele kamer`, `Afdeling civiel recht`, `Team Handel`), as "
+        "written; null when the kop names none (the metadata of the source does not).",
+    )
     series_id: str | None = Field(
         default=None,
         description="The series of parallel cases the judgment is one of (the same court, "
@@ -218,6 +242,10 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             translation_of=props.get("translation_of"),
             names=props.get("names") or [],
             decision_kind=props.get("decision_kind"),
+            subjects=props.get("subjects") or [],
+            subject_areas=subject_areas(props.get("subjects")),
+            procedure=(props.get("judgment_metadata") or {}).get("type"),
+            chamber=chamber_of(raw_paragraphs),
             series_id=props.get("series_id"),
             series_size=props.get("series_size"),
             same_as=props.get("same_as"),

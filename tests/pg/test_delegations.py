@@ -10,6 +10,8 @@ from lawgraph.config.constants import RELATION_BASED_ON, RELATION_REFERS_TO
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.delegations import (
     _DELEGATED_BY_LAW_SQL,
+    _DELEGATED_SUMMARY_SQL,
+    count_expired_delegated,
     get_basis,
     get_delegated_by_law,
 )
@@ -23,6 +25,8 @@ SUB = "BWBR0003000"  # issued under an article of the first regulation
 BOTH = "BWBR0003001"  # issued under the first regulation and under the law itself
 REPEALED = "BWBR0003002"  # issued under the law, no longer in force (``date_expired``)
 ON_REPEALED = "BWBR0003003"  # names only a repealed article of the law
+OLD_LAW = "BWBR0001002"  # no longer in force
+UNDER_OLD = "BWBR0003004"  # issued under the old law and under the first law
 HUB_REFERRERS = 200  # articles elsewhere that refer to article 1 of the law
 
 
@@ -78,6 +82,8 @@ def _seed(store: GraphStore) -> None:
         [
             _instrument(LAW, "Algemene wet", "wet"),
             _instrument(OTHER, "Andere wet", "wet"),
+            _instrument(OLD_LAW, "Oude wet", "wet", date_expired="2020-01-01"),
+            _instrument(UNDER_OLD, "Besluit onder oude wet", "amvb"),
         ]
         + [
             _instrument(
@@ -92,7 +98,7 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "articles",
         [_article(LAW, 1), _article(LAW, 2), _article(LAW, 3, repealed=True)]
-        + [_article(OTHER, 5)]
+        + [_article(OTHER, 5), _article(OLD_LAW, 1)]
         + [
             article
             for bwb in regulations + list(extra)
@@ -125,6 +131,8 @@ def _seed(store: GraphStore) -> None:
         _edge("d1", _id(BOTH), _id(FIRST, 1), RELATION_BASED_ON, "1"),
         _edge("d2", _id(BOTH), _id(LAW, 2), RELATION_BASED_ON, "2"),
         _edge("d3", _id(REPEALED), _id(LAW, 1), RELATION_BASED_ON, "1"),
+        _edge("d5", _id(UNDER_OLD), _id(OLD_LAW, 1), RELATION_BASED_ON, "1"),
+        _edge("d6", _id(UNDER_OLD), _id(LAW, 1), RELATION_BASED_ON, "1"),
         _edge("d4", _id(ON_REPEALED), _id(LAW, 3), RELATION_BASED_ON, "3"),
     ]
     edges += [
@@ -200,7 +208,9 @@ def test_the_regulations_issued_under_a_law(store: GraphStore) -> None:
 
     # every regulation in force on an article in force, once; the one issued under the
     # first regulation and the law both is an item of its own
-    assert sorted(rows) == sorted([_regulation(n) for n in range(REGULATIONS)] + [BOTH])
+    assert sorted(rows) == sorted(
+        [_regulation(n) for n in range(REGULATIONS)] + [BOTH, UNDER_OLD]
+    )
     assert rows[FIRST] == {
         "instrument": _summary(FIRST),
         "also_based_on": [
@@ -261,6 +271,7 @@ def test_the_work_grows_with_the_regulations_not_their_square(
         "based_on": RELATION_BASED_ON,
         "refers_to": RELATION_REFERS_TO,
         "today": "2026-10-20",
+        "validity": "in_force",
     }
     nodes = list(
         plan_nodes(explain(store, _DELEGATED_BY_LAW_SQL, params, analyze=True))
@@ -279,3 +290,72 @@ def test_the_work_grows_with_the_regulations_not_their_square(
         and RELATION_REFERS_TO in (n.get("Index Cond") or "")
     ]
     assert hub_reads == []
+
+
+def test_the_regulations_no_longer_in_force_by_validity(store: GraphStore) -> None:
+    _seed(store)
+
+    def bwbs(validity: str, summary: bool = False) -> set[str]:
+        rows = get_delegated_by_law(store, LAW, validity, summary)
+        return {r["instrument"]["props"]["bwb_id"] for r in rows}
+
+    in_force = bwbs("in_force")
+    assert REPEALED not in in_force
+    assert bwbs("expired") == {REPEALED}
+    assert bwbs("all") == in_force | {REPEALED}
+    assert count_expired_delegated(store, LAW) == 1
+    assert count_expired_delegated(store, OTHER) == 0
+    # the light form holds the same regulations, whatever the validity
+    assert bwbs("all", summary=True) == bwbs("all")
+    expired = get_delegated_by_law(store, LAW, "expired")[0]["instrument"]["props"]
+    assert expired["date_expired"] == "2021-01-01"
+
+
+def test_the_light_form_has_the_regulations_under_a_regulation(
+    store: GraphStore,
+) -> None:
+    _seed(store)
+
+    rows = {
+        r["instrument"]["props"]["bwb_id"]: r
+        for r in get_delegated_by_law(store, LAW, summary=True)
+    }
+
+    assert set(rows[FIRST]) == {"instrument", "articles", "sub_delegated"}
+    assert [a["key"] for a in rows[FIRST]["articles"]] == [f"{LAW.lower()}_1"]
+    assert [a for a in rows[FIRST]["articles"] if "referring" in a] == []
+    assert [
+        (s["instrument"]["props"]["bwb_id"], [a["key"] for a in s["articles"]])
+        for s in rows[FIRST]["sub_delegated"]
+    ] == [(SUB, [f"{FIRST.lower()}_1"])]
+    assert rows[_regulation(1)]["sub_delegated"] == []
+    params = {
+        "bwb": LAW,
+        "based_on": RELATION_BASED_ON,
+        "refers_to": RELATION_REFERS_TO,
+        "today": "2026-10-20",
+        "validity": "in_force",
+    }
+    nodes = list(
+        plan_nodes(explain(store, _DELEGATED_SUMMARY_SQL, params, analyze=True))
+    )
+    scanned = sum(
+        n["Actual Rows"] * n["Actual Loops"]
+        for n in nodes
+        if n["Node Type"] == "CTE Scan"
+    )
+    assert scanned < 40 * REGULATIONS
+
+
+def test_the_basis_marks_the_laws_no_longer_in_force(store: GraphStore) -> None:
+    _seed(store)
+
+    rows = get_basis(store, _id(FIRST))
+
+    assert [r["expired"] for r in rows] == [False, False]
+    both = get_basis(store, _id(UNDER_OLD))
+    # by title: the Algemene wet in force, the Oude wet not
+    assert [(r["instrument"]["props"]["bwb_id"], r["expired"]) for r in both] == [
+        (LAW, False),
+        (OLD_LAW, True),
+    ]

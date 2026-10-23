@@ -462,6 +462,8 @@ class ToestandXml:
     enacted: Publication | None = None
     enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
+    # the text of its 'Gelet op' paragraph(s): a law it names without a link is read from it
+    basis_preamble: str = ""
     # the EU acts its considerans says it implements (CELEX numbers), see ``implemented_acts``
     implements: tuple[str, ...] = ()
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
@@ -1539,23 +1541,33 @@ def _parse_article(
 # ── preamble: "Gelet op" ─────────────────────────────────────────────────────
 
 
+def _gelet_op(root: ET.Element) -> Iterator[ET.Element]:
+    """The ``considerans`` paragraphs that start with 'Gelet op'."""
+    for considerans in iter_named(root, "considerans"):
+        for para in considerans.iter():
+            if local_name(para.tag).startswith("considerans") and text_of(
+                para
+            ).lower().startswith("gelet op"):
+                yield para
+
+
 def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
     """References in the ``considerans`` paragraph(s) that start with 'Gelet op'."""
     found: dict[tuple[str, str | None], BasisRef] = {}
-    for considerans in iter_named(root, "considerans"):
-        for para in considerans.iter():
-            if not local_name(para.tag).startswith("considerans"):
+    for para in _gelet_op(root):
+        for ref in _flatten(para).refs:
+            if ref.kind != "extref" or not ref.bwb_id:
                 continue
-            if not text_of(para).lower().startswith("gelet op"):
-                continue
-            for ref in _flatten(para).refs:
-                if ref.kind != "extref" or not ref.bwb_id:
-                    continue
-                found.setdefault(
-                    (ref.bwb_id, ref.article),
-                    BasisRef(ref.bwb_id, ref.article, ref.doc, ref.text),
-                )
+            found.setdefault(
+                (ref.bwb_id, ref.article),
+                BasisRef(ref.bwb_id, ref.article, ref.doc, ref.text),
+            )
     return tuple(found.values())
+
+
+def _basis_preamble(root: ET.Element) -> str:
+    """The text of the 'Gelet op' paragraph(s): what names a basis without a link."""
+    return " ".join(collapse_ws(_flatten(para).text) for para in _gelet_op(root))
 
 
 def _implemented(root: ET.Element) -> tuple[str, ...]:
@@ -1606,6 +1618,7 @@ def read_toestand(xml_text: str) -> tuple[ToestandXml, tuple[ArticleHead, ...]]:
         enacted=enacted,
         enacted_in_force=enacted_in_force,
         basis=_basis(root),
+        basis_preamble=_basis_preamble(root),
         implements=_implemented(root),
         annexes=parse_annexes(root),
     )
@@ -1688,6 +1701,7 @@ def instrument_props(
                 {"bwb_id": r.bwb_id, "article": r.article, "doc": r.doc, "text": r.text}
                 for r in toestand.basis
             ],
+            "basis_preamble": toestand.basis_preamble,
             "celex_refs": sorted(set(celex_refs)),
             "implements_celex": sorted(toestand.implements),
             "source": SOURCE_BWB,

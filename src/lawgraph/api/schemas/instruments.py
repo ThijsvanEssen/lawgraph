@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, computed_field
 
+from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
     ArticleHeadingDTO,
@@ -51,6 +52,7 @@ from lawgraph.api.schemas.completeness import (
     Completeness,
     completeness_dto,
 )
+from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.config.constants import (
@@ -394,6 +396,12 @@ class InstrumentJudgmentFacets(StrictModel):
     tier: list[FacetCountDTO] = Field(
         default_factory=list,
         description="Per tier, the most first. Without the `tier` filter.",
+    )
+    subject_area: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per main area of law of the source (`Strafrecht`, `Civiel recht`, "
+        "`Bestuursrecht`), the most first; a judgment counts for each of its areas. "
+        "Without the `subject_area` filter.",
     )
 
 
@@ -766,7 +774,15 @@ class InstrumentRelatedResponse(StrictModel):
     items: list[InstrumentRelatedItem]
 
 
-class InstrumentListItemDTO(WithPath):
+# The ministry of a BWB regulation.
+RESPONSIBLE_MINISTRY = (
+    "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the "
+    "one its WTI names (``eerstverantwoordelijke``), under its name of today; null for "
+    "one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+)
+
+
+class InstrumentListItemDTO(WithMinistry, WithPath):
     """Row in the paginated /api/instruments list."""
 
     path_source = PathSource("instruments")
@@ -818,6 +834,7 @@ class InstrumentListItemDTO(WithPath):
         "another regulation, or most of them did.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    ministry: MinistryKey | None = Field(None, description=RESPONSIBLE_MINISTRY)
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -840,6 +857,7 @@ class InstrumentListItemDTO(WithPath):
             official_url=instrument_url(row),
             amending=bool(row.get("amending")),
             expired_on=row.get("date_expired"),
+            ministry=row.get("ministry"),
         )
 
 
@@ -1223,7 +1241,7 @@ class TreatyRegisterDTO(StrictModel):
         )
 
 
-class InstrumentDetailDTO(WithPath):
+class InstrumentDetailDTO(WithMinistry, WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
     path_source = PathSource("instruments")
@@ -1289,6 +1307,7 @@ class InstrumentDetailDTO(WithPath):
         "standing on its own, as on the list.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    ministry: MinistryKey | None = Field(None, description=RESPONSIBLE_MINISTRY)
     validity: ValidityDTO | None = Field(None, description=VALIDITY)
     date_signed: str | None = Field(
         None,
@@ -1401,6 +1420,7 @@ class InstrumentDetailDTO(WithPath):
             ],
             treaty=TreatyRegisterDTO.from_props(props),
             completeness=completeness_dto(props, references=references),
+            ministry=props.get("ministry"),
         )
 
 
@@ -1722,6 +1742,7 @@ class BasisLawDTO(StrictModel):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     articles: list[BasisArticleDTO]
 
     @classmethod
@@ -1730,6 +1751,7 @@ class BasisLawDTO(StrictModel):
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(instrument.get("props") or {}),
+            expired_on=(instrument.get("props") or {}).get("date_expired"),
             articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
         )
 
@@ -1742,6 +1764,7 @@ class SubDelegatedDTO(StrictModel):
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None, description="`delegates` when one of `articles` does; " + BASIS_KIND
     )
@@ -1759,13 +1782,14 @@ class SubDelegatedDTO(StrictModel):
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
         )
 
 
-class InstrumentDelegatedItem(StrictModel):
-    """A regulation whose preamble ("Gelet op") names an article of the law."""
+class _DelegatedFields(StrictModel):
+    """What the light and the full form of a regulation issued under a law share."""
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
@@ -1774,12 +1798,50 @@ class InstrumentDelegatedItem(StrictModel):
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None,
         description="`delegates` when one of `articles` does: the law gives the power it "
         'is made under; `mentioned` when it only names them ("Genoemd in de aanhef '
         'van"); null when not known.',
     )
+
+
+class InstrumentDelegatedSummaryItem(_DelegatedFields):
+    """A regulation whose preamble names an article of the law, in the light form
+    (`detail=summary`): without what it takes reading its own articles for."""
+
+    articles: list[BasisArticleDTO] = Field(
+        description="The articles of the law it is issued under, in the order of the law."
+    )
+    sub_delegated: list[SubDelegatedDTO] = Field(
+        default_factory=list,
+        description="The regulations in force issued under its articles in turn, as on the "
+        "full form.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDelegatedSummaryItem:
+        """From a row of ``get_delegated_by_law`` with ``summary``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+            sub_delegated=in_regulation_order(
+                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+            ),
+        )
+
+
+class InstrumentDelegatedItem(_DelegatedFields):
+    """A regulation whose preamble ("Gelet op") names an article of the law."""
+
     articles: list[ImplementedBasisArticleDTO] = Field(
         description="The articles of the law it is issued under, in the order of the law, "
         "each with its articles that work it out (`referring`)."
@@ -1808,6 +1870,7 @@ class InstrumentDelegatedItem(StrictModel):
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
             also_based_on=[
@@ -1824,6 +1887,7 @@ class InstrumentBasisItem(StrictModel):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None, description="`delegates` when one of `articles` does; " + BASIS_KIND
     )
@@ -1842,6 +1906,7 @@ class InstrumentBasisItem(StrictModel):
         return cls(
             instrument=InstrumentSummaryDTO.from_document(law),
             kind=regulation_kind(law.get("props") or {}),
+            expired_on=(law.get("props") or {}).get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
         )
@@ -1852,9 +1917,15 @@ class InstrumentBasisResponse(StrictModel):
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int
+    expired_total: int = Field(
+        0,
+        description="How many of the laws its preamble names are no longer in force, "
+        "whatever `validity` asked for.",
+    )
     items: list[InstrumentBasisItem] = Field(
         default_factory=list,
-        description="Every law its preamble names an article in force of, by title.",
+        description="Every law of the `validity` asked for its preamble names an article "
+        "in force of, by title.",
     )
 
 
@@ -1920,8 +1991,18 @@ class InstrumentDelegatedResponse(StrictModel):
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int
-    items: list[InstrumentDelegatedItem] = Field(
+    expired_total: int = Field(
+        0,
+        description="How many regulations issued under an article in force of the law are "
+        "no longer in force, whatever `validity` asked for.",
+    )
+    by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description="`total` per `kind` (`unknown` without one).",
+    )
+    items: list[InstrumentDelegatedItem] | list[InstrumentDelegatedSummaryItem] = Field(
         default_factory=list,
-        description="Every regulation in force issued under an article of the law: AMvBs "
-        "first, then ministerial regulations, then the others; by title.",
+        description="Every regulation of the `validity` asked for issued under an article "
+        "of the law: AMvBs first, then ministerial regulations, then the others; by "
+        "title. With `detail=summary` the light form.",
     )

@@ -10,6 +10,11 @@ the regulation as ``props.basis``; this pipeline turns each entry that names an 
 with ``meta = {text, basis_kind}``: the reference without its list word and law ("16,
 eerste en zevende lid") and whether the article gives the power the regulation is made under
 (``delegates``) or is only named (``mentioned``, ``core.delegations.basis_kind``).
+A law the preamble names without a link ("artikelen 1, 2 en 4 van de
+Arbeidsomstandighedenwet", the law only in words) is read from the text of the "Gelet op"
+paragraphs (``props.basis_preamble``) by the citation extractor, by the name of the law as the
+graph knows it; a name it does not know, or that two laws share, names nothing. Such an edge
+has the confidence of the citation, and stands only for an article the links do not name.
 A link to a range ("artikelen 26 tot en met 30") points at its first article; every article
 in force of the range, in the order of the law, gets an edge.
 
@@ -31,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_BASED_ON,
 )
 from lawgraph.core.batching import chunked
+from lawgraph.core.citations import DutchCitationExtractor
 from lawgraph.core.delegations import (
     basis_kind,
     basis_qualifier,
@@ -42,6 +48,7 @@ from lawgraph.core.models import PipelineResult, make_node_key, node_id
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 
+from ._detection import build_extractor
 from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -50,12 +57,14 @@ EDGE_SOURCE = "bwb-grondslagen-linker"
 
 _CHUNK = 500
 
-# (regulation key, basis BWB id, the "Gelet op" reference)
-_Ref = tuple[str, str, dict[str, Any]]
+# (regulation key, basis BWB id, the "Gelet op" reference, its confidence)
+_Ref = tuple[str, str, dict[str, Any], float]
 
 
 class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     """Create BASED_ON edges from BWB regulations to their legal-basis articles."""
+
+    _extractor: DutchCitationExtractor | None = None
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -73,7 +82,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
     ) -> None:
         refs: list[_Ref] = []
         for row in rows:
-            found = self._basis_refs(row)
+            found = self._basis_refs(row) + self._preamble_refs(row)
             if not found:
                 result.skipped += 1
             refs.extend(found)
@@ -84,12 +93,14 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         # per (regulation, article) the reference that names it: one of its own before a
         # range it falls in
         links: dict[tuple[str, str], tuple[dict[str, Any], bool]] = {}
-        for source, basis_id, ref in refs:
+        confidence: dict[tuple[str, str], float] = {}
+        for source, basis_id, ref, certainty in refs:
             first = make_node_key(basis_id, ref["article"])
             for target in self._range(order, basis_id, first, ref):
                 in_range = target != first
                 if not in_range or (source, target) not in links:
                     links[(source, target)] = (ref, in_range)
+                    confidence[(source, target)] = certainty
 
         targets = {
             row["key"]: row
@@ -109,7 +120,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 node_id(COLLECTION_ARTICLES, target),
                 RELATION_BASED_ON,
                 source=EDGE_SOURCE,
-                confidence=EXACT_CONFIDENCE,
+                confidence=confidence[(source, target)],
                 meta={
                     "text": text,
                     "basis_kind": basis_kind(
@@ -124,7 +135,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         laws = sorted(
             {
                 basis_id
-                for _, basis_id, ref in refs
+                for _, basis_id, ref, _ in refs
                 if basis_range_end(str(ref.get("text") or ""), ref["article"])
             }
         )
@@ -150,6 +161,44 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
             return [first]
         return keys[keys.index(first) : keys.index(end) + 1]
 
+    def _preamble_refs(self, row: dict[str, Any]) -> list[_Ref]:
+        """The articles the "Gelet op" text of one regulation names of another law and the
+        links do not: ``{bwb_id, article, text}`` per article, the text its leden as written."""
+        preamble = str(row.get("basis_preamble") or "")
+        if not preamble:
+            return []
+        if self._extractor is None:
+            codes, shared = self._load_code_choices()
+            self._extractor = build_extractor(
+                codes,
+                self._load_instrument_aliases(),
+                None,
+                self._load_law_dates(),
+                shared,
+            )
+        bwb_id = str(row.get("bwb_id") or "").upper()
+        linked = {
+            (str(ref.get("bwb_id") or "").upper(), ref.get("article"))
+            for ref in row.get("basis") or []
+        }
+        refs: list[_Ref] = []
+        for hit in self._extractor.extract(
+            preamble, every_occurrence=True, chains=True
+        ):
+            law = (hit.bwb_id or "").upper()
+            if not law or law == bwb_id or (law, hit.article_number) in linked:
+                continue
+            text = ", ".join(filter(None, (hit.article_number, hit.qualifier)))
+            refs.append(
+                (
+                    row["key"],
+                    law,
+                    {"bwb_id": law, "article": hit.article_number, "text": text},
+                    hit.confidence,
+                )
+            )
+        return refs
+
     @staticmethod
     def _basis_refs(row: dict[str, Any]) -> list[_Ref]:
         """The basis entries of one regulation that name an article of another."""
@@ -159,5 +208,5 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
             basis_id = str(ref.get("bwb_id") or "").upper()
             if not ref.get("article") or not basis_id or basis_id == bwb_id:
                 continue  # no target article, or a reference to itself
-            refs.append((row["key"], basis_id, ref))
+            refs.append((row["key"], basis_id, ref, EXACT_CONFIDENCE))
         return refs

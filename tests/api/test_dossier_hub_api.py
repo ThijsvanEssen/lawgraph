@@ -16,7 +16,7 @@ from tests.asserts import assert_status
 
 client = TestClient(app)
 
-_DOSSIER = {
+_DOSSIER: dict[str, Any] = {
     "id": "dossiers/36000",
     "key": "36000",
     "props": {
@@ -92,6 +92,10 @@ def _dossier_routes(
         get_dossier_implements=[],
         get_instrument_names={},
         get_next_activity=None,
+        get_member_brief=lambda store, key: {
+            "name": "H.M. de Jonge",
+            "slug": "h-m-de-jonge",
+        },
     )
 
 
@@ -162,14 +166,22 @@ def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
         {
             "key": "stb_2024_193",
             "cite": "Stb. 2024, 193",
+            "signed_on": "2024-06-26",
             "published_on": "2024-06-26",
+            "commencement": {
+                "key": "stb_2024_197",
+                "cite": "Stb. 2024, 197",
+                "published_on": "2024-06-28",
+            },
             "first_effective_date": "2024-07-01",
             "instrument": {"key": "bwbr0049889", "title": "Wet betaalbare huur"},
         },
         {
             "key": "stb_2026_56",
             "cite": "Stb. 2026, 56",
+            "signed_on": None,
             "published_on": "2026-03-01",
+            "commencement": None,
             "first_effective_date": None,
             "instrument": {
                 "key": "wet_stb_2026_56",
@@ -179,7 +191,9 @@ def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
         {
             "key": "stb_2025_10",
             "cite": "Stb. 2025, 10",
+            "signed_on": None,
             "published_on": "2025-01-15",
+            "commencement": None,
             "first_effective_date": "2025-02-01",
             "instrument": None,
         },
@@ -191,6 +205,7 @@ def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
     assert body["enacted"] == [
         {
             **enacted[0],
+            "commencement": {**enacted[0]["commencement"], "path": "/stb/2024/197"},
             "path": "/stb/2024/193",
             "instrument": {**enacted[0]["instrument"], "path": "/wetten/BWBR0049889"},
         },
@@ -201,6 +216,95 @@ def test_the_dossier_detail_names_the_publications_its_law_was_enacted_in(
         },
         {**enacted[2], "path": "/stb/2025/10"},
     ]
+
+
+def test_the_dossier_detail_names_the_government_and_the_end_of_the_chain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    props = {
+        **_DOSSIER["props"],
+        "ministry": "bzk",
+        "initiative": False,
+        "cabinet": "rutte_iv",
+        "first_signed": {
+            "date": "2024-02-05",
+            "member": "h_m_de_jonge",
+            "capacity": "bewindspersoon",
+            "function": "minister voor Volkshuisvesting en Ruimtelijke Ordening",
+            "paper": "documents/kst-36000-2",
+        },
+        "ek_bill": {
+            "url": "https://www.eerstekamer.nl/wetsvoorstel/36000_testwet",
+            "progress": [
+                {
+                    "phase": "Afkondiging",
+                    "house": "Staatsblad(en)",
+                    "state": "vol",
+                    "papers": [
+                        {
+                            "kind": "publicatie inwerkingtreding",
+                            "date": "2024-06-28",
+                            "url": "u1",
+                        },
+                        {"kind": "publicatie wet", "date": "2024-06-28", "url": "u2"},
+                        {"kind": "publicatie wet", "date": "2023-01-01", "url": "u3"},
+                        {"kind": "verslag", "date": "2024-06-28", "url": "u4"},
+                    ],
+                }
+            ],
+        },
+    }
+    enacted = [
+        {
+            "key": "stb_2024_193",
+            "cite": "Stb. 2024, 193",
+            "signed_on": "2024-06-26",
+            "published_on": "2024-06-28",
+            "commencement": {
+                "key": "stb_2024_197",
+                "cite": "Stb. 2024, 197",
+                "published_on": "2024-06-28",
+            },
+            "first_effective_date": "2024-07-01",
+            "instrument": None,
+        },
+        {
+            "key": "stb_2099_1",
+            "cite": "Stb. 2099, 1",
+            "signed_on": None,
+            "published_on": "2099-01-01",
+            "commencement": None,
+            "first_effective_date": "2099-02-01",
+            "instrument": None,
+        },
+    ]
+    _dossier_routes(monkeypatch, {**_HUB, "enacted": enacted})
+    monkeypatch.setitem(_DOSSIER, "props", props)
+
+    body = client.get("/api/dossiers/36000").json()
+
+    assert body["proposed_by"] == {
+        "member_key": "h_m_de_jonge",
+        "name": "H.M. de Jonge",
+        "function": "minister voor Volkshuisvesting en Ruimtelijke Ordening",
+        "capacity": "bewindspersoon",
+        "date": "2024-02-05",
+        "ministry": "bzk",
+        "path": "/leden/h-m-de-jonge",
+    }
+    assert body["in_force_since"] == "2024-07-01"  # not the law of 2099
+    papers = body["senate"]["progress"][0]["papers"]
+    assert [p["path"] for p in papers] == ["/stb/2024/197", "/stb/2024/193", None, None]
+
+
+def test_a_dossier_nobody_signed_has_no_proposer_and_is_not_in_force(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _dossier_routes(monkeypatch, _HUB)
+
+    body = client.get("/api/dossiers/36000").json()
+
+    assert body["proposed_by"] is None and body["in_force_since"] is None
 
 
 def test_an_instrument_relation_the_catalogue_lacks_is_refused(

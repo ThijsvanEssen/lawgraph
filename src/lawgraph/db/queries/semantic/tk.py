@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     ENACTING_RELATIONS,
     EXPLANATORY_KIND_MARKER,
@@ -29,6 +30,7 @@ from lawgraph.config.constants import (
     RELATION_EXPLAINS,
     RELATION_LEGISLATED_IN,
     RELATION_MADE_IN,
+    RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_REVISES,
     RELATION_SAME_AS,
@@ -995,6 +997,27 @@ def person_duplicate_candidates(store: Store, source: str) -> list[str]:
             ORDER BY 1
             """,
             {"relation": RELATION_SAME_AS, "source": source},
+        )
+    )
+
+
+def faction_holdings(store: Store) -> list[dict[str, Any]]:
+    """``{person, faction, from_date, to_date}`` of every seat of the Tweede Kamer a member
+    held in a faction (a ``MEMBER_OF`` edge with a period: the Eerste Kamer's have none), the
+    ids of the nodes, in the order of the edge keys."""
+    return list(
+        store.query(
+            """
+            SELECT from_id AS person, to_id AS faction,
+                   doc -> 'meta' ->> 'from_date' AS from_date,
+                   doc -> 'meta' ->> 'to_date' AS to_date
+            FROM edges
+            WHERE relation = %(member_of)s
+              AND to_collection = %(factions)s
+              AND doc -> 'meta' ->> 'from_date' IS NOT NULL
+            ORDER BY key
+            """,
+            {"member_of": RELATION_MEMBER_OF, "factions": COLLECTION_FACTIONS},
         )
     )
 

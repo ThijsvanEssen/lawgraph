@@ -317,7 +317,92 @@ def test_the_regulations_issued_under_a_law(database: str, cli: Any) -> None:
     # of an instrument
     for bwb_id in (REGELING, "BWBR0099999"):
         body = _get(store, f"/api/instruments/{bwb_id}/delegated")
-        assert body == {"bwb_id": bwb_id, "total": 0, "items": []}
+        assert body == {
+            "bwb_id": bwb_id,
+            "total": 0,
+            "expired_total": 0,
+            "by_kind": {},
+            "items": [],
+        }
+
+
+def test_the_regulations_no_longer_in_force_and_the_light_form(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_in_force(store)
+    cli("semantic", "bwb-grondslagen")
+
+    default = _get(store, f"/api/instruments/{WET}/delegated")
+    everything = _get(store, f"/api/instruments/{WET}/delegated?validity=all")
+    gone = _get(store, f"/api/instruments/{WET}/delegated?validity=expired")
+    light = _get(store, f"/api/instruments/{WET}/delegated?detail=summary")
+
+    # the one no longer in force is counted, and shown when asked for, with its day
+    assert default["expired_total"] == everything["expired_total"] == 1
+    assert default["by_kind"] == {"amvb": 3, "ministeriele-regeling": 1}
+    assert everything["total"] == default["total"] + 1
+    assert [(i["instrument"]["bwb_id"], i["expired_on"]) for i in gone["items"]] == [
+        (REPEALED, "2021-01-01")
+    ]
+    # one in force until a day to come carries that day
+    assert {i["instrument"]["bwb_id"]: i["expired_on"] for i in default["items"]} == {
+        LATER: "2999-01-01",
+        **{
+            i["instrument"]["bwb_id"]: None
+            for i in default["items"]
+            if i["instrument"]["bwb_id"] != LATER
+        },
+    }
+    # the light form: the same regulations and articles, nothing of their own
+    assert [i["instrument"]["bwb_id"] for i in light["items"]] == [
+        i["instrument"]["bwb_id"] for i in default["items"]
+    ]
+    assert {k for i in light["items"] for a in i["articles"] for k in a} & {
+        "referring"
+    } == set()
+    assert {k for i in light["items"] for k in i} & {"also_based_on"} == set()
+
+
+def test_the_light_form_has_the_regulations_under_a_regulation(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    cli("semantic", "bwb-grondslagen")
+
+    full = _get(store, f"/api/instruments/{WET}/delegated")
+    light = _get(store, f"/api/instruments/{WET}/delegated?detail=summary")
+
+    def under(body: dict[str, Any]) -> dict[str, list[tuple[str, str | None]]]:
+        return {
+            i["instrument"]["bwb_id"]: [
+                (s["instrument"]["bwb_id"], s["expired_on"]) for s in i["sub_delegated"]
+            ]
+            for i in body["items"]
+        }
+
+    assert under(light) == under(full)
+    assert under(light)[BESLUIT] == [(SUB, None)]
+    sub = {i["instrument"]["bwb_id"]: i for i in light["items"]}[BESLUIT][
+        "sub_delegated"
+    ]
+    assert [a["article_number"] for a in sub[0]["articles"]] == ["2", "3"]
+
+
+def test_the_basis_by_validity(database: str, cli: Any) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_in_force(store)
+    cli("semantic", "bwb-grondslagen")
+
+    body = _get(store, f"/api/instruments/{REPEALED}/basis?validity=all")
+
+    assert body["expired_total"] == 0
+    assert [i["instrument"]["bwb_id"] for i in body["items"]] == [WET]
+    assert [i["expired_on"] for i in body["items"]] == [None]
 
 
 SUB = "BWBR0052900"  # a ministerial regulation issued under the AMvB, not the law
@@ -450,6 +535,7 @@ def test_a_regulation_gives_its_own_basis(database: str, cli: Any) -> None:
         assert _get(store, f"/api/instruments/{bwb_id}/basis") == {
             "bwb_id": bwb_id,
             "total": 0,
+            "expired_total": 0,
             "items": [],
         }
 

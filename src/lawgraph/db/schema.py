@@ -53,6 +53,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.letter_kinds import ARTICLE_100_SUBJECT, GOVERNMENT_LETTER
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
@@ -566,6 +567,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("citation_title"),
         _str("treaty_number"),
         _str("date_published"),
+        # the ministry first responsible for a BWB regulation (its WTI)
+        Column("ministry", "text", "lg_str(props -> 'ministry')", added=True),
     ),
     COLLECTION_ARTICLES: (
         _str("bwb_id"),
@@ -827,6 +830,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("citation_title",), False),
         (("treaty_number",), False),
         (("kind", "date_published"), False),
+        (("ministry",), False),
     ),
     COLLECTION_ARTICLES: (
         (("labels",), False),
@@ -1254,6 +1258,18 @@ def feed_title(alias: str = "") -> str:
     )
 
 
+def article_100_letter(alias: str = "") -> str:
+    """Whether a document (of the row *alias*) is an artikel 100-brief: the rule of
+    ``core/letter_kinds.letter_kind`` on its ``kind`` and ``pj_subject``, the predicate of
+    the partial index ``documents_article_100``. The index and the list write it alike, or
+    the planner does not take the index."""
+    p = f"{alias}." if alias else ""
+    return (
+        f"{p}kind = '{GOVERNMENT_LETTER}'"
+        f" AND public.lg_str({p}pj_subject) ~* '{ARTICLE_100_SUBJECT}'"
+    )
+
+
 # The instruments list holds every instrument but the publications: an index per sort of
 # it over those alone, so that a page does not pass every publication on the way.
 _LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
@@ -1306,6 +1322,12 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         built_beforehand(
             "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
             f" ON documents USING gin (({feed_title()}) gin_trgm_ops)"
+        ),
+        # the artikel 100-brieven (``letter_kind=article_100``): a few hundred letters,
+        # newest first
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS documents_article_100"
+            f" ON documents (date DESC NULLS LAST, key) WHERE {article_100_letter()}"
         ),
     ),
     # /api/decisions, newest first: a page reads as far as it goes in the order of the list,
@@ -2071,16 +2093,18 @@ END $$""",
 # with how many passages of the judgment cite it (``mentions``, the length of the edge's
 # ``meta.mentions``), the leden each passage names, in their order (``leden``), and what
 # the citing judgments are filtered, sorted and counted on (its date, ECLI, court, tier and
-# ``inbound_citation_count`` as ``cited``). What ``/cited-by`` of an article and
-# ``/judgments`` of a law read: a range of the index of the article, instead of the edge of
-# every citing judgment and its mentions (6:162 BW: 10,500 edges, 25 s cold on prod).
+# ``inbound_citation_count`` as ``cited``) and its main areas of law (``areas``,
+# ``lg_subject_areas`` of its ``subjects``; null for a row written before they were kept).
+# What ``/cited-by`` of an article and ``/judgments`` of a law read: a range of the index
+# of the article, instead of the edge of every citing judgment and its mentions (6:162 BW:
+# 10,500 edges, 25 s cold on prod).
 # Kept by triggers on ``edges`` and ``judgments``, a row for each edge of a judgment that
 # is there; ``semantic graph-light`` fills it once. Not a table of the graph: writing it
 # raises no data version.
 CITED_BY_TABLE = "lg_cited_by"
 CITED_BY_COLUMNS = (
     "edge_key, article_id, judgment_id, mentions, leden,"
-    " date_eff, ecli, court_code, tier, cited"
+    " date_eff, ecli, court_code, tier, cited, areas"
 )
 
 
@@ -2091,7 +2115,7 @@ def cited_by_values(edge: str, judgment: str) -> str:
     return (
         f"{edge}.key, {edge}.to_id, {edge}.from_id, json_array_length({leden}), {leden},"
         f" {judgment}.date_eff, {judgment}.ecli, {judgment}.court_code, {judgment}.tier,"
-        f" {judgment}.inbound_citation_count"
+        f" {judgment}.inbound_citation_count, public.lg_subject_areas({judgment}.subjects)"
     )
 
 
@@ -2101,7 +2125,8 @@ def cited_by_judgment(edge: str) -> str:
     edges the planner would read the whole table of the judgments)."""
     return (
         f"CROSS JOIN LATERAL (SELECT x.date_eff, x.ecli, x.court_code, x.tier,"
-        f" x.inbound_citation_count FROM public.{COLLECTION_JUDGMENTS} x"
+        f" x.inbound_citation_count, x.subjects"
+        f" FROM public.{COLLECTION_JUDGMENTS} x"
         f" WHERE x.id = {edge}.from_id LIMIT 1) j"
     )
 
@@ -2128,10 +2153,13 @@ def article_cited_by() -> list[str]:
     ecli text,
     court_code text,
     tier text,
-    cited double precision
+    cited double precision,
+    areas text[]
 )""",
-        f"CREATE INDEX IF NOT EXISTS lg_cited_by_article ON {CITED_BY_TABLE} (article_id)"
-        " INCLUDE (judgment_id, edge_key, mentions, date_eff, ecli, court_code, tier, cited)",
+        f"ALTER TABLE {CITED_BY_TABLE} ADD COLUMN IF NOT EXISTS areas text[]",
+        f"CREATE INDEX IF NOT EXISTS lg_cited_by_article_areas ON {CITED_BY_TABLE}"
+        " (article_id) INCLUDE (judgment_id, edge_key, mentions, date_eff, ecli, court_code,"
+        " tier, cited, areas)",
         f"CREATE INDEX IF NOT EXISTS lg_cited_by_judgment ON {CITED_BY_TABLE} (judgment_id)",
         # per mention of the edge *doc*, in its order, the leden it names (``meta.mentions``)
         """CREATE OR REPLACE FUNCTION lg_cited_by_leden(doc json) RETURNS json
@@ -2201,11 +2229,13 @@ BEGIN
     ELSE
         UPDATE public.{CITED_BY_TABLE} l
         SET date_eff = c.date_eff, ecli = c.ecli, court_code = c.court_code,
-            tier = c.tier, cited = c.inbound_citation_count
+            tier = c.tier, cited = c.inbound_citation_count,
+            areas = public.lg_subject_areas(c.subjects)
         FROM changed c
         WHERE l.judgment_id = c.id
-          AND (l.date_eff, l.ecli, l.court_code, l.tier, l.cited) IS DISTINCT FROM
-              (c.date_eff, c.ecli, c.court_code, c.tier, c.inbound_citation_count);
+          AND (l.date_eff, l.ecli, l.court_code, l.tier, l.cited, l.areas) IS DISTINCT FROM
+              (c.date_eff, c.ecli, c.court_code, c.tier, c.inbound_citation_count,
+               public.lg_subject_areas(c.subjects));
     END IF;
     RETURN NULL;
 END $$""",
