@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import json
 import xml.etree.ElementTree as ET
+from collections import Counter
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,6 +32,7 @@ from lawgraph.core.bwb_wti import (
     label_concepts,
     parse_abbreviations,
     parse_citation_titles,
+    parse_responsible,
     parse_subjects,
     thesaurus_concepts,
     with_concepts,
@@ -46,6 +48,7 @@ from lawgraph.core.bwb_xml import (
     parse_toestand,
 )
 from lawgraph.core.logging import get_logger
+from lawgraph.core.ministries import MINISTRIES, ministry_of
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import dutch_today, iso_timestamp
@@ -193,7 +196,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             len(written.instruments),
         )
         thesauri = self._thesauri()
-        digest = _digest(curated_abbreviations(), thesauri)
+        digest = _digest(curated_abbreviations(), thesauri, _ministry_names())
         if self._wti_pass_needed(digest):
             self._write_abbreviations(result, thesauri)
             state_queries.set_state(self.store, WTI_PASS_STATE, {"inputs": digest})
@@ -204,8 +207,8 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
     def _wti_pass_needed(self, digest: str) -> bool:
         """Whether the WTI pass can change anything: always in a run in full; in a run
         ``--since`` when a WTI record was fetched since, the toestanden created a node
-        (whose short title or abbreviation it sets), or the curated abbreviations or the
-        thesauri differ from those of the last pass."""
+        (whose short title or abbreviation it sets), or the curated abbreviations, the
+        thesauri or the ministries differ from those of the last pass."""
         since = iso_timestamp(self._since)
         if since is None or self.store.writes.nodes_created:
             return True
@@ -290,10 +293,13 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         self,
         parsed: dict[str, tuple[list[dict[str, Any]], list[str]]],
         thesauri: tuple[Concepts, Concepts],
+        responsible: Mapping[str, str | None],
     ) -> list[dict[str, Any]]:
-        """``{key, legal_areas, policy_domains}`` per regulation, with the concepts of the
-        TOOI thesauri; without them, concepts made from the labels of every regulation
-        (slugs unique over the whole list either way)."""
+        """``{key, legal_areas, policy_domains, ministry}`` per regulation, with the
+        concepts of the TOOI thesauri; without them, concepts made from the labels of every
+        regulation (slugs unique over the whole list either way). ``ministry`` is the key of
+        the ministry its ``<eerstverantwoordelijke>`` names, under its name of today
+        (``ministry_of``); null for one that names no ministry (a ZBO), which is logged."""
         legal_areas, themes = thesauri
         if not legal_areas:
             legal_areas = label_concepts(
@@ -309,17 +315,30 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             themes = label_concepts(
                 (domain, None) for _, domains in parsed.values() for domain in domains
             )
+        today = dutch_today().isoformat()
         rows = []
+        unknown: Counter[str] = Counter()
         for bwb_id, (areas, domains) in parsed.items():
             with_areas, with_domains = with_concepts(
                 areas, domains, legal_areas, themes
             )
+            named = responsible.get(bwb_id)
+            ministry = ministry_of(named, on=today)
+            if named and ministry is None:
+                unknown[named] += 1
             rows.append(
                 {
                     "key": make_node_key(bwb_id),
                     "legal_areas": with_areas,
                     "policy_domains": with_domains,
+                    "ministry": ministry,
                 }
+            )
+        if unknown:
+            logger.info(
+                "BWB: %d regulations name a first responsible that is no ministry: %s.",
+                unknown.total(),
+                ", ".join(f"{name} ({n})" for name, n in unknown.most_common(10)),
             )
         return rows
 
@@ -339,6 +358,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
         abbreviations_by_bwb: dict[str, list[str]] = {}
         titles_by_bwb: dict[str, list[str]] = {}
         parsed: dict[str, tuple[list[dict[str, Any]], list[str]]] = {}
+        responsible: dict[str, str | None] = {}
         for record in self._iter_raw_sources(
             source=SOURCE_BWB, kinds=[RAW_KIND_BWB_WTI_GENERAL]
         ):
@@ -351,6 +371,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
                 abbreviations_by_bwb[bwb_id] = parse_abbreviations(text)
                 titles_by_bwb[bwb_id] = parse_citation_titles(text)
                 parsed[bwb_id] = parse_subjects(text)
+                responsible[bwb_id] = parse_responsible(text)
             except ET.ParseError as exc:
                 self.progress.fail("WTI not XML", f"{bwb_id}: {exc}")
 
@@ -375,7 +396,7 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             abbreviations_by_bwb, short_titles
         )
         for batch in chunked(
-            self._subject_rows(parsed, thesauri), SHORT_TITLE_BATCH_SIZE
+            self._subject_rows(parsed, thesauri, responsible), SHORT_TITLE_BATCH_SIZE
         ):
             changed += normalize_bwb.update_subjects(self.store, batch)
         # The SQL update bypasses the counting store's upsert methods, so add it here.
@@ -387,6 +408,14 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             sum(1 for row in rows if row["short_title"]),
             changed,
         )
+
+
+def _ministry_names() -> list[list[str | None]]:
+    """What the ministry of a regulation is read by: the names and their successors."""
+    return [
+        [m.key, m.name, m.abbreviation, *(p.successor for p in m.periods)]
+        for m in MINISTRIES
+    ]
 
 
 def _digest(*inputs: object) -> str:

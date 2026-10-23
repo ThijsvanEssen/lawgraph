@@ -140,6 +140,7 @@ the markers.
 | `AMENDS` | Instrument → Article, Document → Instrument, Document → Article | An instrument changes existing text (effective date and version in `meta`). A bill (Document) proposing the change carries status `voorgesteld`; a paper of the bill that made an instrument (`LEGISLATED_IN` its dossier) never amends it. |
 | `INTRODUCES` | Instrument → Article, Document → Article | An instrument adds a new article; a bill proposing it is `voorgesteld`. |
 | `REPEALS` | Instrument → Article, Document → Article | An instrument withdraws an article; a bill proposing it is `voorgesteld`. |
+| `COMMENCES` | Instrument → Instrument | A publication that sets the date a law takes effect (an inwerkingtredingsbesluit) → the publication that enacted or changed that law, as the BWB names both on the article versions it made (`commencement_publication` other than `origin_publication`). `meta.effective_date` is the first day a version takes effect. A law that enters into force by itself, on the date it names, has none. |
 | `TRANSPOSED_TO` | Article → Article, Article → Instrument | An article of the old law → the article of the new law that takes its place in a recodification (of Dutch law, or a codification or recast of EU law), as an official source gives it (`meta.basis`; `meta.source` the identifier of that source: `blg-1081574`, `kst-34986-3`, the CELEX number of the EU act: `32017R1001`). `meta.parts` pairs each part of the old article (`from`: `2`, `2 a`, `eerste lid`, empty for the whole; `via` the division of the old law the source names: `§ 1.2`) with the place in the new law as the source writes it (`to`: `2.8.6, 1`, `8.2.26, vierde lid`), read: the number of the new article of the edge (`article`) and the leden it names (`leden`: `["1"]`; empty for the whole). The article of another law the source names (`afdeling 3.5 Awb`) is one too. An article of the old law → the new law (Instrument): what the source says of the parts it places in no article (`parts[].outcome`: `vervallen`, `niet_overgenomen`, `blijft_in:<law>`, `naar:<law>`), and of an old article no source places, its parts as the source writes them (`meta.outcome` `gat`). A row the source gives that the text of the laws does not hold is no edge to an article: `lawgraph succession-gaps` lists it. In a table of an old regulation, the column of a law beside the regulations under it (`Artikel Omgevingswet` beside `Artikel AMvB`, Stb. 2020, 400) names their delegation basis, no place: no edge (the basis is the new regulation's `BASED_ON`). An edge to the new law is read from the old article: the neighbours, the neighbourhood and the buckets of the law leave it out (`lg_transposition_outcome`). |
 | `BASED_ON` | Instrument → Article | The legal basis (delegation basis) an instrument is issued under: 'Gelet op artikel …' in the preamble; a range ('artikelen 26 tot en met 30') to each article in force in it. `meta.text` is the reference without list word and law ('16, eerste en zevende lid'); `meta.basis_kind` `delegates` when the leden named give the power (a delegation formula, 'bij besluit', 'kan regels stellen'), `mentioned` when the article is only named (Awb 3:4 by a policy rule). |
 | `IMPLEMENTS` | Instrument → Instrument | A national instrument implements an EU act, by an implementation source (`meta.bases`): a publication EUR-Lex lists as a national implementing measure of the act, and the regulations it enacted or changed (`national_implementing_measure`, `meta.publications`, and `meta.measures`: each with `citation`, and `title` and `type` as EUR-Lex gives them), or a regulation whose considerans says it implements the act (`considerans`). Not per article: no source names the implementing article. |
@@ -289,6 +290,7 @@ its keys to the model of `REFERS_TO`.
 |  | `source_publication` | `str` | The publication that made the change: `stb-2019-33`. |
 |  | `reason` | `Reason` | `amendment_text` (core/provenance.py). |
 |  | `snippet` | `str` | The words of the amendment that name the article. |
+| `COMMENCES` | `effective_date` | `str` | The first day a version the commencing publication put in force takes effect. |
 | `TRANSPOSED_TO` | `basis` | `Basis` | `transposition_table` (core/provenance.py). |
 |  | `source` | `str` | The paper that gives the table: `blg-1081574`, `kst-34986-3`. |
 |  | `parts` | `list[object]` | Each part of the old article with its place in the new law. |
@@ -509,6 +511,10 @@ statutes made by the legislator:
   concepts (`scw_bwb_rechtsgebieden`, `scw_bwb_themas`), the slugs unique in their list.
   Written by `normalize bwb`; `lg_legal_area_keys` and `lg_policy_domain_keys` (GIN indexes)
   are what `/api/instruments` filters on.
+- `ministry` of a BWB regulation is the ministry first responsible for it, from the same WTI;
+  the column `ministry` is what `/api/instruments?ministry=` and the counts of
+  `/api/ministries/{key}` read. A law, a dossier and a commitment answer their ministry with
+  its name (`ministry_name`).
 - `abbreviation` of an instrument is the abbreviation it is cited by
   (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
@@ -560,6 +566,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `policy_domains[].id` | `str` | The id of its TOOI concept (`scw_bwb_themas`). |
 | `policy_domains[].uri` | `str` | The URI of that concept. |
 | `policy_domains[].slug` | `str` | Its slug, unique in the list. |
+| `ministry` | `str` | The key of the ministry first responsible for a BWB regulation: the one its WTI names (`eerstverantwoordelijke`), under its name of today (`normalize bwb`). |
 | `bwb_id` | `str` | The BWB id: `BWBR0001854`, a treaty `BWBV...`. |
 | `celex` | `str` | The CELEX number of an EU act: `32016L0680`. |
 | `title` | `str` | A BWB regulation its citeertitel, else its intitule; an EU act its printed title; a Verdragenbank treaty its Dutch title, else its English one. |
@@ -1881,7 +1888,7 @@ lists filter and sort on, and for `/api/judgments` one index per filter that hol
 the kind of court, the source, the date, `stub` and `same_as`, so its facets count from the
 index alone, `(tier, published_on)` for the judgments of the feed, a page per tier, and a GIN index on `lg_subject_areas(subjects)` (each subject up to its first `;`, each main area once) for `subject_area`. A GIN index on each list column (`labels`, `subjects`, `case_number_keys`,
 `dossier_numbers`, `cabinet_keys` of members). Ordered indexes for the instruments list (partial: without the
-publications), the documents newest first, and the member lists in name order. A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) a zaak by its number (`cases_number`) and an activity by its number (`activities_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). `edges`:
+publications), the documents newest first, and the member lists in name order. A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) a zaak by its number (`cases_number`) and an activity by its number (`activities_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). The artikel 100-brieven newest first (`documents_article_100`, partial: the letters of the government whose subject names them, `letter_kind=article_100`). `edges`:
 `(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
 with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
 `/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours

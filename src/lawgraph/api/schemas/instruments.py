@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, computed_field
 
+from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.articles import (
     BASIS_KIND,
     ArticleHeadingDTO,
@@ -51,6 +52,7 @@ from lawgraph.api.schemas.completeness import (
     Completeness,
     completeness_dto,
 )
+from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.api.schemas.tables import ArticleTableDTO, tables_from_props
 from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.config.constants import (
@@ -772,7 +774,15 @@ class InstrumentRelatedResponse(StrictModel):
     items: list[InstrumentRelatedItem]
 
 
-class InstrumentListItemDTO(WithPath):
+# The ministry of a BWB regulation.
+RESPONSIBLE_MINISTRY = (
+    "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the "
+    "one its WTI names (``eerstverantwoordelijke``), under its name of today; null for "
+    "one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+)
+
+
+class InstrumentListItemDTO(WithMinistry, WithPath):
     """Row in the paginated /api/instruments list."""
 
     path_source = PathSource("instruments")
@@ -824,6 +834,7 @@ class InstrumentListItemDTO(WithPath):
         "another regulation, or most of them did.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    ministry: MinistryKey | None = Field(None, description=RESPONSIBLE_MINISTRY)
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> InstrumentListItemDTO:
@@ -846,6 +857,7 @@ class InstrumentListItemDTO(WithPath):
             official_url=instrument_url(row),
             amending=bool(row.get("amending")),
             expired_on=row.get("date_expired"),
+            ministry=row.get("ministry"),
         )
 
 
@@ -1229,7 +1241,7 @@ class TreatyRegisterDTO(StrictModel):
         )
 
 
-class InstrumentDetailDTO(WithPath):
+class InstrumentDetailDTO(WithMinistry, WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
     path_source = PathSource("instruments")
@@ -1295,6 +1307,7 @@ class InstrumentDetailDTO(WithPath):
         "standing on its own, as on the list.",
     )
     expired_on: str | None = Field(None, description=EXPIRED_ON)
+    ministry: MinistryKey | None = Field(None, description=RESPONSIBLE_MINISTRY)
     validity: ValidityDTO | None = Field(None, description=VALIDITY)
     date_signed: str | None = Field(
         None,
@@ -1407,6 +1420,7 @@ class InstrumentDetailDTO(WithPath):
             ],
             treaty=TreatyRegisterDTO.from_props(props),
             completeness=completeness_dto(props, references=references),
+            ministry=props.get("ministry"),
         )
 
 

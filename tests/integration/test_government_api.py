@@ -16,6 +16,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_FACTIONS,
+    COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
     RAW_KIND_RIJKSOVERHEID_CABINET,
     RELATION_ABOUT,
@@ -32,6 +33,7 @@ from lawgraph.db import (
     RawSourceWriter,
     raw_source_doc,
 )
+from tests.asserts import assert_status
 from tests.databases import Api, ModuleStore, module_store
 
 PAGES = Path(__file__).parents[1] / "fixtures" / "rijksoverheid"
@@ -106,6 +108,22 @@ def _seed(store: GraphStore) -> None:
                 ),
                 _node(
                     COLLECTION_DOCUMENTS, NodeType.DOCUMENT, "bill", date="2026-09-15"
+                ),
+                # the WTI names its first responsible ministry (``normalize bwb``)
+                *(
+                    _node(
+                        COLLECTION_INSTRUMENTS,
+                        NodeType.INSTRUMENT,
+                        bwb_id.lower(),
+                        bwb_id=bwb_id,
+                        kind="wet",
+                        citation_title=title,
+                        ministry=ministry,
+                    )
+                    for bwb_id, title, ministry in (
+                        ("BWBR0009508", "Bankwet 1998", "fin"),
+                        ("BWBR0011823", "Vreemdelingenwet 2000", "jenv"),
+                    )
                 ),
                 _node(
                     COLLECTION_DOCUMENTS,
@@ -378,3 +396,43 @@ def test_an_unknown_cabinet_is_404_and_an_unknown_ministry_422(
     missing = api.get("/api/cabinets/nope").status_code
     unknown_ministry = api.get("/api/commitments?ministry=nope").status_code
     assert (missing, unknown_ministry) == (404, 422)
+
+
+def test_a_ministry_with_its_bewindspersonen_and_what_is_its_own(api: Api) -> None:
+    fin = api.get_json("/api/ministries/fin")
+    ez = api.get_json("/api/ministries/ez")
+    jenv = api.get_json("/api/ministries/jenv")
+    assert fin["name"] == "Financiën"
+    assert [c["key"] for c in fin["cabinets"]] == ["jetten", "schoof"]  # newest first
+    (heinen,) = [p for p in fin["cabinets"][0]["posts"] if p["post"] == "minister"]
+    assert (heinen["member"]["key"], heinen["member"]["path"]) == (
+        "heinen",
+        "/leden/eelco-heinen",
+    )
+    assert (fin["laws"], fin["open_dossiers"], fin["open_commitments"]) == (1, 1, 2)
+    # a post stands under the ministry of its day: Heinen as acting minister of EZ
+    acting = [
+        p["member"]["key"] for c in ez["cabinets"] for p in c["posts"] if p["acting"]
+    ]
+    assert acting == ["heinen"]
+    assert jenv["predecessors"] == ["venj"]
+    assert_status(api.get("/api/ministries/nope"), 404)
+
+
+def test_a_law_a_dossier_and_a_commitment_name_their_ministry(api: Api) -> None:
+    laws = api.get_json("/api/instruments?ministry=fin")
+    law = api.get_json("/api/instruments/BWBR0009508")
+    dossiers = api.get_json("/api/dossiers?status=open&ministry=fin")
+    commitments = api.get_json("/api/commitments?ministry=fin")
+    named = [
+        (item["ministry"], item["ministry_name"])
+        for item in (
+            *laws["items"],
+            law,
+            *dossiers["items"],
+            *commitments["items"],
+        )
+    ]
+    assert [i["bwb_id"] for i in laws["items"]] == ["BWBR0009508"]
+    assert set(named) == {("fin", "Financiën")}
+    assert len(named) == 5

@@ -849,6 +849,7 @@ def _seed_list(store: GraphStore) -> None:
                 article_count=500,
                 inbound_citation_count=7,
                 uri="https://wetten.overheid.nl/BWBR0000002",
+                ministry="jenv",
             ),
             _doc(
                 "bwbr0000001",
@@ -940,6 +941,7 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_number",
         "amending",
         "date_expired",
+        "ministry",
         "next_version_from",
     ]
     assert by_key["bwbr0000002"] == {
@@ -963,8 +965,11 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "publication_number": None,
         "amending": False,
         "date_expired": None,
+        "ministry": "jenv",
         "next_version_from": None,
     }
+    by_ministry = instruments.get_instruments_list(store, ministry="jenv", facets=False)
+    assert [i["key"] for i in by_ministry["items"]] == ["bwbr0000002"]
     assert (
         by_key["bwbr0000001"]["citation_title"],
         by_key["bwbr0000001"]["display_name"],

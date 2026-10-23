@@ -49,14 +49,17 @@ RETURNING 1
 """
 
 
-# The legal areas and government themes of each instrument of *rows* (``{key, legal_areas,
-# policy_domains}``), keys in order; an empty list removes the prop.
+# The legal areas, government themes and ministry of each instrument of *rows* (``{key,
+# legal_areas, policy_domains, ministry}``), keys in order; an empty list or a null ministry
+# removes the prop.
 _SUBJECT_ROWS = f"""
 SELECT u.value ->> 'key' AS key,
        CASE WHEN {has_length("u.value -> 'legal_areas'")} THEN u.value -> 'legal_areas' END
            AS legal_areas,
        CASE WHEN {has_length("u.value -> 'policy_domains'")}
-            THEN u.value -> 'policy_domains' END AS policy_domains
+            THEN u.value -> 'policy_domains' END AS policy_domains,
+       CASE WHEN {is_present("u.value -> 'ministry'")} THEN u.value -> 'ministry' END
+           AS ministry
 FROM json_array_elements(%(rows)s::json) AS u(value)
 """
 
@@ -64,23 +67,26 @@ _SUBJECTS_SQL = f"""
 UPDATE instruments t
 SET props = lg_unset(
     lg_update(t.props, json_build_object(
-        'legal_areas', r.legal_areas, 'policy_domains', r.policy_domains)),
+        'legal_areas', r.legal_areas, 'policy_domains', r.policy_domains,
+        'ministry', r.ministry)),
     array_remove(ARRAY[
         CASE WHEN r.legal_areas IS NULL THEN 'legal_areas' END,
-        CASE WHEN r.policy_domains IS NULL THEN 'policy_domains' END
+        CASE WHEN r.policy_domains IS NULL THEN 'policy_domains' END,
+        CASE WHEN r.ministry IS NULL THEN 'ministry' END
     ], NULL)
 )
 FROM ({_SUBJECT_ROWS}) r
 WHERE t.key = r.key
   AND ({differs("t.props -> 'legal_areas'", "r.legal_areas")}
-       OR {differs("t.props -> 'policy_domains'", "r.policy_domains")})
+       OR {differs("t.props -> 'policy_domains'", "r.policy_domains")}
+       OR {differs("t.props -> 'ministry'", "r.ministry")})
 RETURNING 1
 """
 
 
 def update_subjects(store: Store, rows: list[dict[str, Any]]) -> int:
-    """Set ``legal_areas`` and ``policy_domains`` on the instruments of *rows* where either
-    differs; how many changed. An instrument that does not exist is not created."""
+    """Set ``legal_areas``, ``policy_domains`` and ``ministry`` on the instruments of *rows*
+    where one differs; how many changed. An instrument that does not exist is not created."""
     return len(store.execute_in_rounds(_SUBJECTS_SQL, rows, "key"))
 
 

@@ -1087,6 +1087,7 @@ def get_instruments_list(
     article_count_min: int | None = None,
     legal_area: str | None = None,
     policy_domain: str | None = None,
+    ministry: str | None = None,
     sort: str = "title",
     limit: int = 50,
     offset: int = 0,
@@ -1114,6 +1115,8 @@ def get_instruments_list(
         instruments under the filters per legal area (a tree of main and specific areas,
         without the ``legal_area`` filter) and per government theme (without the
         ``policy_domain`` filter); an unknown value finds nothing.
+      * *ministry* keeps the BWB regulations that ministry is first responsible for
+        (``props.ministry``, the indexed column ``ministry``).
       * *in_force_from* and *in_force_to* bound the day it came into force
         (``date_in_force``, by ``instruments_date_in_force``), *published_from* and
         *published_to* the day it was published (``date_published``), each inclusive.
@@ -1151,6 +1154,8 @@ def get_instruments_list(
     ]
     if jurisdiction:
         conditions.append("jurisdiction = %(jurisdiction)s")
+    if ministry:
+        conditions.append("ministry = %(ministry)s")
     if article_count_min is not None:
         conditions.append("article_count >= %(article_count_min)s")
     for value, clause in (
@@ -1197,6 +1202,7 @@ def get_instruments_list(
         "article_count_min": article_count_min,
         "legal_area": legal_area.strip().lower() if legal_area else None,
         "policy_domain": policy_domain.strip().lower() if policy_domain else None,
+        "ministry": ministry,
         "in_force_from": in_force_from,
         "in_force_to": in_force_to,
         "published_from": published_from,
@@ -1332,6 +1338,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "publication_number": props.get("publication_number"),
         "amending": props.get("amending") is True,
         "date_expired": props.get("date_expired"),
+        "ministry": props.get("ministry"),
     }
 
 
