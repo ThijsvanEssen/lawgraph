@@ -164,7 +164,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         precise: Query = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles r {_ARTICLE_INSTRUMENT}
-            WHERE r.key = ANY(%(keys)s) {in_period}
+            WHERE r.key = ANY(%(keys)s) AND r.stub IS NOT TRUE {in_period}
             ORDER BY array_position(%(keys)s::text[], r.key)
             LIMIT %(limit)s
             """,
@@ -174,7 +174,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         precise = (
             f"""
             SELECT {_ARTICLE_HIT} FROM articles r {_ARTICLE_INSTRUMENT}
-            WHERE r.article_number = ANY(%(numbers)s) {in_period}
+            WHERE r.article_number = ANY(%(numbers)s) AND r.stub IS NOT TRUE {in_period}
             ORDER BY r.bwb_id NULLS FIRST, r.key
             LIMIT %(limit)s
             """,
