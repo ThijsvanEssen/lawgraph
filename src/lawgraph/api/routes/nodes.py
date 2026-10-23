@@ -23,6 +23,16 @@ from lawgraph.api.schemas.nodes import (
     SharedLinkDTO,
     SharedNeighborDTO,
     SharedNeighborsResponse,
+    SurroundingDossierDTO,
+    SurroundingFactionVoteDTO,
+    SurroundingGapDTO,
+    SurroundingHeldDTO,
+    SurroundingItemDTO,
+    SurroundingKindDTO,
+    SurroundingSectionDTO,
+    SurroundingsResponse,
+    SurroundingSubmitterDTO,
+    SurroundingVoteDTO,
     node_type_of,
 )
 from lawgraph.api.seo.pages.titles import title_and_description
@@ -68,6 +78,15 @@ from lawgraph.db.queries.shared_neighbors import (
     MAX_SOURCES,
     SharedFilter,
     get_shared_neighbors,
+)
+from lawgraph.db.queries.surroundings import (
+    DEFAULT_CAP,
+    MAX_CAP,
+    SURROUNDED,
+    Hit,
+    Section,
+    Surroundings,
+    get_surroundings,
 )
 
 # How much of a node's props a neighbor carries.
@@ -706,4 +725,184 @@ def get_node_neighborhood_route(
             )
         ],
         buckets=[NeighborhoodCollectionDTO(**c) for c in data["buckets"]],
+    )
+
+
+def _node(result: Surroundings, node_id: str) -> BaseNodeDTO:
+    return BaseNodeDTO.from_document(
+        result.nodes[node_id], graph=True, note=result.notes.get(node_id)
+    )
+
+
+def _section_dto(result: Surroundings, found: Section) -> SurroundingSectionDTO:
+    return SurroundingSectionDTO(
+        total=found.total,
+        kinds=[
+            SurroundingKindDTO(
+                relation=as_relation(k.relation),
+                collection=as_collection(k.collection),
+                count=k.count,
+            )
+            for k in found.kinds
+        ],
+        items=[_item_dto(result, h) for h in found.hits if h.other in result.nodes],
+    )
+
+
+def _item_dto(result: Surroundings, hit: Hit) -> SurroundingItemDTO:
+    return SurroundingItemDTO(
+        node=_node(result, hit.other),
+        relation=as_relation(hit.relation),
+        direction="outbound" if hit.side == "out" else "inbound",
+        edge_id=f"edges/{hit.edge}",
+        status=hit.status,
+        via=hit.node,
+    )
+
+
+def _submitters(result: Surroundings) -> list[SurroundingSubmitterDTO]:
+    return [
+        SurroundingSubmitterDTO(
+            node=_node(result, h.other),
+            edge_id=f"edges/{h.edge}",
+            role=h.meta.get("role"),
+            function=h.meta.get("function"),
+            capacity=h.meta.get("capacity"),
+            faction=(
+                _node(result, result.factions[h.other])
+                if h.other in result.factions
+                else None
+            ),
+        )
+        for h in result.submitters.hits
+        if h.other in result.nodes
+    ]
+
+
+def _votes(result: Surroundings) -> list[SurroundingVoteDTO]:
+    return [
+        SurroundingVoteDTO(
+            node=_node(result, d),
+            about=result.votes_about.get(d),
+            factions=[
+                SurroundingFactionVoteDTO(
+                    faction=_node(result, h.other),
+                    choice=h.meta.get("choice"),
+                    seats=h.meta.get("seats"),
+                )
+                for h in result.by_faction.get(d, [])
+                if h.other in result.nodes
+            ],
+        )
+        for d in result.votes
+        if d in result.nodes
+    ]
+
+
+def _gaps(
+    collection: str, result: Surroundings, votes: list[SurroundingVoteDTO]
+) -> list[SurroundingGapDTO]:
+    """What the data lacks around the node, section by section."""
+    gaps: list[SurroundingGapDTO] = []
+
+    def gap(
+        section: Literal["submitters", "dossiers", "laws", "votes"], why: str
+    ) -> None:
+        gaps.append(SurroundingGapDTO(section=section, reason=why))
+
+    signed = collection in ("documents", "cases", "commitments", "decisions")
+    if signed and not result.submitters.hits:
+        gap("submitters", "No signer or maker is recorded for it.")
+    unplaced = [
+        h
+        for h in result.submitters.hits
+        if h.other not in result.factions and h.meta.get("capacity") != "bewindspersoon"
+    ]
+    if unplaced:
+        gap(
+            "submitters",
+            f"No faction is recorded for {len(unplaced)} of the "
+            f"{len(result.submitters.hits)} signers on that day.",
+        )
+    if not result.dossiers.hits:
+        gap("dossiers", "It is in no dossier the data holds.")
+    if not result.laws.hits:
+        gap(
+            "laws",
+            "No law or article is recorded that it changes or names, nor a law made "
+            "from its dossier.",
+        )
+    if collection != "commitments" and not votes:
+        gap("votes", "No vote on it is recorded.")
+    bare = [v for v in votes if not v.factions]
+    if bare:
+        gap(
+            "votes",
+            f"No vote per faction is recorded for {len(bare)} of the {len(votes)} "
+            "decisions shown (a hamerstuk, a roll call, or a vote not yet read).",
+        )
+    return gaps
+
+
+@router.get(
+    "/{collection}/{key}/surroundings",
+    response_model=SurroundingsResponse,
+    summary="What stands around a paper, case, vote, commitment or activity",
+    description=(
+        "The surroundings of a paper (`documents`), case (`cases`), decision "
+        "(`decisions`), commitment (`commitments`) or activity (`activities`) in one "
+        "compact answer, from the edges of the node and of its paper and case alone: "
+        "`submitters` (who signed or made it, the first signatory first, with the "
+        "faction they sat in on its day), `dossiers` (each as one node with what it "
+        "holds counted in `held`, never its members), `laws` (the laws and articles it "
+        "amends, introduces or repeals, then the law made from its dossier, then those "
+        "it names; each with its relation and status), `votes` (the decisions on it, "
+        "newest first, with the vote of each faction), `follows` (the commitments a "
+        "letter fulfils, the letters that answer it, the paper that replaces it; of an "
+        "activity what was made in it), `context` (the debate it was made in, the "
+        "committee that leads it). Every section has its total (`*_total`, `total`, "
+        "`kinds`) beside the `cap` items it shows, and `gaps` says what the data does "
+        "not hold. 422 for another collection, 404 when the node is not there."
+    ),
+    tags=["nodes"],
+)
+def get_surroundings_route(
+    collection: str,
+    key: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+    cap: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=MAX_CAP,
+            description="The items each section shows, at most.",
+        ),
+    ] = DEFAULT_CAP,
+) -> SurroundingsResponse:
+    if collection not in SURROUNDED:
+        raise Invalid("collection", f"Allowed: {', '.join(SURROUNDED)}.")
+    result = get_surroundings(store, collection, key, cap)
+    result.notes = seo_queries.notes_of(store, result.nodes.values())
+    votes = _votes(result)
+    held = [
+        SurroundingDossierDTO(
+            node=_node(result, h.other),
+            via=h.node,
+            held=SurroundingHeldDTO(**result.held[h.other]),
+        )
+        for h in result.dossiers.hits
+        if h.other in result.nodes
+    ]
+    return SurroundingsResponse(
+        focal=_node(result, result.focal),
+        submitters=_submitters(result),
+        submitters_total=result.submitters.total,
+        dossiers=held,
+        dossiers_total=result.dossiers.total,
+        laws=_section_dto(result, result.laws),
+        votes=votes,
+        votes_total=result.votes_total,
+        follows=_section_dto(result, result.follows),
+        context=_section_dto(result, result.context),
+        gaps=_gaps(collection, result, votes),
     )

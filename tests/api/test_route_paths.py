@@ -47,6 +47,7 @@ ROUTES = [
     ("GET", "/api/nodes/shared"),
     ("GET", "/api/nodes/{collection}/{key}"),
     ("GET", "/api/nodes/{collection}/{key}/neighborhood"),
+    ("GET", "/api/nodes/{collection}/{key}/surroundings"),
     ("GET", "/api/dossiers"),
     ("GET", "/api/dossiers/{number}"),
     ("GET", "/api/dossiers/{number}/documents"),

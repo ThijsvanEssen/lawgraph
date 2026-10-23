@@ -513,6 +513,41 @@ judgments alone; `facets` count the neighbours per collection and, of the judgme
 per main area of law. It reads the edges of each node through their covering indexes, once, so its
 cost follows their number (6:162 BW has 10,500), not the size of the graph.
 
+### Surroundings of a source
+
+`GET /api/nodes/{collection}/{key}/surroundings` (`documents`, `cases`, `decisions`, `commitments` or
+`activities`, else 422; 404 for a node that is not there) answers what stands around one source in
+one compact answer, for the network view of a Kamerstuk, motion, vote, commitment, activity or zaak.
+It reads the edges of the node and of its paper, case and dossier through their covering indexes
+(about eight statements; a dossier is counted, never walked, so a paper of a dossier of 10,000
+papers costs what any paper costs). Sections, each at most `cap` items (default 10, up to 50) with
+its total beside it:
+
+- `submitters` (+ `submitters_total`): who signed the paper or case, or made the commitment
+  (`role`, `function`, `capacity` of the `AUTHORED` edge), the first signatory first, each member
+  once, with `faction`: the faction their `MEMBER_OF` edges put them in on the day of the node
+  (null for a bewindspersoon and where no membership covers the day). For a vote, the signers of
+  the paper it is on.
+- `dossiers` (+ `dossiers_total`): the dossier as one node with `held`, what it holds counted
+  (`documents`, `cases`, `decisions`, `commitments`, `activities`, `laws`), never its members.
+- `laws` (`total`, `kinds`, `items`): the articles and laws the paper amends, introduces or repeals
+  (`voorgesteld` for a bill), the law made from its dossier (`LEGISLATED_IN`, inbound), then those
+  it names (`REFERS_TO`); every item carries its `relation`, `direction`, `status`, `edge_id` and
+  `via`, the node it hangs at.
+- `votes` (+ `votes_total`): the decisions on the paper or its case (made in the activity, for an
+  activity), newest first, each with `about` (the paper or case) and `factions`: the choice and
+  seats of each faction from its `VOTED` edge. The tally and `passed` are in the decision's props.
+- `follows`: the commitment a letter fulfils, the letters that answer the paper, the paper that
+  replaces it (`REVISES`); of a commitment the letters that fulfil it; of an activity the
+  commitments and papers made in it. `context`: the debate a paper or decision was made in and the
+  committee that leads its case.
+- `gaps`: per section, what the data does not hold (no signer, no faction for N signers on that
+  day, no dossier, no law, no vote, no vote per faction for N of the decisions shown: a hamerstuk
+  or a roll call has none). A section that is empty without a gap is empty in the data.
+
+A `total` counts edges (a node reached from the paper and from its case counts twice); `items` are
+distinct per relation.
+
 ### Order of the connections
 
 The lists a page shows as its connections (the "Verbonden" panel) take `sort=importance`, so a
