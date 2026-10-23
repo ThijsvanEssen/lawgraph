@@ -30,7 +30,7 @@ from lawgraph.db.queries.documents import (
     get_document_passages,
     list_documents,
 )
-from tests.asserts import show_items
+from tests.asserts import assert_status, show_items
 
 DOSSIER = f"{COLLECTION_DOSSIERS}/36000"
 D = COLLECTION_DOCUMENTS
@@ -750,6 +750,63 @@ def test_facets_are_the_largest_first_and_equal_counts_by_value(
         {"value": "Amendement", "count": 1},
         {"value": "Brief", "count": 1},
     ]
+
+
+# Subjects of letters of the government (Brief regering) as the Kamer writes them, and
+# whether each is an artikel 100-brief (``core/letter_kinds.py``).
+_ARTICLE_100_SUBJECTS = {
+    "Artikel 100-bijdrage aan EUFOR Althea": True,
+    "Artikel 100 brief inzake de bredere veiligheidsinzet in Irak": True,
+    "Artikel-100 Grondwet:Nederlandse bijdrage aan Resolute Support in 2018": True,
+    "Aanvullend artikel 100-brief over verlenging Nederlandse inzet": True,
+    "Aanvullende Artikel 100-inzet in de strijd tegen ISIS": True,
+    "Aanvulling op de artikel 100-brief inzake piraterijbestrijding": True,
+    "Kennisgeving - Artikel 100-inzet MMU-MRTT boven Irak": True,
+    "Kennisgeving artikel 100-inzet Zr.Ms. Evertsen in de Middellandse Zee": True,
+    "Nederlandse bijdrage aan EUNAVFOR MED Sophia in 2016 (Artikel 100 Grondwet)": True,
+    "Nederlandse bijdrage aan MINUSMA in 2019 (artikel 100)": True,
+    "Werking van de artikel 100-procedure en het Toetsingskader": False,
+    "Toezegging gedaan tijdens het commissiedebat Artikel 100 inzake Irak": False,
+    "Kabinetsreactie op de eindevaluatie over de artikel 100-bijdrage EMASoH": False,
+    "Stappenplan inzake burgerslachtoffers in het kader van artikel 100 van de Grondwet": False,
+    "Artikel 1001 van iets anders": False,
+    "Ontwikkelingen rondom Zr Ms De Ruyter in de Zuid Chinese Zee": False,
+}
+
+
+def test_the_artikel_100_brieven_are_the_letters_whose_subject_names_them(
+    store: GraphStore,
+) -> None:
+    letters = [
+        _doc(f"b{n:02d}", ["TK"], date=f"2026-01-{n + 1:02d}", kind="Brief regering",
+             subject=subject, title=subject)
+        for n, subject in enumerate(_ARTICLE_100_SUBJECTS)
+    ]  # fmt: skip
+    # the same subject on another kind of paper is none
+    others = [
+        _doc("motion", ["TK"], date="2026-02-01", kind="Motie",
+             subject="Artikel 100-inzet in de Middellandse Zee"),
+        _doc("list", ["TK"], date="2026-02-02", kind="Lijst van vragen",
+             subject="Artikel 100-bijdrage aan EUFOR Althea"),
+    ]  # fmt: skip
+    store.bulk_insert_or_update_nodes(D, letters + others)
+
+    found = list_documents(store, letter_kind="article_100")
+    named = [subject for subject, named in _ARTICLE_100_SUBJECTS.items() if named]
+    assert [d["title"] for d in found["items"]] == named[::-1]  # newest first
+    assert found["total"] == len(named)
+    assert found["facets"]["kind"] == [{"value": "Brief regering", "count": len(named)}]
+
+    client = TestClient(app)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        listed = client.get("/api/documents?letter_kind=article_100&limit=2").json()
+        unknown = client.get("/api/documents?letter_kind=other")
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [d["title"] for d in listed["items"]] == named[:-3:-1]
+    assert listed["total"] == len(named)
+    assert_status(unknown, 422)
 
 
 def test_a_dossier_filter_matches_a_label_in_dossier_numbers(

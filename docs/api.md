@@ -173,6 +173,15 @@ the source calls its `Afzender` (the griffier). `name`, `function` (`minister va
 `kamerlid`, `overig`), `member_key` and, of a bewindspersoon, the `ministry` the function names on
 the document's date. Null for an Eerste Kamer paper and a paper without signatures.
 
+`letter_kind=article_100` on `/api/documents` keeps the artikel 100-brieven: the letters of the
+government (`Brief regering`) by which it informs the Kamer of a deployment of the armed forces
+(artikel 100 Grondwet). The Kamer gives them no kind of their own; their subject names them,
+opening with the article ("Artikel 100-bijdrage aan EUFOR Althea", after "Aanvullende",
+"Aanvulling" or "Kennisgeving" at most) or closing with it in parentheses ("… (Artikel 100
+Grondwet)"): `core/letter_kinds.py`. A letter about one ("Toezegging gedaan tijdens het
+commissiedebat Artikel 100 …") is none, and one whose subject does not name the article is
+not found.
+
 The Eerste Kamer (`?chamber=EK` on the lists of factions, committees and members and on the
 seats) is what eerstekamer.nl shows on the day it was read: the site gives the composition of
 today, and no start or end of a membership as data. So a period is what was observed:

@@ -1688,6 +1688,9 @@
   "TK",
   "EK"
  ],
+ "/paths//api/documents/get/parameters/6/schema/anyOf/0#const": [
+  "article_100"
+ ],
  "/paths//api/dossiers/get/parameters/0/schema": [
   "open",
   "closed",
