@@ -20768,18 +20768,6 @@
             ],
             "description": "Their ministry, as `ministry` of the dossier."
           },
-          "cabinet": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cabinet",
-            "description": "The cabinet in office that day, as `cabinet` of the dossier."
-          },
           "path": {
             "anyOf": [
               {
@@ -20803,11 +20791,10 @@
           "capacity",
           "date",
           "ministry",
-          "cabinet",
           "path"
         ],
         "title": "DossierProposerDTO",
-        "description": "Who brought the bill in: the person who signed its earliest signed document first."
+        "description": "Who brought the bill in: the person who signed its earliest signed document first\n(the cabinet of that day is ``cabinet`` of the dossier)."
       },
       "DossierRefDTO": {
         "properties": {

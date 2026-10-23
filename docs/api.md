@@ -158,7 +158,7 @@ path}`: the inwerkingtredingsbesluit, `Stb. 2024, 197`, the `commencement_public
 names on the earliest version it enacted; null where the publication itself puts it into force).
 `in_force_since` is the earliest `first_effective_date` that is today or past (null until then).
 `proposed_by` is who brought the bill in: `first_signed` of the dossier with the person
-(`member_key`, `name`, `function`, `capacity`, `date`, `path`) and the `ministry` and `cabinet`.
+(`member_key`, `name`, `function`, `capacity`, `date`, `path`) and the `ministry`.
 In `senate.progress` the papers `publicatie wet` and `publicatie inwerkingtreding` carry `path`,
 the Staatsblad page of that publication, instead of only the eerstekamer.nl `url`.
 

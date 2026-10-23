@@ -290,7 +290,6 @@ def test_the_dossier_detail_names_the_government_and_the_end_of_the_chain(
         "capacity": "bewindspersoon",
         "date": "2024-02-05",
         "ministry": "bzk",
-        "cabinet": "rutte_iv",
         "path": "/leden/h-m-de-jonge",
     }
     assert body["in_force_since"] == "2024-07-01"  # not the law of 2099

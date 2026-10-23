@@ -857,7 +857,8 @@ class EnactedPublicationDTO(WithPath):
 
 
 class DossierProposerDTO(WithPath):
-    """Who brought the bill in: the person who signed its earliest signed document first."""
+    """Who brought the bill in: the person who signed its earliest signed document first
+    (the cabinet of that day is ``cabinet`` of the dossier)."""
 
     path_source = PathSource("members", key_field="member_key")
 
@@ -874,9 +875,6 @@ class DossierProposerDTO(WithPath):
     date: str | None = Field(None, description="The day they signed.")
     ministry: MinistryKey | None = Field(
         None, description="Their ministry, as `ministry` of the dossier."
-    )
-    cabinet: str | None = Field(
-        None, description="The cabinet in office that day, as `cabinet` of the dossier."
     )
 
 
@@ -1181,7 +1179,6 @@ def proposer_of(
         capacity=first.get("capacity"),
         date=first.get("date"),
         ministry=props.get("ministry"),
-        cabinet=props.get("cabinet"),
         path_props={"slug": (member or {}).get("slug")},
     )
 
