@@ -31,6 +31,11 @@ class _Pool:
             raise self.fail
         yield object()
 
+    def getconn(self, timeout: float | None = None) -> object:
+        if self.fail is not None:
+            raise self.fail
+        return object()
+
     def close(self) -> None:
         self.closed = True
 
