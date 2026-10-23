@@ -3054,6 +3054,73 @@
         }
       }
     },
+    "/api/nodes/{collection}/{key}/surroundings": {
+      "get": {
+        "tags": [
+          "nodes",
+          "nodes"
+        ],
+        "summary": "What stands around a paper, case, vote, commitment or activity",
+        "description": "The surroundings of a paper (`documents`), case (`cases`), decision (`decisions`), commitment (`commitments`) or activity (`activities`) in one compact answer, from the edges of the node and of its paper and case alone: `submitters` (who signed or made it, the first signatory first, with the faction they sat in on its day), `dossiers` (each as one node with what it holds counted in `held`, never its members), `laws` (the laws and articles it amends, introduces or repeals, then the law made from its dossier, then those it names; each with its relation and status), `votes` (the decisions on it, newest first, with the vote of each faction), `follows` (the commitments a letter fulfils, the letters that answer it, the paper that replaces it; of an activity what was made in it), `context` (the debate it was made in, the committee that leads it). Every section has its total (`*_total`, `total`, `kinds`) beside the `cap` items it shows, and `gaps` says what the data does not hold. 422 for another collection, 404 when the node is not there.",
+        "operationId": "get_surroundings_route_api_nodes__collection___key__surroundings_get",
+        "parameters": [
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Collection"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          },
+          {
+            "name": "cap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "The items each section shows, at most.",
+              "default": 10,
+              "title": "Cap"
+            },
+            "description": "The items each section shows, at most."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurroundingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers": {
       "get": {
         "tags": [
@@ -38548,6 +38615,531 @@
         ],
         "title": "SuccessorLawDTO",
         "description": "A law that takes the place of this one: an official source places articles of it\nthere (``TRANSPOSED_TO``)."
+      },
+      "SurroundingDossierDTO": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/BaseNodeDTO"
+          },
+          "via": {
+            "type": "string",
+            "title": "Via"
+          },
+          "held": {
+            "$ref": "#/components/schemas/SurroundingHeldDTO"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node",
+          "via",
+          "held"
+        ],
+        "title": "SurroundingDossierDTO",
+        "description": "A dossier as one node, with what it holds counted (never its members)."
+      },
+      "SurroundingFactionVoteDTO": {
+        "properties": {
+          "faction": {
+            "$ref": "#/components/schemas/BaseNodeDTO"
+          },
+          "choice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice",
+            "description": "`Voor`, `Tegen`, ...; of a roll call `Verdeeld` when the members of the faction did not all vote alike."
+          },
+          "seats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seats",
+            "description": "The seats of the faction's vote; of a roll call the members who voted."
+          },
+          "members": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Members",
+            "description": "Of a roll call: how many members of the faction cast each choice, by the faction they sat in on the day; null for a vote by faction."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "faction",
+          "choice",
+          "seats",
+          "members"
+        ],
+        "title": "SurroundingFactionVoteDTO",
+        "description": "How one faction voted on a decision."
+      },
+      "SurroundingGapDTO": {
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": [
+              "submitters",
+              "dossiers",
+              "laws",
+              "votes",
+              "follows",
+              "context"
+            ],
+            "title": "Section"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "section",
+          "reason"
+        ],
+        "title": "SurroundingGapDTO",
+        "description": "Something the data does not hold, said as it is."
+      },
+      "SurroundingHeldDTO": {
+        "properties": {
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "decisions": {
+            "type": "integer",
+            "title": "Decisions"
+          },
+          "commitments": {
+            "type": "integer",
+            "title": "Commitments"
+          },
+          "activities": {
+            "type": "integer",
+            "title": "Activities"
+          },
+          "laws": {
+            "type": "integer",
+            "title": "Laws",
+            "description": "The publications that legislated in it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "documents",
+          "cases",
+          "decisions",
+          "commitments",
+          "activities",
+          "laws"
+        ],
+        "title": "SurroundingHeldDTO",
+        "description": "What a dossier holds, counted."
+      },
+      "SurroundingItemDTO": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/BaseNodeDTO"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "COMMENCES",
+              "TRANSPOSED_TO",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
+            "title": "Relation"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound"
+            ],
+            "title": "Direction",
+            "description": "`outbound`: the edge leaves `via` for the node."
+          },
+          "edge_id": {
+            "type": "string",
+            "title": "Edge Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "via": {
+            "type": "string",
+            "title": "Via",
+            "description": "The node the edge hangs at: the node asked for, or its paper, case or dossier (`collection/key`)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node",
+          "relation",
+          "direction",
+          "edge_id",
+          "status",
+          "via"
+        ],
+        "title": "SurroundingItemDTO",
+        "description": "A node of a section and the edge that ties it to the node asked for."
+      },
+      "SurroundingKindDTO": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "enum": [
+              "PART_OF",
+              "VERSION_OF",
+              "ESTABLISHES",
+              "AMENDS",
+              "INTRODUCES",
+              "REPEALS",
+              "COMMENCES",
+              "TRANSPOSED_TO",
+              "BASED_ON",
+              "IMPLEMENTS",
+              "LEGISLATED_IN",
+              "PUBLISHED_IN",
+              "REFERS_TO",
+              "EXPLAINS",
+              "APPEAL_OF",
+              "CONTINUES",
+              "REFERRED_BY",
+              "ADVISES_ON",
+              "ANSWERS",
+              "SAME_AS",
+              "SCOPED_BY",
+              "ABOUT",
+              "LED_BY",
+              "MADE_IN",
+              "MEMBER_OF",
+              "SERVED_IN",
+              "AUTHORED",
+              "RELATED_TO",
+              "REVISES",
+              "ACCOMPANIES",
+              "SECOND_READING_OF",
+              "VOTED"
+            ],
+            "title": "Relation"
+          },
+          "collection": {
+            "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "ministries",
+              "annexes"
+            ],
+            "title": "Collection"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "relation",
+          "collection",
+          "count"
+        ],
+        "title": "SurroundingKindDTO",
+        "description": "How many edges of a relation reach nodes of a collection."
+      },
+      "SurroundingSectionDTO": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "The distinct nodes of the section's kinds at the node and its document, case and dossier, per relation, whatever `items` holds."
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingKindDTO"
+            },
+            "type": "array",
+            "title": "Kinds",
+            "description": "`total` per relation and collection."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingItemDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total",
+          "kinds",
+          "items"
+        ],
+        "title": "SurroundingSectionDTO",
+        "description": "Some nodes of one kind of surrounding, and how many there are."
+      },
+      "SurroundingSubmitterDTO": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/BaseNodeDTO"
+          },
+          "edge_id": {
+            "type": "string",
+            "title": "Edge Id"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role",
+            "description": "`Eerste ondertekenaar`, `Mede ondertekenaar`, `toezegger`, as the source writes it."
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity",
+            "description": "`kamerlid`, `bewindspersoon` or `overig`."
+          },
+          "faction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BaseNodeDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The faction they sat in on the day of the node; null for a bewindspersoon and where no membership covers that day."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node",
+          "edge_id",
+          "role",
+          "function",
+          "capacity",
+          "faction"
+        ],
+        "title": "SurroundingSubmitterDTO",
+        "description": "Who signed a paper or case, or made a commitment."
+      },
+      "SurroundingVoteDTO": {
+        "properties": {
+          "node": {
+            "$ref": "#/components/schemas/BaseNodeDTO",
+            "description": "The decision; `props.tally`, `passed` and `vote_kind` say how it ended."
+          },
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About",
+            "description": "The paper or case the decision is on (`collection/key`); null for the decision asked for."
+          },
+          "factions": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingFactionVoteDTO"
+            },
+            "type": "array",
+            "title": "Factions",
+            "description": "Of a vote by faction its `VOTED` edges; of a roll call (`props.vote_kind` `member`) derived from the votes of its members; empty for a hamerstuk and a roll call whose member votes or memberships are not read."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "node",
+          "about",
+          "factions"
+        ],
+        "title": "SurroundingVoteDTO",
+        "description": "A decision on the node or its paper or case, with the vote of each faction."
+      },
+      "SurroundingsResponse": {
+        "properties": {
+          "focal": {
+            "$ref": "#/components/schemas/BaseNodeDTO"
+          },
+          "submitters": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingSubmitterDTO"
+            },
+            "type": "array",
+            "title": "Submitters"
+          },
+          "submitters_total": {
+            "type": "integer",
+            "title": "Submitters Total"
+          },
+          "dossiers": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingDossierDTO"
+            },
+            "type": "array",
+            "title": "Dossiers"
+          },
+          "dossiers_total": {
+            "type": "integer",
+            "title": "Dossiers Total"
+          },
+          "laws": {
+            "$ref": "#/components/schemas/SurroundingSectionDTO"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingVoteDTO"
+            },
+            "type": "array",
+            "title": "Votes"
+          },
+          "votes_total": {
+            "type": "integer",
+            "title": "Votes Total"
+          },
+          "follows": {
+            "$ref": "#/components/schemas/SurroundingSectionDTO"
+          },
+          "context": {
+            "$ref": "#/components/schemas/SurroundingSectionDTO"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/SurroundingGapDTO"
+            },
+            "type": "array",
+            "title": "Gaps",
+            "description": "Per section that is empty or incomplete, why: the source lacks it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "focal",
+          "submitters",
+          "submitters_total",
+          "dossiers",
+          "dossiers_total",
+          "laws",
+          "votes",
+          "votes_total",
+          "follows",
+          "context",
+          "gaps"
+        ],
+        "title": "SurroundingsResponse",
+        "description": "What stands around a paper, case, decision, commitment or activity: who put it\nforward, the dossier as one node, the laws it touches, the votes on it per faction,\nwhat follows from it, and where it was made."
       },
       "TermSpanDTO": {
         "properties": {
