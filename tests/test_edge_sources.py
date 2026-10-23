@@ -70,6 +70,7 @@ LABELS: dict[str, dict[str, str]] = {
         "EDGE_SOURCE_DOSSIER": "mvt-article-linker",
         "EDGE_SOURCE_SECTIONS": "mvt-section-linker",
     },
+    "semantic.tk_faction_succession": {"EDGE_SOURCE": "tk-faction-succession"},
     "semantic.tk_person_duplicates": {"EDGE_SOURCE": "tk-person-duplicates"},
     "semantic.tooi_ministries": {"EDGE_SOURCE": "tooi-ministries"},
     "semantic.verdragenbank": {"EDGE_SOURCE": "verdragenbank"},

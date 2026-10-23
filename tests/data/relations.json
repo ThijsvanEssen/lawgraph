@@ -359,11 +359,13 @@
       "sources": [
         "judgments",
         "activities",
+        "factions",
         "ministries"
       ],
       "targets": [
         "judgments",
         "activities",
+        "factions",
         "ministries"
       ],
       "ends": [
@@ -374,6 +376,10 @@
         [
           "activities",
           "activities"
+        ],
+        [
+          "factions",
+          "factions"
         ],
         [
           "ministries",
