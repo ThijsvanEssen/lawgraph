@@ -102,6 +102,8 @@ from lawgraph.db.queries.instruments import (
 from lawgraph.db.queries.not_found import NotFound, require
 from lawgraph.db.queries.unlinked_references import law_reference_counts
 
+Validity = Literal["in_force", "expired", "all"]
+
 router = APIRouter()
 
 
@@ -186,7 +188,7 @@ def list_instruments(
         ),
     ] = None,
     validity: Annotated[
-        Literal["in_force", "expired", "all"] | None,
+        Validity | None,
         Query(
             description="The instruments in force today (`in_force`), those no longer in "
             "force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
@@ -649,7 +651,7 @@ _VALIDITY = Query(
 def get_instrument_delegated_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    validity: Annotated[Literal["in_force", "expired", "all"], _VALIDITY] = "in_force",
+    validity: Annotated[Validity, _VALIDITY] = "in_force",
     detail: Annotated[
         Literal["full", "summary"],
         Query(description="`summary`: the light form, see the description."),
@@ -693,7 +695,7 @@ def get_instrument_delegated_route(
 def get_instrument_basis_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
-    validity: Annotated[Literal["in_force", "expired", "all"], _VALIDITY] = "in_force",
+    validity: Annotated[Validity, _VALIDITY] = "in_force",
 ) -> InstrumentBasisResponse:
     instrument = resolve_instrument(store, bwb_id)
     rows = get_basis(store, instrument["id"]) if instrument else []
