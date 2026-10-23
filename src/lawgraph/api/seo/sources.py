@@ -29,7 +29,7 @@ from lawgraph.api.seo.pages.parliament import (
     faction_page,
     member_page,
 )
-from lawgraph.api.seo.paint import article_paint, judgment_paint
+from lawgraph.api.seo.paint import article_paint, judgment_paint, law_paint
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -47,7 +47,7 @@ class SourcePage:
 
 
 SOURCE_PAGES: dict[str, SourcePage] = {
-    "wet": SourcePage(seo.law, law_page, "/og/wet.png"),
+    "wet": SourcePage(seo.law, law_page, "/og/wet.png", paint=law_paint),
     "artikel": SourcePage(
         seo.article, article_page, "/og/artikel.png", paint=article_paint
     ),
