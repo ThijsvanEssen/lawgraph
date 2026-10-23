@@ -2409,7 +2409,8 @@ def test_a_judgment_is_painted_first_with_its_first_paragraphs_and_its_band(
     assert [p["paragraph_id"] for p in judgment["paragraphs"]] == ["kop-1", "rov-1.1"]
     assert painted["whole"] is False
     assert painted["numbers"] == ["1", "1.1", "1.2"]
-    assert all(p["citations"] == [] for p in judgment["paragraphs"])
+    cited = [p["paragraph_id"] for p in judgment["paragraphs"] if p["citations"]]
+    assert cited == [], "a painted paragraph keeps no citations"
     assert "paragraphs" not in judgment["props"] and "text" not in judgment["props"]
     assert painted["light"]["node"] == {"props": {"outcome": "verworpen"}}
     buckets = {
