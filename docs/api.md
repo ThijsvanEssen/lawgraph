@@ -447,6 +447,26 @@ holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `A
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
 notes a term whose article the graph does not have.
 
+### Search pages and facets
+
+`/api/search?mode=full` pages through the hits of each type (`offset`, at most 500, a page
+of `limit`) and with `facets=true` counts them and divides them:
+
+* `counts.<type>` is `{total, capped}`: the rows that hold the words of the query (unranked,
+  from the indexes of the words), counted to at most 5,000 (`search/counts.py`
+  `COUNT_CAP`). With `capped` the total is a lower bound and the facets are those of the
+  rows found first. A type that is not counted (members, factions, cabinets, committees,
+  commitments, decisions) has the hits it found as `total`, `capped` when it found as many
+  as the page needed. A count that takes over a second is null.
+* `facets.<type>.<facet>` is a list of `{value, count}`, the largest first (`year` the
+  newest first; a null value counts the hits without one): `judgments.tier` and
+  `judgments.year` (of the decision), `documents.kind`, `instruments.validity` (`in_force`,
+  `expired`, `not_in_force_yet`: the state of `core/validity.py`, as `/api/instruments`
+  gives it; null where the source says none). A facet counts every hit of the type whatever
+  the page, under the period and `kind` of the request, not under the value of another facet.
+* The count and the facets run beside the searches, and are not asked for by default.
+  `mode=live` has neither `offset` nor `facets`. No hit is ranked by authority.
+
 ### Neighbour filters
 
 `/api/nodes/{collection}/{key}` and `.../neighborhood` take the same filters:
