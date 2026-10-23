@@ -18,6 +18,9 @@ KIND_BILL: Final = "Voorstel van wet"
 KIND_AMENDMENT_NOTE: Final = "Nota van wijziging"
 KIND_EXPLANATORY_MEMORANDUM: Final = "Memorie van toelichting"
 KIND_GOVERNMENT_LETTER: Final = "Brief regering"
+# The advice of the Afdeling advisering of the Raad van State on a bill, alone or with the
+# nader rapport or the reaction of the initiator (a prefix: ``is_advice``).
+KIND_ADVICE: Final = "Advies Afdeling advisering Raad van State"
 # The documents the Kamer decides on by a vote of their own.
 DECIDED_KINDS: Final = (KIND_MOTION, KIND_AMENDMENT)
 

@@ -22,8 +22,14 @@ ACTS = {
     "32022R0868": "eurlex_32022r0868.html",
     "32016R0679": "eurlex_32016r0679.html",
     "31995L0046": "eurlex_31995l0046.html",
+    "51993PC0476": "eurlex_51993pc0476.html",
 }
 
+
+PROPOSAL_TITLE = (
+    "Voorstel voor een VERORDENING (EG) VAN DE RAAD betreffende de statistieken van het "
+    "goederenverkeer van de Gemeenschap en haar Lid-Staten met derde landen"
+)
 
 # The tests read one database built for them all (``store``), on the worker that built it.
 pytestmark = pytest.mark.xdist_group("eu_articles")
@@ -229,6 +235,12 @@ def test_an_article_of_the_old_format_has_its_breadcrumb(api: Api) -> None:
     assert "SLOTBEPALINGEN" not in _article(api, "31995L0046", "6")["text"]
 
 
+def test_the_reference_of_a_proposal_is_no_part_of_its_title(api: Api) -> None:
+    proposal = api.get_json("/api/instruments/51993PC0476")
+    title = PROPOSAL_TITLE
+    assert (proposal["title"], proposal["display_name"]) == (title, title)
+
+
 def test_an_eu_act_has_its_official_names(api: Api) -> None:
     body = api.get_json("/api/articles/32022R0868/1")
     instrument = body["instrument"]
@@ -275,4 +287,6 @@ def test_the_list_of_eu_acts_names_every_act(api: Api) -> None:
         "32022R0868": ("Verordening (EU) 2022/868", "Verordening (EU) 2022/868"),
         "32016R0679": ("Verordening (EU) 2016/679", "Verordening (EU) 2016/679"),
         "31995L0046": ("Richtlijn 95/46/EG", "Richtlijn 95/46/EG"),
+        # a proposal has no citation title: the printed one, without the reference
+        "51993PC0476": (PROPOSAL_TITLE, PROPOSAL_TITLE),
     }
