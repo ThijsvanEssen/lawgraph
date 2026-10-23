@@ -10,7 +10,7 @@ bwb-implements``, then the API.
   electronic communications code (2018/1972): the Awb implements it.
 - A measure that made a version of an article (Stb. 2022, 332, which gave the Grondwet its
   Algemene bepaling; the measure is made for the test) implements an act: the publication
-  and the regulation it changed implement it.
+  does, the regulation it merely changed does not.
 - A second run changes nothing, and an IMPLEMENTS from a mention alone (as it was written
   before) goes.
 """
@@ -209,7 +209,7 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
             }
         ],
     }
-    # the publication that made a version of an article, and the regulation it changed
+    # the publication that made a version of an article, not the regulation it changed
     srm = {
         "bases": ["national_implementing_measure"],
         "publications": ["stb-2022-332"],
@@ -223,7 +223,7 @@ def test_a_measure_of_eur_lex_implements(store: GraphStore) -> None:
         ],
     }
     assert links[("stb_2022_332", "IMPLEMENTS", "32014r0806")] == srm
-    assert links[("bwbr0001840", "IMPLEMENTS", "32014r0806")] == srm
+    assert ("bwbr0001840", "IMPLEMENTS", "32014r0806") not in links
     # the Awb names SRM and implements it not: a reference
     assert ("bwbr0005537", "IMPLEMENTS", "32014r0806") not in links
     assert links[("bwbr0005537", "REFERS_TO", "32014r0806")] == {}
@@ -253,17 +253,7 @@ def test_the_eu_links_of_a_law(api: Api) -> None:
     [eecc] = body["implements"]
     assert [m["citation"] for m in eecc["via"]] == ["Stb. 1992, 315"]
     grondwet = api.get_json("/api/instruments/BWBR0001840/eu-links")
-    [srm] = grondwet["implements"]
-    assert srm["via"] == [
-        {
-            "publication": "stb-2022-332",
-            "citation": "Stb. 2022, 332",
-            "title": "Wet van 6 juli 2022 houdende verandering in de Grondwet",
-            "type": "Wet",
-            "id": "instruments/stb_2022_332",
-            "path": "/stb/2022/332",
-        }
-    ]
+    assert grondwet["implements"] == []  # Stb. 2022, 332 only changed it
     assert {link["instrument"]["celex"] for link in body["mentions"]} == {EMIR, SRM}
     down = api.get_json(f"/api/instruments/{GDPR}/eu-links")
     assert [link["instrument"]["bwb_id"] for link in down["implemented_by"]] == [UAVG]

@@ -36,6 +36,13 @@ from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
+from lawgraph.db.queries.delegations import (
+    TABLES as DELEGATED_TABLES,
+)
+from lawgraph.db.queries.delegations import (
+    count_expired_delegated,
+    get_delegated_by_law,
+)
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
@@ -167,6 +174,14 @@ def _warm_home_summary(store: GraphStore) -> None:
     get_feed_summary(store, filters, limit=HOME_SUMMARY["limit"])
 
 
+def _warm_delegated(store: GraphStore) -> None:
+    """The regulations in force under the most cited laws, as the explorer asks them
+    (``/delegated?detail=summary``): the Awb has 850, 10 s cold."""
+    for bwb_id in most_cited_laws(store, WARM_LAWS):
+        get_delegated_by_law(store, bwb_id, "in_force", True)
+        count_expired_delegated(store, bwb_id)
+
+
 @dataclass(frozen=True)
 class Part:
     """One part of the warm-up: its name (in the log), what it computes and, for a part
@@ -266,6 +281,7 @@ PARTS: tuple[Part, ...] = (
 TAIL: tuple[Part, ...] = (
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
+    Part("regulations under a law", _warm_delegated, DELEGATED_TABLES),
 )
 # The version of its tables each of the parts with tables was last warmed for, per
 # database, in this process.

@@ -6,12 +6,12 @@ alone; ``meta.bases`` says which:
 
 * ``national_implementing_measure``: EUR-Lex lists the publication as a Dutch measure
   implementing the act (``retrieve eurlex-nim``). The edge goes from the publication (when
-  the graph has it) and from every regulation it enacted or made an article version of;
+  the graph has it) and from every regulation it enacted;
   ``meta.publications`` names the measures, ``meta.measures`` each with how it is cited and its
   title and kind of act as EUR-Lex gives them (the law that changed the Awb to implement it).
-  Not from articles: a measure names no article,
-  and what it changed may be more than the implementation (a republication of a code, a
-  law amending several others);
+  Not from articles, and not from a regulation it merely changed: a measure names no
+  article, and an amending act may change many laws (Stb. 1999, 133 changed the Grondwet
+  among others);
 * ``considerans``: the considerans of the regulation says it implements the act ("ter
   uitvoering van", "te implementeren", the "Gelet op" of an order), as ``normalize bwb``
   keeps it (``props.implements_celex``).
@@ -118,8 +118,8 @@ class BWBImplementsSemanticPipeline(SemanticPipelineBase):
     # ------------------------------------------------------------------ EUR-Lex
 
     def _link_measures(self, links: dict[tuple[str, str], _Link]) -> None:
-        """IMPLEMENTS from each measure's publication and from the regulations it enacted
-        or changed."""
+        """IMPLEMENTS from each measure's publication and from the regulations it
+        enacted."""
         acts_of: dict[str, set[str]] = defaultdict(set)  # publication id -> CELEX
         summary_of: dict[
             str, dict[str, Any]
