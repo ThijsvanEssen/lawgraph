@@ -751,6 +751,14 @@ class DocumentProps(_CommonProps):
     sentences up to 400 characters, else cut at a word with "…"
     (``core/amendment_explanation.py``); absent for any other paper and for one without a
     Toelichting."""
+    advice_date: str | None = None
+    """Of an advice of the Raad van State, the day of the advice as its paper opens
+    ("het advies ... d.d. 15 november 2023"; ``core/advice_dates.py``). `date` is the day it
+    was filed, months later; absent for any other paper and for one whose opening gives no
+    day."""
+    report_date: str | None = None
+    """Of such a paper, the day of the nader rapport as it opens ("het nader rapport d.d. 2
+    februari 2024"); absent without one."""
     outcome: str | None = None
     """Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`,
     ``core/votes.py``): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`,

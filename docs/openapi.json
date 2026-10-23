@@ -8770,6 +8770,18 @@
             "title": "Status",
             "description": "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, ``Verplaatst``, ``Vervallen``; null when the source gives none (the Eerste Kamer gives none)."
           },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date",
+            "description": "The day it was held, or is to be: ``date``, but for a ``Verplaatst`` activity the day of the one that took its place (``moved_to``; the latest when there are several), since ``date`` is the day it was first set for and did not go ahead. Null without a date."
+          },
           "agenda_title": {
             "anyOf": [
               {
@@ -8861,6 +8873,7 @@
           "kind",
           "date",
           "status",
+          "effective_date",
           "agenda_title",
           "tk_url",
           "committee",
