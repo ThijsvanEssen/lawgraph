@@ -285,6 +285,7 @@
   "CREATE INDEX IF NOT EXISTS instruments_list_article_count ON instruments (article_count DESC NULLS LAST, key DESC) WHERE kind IS DISTINCT FROM 'publicatie'",
   "CREATE INDEX IF NOT EXISTS instruments_list_date_published ON instruments (date_published) WHERE kind IS DISTINCT FROM 'publicatie'",
   "CREATE INDEX IF NOT EXISTS instruments_list_title ON instruments (citation_title NULLS FIRST, key) WHERE kind IS DISTINCT FROM 'publicatie'",
+  "CREATE INDEX IF NOT EXISTS instruments_ministry ON instruments (ministry)",
   "CREATE INDEX IF NOT EXISTS instruments_policy_domains ON instruments USING gin (public.lg_policy_domain_keys(props))",
   "CREATE INDEX IF NOT EXISTS instruments_s_aliases_n ON instruments USING gin (s_aliases_n)",
   "CREATE INDEX IF NOT EXISTS instruments_s_aliases_p ON instruments USING gin (s_aliases_p gin_trgm_ops)",

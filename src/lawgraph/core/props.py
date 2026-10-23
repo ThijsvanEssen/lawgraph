@@ -165,6 +165,9 @@ class InstrumentProps(_CommonProps):
     """How the WTI of a BWB regulation files it by legal area (`normalize bwb`)."""
     policy_domains: list[PolicyDomainProps] | None = None
     """How the WTI of a BWB regulation files it by government theme (`normalize bwb`)."""
+    ministry: str | None = None
+    """The key of the ministry first responsible for a BWB regulation: the one its WTI
+    names (`eerstverantwoordelijke`), under its name of today (`normalize bwb`)."""
     bwb_id: str | None = None
     """The BWB id: `BWBR0001854`, a treaty `BWBV...`."""
     celex: str | None = None
