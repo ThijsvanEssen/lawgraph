@@ -197,6 +197,8 @@ A member of the Eerste Kamer who was a member of the Tweede Kamer is one member:
 that day whose surname ends their name, when exactly one is; else a member of their own,
 `ek_<slug>`.
 
+A member's votes (`/api/members/{key}/votes`) carry `in_office`, the posts they held on the day of the vote; `in_office=true` keeps the votes cast in office, `in_office=false` those cast out of office (as Kamerlid alone), left out all.
+
 The end of a cabinet, of a phase of a cabinet and of a post in it (`to_date`, in
 `/api/cabinets`, in a cabinet's `phases` and seats, and in a member's `government_functions`)
 is the day of the change as Rijksoverheid gives it: the day the next cabinet, phase or holder

@@ -188,3 +188,29 @@ def test_a_member_never_in_office_has_no_votes_in_office(store: GraphStore) -> N
     decisions_voted(store, [VVD, D66], [post])
     faction_votes.fill_faction_votes(store)
     assert get_member_votes(store, "members/m1", in_office=True) == []
+
+
+def test_the_votes_are_split_by_in_office_three_ways(store: GraphStore) -> None:
+    """``in_office`` true keeps the votes cast within a post, false those outside every post,
+    null all: the two halves are the whole and share no vote."""
+    post = {"function": "Minister", "from_date": "2020-01-01", "to_date": "2020-01-31"}
+    decisions_voted(store, [VVD, D66], [post])
+    faction_votes.fill_faction_votes(store)
+
+    def keys(flag: bool | None) -> list[str]:
+        votes = get_member_votes(store, "members/m1", limit=5000, in_office=flag)
+        return [v["decision_key"] for v in votes]
+
+    inside, outside, everything = keys(True), keys(False), keys(None)
+    assert inside and outside
+    assert not set(inside) & set(outside)
+    assert sorted(inside + outside) == sorted(everything)
+    flags = {
+        flag: [
+            bool(v["in_office"])
+            for v in get_member_votes(store, "members/m1", limit=5000, in_office=flag)
+        ]
+        for flag in (True, False)
+    }
+    assert set(flags[True]) == {True}, flags[True][:3]
+    assert set(flags[False]) == {False}, flags[False][:3]
