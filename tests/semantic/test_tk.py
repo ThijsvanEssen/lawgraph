@@ -57,6 +57,7 @@ def _tk_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         semantic_bwb, "law_articles", lambda store, field, law_id: iter([])
     )
     monkeypatch.setattr(law_queries, "laws_of_dossiers", lambda store: iter([]))
+    monkeypatch.setattr(semantic_tk, "faction_abbreviations", lambda store: {"VVD"})
 
 
 def _make_tk_document(key: str, text: str) -> dict[str, Any]:
