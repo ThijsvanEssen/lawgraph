@@ -79,6 +79,39 @@ def test_a_paper_written_is_kept_light(store: GraphStore) -> None:
     assert _light(store, "d1") is None
 
 
+def test_the_day_of_an_advice_reaches_the_signals_of_its_dossier(
+    store: GraphStore,
+) -> None:
+    """``advice_date`` is a light prop and a signal of the paper, light or cut."""
+    advice = _document(
+        "d1",
+        "36000",
+        kind="Advies Afdeling advisering Raad van State",
+        advice_date="2024-01-02",
+    )
+    store.bulk_insert_or_update_nodes("documents", [advice])
+    assert _light(store, "d1")["advice_date"] == "2024-01-02"
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [{"key": "36000", "type": "dossier", "labels": [], "props": {}}]
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "key": "part-d1",
+                "from_id": "documents/d1",
+                "to_id": "dossiers/36000",
+                "relation": "PART_OF",
+                "source": "test",
+                "meta": {},
+            }
+        ]
+    )
+    for _ in range(2):  # from lg_document_light, then from the props
+        (row,) = normalize_tk.dossier_signals(store, ["dossiers/36000"])
+        assert [d["advice_date"] for d in row["docs"]] == ["2024-01-02"]
+        store.execute("DELETE FROM lg_document_light")
+
+
 def test_whether_a_paper_has_its_text_is_kept_light(store: GraphStore) -> None:
     """``has_text``: the paper's text is in the data; it changes when the text comes."""
     store.bulk_insert_or_update_nodes(

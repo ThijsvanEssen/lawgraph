@@ -368,13 +368,17 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
     @staticmethod
     def _member(key: str, posts: list[dict[str, Any]], own: set[str]) -> Node:
         name = holder_name(posts[-1]["name"] or "")
+        goes_by = known_as(posts)
         props: dict[str, Any] = {
             "government_name": name,
-            "known_as": known_as(posts),
+            "known_as": goes_by,
             "government_functions": posts,
         }
         if key in own:
-            props.update({"external_id": key, "name": name, "display_name": name})
+            # one name for the person: the first name and surname the pages give, else
+            # initials and surname as they print them
+            shown = goes_by or name
+            props.update({"external_id": key, "name": shown, "display_name": shown})
         return Node(
             collection=COLLECTION_MEMBERS,
             key=key,

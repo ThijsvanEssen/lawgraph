@@ -2042,6 +2042,7 @@ def test_the_signals_of_a_dossier_are_the_few_fields_used_not_whole_documents(
     assert row["case_kinds"] == ["Wetgeving"]
     assert row["docs"] == [
         {
+            "advice_date": None,
             "date": "2026-01-02",
             "kind": "Voorstel van wet",
             "own": ["36000", None],
@@ -2191,6 +2192,7 @@ def test_the_signals_of_dossiers_in_their_order_with_their_case_kinds(
     # by date (none first), then id; keys in byte order
     assert [list(d) for d in mine["docs"]][0] == [
         "date",
+        "advice_date",
         "kind",
         "own",
         "sequence",
@@ -2322,6 +2324,7 @@ def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> No
         "case_kinds": ["Begroting", "brief", "Motie"],
         "docs": [
             {
+                "advice_date": None,
                 "date": None,
                 "kind": "Motie",
                 "own": None,
@@ -2329,6 +2332,7 @@ def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> No
                 "title": "Beide",
             },
             {
+                "advice_date": None,
                 "date": "2024-03-03",
                 "kind": "Brief",
                 "own": None,
@@ -2347,6 +2351,7 @@ def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> No
         "case_kinds": ["brief", "Motie", "Wetgeving"],
         "docs": [
             {
+                "advice_date": None,
                 "date": None,
                 "kind": "Motie",
                 "own": None,
@@ -2354,6 +2359,7 @@ def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> No
                 "title": "Beide",
             },
             {
+                "advice_date": None,
                 "date": "2024-03-03",
                 "kind": "Voorstel van wet",
                 "own": ["44001", None],
@@ -2361,6 +2367,7 @@ def test_dossiers_that_share_papers_each_have_them_once(store: GraphStore) -> No
                 "title": None,
             },
             {
+                "advice_date": None,
                 "date": "2024-03-03",
                 "kind": "Brief",
                 "own": None,

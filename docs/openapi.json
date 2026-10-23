@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.5",
+    "version": "0.80.6",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -8806,6 +8806,18 @@
             "title": "Status",
             "description": "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, ``Verplaatst``, ``Vervallen``; null when the source gives none (the Eerste Kamer gives none)."
           },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date",
+            "description": "The day it was held, or is to be: ``date``, but for a ``Verplaatst`` activity the day of the one that took its place (``moved_to``; the latest when there are several), since ``date`` is the day it was first set for and did not go ahead. Null without a date."
+          },
           "agenda_title": {
             "anyOf": [
               {
@@ -8897,6 +8909,7 @@
           "kind",
           "date",
           "status",
+          "effective_date",
           "agenda_title",
           "tk_url",
           "committee",
