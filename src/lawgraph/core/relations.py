@@ -316,7 +316,12 @@ class JudgmentLinkMeta(_Meta):
 
 class ContinuesMeta(JudgmentLinkMeta):
     reason: Reason | None = None
-    """`verplaatst`: an activity replaced a moved one."""
+    """`verplaatst`: an activity replaced a moved one; `alle_zetels`: a faction took over
+    all the seats of another."""
+    effective_date: str | None = None
+    """The first day of the new faction's seats (a faction)."""
+    seats: int | None = None
+    """The holders of the old faction's last day who sit in the new one (a faction)."""
 
 
 class AnswersMeta(_Meta):
@@ -673,11 +678,17 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (
             (_J, _J),
             (_ACT, _ACT),
+            (_FACTION, _FACTION),
         ),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
         "shares its court and case number. An activity → the moved activity it replaced "
-        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`).",
+        "(`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). A faction → the faction it "
+        "passed all its seats to: the holders of its last day who sit the day after sit in "
+        "the new faction, which had no seat before and has at least as many (`meta.reason` "
+        "`alle_zetels`, "
+        "`meta.effective_date`, `meta.seats`; `semantic tk-faction-succession`). A faction "
+        "whose seats do not pass that way has no successor.",
         meta=ContinuesMeta,
     ),
     RelationSpec(

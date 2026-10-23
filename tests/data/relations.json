@@ -357,11 +357,13 @@
       "name": "CONTINUES",
       "sources": [
         "judgments",
-        "activities"
+        "activities",
+        "factions"
       ],
       "targets": [
         "judgments",
-        "activities"
+        "activities",
+        "factions"
       ],
       "ends": [
         [
@@ -371,6 +373,10 @@
         [
           "activities",
           "activities"
+        ],
+        [
+          "factions",
+          "factions"
         ]
       ]
     },
