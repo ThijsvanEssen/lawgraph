@@ -641,8 +641,8 @@ _VALIDITY = Query(
         "today or before) or all, each with its `expired_on`; `expired_total` counts the "
         "ones no longer in force whatever was asked for and `by_kind` the items per kind. "
         "A repealed article is left out. `detail=summary`: the light form, per regulation "
-        "only the articles of the law it names, without `referring`, `also_based_on` and "
-        "`sub_delegated`. Empty for an unknown instrument."
+        "only the articles of the law it names, without `referring` and `also_based_on`, with "
+        "`sub_delegated` (its articles without `referring`). Empty for an unknown instrument."
     ),
     tags=["instruments"],
 )

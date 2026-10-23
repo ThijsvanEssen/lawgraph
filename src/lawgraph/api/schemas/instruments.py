@@ -1814,6 +1814,11 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
     articles: list[BasisArticleDTO] = Field(
         description="The articles of the law it is issued under, in the order of the law."
     )
+    sub_delegated: list[SubDelegatedDTO] = Field(
+        default_factory=list,
+        description="The regulations in force issued under its articles in turn, as on the "
+        "full form.",
+    )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> InstrumentDelegatedSummaryItem:
@@ -1828,6 +1833,9 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
             expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
+            sub_delegated=in_regulation_order(
+                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+            ),
         )
 
 

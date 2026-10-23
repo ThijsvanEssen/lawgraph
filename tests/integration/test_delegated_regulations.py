@@ -362,10 +362,34 @@ def test_the_regulations_no_longer_in_force_and_the_light_form(
     assert {k for i in light["items"] for a in i["articles"] for k in a} & {
         "referring"
     } == set()
-    assert {k for i in light["items"] for k in i} & {
-        "sub_delegated",
-        "also_based_on",
-    } == set()
+    assert {k for i in light["items"] for k in i} & {"also_based_on"} == set()
+
+
+def test_the_light_form_has_the_regulations_under_a_regulation(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    cli("semantic", "bwb-grondslagen")
+
+    full = _get(store, f"/api/instruments/{WET}/delegated")
+    light = _get(store, f"/api/instruments/{WET}/delegated?detail=summary")
+
+    def under(body: dict[str, Any]) -> dict[str, list[tuple[str, str | None]]]:
+        return {
+            i["instrument"]["bwb_id"]: [
+                (s["instrument"]["bwb_id"], s["expired_on"]) for s in i["sub_delegated"]
+            ]
+            for i in body["items"]
+        }
+
+    assert under(light) == under(full)
+    assert under(light)[BESLUIT] == [(SUB, None)]
+    sub = {i["instrument"]["bwb_id"]: i for i in light["items"]}[BESLUIT][
+        "sub_delegated"
+    ]
+    assert [a["article_number"] for a in sub[0]["articles"]] == ["2", "3"]
 
 
 def test_the_basis_by_validity(database: str, cli: Any) -> None:

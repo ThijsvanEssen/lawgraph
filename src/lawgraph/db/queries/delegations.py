@@ -300,8 +300,9 @@ CROSS JOIN LATERAL (
 ) p
 """
 
-# The light form: the regulation and the articles of the law it names, nothing read of its
-# own articles, its co-bases or the regulations under it.
+# The light form: the regulation, the articles of the law it names and the regulations
+# issued under its own articles (``sub_delegated``, by the edges into them alone); nothing
+# read of the text of its articles, nor its co-bases.
 _DELEGATED_SUMMARY_SQL = f"""
 WITH {_BASED},
 regulations AS MATERIALIZED (
@@ -310,16 +311,21 @@ regulations AS MATERIALIZED (
     JOIN {COLLECTION_INSTRUMENTS} i ON i.id = b.from_id
     WHERE {validity_clause("i")}
 )
-SELECT {summary_json("g")} AS instrument, p.articles
+SELECT {summary_json("g")} AS instrument, p.articles,
+       coalesce(p.sub_delegated, '[]'::json) AS sub_delegated
 FROM regulations g
 CROSS JOIN LATERAL (
-    WITH {_NAMED}
-    SELECT json_agg(json_build_object(
-               'id', b.id, 'key', b.key, 'article_number', b.article_number,
-               'display_name', b.display_name, 'meta', b.meta
-           ) ORDER BY b.position NULLS LAST, b.key) AS articles
-    FROM named b
-    WHERE b.law = %(bwb)s
+    WITH {_NAMED},
+    {_OWN}
+    SELECT (
+        SELECT json_agg(json_build_object(
+                   'id', b.id, 'key', b.key, 'article_number', b.article_number,
+                   'display_name', b.display_name, 'meta', b.meta
+               ) ORDER BY b.position NULLS LAST, b.key)
+        FROM named b
+        WHERE b.law = %(bwb)s
+    ) AS articles,
+    {_SUB_DELEGATED} AS sub_delegated
 ) p
 """
 
@@ -345,8 +351,8 @@ def get_delegated_by_law(
     the other laws it names (``instrument``, ``articles``), by title. ``sub_delegated``: the
     regulations of the validity issued under its articles that are not issued under the law
     itself (``instrument``, ``articles``: those of the regulation they name). Repealed
-    articles are left out. With *summary* only ``instrument`` and ``articles`` without
-    ``referring``. One query."""
+    articles are left out. With *summary* only ``instrument``, ``articles`` without
+    ``referring`` and ``sub_delegated``. One query."""
     return list(
         store.query(
             _DELEGATED_SUMMARY_SQL if summary else _DELEGATED_BY_LAW_SQL,

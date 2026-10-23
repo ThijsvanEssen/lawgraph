@@ -311,7 +311,9 @@ def test_the_regulations_no_longer_in_force_by_validity(store: GraphStore) -> No
     assert expired["date_expired"] == "2021-01-01"
 
 
-def test_the_light_form_reads_nothing_of_the_regulations_own(store: GraphStore) -> None:
+def test_the_light_form_has_the_regulations_under_a_regulation(
+    store: GraphStore,
+) -> None:
     _seed(store)
 
     rows = {
@@ -319,9 +321,14 @@ def test_the_light_form_reads_nothing_of_the_regulations_own(store: GraphStore) 
         for r in get_delegated_by_law(store, LAW, summary=True)
     }
 
-    assert set(rows[FIRST]) == {"instrument", "articles"}
+    assert set(rows[FIRST]) == {"instrument", "articles", "sub_delegated"}
     assert [a["key"] for a in rows[FIRST]["articles"]] == [f"{LAW.lower()}_1"]
     assert [a for a in rows[FIRST]["articles"] if "referring" in a] == []
+    assert [
+        (s["instrument"]["props"]["bwb_id"], [a["key"] for a in s["articles"]])
+        for s in rows[FIRST]["sub_delegated"]
+    ] == [(SUB, [f"{FIRST.lower()}_1"])]
+    assert rows[_regulation(1)]["sub_delegated"] == []
     params = {
         "bwb": LAW,
         "based_on": RELATION_BASED_ON,
@@ -332,12 +339,12 @@ def test_the_light_form_reads_nothing_of_the_regulations_own(store: GraphStore) 
     nodes = list(
         plan_nodes(explain(store, _DELEGATED_SUMMARY_SQL, params, analyze=True))
     )
-    own_reads = [
-        n
+    scanned = sum(
+        n["Actual Rows"] * n["Actual Loops"]
         for n in nodes
-        if n.get("Relation Name") == "articles" and "stub" in (n.get("Filter") or "")
-    ]
-    assert own_reads == []
+        if n["Node Type"] == "CTE Scan"
+    )
+    assert scanned < 40 * REGULATIONS
 
 
 def test_the_basis_marks_the_laws_no_longer_in_force(store: GraphStore) -> None:
