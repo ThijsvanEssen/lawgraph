@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -28,6 +29,7 @@ from lawgraph.core.document_completeness import (
     needs_retrieval,
 )
 from lawgraph.core.dossier_relations import RULE_REPLACEMENT
+from lawgraph.core.letter_kinds import ARTICLE_100, LetterKind
 from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.db.queries._helpers import chamber_sql
@@ -35,6 +37,7 @@ from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.queries.members import with_member_slugs
+from lawgraph.db.schema import article_100_letter
 from lawgraph.db.version_cache import cached_rows
 
 
@@ -180,6 +183,12 @@ _ITEM = f"""json_build_object(
     )"""
 
 
+# The condition per kind of letter (``core/letter_kinds.py``), each that of its partial index.
+_LETTER_KIND_SQL: dict[LetterKind, Callable[[str], str]] = {
+    ARTICLE_100: article_100_letter
+}
+
+
 def list_documents(
     store: GraphStore,
     *,
@@ -189,6 +198,7 @@ def list_documents(
     from_date: str | None = None,
     to_date: str | None = None,
     motion_kinds: tuple[str, ...] | None = None,
+    letter_kind: LetterKind | None = None,
     limit: int = 50,
     offset: int = 0,
     facets: bool = True,
@@ -197,7 +207,8 @@ def list_documents(
 
     *dossier* is a dossier label (``36791``, ``37020-XV``): the documents ``PART_OF`` it
     (its own and those of its cases); *motion_kinds* keeps the motions of those kinds
-    (``core/motion_kinds.py``). ``facets`` counts per ``kind`` (under the other
+    (``core/motion_kinds.py``), *letter_kind* the letters of the government of that kind
+    (``core/letter_kinds.py``). ``facets`` counts per ``kind`` (under the other
     filters) and per ``chamber`` (under the other filters); ``facets=False`` gives
     ``null`` for ``total`` and ``facets``. One statement either way.
     """
@@ -227,6 +238,9 @@ def list_documents(
             " WHERE lg_str(l.props -> 'motion_kind') = ANY(%(motion_kinds)s::text[])))"
         )
         bind["motion_kinds"] = list(motion_kinds)
+    if letter_kind:
+        # a few hundred letters: by the partial index of the kind, newest first
+        shared.append(_LETTER_KIND_SQL[letter_kind]("d"))
     own = {"chamber": "d.labels && %(chambers)s::text[]"}
     if kinds:
         own["kind"] = "d.kind = ANY(%(kinds)s::text[])"

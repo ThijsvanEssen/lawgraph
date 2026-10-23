@@ -5507,7 +5507,7 @@
           "documents"
         ],
         "summary": "The papers of the chambers",
-        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``; of a motion or an amendment how it ended (``outcome``) and of a motion of censure or of no confidence ``motion_kind``. ``motion_kind=censure,no_confidence`` keeps those motions: one open while its ``outcome`` is null. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
+        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``; of a motion or an amendment how it ended (``outcome``) and of a motion of censure or of no confidence ``motion_kind``. ``motion_kind=censure,no_confidence`` keeps those motions: one open while its ``outcome`` is null. ``letter_kind=article_100`` keeps the artikel 100-brieven of the government, as their subject names them. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
         "operationId": "list_chamber_documents_api_documents_get",
         "parameters": [
           {
@@ -5624,6 +5624,25 @@
               "title": "Motion Kind"
             },
             "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions."
+          },
+          {
+            "name": "letter_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "article_100",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A kind of letter of the government that its subject names: ``article_100`` the artikel 100-brieven (a deployment of the armed forces, artikel 100 Grondwet). Only those letters.",
+              "title": "Letter Kind"
+            },
+            "description": "A kind of letter of the government that its subject names: ``article_100`` the artikel 100-brieven (a deployment of the armed forces, artikel 100 Grondwet). Only those letters."
           },
           {
             "name": "facets",

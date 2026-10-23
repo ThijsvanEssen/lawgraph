@@ -719,3 +719,46 @@ def test_the_motions_of_a_kind_are_found_by_their_index(
         assert not indexes & {"documents_list_date", "decisions_list_date"}, "\n".join(
             outline
         )
+
+
+def test_the_artikel_100_brieven_are_read_by_their_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An artikel 100-brief is rare (a few hundred of some 650,000 papers, the oldest of
+    them from 2008): a page of them and their count read the partial index
+    ``documents_article_100``, not every paper newest first with the subject of each
+    tested."""
+    from lawgraph.db.queries.documents import list_documents
+
+    count, named = 3_000, 3
+
+    def subject(n: int) -> str:
+        return "Artikel 100-inzet" if n >= count - named else f"Brief {n}"
+
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            {"key": f"b{n:05d}", "type": "document", "labels": ["TK"],
+             "props": {"kind": "Brief regering", "subject": subject(n),
+                       "date": f"{2026 - n * 20 // count}-{1 + n % 12:02d}-01"}}
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    with store.pool.connection() as conn:
+        conn.execute("ANALYZE documents")
+
+    calls = recorded(store, monkeypatch)
+    found = list_documents(store, letter_kind="article_100")
+    assert (len(found["items"]), found["total"]) == (named, named)
+
+    plans = [
+        explain(store, call.statement, call.params, disable=["seqscan"])
+        for call in calls
+        if "~*" in call.text
+    ]
+    assert len(plans) == 2, show_items([c.text for c in calls])  # the page, the count
+    for plan in plans:
+        indexes = {node.get("Index Name") for node in plan_nodes(plan)}
+        outline = "\n".join(_outline(plan))
+        assert "documents_article_100" in indexes, outline
+        assert "documents_list_date" not in indexes, outline
