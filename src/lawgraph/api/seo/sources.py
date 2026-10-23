@@ -29,7 +29,12 @@ from lawgraph.api.seo.pages.parliament import (
     faction_page,
     member_page,
 )
-from lawgraph.api.seo.paint import article_paint, judgment_paint, law_paint
+from lawgraph.api.seo.paint import (
+    article_paint,
+    document_paint,
+    judgment_paint,
+    law_paint,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -54,7 +59,9 @@ SOURCE_PAGES: dict[str, SourcePage] = {
     "uitspraak": SourcePage(
         seo.judgment, judgment_page, "/og/uitspraak.png", paint=judgment_paint
     ),
-    "kamerstuk": SourcePage(seo.paper, document_page, "/og/kamerstuk.png"),
+    "kamerstuk": SourcePage(
+        seo.paper, document_page, "/og/kamerstuk.png", paint=document_paint
+    ),
     "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),
     "lid": SourcePage(seo.member, member_page),
     "fractie": SourcePage(seo.faction, faction_page),

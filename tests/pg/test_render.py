@@ -2517,6 +2517,47 @@ def test_a_law_is_painted_first_with_its_first_articles_and_their_text(
     )
 
 
+def test_a_kamerstuk_is_painted_first_with_its_first_alineas(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer with its text up to the end of an alinea past the cut, the widest numbers
+    of all its alineas, a later heading a line repeats, its light node, and the vote on it."""
+    monkeypatch.setattr(render, "PAINT_BUDGET", 30.0)
+    monkeypatch.setattr(paint, "_DOCUMENT_TEXT", 20)
+    text = "Voorzitter: Kops\nDe eerste alinea.\nDe tweede.\nVoorzitter: Kops\nEind."
+    lines = [(0, 16), (17, 34), (35, 45), (46, 62), (63, 68)]
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("kst_36496_80", "document", kind="Verslag", date="2026-08-01",
+                  dossier_number="36496", dossier_numbers=["36496"], sequence=80,
+                  title="Verslag van een overleg", text=text,
+                  paragraphs=[{"id": f"p-{i}", "number": i, "kind": "body",
+                               "char_start": a, "char_end": b}
+                              for i, (a, b) in enumerate(lines, start=1)],
+                  sections=[{"id": "s-1", "heading": "Voorzitter: Kops", "level": 1,
+                             "kind": "other",
+                             "char_start": 46, "char_end": 68}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_edge("p80", "documents/kst_36496_80", "cases/z_1", "PART_OF")]
+    )
+    response = _get(painting, "/kamerstukken/36496/80")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "paper"
+    doc = painted["document"]
+    assert doc["text"] == "Voorzitter: Kops\nDe eerste alinea."
+    assert [p["id"] for p in doc["paragraphs"]] == ["p-1", "p-2"]
+    assert doc["sections"] == []
+    assert (painted["whole"], painted["section_count"]) == (False, 1)
+    assert painted["headings"] == ["voorzitter: kops"]
+    assert painted["numbers"][0] in {"1", "2", "3", "4", "5"}
+    # the vote on it, which its head says
+    assert [d["key"] for d in doc["decisions"]] == ["s_1"]
+
+
 def test_a_judgment_whose_parties_were_not_read_is_not_painted_first(
     painting: TestClient, store: GraphStore
 ) -> None:
