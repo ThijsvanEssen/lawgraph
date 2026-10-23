@@ -10,6 +10,12 @@ The config of the production server as it is live, so it changes through a pull 
   reads this file with `import /etc/caddy/concordans.caddy`.
 - `bin/alert.sh`: `LAWGRAPH_ALERT_COMMAND`, a push through ntfy; the topic is in `/srv/lawgraph/ntfy-topic`, not
   here.
+- `bin/api-watch.sh` with `lawgraph-api-watch.timer` (every minute): `/api/health` within 10 s. At the third
+  failure in a row it keeps the database sessions and a stack dump of every thread in
+  `/srv/lawgraph/ops/api-hang-<date>-<time>.txt` (read with `gh workflow run ops -f action=run -f
+  name=show-evidence`), restarts the API, waits until it answers and alerts (`API health: herstart, geen-antwoord
+  [actie]`). Not while a deploy runs (`tmp/deploying`) or in the 10 minutes after the API started, one at a time,
+  and at most one restart per 30 minutes; past that it alerts `mislukt` and leaves the API as it is.
 - `scheduler.env.example`: the names in `/srv/lawgraph/scheduler.env`.
 
 `apply.sh` compares and applies, on the server, from the copy the ops workflow sends:
@@ -23,7 +29,7 @@ gh workflow run ops --ref main -f action=config-apply   # the same, then only wh
 Caddyfile with this block in it. It also adapts that Caddyfile to JSON and compares it with the live one, so a
 block that is the same gives the same config. `apply` runs the checks first and stops at any failure, so nothing
 changes then. After the checks it installs the changed units and runs `daemon-reload`. It restarts a changed timer
-and enables a new one. It installs `alert.sh`. It installs the Caddy block and reloads Caddy, keeping a backup of
+and enables a new one. It installs the scripts of `bin/` in `/srv/lawgraph/bin/`. It installs the Caddy block and reloads Caddy, keeping a backup of
 the block before. A file on the server that is not here, such as a drop-in made by hand, is named and left alone.
 
 `config-apply` changes the Caddy block only while the live Caddyfile imports `/etc/caddy/concordans.caddy`; it
