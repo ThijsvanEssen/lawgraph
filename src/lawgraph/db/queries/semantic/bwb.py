@@ -88,15 +88,18 @@ def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
 
 
 _BASIS_SQL = f"""
-SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'basis' AS basis
+SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'basis' AS basis,
+       props -> 'basis_preamble' AS basis_preamble
 FROM instruments
-WHERE lg_str(props -> 'source') = %(source)s AND {has_length("props -> 'basis'")}
+WHERE lg_str(props -> 'source') = %(source)s
+  AND ({has_length("props -> 'basis'")} OR {has_length("props -> 'basis_preamble'")})
 ORDER BY key
 """
 
 
 def regulations_with_basis(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, bwb_id, basis}`` of the BWB regulations that state a legal basis."""
+    """``{key, bwb_id, basis, basis_preamble}`` of the BWB regulations that state a legal
+    basis: with a link, or in the words of the preamble."""
     return store.query(_BASIS_SQL, {"source": SOURCE_BWB})
 
 

@@ -278,6 +278,9 @@ class InstrumentProps(_CommonProps):
     basis: list[dict[str, Any]] | None = None
     """The `Gelet op` references of its toestand: `{bwb_id, article, doc, text}`
     (`BASED_ON`)."""
+    basis_preamble: str | None = None
+    """The text of its `Gelet op` paragraphs: a law it names without a link is read from it
+    (`BASED_ON`)."""
     celex_refs: list[str] | None = None
     """The EU acts its text names."""
     implements_celex: list[str] | None = None

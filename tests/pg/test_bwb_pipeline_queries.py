@@ -133,9 +133,14 @@ def test_regulations_with_basis_are_bwb_with_a_non_empty_basis(
 ) -> None:
     _instruments(store)
     assert list(semantic_bwb.regulations_with_basis(store)) == [
-        {"key": "bwbr2", "bwb_id": "BWBR2", "basis": ["BWBR1"]},
+        {"key": "bwbr2", "bwb_id": "BWBR2", "basis": ["BWBR1"], "basis_preamble": None},
         # LENGTH of a string is its number of characters
-        {"key": "bwbr3", "bwb_id": "BWBR3", "basis": "art. 1 Wet een"},
+        {
+            "key": "bwbr3",
+            "bwb_id": "BWBR3",
+            "basis": "art. 1 Wet een",
+            "basis_preamble": None,
+        },
     ]
 
 
