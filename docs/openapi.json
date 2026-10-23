@@ -37456,6 +37456,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -37667,6 +37668,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"

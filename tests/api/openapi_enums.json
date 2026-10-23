@@ -1958,6 +1958,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/SharedLinkDTO/properties/relation/anyOf/0": [
@@ -2014,6 +2015,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/SharedNeighborDTO/properties/kind_group/anyOf/0": [
