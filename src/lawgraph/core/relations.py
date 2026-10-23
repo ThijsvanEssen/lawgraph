@@ -107,6 +107,13 @@ class BwbChangeMeta(_Meta):
     """The publication that made the change: `stb-2019-33`."""
 
 
+class CommencesMeta(_Meta):
+    """A commencement the BWB records (``semantic bwb-amendments``)."""
+
+    effective_date: str | None = None
+    """The first day a version the commencing publication put in force takes effect."""
+
+
 class ArticleChangeMeta(BwbChangeMeta):
     """A change of an article: as the BWB records it, or as the text of an amendment
     proposes it (``amendment-article-linker``)."""
@@ -535,6 +542,16 @@ RELATIONS: tuple[RelationSpec, ...] = (
         ),
         "An instrument withdraws an article; a bill proposing it is `voorgesteld`.",
         meta=ArticleChangeMeta,
+    ),
+    RelationSpec(
+        "COMMENCES",
+        ((_I, _I),),
+        "A publication that sets the date a law takes effect (an inwerkingtredingsbesluit) → "
+        "the publication that enacted or changed that law, as the BWB names both on the "
+        "article versions it made (`commencement_publication` other than "
+        "`origin_publication`). `meta.effective_date` is the first day a version takes "
+        "effect. A law that enters into force by itself, on the date it names, has none.",
+        meta=CommencesMeta,
     ),
     RelationSpec(
         "TRANSPOSED_TO",

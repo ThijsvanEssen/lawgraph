@@ -162,6 +162,21 @@
       ]
     },
     {
+      "name": "COMMENCES",
+      "sources": [
+        "instruments"
+      ],
+      "targets": [
+        "instruments"
+      ],
+      "ends": [
+        [
+          "instruments",
+          "instruments"
+        ]
+      ]
+    },
+    {
       "name": "TRANSPOSED_TO",
       "sources": [
         "articles"
