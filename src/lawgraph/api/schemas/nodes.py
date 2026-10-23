@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -468,3 +468,140 @@ class SharedNeighborsResponse(StrictModel):
     total: int = Field(description="The shared neighbours of every collection.")
     buckets: list[SharedBucketDTO]
     facets: SharedFacetsDTO
+
+
+class SurroundingKindDTO(StrictModel):
+    """How many edges of a relation reach nodes of a collection."""
+
+    relation: Relation
+    collection: Collection
+    count: int
+
+
+class SurroundingItemDTO(StrictModel):
+    """A node of a section and the edge that ties it to the node asked for."""
+
+    node: BaseNodeDTO
+    relation: Relation
+    direction: Direction = Field(
+        description="`outbound`: the edge leaves `via` for the node."
+    )
+    edge_id: str
+    status: str | None
+    via: str = Field(
+        description="The node the edge hangs at: the node asked for, or its paper, case "
+        "or dossier (`collection/key`)."
+    )
+
+
+class SurroundingSectionDTO(StrictModel):
+    """Some nodes of one kind of surrounding, and how many there are."""
+
+    total: int = Field(
+        description="The distinct nodes of the section's kinds at the node and its "
+        "document, case and dossier, per relation, whatever `items` holds."
+    )
+    kinds: list[SurroundingKindDTO] = Field(
+        description="`total` per relation and collection."
+    )
+    items: list[SurroundingItemDTO]
+
+
+class SurroundingSubmitterDTO(StrictModel):
+    """Who signed a paper or case, or made a commitment."""
+
+    node: BaseNodeDTO
+    edge_id: str
+    role: str | None = Field(
+        description="`Eerste ondertekenaar`, `Mede ondertekenaar`, `toezegger`, as the "
+        "source writes it."
+    )
+    function: str | None
+    capacity: str | None = Field(
+        description="`kamerlid`, `bewindspersoon` or `overig`."
+    )
+    faction: BaseNodeDTO | None = Field(
+        description="The faction they sat in on the day of the node; null for a "
+        "bewindspersoon and where no membership covers that day."
+    )
+
+
+class SurroundingHeldDTO(StrictModel):
+    """What a dossier holds, counted."""
+
+    documents: int
+    cases: int
+    decisions: int
+    commitments: int
+    activities: int
+    laws: int = Field(description="The publications that legislated in it.")
+
+
+class SurroundingDossierDTO(StrictModel):
+    """A dossier as one node, with what it holds counted (never its members)."""
+
+    node: BaseNodeDTO
+    via: str
+    held: SurroundingHeldDTO
+
+
+class SurroundingFactionVoteDTO(StrictModel):
+    """How one faction voted on a decision."""
+
+    faction: BaseNodeDTO
+    choice: str | None = Field(
+        description="`Voor`, `Tegen`, ...; of a roll call `Verdeeld` when the members "
+        "of the faction did not all vote alike."
+    )
+    seats: int | None = Field(
+        description="The seats of the faction's vote; of a roll call the members who voted."
+    )
+    members: dict[str, int] | None = Field(
+        description="Of a roll call: how many members of the faction cast each choice, by "
+        "the faction they sat in on the day; null for a vote by faction."
+    )
+
+
+class SurroundingVoteDTO(StrictModel):
+    """A decision on the node or its paper or case, with the vote of each faction."""
+
+    node: BaseNodeDTO = Field(
+        description="The decision; `props.tally`, `passed` and `vote_kind` say how it "
+        "ended."
+    )
+    about: str | None = Field(
+        description="The paper or case the decision is on (`collection/key`); null for "
+        "the decision asked for."
+    )
+    factions: list[SurroundingFactionVoteDTO] = Field(
+        description="Of a vote by faction its `VOTED` edges; of a roll call (`props."
+        "vote_kind` `member`) derived from the votes of its members; empty for a "
+        "hamerstuk and a roll call whose member votes or memberships are not read."
+    )
+
+
+class SurroundingGapDTO(StrictModel):
+    """Something the data does not hold, said as it is."""
+
+    section: Literal["submitters", "dossiers", "laws", "votes", "follows", "context"]
+    reason: str
+
+
+class SurroundingsResponse(StrictModel):
+    """What stands around a paper, case, decision, commitment or activity: who put it
+    forward, the dossier as one node, the laws it touches, the votes on it per faction,
+    what follows from it, and where it was made."""
+
+    focal: BaseNodeDTO
+    submitters: list[SurroundingSubmitterDTO]
+    submitters_total: int
+    dossiers: list[SurroundingDossierDTO]
+    dossiers_total: int
+    laws: SurroundingSectionDTO
+    votes: list[SurroundingVoteDTO]
+    votes_total: int
+    follows: SurroundingSectionDTO
+    context: SurroundingSectionDTO
+    gaps: list[SurroundingGapDTO] = Field(
+        description="Per section that is empty or incomplete, why: the source lacks it."
+    )

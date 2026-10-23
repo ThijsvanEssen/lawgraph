@@ -194,6 +194,11 @@ URLS = [
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2",
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2"
     "&tier=hoge_raad&subject_area=Strafrecht&sort=key&relations=REFERS_TO",
+    # what stands around a paper, a vote, a commitment and an activity
+    "/api/nodes/documents/d1/surroundings",
+    "/api/nodes/decisions/b1/surroundings",
+    "/api/nodes/commitments/tz1/surroundings",
+    "/api/nodes/activities/act1/surroundings",
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",
