@@ -1267,6 +1267,67 @@
    "law": "32016R0679",
    "article": "33",
    "why": "art. 33 AVG: melding van een inbreuk in verband met persoonsgegevens"
+  },
+  {
+   "term": "staandehouding",
+   "variants": [
+    "staande houden",
+    "staandehouden"
+   ],
+   "law": "BWBR0001903",
+   "article": "52",
+   "why": "art. 52 Sv: de opsporingsambtenaar is bevoegd de verdachte staande te houden om zijn identiteit vast te stellen"
+  },
+  {
+   "term": "identificatiefouillering",
+   "variants": [
+    "identificatiefouilleren"
+   ],
+   "law": "BWBR0001903",
+   "article": "55b",
+   "why": "art. 55b Sv: onderzoek aan kleding en voorwerpen van een staande gehouden of aangehouden verdachte, voor zover nodig voor de vaststelling van zijn identiteit"
+  },
+  {
+   "term": "fouilleren",
+   "variants": [
+    "fouillering",
+    "fouilleer",
+    "onderzoek aan kleding"
+   ],
+   "law": "BWBR0001903",
+   "article": "56",
+   "why": "art. 56 Sv: onderzoek aan lichaam of kleding van de aangehouden verdachte"
+  },
+  {
+   "term": "strafbaar feit",
+   "variants": [
+    "strafbare feiten",
+    "strafbaar gesteld feit"
+   ],
+   "law": "BWBR0001854",
+   "article": "1",
+   "why": "art. 1 Sr: geen feit is strafbaar dan uit kracht van een daaraan voorafgegane wettelijke strafbepaling"
+  },
+  {
+   "term": "benadeelde partij",
+   "variants": [
+    "voeging benadeelde partij",
+    "vordering benadeelde partij"
+   ],
+   "law": "BWBR0001903",
+   "article": "51f",
+   "why": "art. 51f Sv: wie rechtstreeks schade heeft geleden door een strafbaar feit kan zich als benadeelde partij voegen in het strafproces"
+  },
+  {
+   "term": "artikel-100-brief",
+   "variants": [
+    "artikel 100 brief",
+    "art 100 brief",
+    "artikel 100 gw brief"
+   ],
+   "law": "BWBR0001840",
+   "article": "100",
+   "why": "art. 100 Gw: de regering verstrekt de Staten-Generaal vooraf inlichtingen over de inzet van de krijgsmacht"
   }
  ]
 }

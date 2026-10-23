@@ -15,6 +15,7 @@ from lawgraph.api.schemas.common import (
     WithPath,
 )
 from lawgraph.api.schemas.members import PersonRefDTO
+from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.tk_records.commitments import due_date
 
@@ -86,7 +87,7 @@ class CommitmentMemberDTO(PersonRefDTO):
     function: str | None = None
 
 
-class CommitmentDTO(WithPath):
+class CommitmentDTO(WithMinistry, WithPath):
     """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
 
     path_source = PathSource("commitments")

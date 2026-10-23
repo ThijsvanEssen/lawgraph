@@ -52,3 +52,17 @@ def test_every_term_and_variant_names_its_own_concept() -> None:
         for name in (term, *(value.get("variants") or [])):
             assert present(concept_named(name, name.split())).term == term, name
     assert len({c.term for c in named.values()}) == len(LISTS["concepts"].entries())
+
+
+def test_the_terms_of_police_and_criminal_procedure_name_their_article() -> None:
+    for q, law, article in (
+        ("staandehouding", "BWBR0001903", "52"),
+        ("identificatiefouillering", "BWBR0001903", "55b"),
+        ("fouilleren", "BWBR0001903", "56"),
+        ("strafbaar feit", "BWBR0001854", "1"),
+        ("benadeelde partij", "BWBR0001903", "51f"),
+        ("artikel-100-brief", "BWBR0001840", "100"),
+        ("artikel 100 brief", "BWBR0001840", "100"),
+    ):
+        named = present(concept_named(q, q.split()))
+        assert named.key == make_node_key(law, article), q

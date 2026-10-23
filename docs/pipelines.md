@@ -1275,7 +1275,10 @@ tooi`); a label they lack has no id or URI. Each gets a slug unique in its list
 (`core/bwb_wti.assign_slugs`): that of the label, for a narrower concept whose slug is taken the
 slug of its broader concept in front (`bestuursrecht-algemeen`), then a number. The slugs are
 made over the whole thesaurus, or without it over the labels of every WTI record. An empty list
-removes the prop.
+removes the prop. And `ministry`: the ministry its `<eerstverantwoordelijke>` names, read as the
+name of today (`core/ministries.ministry_of`: the WTI still writes `Veiligheid en Justitie`); a
+responsible that is no ministry gives none, and is logged. A change of the ministry table
+(`data/ministries.json`) makes the next run `--since` do the pass.
 
 **The code families.** `src/lawgraph/data/code_families.json` (`lawgraph code-families build`
 and `check`, see [operations](operations.md#other-commands)) is made from the stored WTI records

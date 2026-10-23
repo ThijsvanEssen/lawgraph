@@ -1635,6 +1635,11 @@
   "brief",
   "overig"
  ],
+ "/components/schemas/DossierProposerDTO/properties/capacity/anyOf/0": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
+ ],
  "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
   "kamerlid",
   "bewindspersoon",
@@ -1696,6 +1701,9 @@
  "/paths//api/documents/get/parameters/0/schema/anyOf/0": [
   "TK",
   "EK"
+ ],
+ "/paths//api/documents/get/parameters/6/schema/anyOf/0#const": [
+  "article_100"
  ],
  "/paths//api/dossiers/get/parameters/0/schema": [
   "open",
