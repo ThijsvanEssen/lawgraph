@@ -7,7 +7,8 @@ from fastapi.responses import JSONResponse
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
-from lawgraph.api.params import EdgeMeta, parse_choices
+from lawgraph.api.params import EdgeMeta, Tier, is_node_id, parse_choices
+from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
     NeighborBucketDTO,
@@ -17,6 +18,11 @@ from lawgraph.api.schemas.nodes import (
     NodeNeighborhoodEdge,
     NodeNeighborhoodResponse,
     NodeNeighborsDTO,
+    SharedBucketDTO,
+    SharedFacetsDTO,
+    SharedLinkDTO,
+    SharedNeighborDTO,
+    SharedNeighborsResponse,
     node_type_of,
 )
 from lawgraph.api.seo.pages.titles import title_and_description
@@ -31,7 +37,7 @@ from lawgraph.config.constants import (
     as_relation,
 )
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType
+from lawgraph.core.models import TYPE_OF_COLLECTION, Direction, NodeType, parse_node_id
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.relations import RELATION_NAMES, without_unknown_relations
 from lawgraph.db import GraphStore, version_cache
@@ -45,16 +51,23 @@ from lawgraph.db.queries.nodes import (
     FULL_BUCKET_LIMIT,
     NEIGHBORHOOD_CAP,
     NeighborFilter,
+    NodeSort,
     UnsupportedCollectionError,
     get_node_neighborhood,
     get_node_with_neighbors,
     version_law_name,
 )
+from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.queries.overlay import (
     HEAT_MAX_LIMIT,
     get_heat_counts,
     get_in_flux_counts,
     stored_heat,
+)
+from lawgraph.db.queries.shared_neighbors import (
+    MAX_SOURCES,
+    SharedFilter,
+    get_shared_neighbors,
 )
 
 # How much of a node's props a neighbor carries.
@@ -217,6 +230,141 @@ def neighbor_filter(
 NeighborFilterParams = Annotated[NeighborFilter, Depends(neighbor_filter)]
 
 
+def _shared_ids(value: str) -> list[str]:
+    """The ids of *value* (comma-separated), each once; 422 for fewer than two, more than
+    ``MAX_SOURCES``, or one that is no ``collection/key`` of a node collection."""
+    ids = list(dict.fromkeys(p.strip() for p in value.split(",") if p.strip()))
+    if not 2 <= len(ids) <= MAX_SOURCES:
+        raise Invalid("ids", f"2 to {MAX_SOURCES} node ids, comma-separated.")
+    wrong = [i for i in ids if not is_node_id(i)]
+    if wrong:
+        raise Invalid("ids", f"not a node id: {', '.join(wrong)}.")
+    return ids
+
+
+@router.get(
+    "/shared",
+    response_model=SharedNeighborsResponse,
+    summary="The neighbours that several nodes share",
+    description=(
+        "The nodes at the other end of an edge of every node of `ids` (2 to "
+        f"{MAX_SOURCES} node ids, `collection/key`, comma-separated; an edge counts in "
+        "either direction, and a node asked for is not its own neighbour), in buckets "
+        "of one collection: what two sources have in common, the articles, the judgments "
+        "that cite both, the law they are in. A bucket holds one page (`limit` from "
+        "`offset`, as `/api/nodes/{collection}/{key}`), its `total` and the `next_offset`. "
+        "`sort=importance` (default): the most cited first (`inbound_citation_count` of a "
+        "judgment, an article or an instrument), then by key; `key`: by key. Each "
+        "neighbour has `links`: every edge between it and each node asked for (`source`, "
+        "`edge_id`, `relation`, `direction`, `status`, `confidence`). `relations`, "
+        "`node_types`, `direction` and `status` narrow the edges, as on the node route; "
+        "`tier` (repeated) and `subject_area` (a main area of law, `Strafrecht`) narrow "
+        "the judgments alone, the other buckets stay whole. `facets` count the "
+        "neighbours before the page: per collection, and of the judgments per tier "
+        "(under `subject_area`) and per main area of law (under `tier`). Reads the "
+        "edges of each node once, through their indexes: the cost grows with the edges "
+        "of the nodes asked for (6:162 BW has 10,500), not with the graph. 404 when a "
+        "node is not there."
+    ),
+    tags=["nodes"],
+)
+def get_shared_neighbors_route(
+    store: Annotated[GraphStore, Depends(get_store)],
+    filters: NeighborFilterParams,
+    ids: Annotated[
+        str,
+        Query(description="Node ids, comma-separated: `articles/x,articles/y`."),
+    ],
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=FULL_BUCKET_LIMIT,
+            description="Neighbours per bucket, not per response.",
+        ),
+    ] = DEFAULT_BUCKET_LIMIT,
+    offset: Annotated[
+        int, Query(ge=0, description="Neighbours to skip in every bucket.")
+    ] = 0,
+    sort: Annotated[
+        NodeSort,
+        Query(
+            description="`importance` (default): the most cited first; `key`: in key order."
+        ),
+    ] = "importance",
+    tier: Annotated[
+        list[Tier] | None,
+        Query(description="Of the judgments the tier (repeated: any of them)."),
+    ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="Of the judgments a main area of law of their source: "
+            "`Strafrecht`, `Civiel recht`, `Bestuursrecht`."
+        ),
+    ] = None,
+) -> SharedNeighborsResponse:
+    asked = _shared_ids(ids)
+    missing = [i for i in asked if not store.has_node(*parse_node_id(i))]
+    if missing:
+        raise NotFound("Nodes", ", ".join(missing))
+    data = get_shared_neighbors(
+        store,
+        asked,
+        filters=SharedFilter(
+            edges=filters,
+            tiers=tuple(t.value for t in tier or ()),
+            area=(subject_area or "").strip() or None,
+        ),
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+    names = load_dossier_names(store)
+    notes = seo_queries.notes_of(
+        store, (entry.doc for bucket in data.buckets for entry in bucket.entries)
+    )
+    buckets = [
+        SharedBucketDTO(
+            collection=as_collection(bucket.collection),
+            type=node_type_of(bucket.collection),
+            total=bucket.total,
+            next_offset=bucket.next_offset,
+            items=[
+                SharedNeighborDTO.from_shared(
+                    entry.doc,
+                    [
+                        SharedLinkDTO(
+                            source=link.source,
+                            edge_id=link.edge_id,
+                            relation=link.relation,
+                            direction=link.direction,
+                            status=link.status,
+                            confidence=link.confidence,
+                        )
+                        for link in entry.links
+                    ],
+                    names=names,
+                    note=notes.get(entry.doc["id"]),
+                )
+                for entry in bucket.entries
+            ],
+        )
+        for bucket in data.buckets
+    ]
+    return SharedNeighborsResponse(
+        ids=asked,
+        total=sum(bucket.total for bucket in buckets),
+        buckets=buckets,
+        facets=SharedFacetsDTO(
+            **{
+                name: [FacetCountDTO(**row) for row in rows]
+                for name, rows in data.facets.items()
+            }
+        ),
+    )
+
+
 @router.get(
     "/{collection}/{key}",
     response_model=NodeGraphResponse,
@@ -339,7 +487,7 @@ def get_node_graph(
         Query(ge=0, description="Neighbors to skip in every bucket."),
     ] = 0,
     sort: Annotated[
-        Literal["key", "importance"],
+        NodeSort,
         Query(
             description=(
                 "`key` (default): the neighbours of a bucket in key order; `importance`: "

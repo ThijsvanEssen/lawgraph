@@ -502,6 +502,17 @@ the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in.
 `stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
 touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
 
+### Shared neighbours
+
+`GET /api/nodes/shared?ids=a,b[,c...]` (2 to 5 node ids) answers the nodes that every node of
+`ids` has as a neighbour (an edge either way), in buckets per collection with `total`,
+`next_offset` and a page of `limit` from `offset`, and per neighbour its `links`: the edges to each
+node asked for (`source`, `edge_id`, `relation`, `direction`, `status`, `confidence`). It takes the
+filters of the node route and `sort` (`importance` by default), `tier` and `subject_area` for the
+judgments alone; `facets` count the neighbours per collection and, of the judgments, per tier and
+per main area of law. It reads the edges of each node through their covering indexes, once, so its
+cost follows their number (6:162 BW has 10,500), not the size of the graph.
+
 ### Order of the connections
 
 The lists a page shows as its connections (the "Verbonden" panel) take `sort=importance`, so a
@@ -520,6 +531,7 @@ measure is a field the list reads anyway, and every order ends in the key, so pa
 | `/api/articles/{bwb_id}/{n}/explained-by` | `date` | explanations that name a section about the article before those written for the dossier, then most confident, then newest |
 | `/api/dossiers/{number}` (`instruments`, `committees`) | instruments by relation, status, name; committees by name | within its relation and status the instrument cited most (`inbound_citation_count`) first, then by name; the committee that leads most of the dossier's activities first, then by name |
 | `/api/nodes/{collection}/{key}` (buckets) | `key`: edge key | in a bucket of at most 200 edges: judgments, articles and instruments the most cited (`inbound_citation_count`); members and factions the first signatory first; cases the one with most papers; then by key. A larger bucket and any other collection stay in key order |
+| `/api/nodes/shared` (buckets) | always ranked: judgments, articles and instruments the most cited, then by key (`sort=key`: by key) | (the same) |
 | `/api/activities/{key}/records` | `number` | documents newest first; motions adopted (`outcome`) before the others; commitments still `Openstaand` first, then latest registered; decisions that passed first; cases that are no motion before the motions |
 
 The groups of a dossier are its `instruments` (the laws, and the European and international acts among them by their `jurisdiction`) and `committees`; of a zaak the authors (`AUTHORED` into it) and the related zaken (`RELATED_TO`); of a judgment the same-as, advice, appeal and cited-article buckets, all of the node route. `/api/instruments/{identifier}/eu-links` reads the instrument of a treaty by its id or by the `bwb_id` of the treaty article cited, each on its own index.

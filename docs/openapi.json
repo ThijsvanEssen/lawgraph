@@ -2391,6 +2391,210 @@
         }
       }
     },
+    "/api/nodes/shared": {
+      "get": {
+        "tags": [
+          "nodes",
+          "nodes"
+        ],
+        "summary": "The neighbours that several nodes share",
+        "description": "The nodes at the other end of an edge of every node of `ids` (2 to 5 node ids, `collection/key`, comma-separated; an edge counts in either direction, and a node asked for is not its own neighbour), in buckets of one collection: what two sources have in common, the articles, the judgments that cite both, the law they are in. A bucket holds one page (`limit` from `offset`, as `/api/nodes/{collection}/{key}`), its `total` and the `next_offset`. `sort=importance` (default): the most cited first (`inbound_citation_count` of a judgment, an article or an instrument), then by key; `key`: by key. Each neighbour has `links`: every edge between it and each node asked for (`source`, `edge_id`, `relation`, `direction`, `status`, `confidence`). `relations`, `node_types`, `direction` and `status` narrow the edges, as on the node route; `tier` (repeated) and `subject_area` (a main area of law, `Strafrecht`) narrow the judgments alone, the other buckets stay whole. `facets` count the neighbours before the page: per collection, and of the judgments per tier (under `subject_area`) and per main area of law (under `tier`). Reads the edges of each node once, through their indexes: the cost grows with the edges of the nodes asked for (6:162 BW has 10,500), not with the graph. 404 when a node is not there.",
+        "operationId": "get_shared_neighbors_route_api_nodes_shared_get",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Node ids, comma-separated: `articles/x,articles/y`.",
+              "title": "Ids"
+            },
+            "description": "Node ids, comma-separated: `articles/x,articles/y`."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Neighbours per bucket, not per response.",
+              "default": 30,
+              "title": "Limit"
+            },
+            "description": "Neighbours per bucket, not per response."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Neighbours to skip in every bucket.",
+              "default": 0,
+              "title": "Offset"
+            },
+            "description": "Neighbours to skip in every bucket."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "key",
+                "importance"
+              ],
+              "type": "string",
+              "description": "`importance` (default): the most cited first; `key`: in key order.",
+              "default": "importance",
+              "title": "Sort"
+            },
+            "description": "`importance` (default): the most cited first; `key`: in key order."
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tier"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Of the judgments the tier (repeated: any of them).",
+              "title": "Tier"
+            },
+            "description": "Of the judgments the tier (repeated: any of them)."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Of the judgments a main area of law of their source: `Strafrecht`, `Civiel recht`, `Bestuursrecht`.",
+              "title": "Subject Area"
+            },
+            "description": "Of the judgments a main area of law of their source: `Strafrecht`, `Civiel recht`, `Bestuursrecht`."
+          },
+          {
+            "name": "relations",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated relations to keep (`REFERS_TO,PART_OF`).",
+              "title": "Relations"
+            },
+            "description": "Comma-separated relations to keep (`REFERS_TO,PART_OF`)."
+          },
+          {
+            "name": "node_types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated node types to keep (`article,judgment`).",
+              "title": "Node Types"
+            },
+            "description": "Comma-separated node types to keep (`article,judgment`)."
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "outbound",
+                    "inbound"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep the edges that leave (`outbound`) or reach the node.",
+              "title": "Direction"
+            },
+            "description": "Keep the edges that leave (`outbound`) or reach the node."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep the edges of this status (`canoniek`, `voorgesteld`).",
+              "title": "Status"
+            },
+            "description": "Keep the edges of this status (`canoniek`, `voorgesteld`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNeighborsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/nodes/{collection}/{key}": {
       "get": {
         "tags": [
@@ -37231,6 +37435,393 @@
         ],
         "title": "SenderDTO",
         "description": "Who sent a Tweede Kamer paper: its first signatory, else the signature the source\ncalls its sender (``Afzender``), as the source gives it."
+      },
+      "SharedBucketDTO": {
+        "properties": {
+          "collection": {
+            "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "ministries",
+              "annexes"
+            ],
+            "title": "Collection"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Under the filters, whatever the page."
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset",
+            "description": "Null on the last page."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SharedNeighborDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "collection",
+          "type",
+          "total",
+          "next_offset",
+          "items"
+        ],
+        "title": "SharedBucketDTO",
+        "description": "The shared neighbours of one collection: one page of them."
+      },
+      "SharedFacetsDTO": {
+        "properties": {
+          "collection": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Collection",
+            "description": "Per collection (`value`), most first."
+          },
+          "tier": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Tier",
+            "description": "Of the judgments, per tier, most first, under `subject_area`."
+          },
+          "subject_area": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Area",
+            "description": "Of the judgments, per main area of law (a judgment counts for each of its areas), most first, under `tier`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "collection",
+          "tier",
+          "subject_area"
+        ],
+        "title": "SharedFacetsDTO",
+        "description": "Counts of the shared neighbours, each facet under the filters but its own."
+      },
+      "SharedLinkDTO": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "The node asked for (`collection/key`) it hangs at."
+          },
+          "edge_id": {
+            "type": "string",
+            "title": "Edge Id"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PART_OF",
+                  "VERSION_OF",
+                  "ESTABLISHES",
+                  "AMENDS",
+                  "INTRODUCES",
+                  "REPEALS",
+                  "COMMENCES",
+                  "TRANSPOSED_TO",
+                  "BASED_ON",
+                  "IMPLEMENTS",
+                  "LEGISLATED_IN",
+                  "PUBLISHED_IN",
+                  "REFERS_TO",
+                  "EXPLAINS",
+                  "APPEAL_OF",
+                  "CONTINUES",
+                  "REFERRED_BY",
+                  "ADVISES_ON",
+                  "ANSWERS",
+                  "SAME_AS",
+                  "SCOPED_BY",
+                  "ABOUT",
+                  "LED_BY",
+                  "MADE_IN",
+                  "MEMBER_OF",
+                  "SERVED_IN",
+                  "AUTHORED",
+                  "RELATED_TO",
+                  "REVISES",
+                  "ACCOMPANIES",
+                  "SECOND_READING_OF",
+                  "VOTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound"
+            ],
+            "title": "Direction",
+            "description": "`outbound`: the edge leaves the source for the neighbour."
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "edge_id",
+          "relation",
+          "direction",
+          "status",
+          "confidence"
+        ],
+        "title": "SharedLinkDTO",
+        "description": "The edge by which a shared neighbour hangs at one of the nodes asked for."
+      },
+      "SharedNeighborDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "collection": {
+            "type": "string",
+            "enum": [
+              "instruments",
+              "articles",
+              "instrument_versions",
+              "article_versions",
+              "cases",
+              "documents",
+              "judgments",
+              "dossiers",
+              "activities",
+              "decisions",
+              "commitments",
+              "committees",
+              "members",
+              "factions",
+              "cabinets",
+              "ministries",
+              "annexes"
+            ],
+            "title": "Collection"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Labels"
+          },
+          "props": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Props"
+          },
+          "kind_group": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "motie",
+                  "amendement",
+                  "wetsvoorstel",
+                  "brief",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Group",
+            "description": "Of a paper or a case: What the paper or case is, by its Soort (`kind`): `motie` or `amendement` (also a changed one), `wetsvoorstel`, `brief` (a Soort beginning with Brief), `overig`; null without a Soort. Absent for any other node."
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JudgmentCiteDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of a judgment: The judgment as a lawyer cites it: `short` `HR 20 december 2019`, `Rb. Den Haag 6 december 2019`, `Conclusie A-G Hartlief 20 december 2019` (`P-G` where a procureur-generaal signed it), `HvJ EU 22 juni 2023, C-160/20` (a court of the Union with its case number); `full` with its ECLI. Null without an ECLI. Absent for a node of another collection."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Its title, as the `<title>` of its page has it and `title` of `/api/nodes/{collection}/{key}` (`Art. 6:162 BW, Onrechtmatige daad`, `HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36496 Wet AI-toezicht`), from the props it carries (with `props=canvas` too, which keeps what it reads)."
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/SharedLinkDTO"
+            },
+            "type": "array",
+            "title": "Links",
+            "description": "Every edge between the neighbour and a node asked for, the nodes in the order of `ids`, each node with at least one."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "collection",
+          "type",
+          "display_name",
+          "labels",
+          "props",
+          "links",
+          "path"
+        ],
+        "title": "SharedNeighborDTO",
+        "description": "A neighbour of every node asked for, with the edges that tie it to each."
+      },
+      "SharedNeighborsResponse": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "The shared neighbours of every collection."
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/SharedBucketDTO"
+            },
+            "type": "array",
+            "title": "Buckets"
+          },
+          "facets": {
+            "$ref": "#/components/schemas/SharedFacetsDTO"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ids",
+          "total",
+          "buckets",
+          "facets"
+        ],
+        "title": "SharedNeighborsResponse",
+        "description": "Response for GET /api/nodes/shared."
       },
       "SignedForDTO": {
         "properties": {

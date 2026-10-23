@@ -44,6 +44,7 @@ ROUTES = [
     ("GET", "/api/instruments/{bwb_id}/articles/at/{at_date}"),
     ("GET", "/api/nodes/in-flux"),
     ("GET", "/api/nodes/heat"),
+    ("GET", "/api/nodes/shared"),
     ("GET", "/api/nodes/{collection}/{key}"),
     ("GET", "/api/nodes/{collection}/{key}/neighborhood"),
     ("GET", "/api/dossiers"),
