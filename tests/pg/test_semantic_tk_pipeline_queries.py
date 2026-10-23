@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
     RELATION_LEGISLATED_IN,
@@ -856,3 +857,19 @@ def test_related_cases_with_a_length(store: GraphStore) -> None:
         {"id": None, "kind": None, "dossier_numbers": None, "related_cases": True},
     ]
     assert list(rows[0]) == ["id", "kind", "dossier_numbers", "related_cases"]
+
+
+def test_the_faction_abbreviations_are_each_listed_once(store: GraphStore) -> None:
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            [
+                _writer_node(
+                    COLLECTION_FACTIONS, NodeType.FACTION, "a", abbreviation="VVD"
+                ),
+                _writer_node(
+                    COLLECTION_FACTIONS, NodeType.FACTION, "b", abbreviation="VVD"
+                ),
+                _writer_node(COLLECTION_FACTIONS, NodeType.FACTION, "c"),
+            ]
+        )
+    assert semantic_tk.faction_abbreviations(store) == {"VVD"}
