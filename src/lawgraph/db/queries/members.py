@@ -286,6 +286,13 @@ def _read_member_slugs(store: GraphStore) -> dict[str, str]:
     }
 
 
+def get_member_brief(store: GraphStore, key: str) -> dict[str, Any] | None:
+    """``{name, slug}`` of the member with *key*; None for none."""
+    member = store.get_document(COLLECTION_MEMBERS, key)
+    props = (member or {}).get("props") or {}
+    return {"name": props.get("name"), "slug": props.get("slug")} if member else None
+
+
 def load_member_slugs(store: GraphStore) -> dict[str, str]:
     """The slug of every member by its key (the readable address of a member named by
     its key alone, ``/leden/<slug>``), kept while the members stand still: computed on

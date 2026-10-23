@@ -781,20 +781,42 @@ def test_the_hub_names_the_publications_the_law_was_enacted_in(
     g.edge(changed, RELATION_PART_OF, bw7)
     g.edge(stb_article, RELATION_PART_OF, stb_law)
 
-    def publication(key: str, cite: str, published: str) -> str:
+    def publication(
+        key: str, cite: str, published: str, signed: str | None = None
+    ) -> str:
         found = g.node(
             "instruments",
             key,
             publication_kind="Stb",
             citation_title=cite,
             display_name=cite,
+            date_signed=signed,
             date_published=published,
         )
         g.edge(found, RELATION_LEGISLATED_IN, dossier)
         return found
 
-    enacting = publication("stb_2024_193", "Stb. 2024, 193", "2024-06-26")
-    g.edge(enacting, RELATION_ESTABLISHES, own, effective_date="2024-07-01")
+    enacting = publication("stb_2024_193", "Stb. 2024, 193", "2024-06-28", "2024-06-26")
+    # the decree that put it into force names itself as the commencement of the version
+    g.node(
+        "instruments",
+        "stb_2024_197",
+        publication_kind="Stb",
+        citation_title="Stb. 2024, 197",
+        date_published="2024-06-28",
+    )
+    g.node(
+        COLLECTION_ARTICLE_VERSIONS,
+        "bwbr0049889_1_v1",
+        commencement_publication={"id": "stb-2024-197"},
+    )
+    g.edge(
+        enacting,
+        RELATION_ESTABLISHES,
+        own,
+        effective_date="2024-07-01",
+        article_version="bwbr0049889_1_v1",
+    )
     g.edge(enacting, RELATION_AMENDS, changed, effective_date="2025-01-01")
     amending = publication("stb_2025_10", "Stb. 2025, 10", "2025-01-15")
     g.edge(amending, RELATION_AMENDS, changed, effective_date="2025-02-01")
@@ -812,21 +834,31 @@ def test_the_hub_names_the_publications_the_law_was_enacted_in(
         {
             "key": "stb_2024_193",
             "cite": "Stb. 2024, 193",
-            "published_on": "2024-06-26",
+            "signed_on": "2024-06-26",
+            "published_on": "2024-06-28",
+            "commencement": {
+                "key": "stb_2024_197",
+                "cite": "Stb. 2024, 197",
+                "published_on": "2024-06-28",
+            },
             "first_effective_date": "2024-07-01",
             "instrument": {"key": "bwbr0049889", "title": "Wet betaalbare huur"},
         },
         {
             "key": "stb_2025_10",
             "cite": "Stb. 2025, 10",
+            "signed_on": None,
             "published_on": "2025-01-15",
+            "commencement": None,
             "first_effective_date": "2025-02-01",
             "instrument": None,
         },
         {
             "key": "stb_2026_56",
             "cite": "Stb. 2026, 56",
+            "signed_on": None,
             "published_on": "2026-03-01",
+            "commencement": None,
             "first_effective_date": None,
             "instrument": {
                 "key": "wet_stb_2026_56",
