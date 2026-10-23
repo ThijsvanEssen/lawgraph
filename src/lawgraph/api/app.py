@@ -244,8 +244,9 @@ async def root() -> dict[str, str]:
     return {"name": "lawgraph-api", "version": app.version}
 
 
+# not async: it waits for a connection of the pool, on a thread, not on the event loop
 @app.get("/api/health", tags=["root"], response_model=HealthDTO)
-async def health(
+def health(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> HealthDTO:
     """Health check — verifies database connectivity; ``version`` the version of the API

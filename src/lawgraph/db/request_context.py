@@ -79,25 +79,26 @@ class Cancellation:
 
     def cancel(self) -> None:
         """Cancel every read running for the request (``cancel_safe``: it waits for the
-        server to take it, so not on the event loop)."""
+        server to take it, so not on the event loop). Under the lock: a read that ends
+        meanwhile gives its connection back after it (``end``), so no cancel reaches the
+        read of another request on it."""
         with self._lock:
             self.cancelled = True
-            running = list(self._connections)
-        for conn in running:
-            with contextlib.suppress(psycopg.Error):
-                conn.cancel_safe(timeout=5.0)
+            for conn in self._connections:
+                with contextlib.suppress(psycopg.Error):
+                    conn.cancel_safe(timeout=5.0)
 
-    @contextlib.contextmanager
-    def reading(self, conn: psycopg.Connection[Any]) -> Iterator[None]:
+    def start(self, conn: psycopg.Connection[Any]) -> None:
+        """A read of the request on *conn* begins; ``RequestCancelled`` once cancelled."""
         with self._lock:
             if self.cancelled:
                 raise RequestCancelled("The client went away before this read.")
             self._connections.add(conn)
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._connections.discard(conn)
+
+    def end(self, conn: psycopg.Connection[Any]) -> None:
+        """The read on *conn* ended: from now on its connection is not the request's."""
+        with self._lock:
+            self._connections.discard(conn)
 
 
 # The reads of the current request, to cancel when its client goes away (the API sets one

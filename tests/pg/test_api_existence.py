@@ -6,19 +6,25 @@ database answers.
 
 from __future__ import annotations
 
+import asyncio
+import threading
+import time
 from collections.abc import Iterator
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.middleware import VERSION_WAIT
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
 from tests.asserts import assert_status
 
 BW7 = "BWBR0005290"
+HELD = 2.0  # seconds every connection of the pool is taken
 # a book of the BW numbers its articles without the book, as the graph stores them
 KEY = make_node_key(BW7, "231")
 
@@ -57,3 +63,39 @@ def test_the_health_check_asks_the_database(client: TestClient) -> None:
     # the pools: the background one opens when it is first needed
     assert health["pools"]["requests"]["size"] > 0
     assert set(health["pools"]["requests"]) == {"size", "free", "waiting"}
+
+
+def test_a_health_check_waiting_for_the_pool_holds_up_no_other_request(
+    client: TestClient, store: GraphStore
+) -> None:
+    """The health check waits for a connection on a thread, not on the event loop: while
+    every connection is taken, another request is answered at once, past the data version
+    of its cache headers that it waits ``VERSION_WAIT`` for (23 Oct: a health check that
+    waited on the loop held up every request, and none was logged)."""
+    # the data version of the cache headers known, as it is after the first request
+    assert_status(client.get("/"), 200)
+    held = [store.pool.getconn() for _ in range(store.pool.get_stats()["pool_size"])]
+
+    def give_back() -> None:
+        time.sleep(HELD)
+        for conn in held:
+            store.pool.putconn(conn)
+
+    threading.Thread(target=give_back, daemon=True).start()
+
+    async def both() -> tuple[httpx.Response, httpx.Response, float]:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            health = asyncio.create_task(c.get("/api/health"))
+            await asyncio.sleep(0.1)
+            began = time.monotonic()
+            root = await c.get("/")
+            took = time.monotonic() - began
+            return await health, root, took
+
+    health, root, took = asyncio.run(both())
+    assert_status(root, 200)
+    assert took < VERSION_WAIT + 0.5 < HELD, (
+        f"the root waited {took:.1f} s for the health check"
+    )
+    assert_status(health, 200)
