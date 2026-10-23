@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from lawgraph.api import middleware
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
@@ -230,3 +231,24 @@ def test_a_request_that_names_no_pair_or_a_missing_node_is_refused(
     assert_status(client.get(f"/api/nodes/shared?ids={A},{A}"), 422)
     assert_status(client.get(f"/api/nodes/shared?ids={A},nonsense"), 422)
     assert_status(client.get(f"/api/nodes/shared?ids={A},articles/nope"), 404)
+
+
+def test_shared_neighbours_need_one_connection_of_the_pool(
+    client: TestClient, shared: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With every other connection of the pool taken (the explorer asks one per pair of
+    nodes, some fifty at once), a request is answered: it read its one row and then the
+    nodes it names while holding the read, so it waited for a second connection, as every
+    request beside it did, until its deadline; the reads they held stayed idle in their
+    transactions and the pool of eight was empty for 21 minutes (23 Oct 19:50 UTC)."""
+    monkeypatch.setattr(middleware, "API_REQUEST_TIMEOUT_MS", 3000)
+    pool = shared.pool
+    others = [pool.getconn() for _ in range(pool.get_stats()["pool_size"] - 1)]
+    try:
+        response = client.get(f"/api/nodes/shared?ids={A},{B}")
+    finally:
+        for conn in others:
+            pool.putconn(conn)
+    assert_status(response, 200)
+    usage = shared.pool_usage()["requests"]
+    assert usage is not None and usage["free"] == usage["size"]
