@@ -119,10 +119,12 @@ def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
     # A holder no Tweede Kamer person fits is a member of their own ...
     own = make_node_key(SOURCE_RIJKSOVERHEID, "p lieftinck")
     alone = _get(store, f"/api/members/{own}")
+    # (with the first name the page gives, as the Kamerleden have theirs)
     assert (alone["name"], alone["government_functions"][0]["cabinet_key"]) == (
-        "P. Lieftinck",
+        "Piet Lieftinck",
         "jetten",
     )
+    assert alone["government_name"] == "P. Lieftinck"
     # ... until later data holds their Tweede Kamer person: then only that one.
     with NodeWriter(store) as writer:
         writer.add(_member("lieftinck", "Pieter Lieftinck", "Lieftinck", "1972-09-30"))

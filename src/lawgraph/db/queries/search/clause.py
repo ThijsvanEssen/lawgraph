@@ -194,7 +194,15 @@ def build_search_clause(
             per_field.append(f"{row}.id = ANY(%(_termed_{i})s::text[])")
         per_field += _of_laws(laws, i, params, row)
         parts.append("(" + " OR ".join(per_field) + ")")
-    return joined(parts, any_word), params
+    return _loaded(table, joined(parts, any_word), row), params
+
+
+def _loaded(table: str, condition: str, row: str) -> str:
+    """*condition* for the rows of *table* that hold a text of their own: an article a
+    citation names that is not loaded (a stub: a number, no text) is no hit."""
+    if table == "articles":
+        return f"({condition}) AND {row}.stub IS NOT TRUE"
+    return condition
 
 
 def joined(parts: list[str], any_word: bool) -> str:
@@ -266,7 +274,7 @@ def live_clause(
             per_field.append(f"r.id = ANY(%(_termed_{i})s::text[])")
         per_field += _of_laws(laws, i, params)
         parts.append("(" + " OR ".join(per_field or ["false"]) + ")")
-    return joined(parts, any_word) or "true", params
+    return _loaded(table, joined(parts, any_word) or "true", "r"), params
 
 
 # ── what a word stands for besides its fields ─────────────────────────────────
