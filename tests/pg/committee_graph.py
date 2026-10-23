@@ -360,7 +360,7 @@ def signatures(store: GraphStore) -> None:
 
 
 def candidates_plan(
-    store: GraphStore, member_id: str, limit: int, *, in_office: bool = False
+    store: GraphStore, member_id: str, limit: int, *, in_office: bool | None = None
 ) -> list[dict[str, Any]]:
     """The nodes of the plan (EXPLAIN ANALYZE) of the candidates of the votes of a member,
     as ``get_member_votes`` reads them first."""
