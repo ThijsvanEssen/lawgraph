@@ -1917,5 +1917,94 @@
  "/paths//api/search/get/parameters/5/schema": [
   "full",
   "live"
+ ],
+ "/paths//api/nodes/shared/get/parameters/3/schema": [
+  "key",
+  "importance"
+ ],
+ "/paths//api/nodes/shared/get/parameters/8/schema/anyOf/0": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/SharedBucketDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/SharedLinkDTO/properties/relation/anyOf/0": [
+  "PART_OF",
+  "VERSION_OF",
+  "ESTABLISHES",
+  "AMENDS",
+  "INTRODUCES",
+  "REPEALS",
+  "COMMENCES",
+  "TRANSPOSED_TO",
+  "BASED_ON",
+  "IMPLEMENTS",
+  "LEGISLATED_IN",
+  "PUBLISHED_IN",
+  "REFERS_TO",
+  "EXPLAINS",
+  "APPEAL_OF",
+  "CONTINUES",
+  "REFERRED_BY",
+  "ADVISES_ON",
+  "ANSWERS",
+  "SAME_AS",
+  "SCOPED_BY",
+  "ABOUT",
+  "LED_BY",
+  "MADE_IN",
+  "MEMBER_OF",
+  "SERVED_IN",
+  "AUTHORED",
+  "RELATED_TO",
+  "REVISES",
+  "ACCOMPANIES",
+  "SECOND_READING_OF",
+  "VOTED"
+ ],
+ "/components/schemas/SharedLinkDTO/properties/direction": [
+  "outbound",
+  "inbound"
+ ],
+ "/components/schemas/SharedNeighborDTO/properties/collection": [
+  "instruments",
+  "articles",
+  "instrument_versions",
+  "article_versions",
+  "cases",
+  "documents",
+  "judgments",
+  "dossiers",
+  "activities",
+  "decisions",
+  "commitments",
+  "committees",
+  "members",
+  "factions",
+  "cabinets",
+  "annexes"
+ ],
+ "/components/schemas/SharedNeighborDTO/properties/kind_group/anyOf/0": [
+  "motie",
+  "amendement",
+  "wetsvoorstel",
+  "brief",
+  "overig"
  ]
 }

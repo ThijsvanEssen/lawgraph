@@ -190,6 +190,10 @@ URLS = [
     "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
     f"/api/paths?ids=articles/{BWB.lower()}_1,documents/d1&relations=EXPLAINS,PART_OF",
+    # what two nodes share, ranked, and the judgments narrowed by tier and area
+    f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2",
+    f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2"
+    "&tier=hoge_raad&subject_area=Strafrecht&sort=key&relations=REFERS_TO",
     "/api/nodes/heat",
     "/api/nodes/in-flux",
     "/api/annexes/a1",

@@ -9,6 +9,7 @@ from pydantic import Field
 from lawgraph.api.schemas.common import (
     CITE,
     KIND_GROUP,
+    FacetCountDTO,
     JudgmentCiteDTO,
     StrictModel,
     WithPath,
@@ -396,3 +397,74 @@ class NodeNeighborhoodResponse(StrictModel):
         "by name: `total` and `kept`; where `kept` is less, the cap left the rest out "
         "(`GET /api/nodes/{collection}/{key}` lists them all).",
     )
+
+
+class SharedLinkDTO(StrictModel):
+    """The edge by which a shared neighbour hangs at one of the nodes asked for."""
+
+    source: str = Field(
+        description="The node asked for (`collection/key`) it hangs at."
+    )
+    edge_id: str
+    relation: Relation | None
+    direction: Direction = Field(
+        description="`outbound`: the edge leaves the source for the neighbour."
+    )
+    status: str | None
+    confidence: float | None
+
+
+class SharedNeighborDTO(BaseNodeDTO):
+    """A neighbour of every node asked for, with the edges that tie it to each."""
+
+    links: list[SharedLinkDTO] = Field(
+        description="Every edge between the neighbour and a node asked for, the nodes in "
+        "the order of `ids`, each node with at least one."
+    )
+
+    @classmethod
+    def from_shared(
+        cls,
+        doc: dict[str, Any],
+        links: list[SharedLinkDTO],
+        names: dict[str, dict[str, Any]] | None = None,
+        note: dict[str, Any] | None = None,
+    ) -> SharedNeighborDTO:
+        return cls(
+            **BaseNodeDTO.fields_of(doc, graph=True, names=names, note=note),
+            links=links,
+        )
+
+
+class SharedBucketDTO(StrictModel):
+    """The shared neighbours of one collection: one page of them."""
+
+    collection: Collection
+    type: str
+    total: int = Field(description="Under the filters, whatever the page.")
+    next_offset: int | None = Field(description="Null on the last page.")
+    items: list[SharedNeighborDTO]
+
+
+class SharedFacetsDTO(StrictModel):
+    """Counts of the shared neighbours, each facet under the filters but its own."""
+
+    collection: list[FacetCountDTO] = Field(
+        description="Per collection (`value`), most first."
+    )
+    tier: list[FacetCountDTO] = Field(
+        description="Of the judgments, per tier, most first, under `subject_area`."
+    )
+    subject_area: list[FacetCountDTO] = Field(
+        description="Of the judgments, per main area of law (a judgment counts for each "
+        "of its areas), most first, under `tier`."
+    )
+
+
+class SharedNeighborsResponse(StrictModel):
+    """Response for GET /api/nodes/shared."""
+
+    ids: list[str]
+    total: int = Field(description="The shared neighbours of every collection.")
+    buckets: list[SharedBucketDTO]
+    facets: SharedFacetsDTO

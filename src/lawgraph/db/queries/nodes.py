@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -40,6 +40,9 @@ from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
+
+# How the neighbours of a bucket are ordered: by key, or the most important first.
+NodeSort = Literal["key", "importance"]
 
 
 class UnsupportedCollectionError(ValueError):
@@ -109,9 +112,9 @@ class NeighborFilter:
             conditions.append(f"AND {edge}.status = %(status)s")
         return " ".join(conditions)
 
-    def edges_sql(self, direction: Direction) -> str:
-        """The condition on the edges ``e`` of the node ``node_id`` in *direction* that
-        count; binds ``node_id``, ``collections`` and what ``edge_sql`` binds."""
+    def edges_sql(self, direction: Direction, node: str = "%(node_id)s") -> str:
+        """The condition on the edges ``e`` of the node *node* (SQL; the bound ``node_id``)
+        in *direction* that count; binds ``collections`` and what ``edge_sql`` binds."""
         own, _, other_collection = _EDGE_SIDES[direction]
         collections = (
             f"AND e.{other_collection} = ANY(%(collections)s)"
@@ -119,8 +122,20 @@ class NeighborFilter:
             else ""
         )
         return (
-            f"e.{own} = %(node_id)s {self.edge_sql('e')} {collections}"
+            f"e.{own} = {node} {self.edge_sql('e')} {collections}"
             f" {_not_an_outcome(direction, 'e')}"
+        )
+
+    def touching_sql(self, node: str) -> str:
+        """SQL: the edges that count at the node *node* (SQL), in both directions unless
+        ``direction`` says one, each as ``other`` (the node at its other end),
+        ``collection`` (its collection), ``edge`` (the edge key) and ``direction``; each
+        direction reads the covering index of its end. Binds what ``edges_sql`` binds."""
+        return " UNION ALL ".join(
+            f"""SELECT e.{_EDGE_SIDES[d][1]} AS other, e.{_EDGE_SIDES[d][2]} AS collection,
+                       e.key AS edge, '{d}' AS direction
+                FROM edges e WHERE {self.edges_sql(d, node)}"""
+            for d in self.directions
         )
 
     def edge_params(self) -> dict[str, Any]:
