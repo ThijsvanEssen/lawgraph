@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -453,6 +453,17 @@ initials (letters alone), all three given. The Kamer keeps some people twice, a 
 seats and a bare one it made for their seat in the Eerste Kamer. A bare member that matches two
 members with a role is left alone. The page of the bare member is a 301 to the other. Derived in
 full each run.
+
+**Semantic `tk-faction-succession`.** `CONTINUES` from a faction to the one it passed all its
+seats to (`core/faction_succession.py`), read from the `MEMBER_OF` periods of the Tweede Kamer
+alone. A faction that has ended has a successor when the holders of its last day who sit in
+the Kamer the day after all sit in one faction, which had no seat before and has at least as
+many holders on its first day (so no seat went elsewhere; a member who left the Kamer that
+day had the seat filled in the new faction). GroenLinks-PvdA ended on 9 June 2026, PRO began
+on the 10th. Two factions that merge into one both continue into it (PvdA and GroenLinks into
+GroenLinks-PvdA). A faction that split, dissolved or lost a member to another has no
+successor: a gap is not filled. `meta`: `reason` `alle_zetels`, `effective_date` (the first
+day of the new faction), `seats` (the holders that moved). Derived in full each run.
 
 **Semantic `tk-coalition-votes`.** What the coalition did on each vote of the Tweede Kamer
 (`core/coalition.py`), kept in `lg_decision_coalition` (not a table of the graph), which the list
@@ -2194,6 +2205,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
+| semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
 | semantic `tk-motion-kinds` | `normalize tk-dossiers` (the motions and the decisions with their subject) |
 | semantic `tk-paper-outcomes` | `normalize tk-dossiers` (the decisions, the papers and their `PART_OF` cases), `normalize eerstekamer-votes` and `normalize eerstekamer-motions` (the votes and the status of a motion of the Eerste Kamer) and `tk-dossier-relations` (`REVISES`) |
