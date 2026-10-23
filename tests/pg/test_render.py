@@ -19,7 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import render
-from lawgraph.api.seo import shell
+from lawgraph.api.seo import paint, shell
 from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
@@ -2352,10 +2352,96 @@ def test_a_page_whose_first_paint_takes_too_long_goes_without(
     assert _painted(response.text) is None
 
 
-def test_only_an_article_is_painted_first(painting: TestClient) -> None:
+def test_a_judgment_without_paragraphs_is_not_painted_first(
+    painting: TestClient,
+) -> None:
     response = _get(painting, "/uitspraken/ECLI:NL:HR:2019:2006")
     assert_status(response, 200)
     assert "first-paint" not in response.text
+
+
+def _judgment(key: str, ecli: str, **props: Any) -> dict[str, Any]:
+    return _node(key, "judgment", ecli=ecli, court="Hoge Raad", parties=[], **props)
+
+
+def test_a_judgment_is_painted_first_with_its_first_paragraphs_and_its_band(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer with its first paragraphs (more than a screen) without their citations,
+    the numbers of all, its light node of its procesgang and conclusie, and the instances
+    before its eerdere aanleg, the nearest first."""
+    monkeypatch.setattr(paint, "_JUDGMENT_TEXT", 20)
+    paragraphs = [
+        {"id": "kop-1", "kind": "heading", "number": "1", "text": "Beoordeling"},
+        {"id": "rov-1.1", "kind": "body", "number": "1.1", "text": "Verworpen, want …"},
+        {"id": "rov-1.2", "kind": "body", "number": "1.2", "text": "Ook dit faalt."},
+    ]
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("ecli_nl_hr_2020_9", "ECLI:NL:HR:2020:9", outcome="verworpen",
+                      paragraphs=paragraphs, summary="Cassatie."),
+            _judgment("ecli_nl_ghdha_2019_9", "ECLI:NL:GHDHA:2019:9"),
+            _judgment("ecli_nl_rbdha_2018_9", "ECLI:NL:RBDHA:2018:9"),
+            _judgment("ecli_nl_rbdha_2017_9", "ECLI:NL:RBDHA:2017:9"),
+            _judgment("ecli_nl_phr_2020_9", "ECLI:NL:PHR:2020:9"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("ap1", "judgments/ecli_nl_hr_2020_9", "judgments/ecli_nl_ghdha_2019_9",
+                  "APPEAL_OF", procedure_type="Cassatie"),
+            _edge("ap2", "judgments/ecli_nl_ghdha_2019_9", "judgments/ecli_nl_rbdha_2018_9",
+                  "APPEAL_OF"),
+            _edge("ap3", "judgments/ecli_nl_rbdha_2018_9", "judgments/ecli_nl_rbdha_2017_9",
+                  "APPEAL_OF"),
+            _edge("ad1", "judgments/ecli_nl_phr_2020_9", "judgments/ecli_nl_hr_2020_9",
+                  "ADVISES_ON"),
+            _edge("ci1", "judgments/ecli_nl_hr_2020_9", "articles/bwbr0005289_162",
+                  "REFERS_TO"),
+        ]
+    )  # fmt: skip
+    response = _get(painting, "/uitspraken/ECLI:NL:HR:2020:9")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "judgment"
+    judgment = painted["judgment"]
+    assert [p["paragraph_id"] for p in judgment["paragraphs"]] == ["kop-1", "rov-1.1"]
+    assert painted["whole"] is False
+    assert painted["numbers"] == ["1", "1.1", "1.2"]
+    cited = [p["paragraph_id"] for p in judgment["paragraphs"] if p["citations"]]
+    assert cited == [], "a painted paragraph keeps no citations"
+    assert "paragraphs" not in judgment["props"] and "text" not in judgment["props"]
+    assert painted["light"]["node"] == {"props": {"outcome": "verworpen"}}
+    buckets = {
+        (b["relation"], b["direction"]): [i["key"] for i in b["items"]]
+        for b in painted["light"]["neighbors"]["buckets"]
+    }
+    assert buckets == {
+        ("APPEAL_OF", "outbound"): ["ecli_nl_ghdha_2019_9"],
+        ("ADVISES_ON", "inbound"): ["ecli_nl_phr_2020_9"],
+    }
+    assert [c["key"] for c in painted["chain"]] == [
+        "ecli_nl_rbdha_2018_9",
+        "ecli_nl_rbdha_2017_9",
+    ]
+
+
+def test_a_judgment_whose_parties_were_not_read_is_not_painted_first(
+    painting: TestClient, store: GraphStore
+) -> None:
+    """The reader reads its parties from its whole text, which the paint has not."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("ecli_nl_hr_2020_8", "judgment", ecli="ECLI:NL:HR:2020:8",
+                  paragraphs=[{"id": "rov-1", "kind": "body", "number": "1",
+                               "text": "Verworpen."}]),
+        ],
+    )  # fmt: skip
+    response = _get(painting, "/uitspraken/ECLI:NL:HR:2020:8")
+    assert_status(response, 200)
+    assert _painted(response.text) is None
 
 
 def test_the_first_paint_lists_the_versions_of_an_article_lightly(
