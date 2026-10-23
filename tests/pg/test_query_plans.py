@@ -56,6 +56,15 @@ URLS = [
     "/api/resolve?q=36000-3",
     "/api/search?q=art.+1+BWBR0001&resolve=true",
     "/api/search?q=wet&mode=live",
+    # the counts and facets of every hit of a type, and a page deeper in: the rows that hold
+    # the words from their indexes, capped (``search.counts``); with a period, a kind, a law's
+    # abbreviation and a term
+    "/api/search?q=wet&facets=true&offset=20",
+    "/api/search?q=Hoge+Raad&facets=true&types=judgments&types=instruments",
+    "/api/search?q=wet&facets=true&from=2019-01-01&to=2019-12-31",
+    "/api/search?q=daad+pw&facets=true&types=articles&types=dossiers",
+    "/api/search?q=noodweer&facets=true&types=articles",
+    "/api/search?q=motie+vvd&facets=true&types=documents&kind=motie",
     # a period: each type by a date of its own, inside its lookup
     "/api/search?q=wet&from=2019-01-01&to=2019-12-31",
     "/api/search?q=wet&mode=live&from=2019-01-01&to=2019-12-31",

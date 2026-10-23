@@ -60,6 +60,32 @@ class Asked:
 
 
 @dataclass(frozen=True)
+class Match:
+    """What a type is matched by, beyond its fields: the *tokens* searched, the SQL *where*
+    (``AND ...``) with its *params*, and the rows found by a term (*termed*, per token) or
+    as the articles of a law (*laws*) too. Its search ranks the rows it matches
+    (``text.text_query``), its count counts them (``counts.count_type``)."""
+
+    tokens: list[str]
+    where: str = ""
+    params: dict[str, Any] = field(default_factory=dict)
+    termed: list[list[str]] | None = None
+    laws: list[list[str]] | None = None
+
+
+@dataclass(frozen=True)
+class Facet:
+    """One way to count the rows a search matches: *sql* is a text value of a row ``r``,
+    *value_of* turns it into the value counted (None: a row without one); the values come
+    largest count first, or with *by_value* the greatest value first."""
+
+    name: str
+    sql: str
+    value_of: Callable[[str | None], str | None] = lambda value: value
+    by_value: bool = False
+
+
+@dataclass(frozen=True)
 class SearchType:
     """One type ``/api/search`` searches, named as its collection (*table*).
 
@@ -92,3 +118,7 @@ class SearchType:
     names: tuple[str, ...] = ()
     titles: tuple[str, ...] = ()
     signatures: Callable[[str], str] | None = None
+    # what the rows it matches are counted by (``counts``): a type without ``match`` is not
+    # counted; with ``facets`` also per value of each
+    match: Callable[[SearchType, Asked], Match] | None = None
+    facets: tuple[Facet, ...] = ()

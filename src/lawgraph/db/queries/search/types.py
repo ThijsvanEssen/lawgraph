@@ -3,12 +3,15 @@ each holds, how its search finds them, full and while typing."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
 from lawgraph.core.motion_kinds import kinds_named
+from lawgraph.core.time import dutch_today
+from lawgraph.core.validity import instrument_validity
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._helpers import chamber_sql
@@ -27,7 +30,9 @@ from lawgraph.db.queries.search.ranking import SCORE_TITLE, folded, score_hit
 from lawgraph.db.queries.search.spec import (
     JUDGMENT_CITE_PROPS,
     Asked,
+    Facet,
     Hit,
+    Match,
     SearchType,
 )
 from lawgraph.db.queries.search.text import (
@@ -108,6 +113,19 @@ def _with_terms(hits: list[Hit], asked: Asked, termed: Termed | None) -> list[Hi
                     hit.get("score", score_hit(asked.q, hit)), SCORE_TITLE
                 )
     return hits
+
+
+def _articles_match(kind: SearchType, asked: Asked) -> Match:
+    """The articles that hold the words, or whose law's abbreviation they are, or that
+    their case law calls by them, in the period."""
+    termed = termed_articles(asked.store, asked.tokens)
+    return Match(
+        asked.tokens,
+        asked.period.where(kind.period_date),
+        asked.period.params(),
+        termed.ids if termed else None,
+        abbreviated_laws(asked.store, asked.tokens),
+    )
 
 
 def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
@@ -200,6 +218,29 @@ _INSTRUMENT_HIT = f"""
 """
 
 
+def _instruments_match(kind: SearchType, asked: Asked) -> Match:
+    """The instruments that hold the words, in the period."""
+    return Match(
+        asked.tokens, asked.period.where(kind.period_date), asked.period.params()
+    )
+
+
+# The props ``instrument_validity`` reads, as JSON text.
+_VALIDITY_PROPS = """json_build_object(
+    'stub', r.props -> 'stub', 'date_expired', r.props -> 'date_expired',
+    'date_in_force', r.props -> 'date_in_force', 'in_force', r.props -> 'in_force',
+    'status', r.props -> 'status', 'bwb_id', r.props -> 'bwb_id',
+    'celex', r.props -> 'celex'
+)::text"""
+
+
+def _validity_of(props: str | None) -> str | None:
+    """The state today (``core.validity``) of the instrument with the JSON *props*; None
+    where its source says nothing of it."""
+    validity = instrument_validity(json.loads(props or "{}"), dutch_today().isoformat())
+    return validity.state.value if validity else None
+
+
 def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
     ``BW``), then those that hold its words."""
@@ -279,6 +320,13 @@ _ECLI_HIT = f"""
 # The judgments a live search looks for need this many characters: a part of a name or
 # number of fewer is in too many.
 LIVE_MIN_JUDGMENT = 3
+
+
+def _judgments_match(kind: SearchType, asked: Asked) -> Match:
+    """The judgments that hold the words, in the period."""
+    return Match(
+        asked.tokens, asked.period.where(kind.period_date), asked.period.params()
+    )
 
 
 def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
@@ -502,22 +550,36 @@ _DOSSIER_HIT = f"""
     """
 
 
-def _search_dossiers(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
-    store, kinds, period = asked.store, asked.kinds, asked.period
+def _dossiers_match(kind: SearchType, asked: Asked) -> Match:
+    """The dossiers of the kinds asked for that hold the words (but those that name the
+    type), or that the abbreviation of the law they made is, in the period."""
     words = [t for t in asked.tokens if t not in _DOSSIER_WORDS] or asked.tokens
+    return Match(
+        words,
+        (_KIND if asked.kinds else "") + asked.period.where(kind.period_date),
+        {
+            "kind_filter": [k.lower() for k in asked.kinds or []],
+            **asked.period.params(),
+        },
+        legislated_dossiers(asked.store, words),
+    )
+
+
+def _search_dossiers(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
+    match = _dossiers_match(kind, asked)
     query = text_query(
         kind,
-        store,
+        asked.store,
         _DOSSIER_HIT,
-        words,
+        match.tokens,
         asked.limit,
-        where=(_KIND if kinds else "") + period.where(kind.period_date),
-        params={"kind_filter": [k.lower() for k in kinds or []], **period.params()},
+        where=match.where,
+        params=match.params,
         live=live,
-        termed=legislated_dossiers(store, words),
+        termed=match.termed,
         any_word=asked.any_word,
     )
-    hits = list(store.query(*query, indexes_only=True))
+    hits = list(asked.store.query(*query, indexes_only=True))
     for hit in hits:
         # the name the dossier goes by, as /api/dossiers gives it ("Wet betaalbare huur")
         extra = hit["extra"]
@@ -591,31 +653,44 @@ _MOTIONS_OF_KINDS = """
 """
 
 
+def _documents_match(kind: SearchType, asked: Asked) -> Match:
+    """The papers of the kinds asked for that hold the words, of the factions the query
+    names and the motions asked for, in the period; a word of the name of a kind of motion
+    also finds the motions of that kind."""
+    words = asked.words(kind)
+    signed, signed_params = asked.signed_where(kind)
+    motions = f" AND r.id IN ({_MOTIONS_OF_KINDS})" if asked.motion_kinds else ""
+    return Match(
+        words,
+        (_KIND if asked.kinds else "")
+        + asked.period.where(kind.period_date)
+        + signed
+        + motions,
+        {
+            "kind_filter": [k.lower() for k in asked.kinds or []],
+            "motion_kinds": asked.motion_kinds,
+            **asked.period.params(),
+            **signed_params,
+        },
+        _motions_named(asked.store, words),
+    )
+
+
 def _search_documents(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """The papers that hold the words, of the factions the query names; a word of the name
     of a kind of motion (``wantrouwen``) also finds the motions of that kind, which rank
     above those that only hold the word."""
-    kinds, period, words = asked.kinds, asked.period, asked.words(kind)
-    signed, signed_params = asked.signed_where(kind)
-    motions = f" AND r.id IN ({_MOTIONS_OF_KINDS})" if asked.motion_kinds else ""
+    match = _documents_match(kind, asked)
     query = text_query(
         kind,
         asked.store,
         _DOCUMENT_HIT,
-        words,
+        match.tokens,
         asked.limit,
-        where=(_KIND if kinds else "")
-        + period.where(kind.period_date)
-        + signed
-        + motions,
-        params={
-            "kind_filter": [k.lower() for k in kinds or []],
-            "motion_kinds": asked.motion_kinds,
-            **period.params(),
-            **signed_params,
-        },
+        where=match.where,
+        params=match.params,
         live=live,
-        termed=_motions_named(asked.store, words),
+        termed=match.termed,
         any_word=asked.any_word,
     )
     return list(asked.store.query(*query, indexes_only=True))
@@ -937,6 +1012,7 @@ SEARCHES: dict[str, SearchType] = {
                 + " FROM instruments i WHERE i.bwb_id = {row}.bwb_id ORDER BY i.key LIMIT 1)"
             ),
             heavy=True,
+            match=_articles_match,
         ),
         SearchType(
             "judgments",
@@ -947,6 +1023,12 @@ SEARCHES: dict[str, SearchType] = {
             " r.date_eff DESC NULLS LAST, r.key",
             period_date="{row}.date_eff",  # the day of its decision
             heavy=True,
+            match=_judgments_match,
+            # its tier (the instance), and the year of its decision
+            facets=(
+                Facet("tier", "r.tier"),
+                Facet("year", "left(r.date_eff, 4)", by_value=True),
+            ),
         ),
         SearchType(
             "documents",
@@ -957,6 +1039,8 @@ SEARCHES: dict[str, SearchType] = {
             period_date="{row}.date",
             heavy=True,
             signatures=lambda row: f"{row}.pj_actors",
+            match=_documents_match,
+            facets=(Facet("kind", "r.kind"),),
         ),
         SearchType(
             "instruments",
@@ -977,6 +1061,8 @@ SEARCHES: dict[str, SearchType] = {
             # it
             period_date=instrument_date_in_force("{row}"),
             heavy=True,
+            match=_instruments_match,
+            facets=(Facet("validity", _VALIDITY_PROPS, _validity_of),),
         ),
         SearchType(
             "dossiers",
@@ -984,6 +1070,7 @@ SEARCHES: dict[str, SearchType] = {
             fields=["title", "display_name", "number"],
             live_order="r.last_activity DESC NULLS LAST, r.key DESC",
             period_date="{row}.opened_on",  # the day it was opened
+            match=_dossiers_match,
         ),
         SearchType(
             "committees",
