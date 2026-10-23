@@ -134,3 +134,18 @@ def test_the_old_format_writes_ij_as_a_ligature() -> None:
 def test_an_act_without_a_printed_title_has_its_citation_title() -> None:
     names = act_names("31995L0046", [])
     assert names == type(names)(None, "Richtlijn 95/46/EG", None)
+
+
+def test_the_reference_of_a_commission_proposal_is_no_part_of_its_title() -> None:
+    names = act_names(
+        "51993PC0476",
+        [
+            "Voorstel voor een VERORDENING (EG) VAN DE RAAD betreffende de statistieken "
+            "van het goederenverkeer met derde landen /* COM/93/476DEF */"
+        ],
+    )
+    assert names.title == (
+        "Voorstel voor een VERORDENING (EG) VAN DE RAAD betreffende de statistieken "
+        "van het goederenverkeer met derde landen"
+    )
+    assert act_names("51993PC0476", ["/* COM/93/476DEF */"]).title is None
