@@ -47,7 +47,8 @@ law throughout: so an abbreviation several laws claim (WW: also the Woningwet an
 names a law where the text says which. An abbreviation that is one law's keeps that law.
 
 In running text (`semantic tk`, `semantic rechtspraak`) an abbreviation of one word cites its
-law as its source writes it. Another case (`Vw` for `VW`, `AWB` for `Awb`) cites the law in a
+law as its source writes it. `semantic tk` reads an abbreviation that stands alone as the law only when no
+faction is called so (`factions.abbreviation`: "Bosman (VVD)" is the party). Another case (`Vw` for `VW`, `AWB` for `Awb`) cites the law in a
 text that also names it so or by its title or citation title, and in a judgment dated five
 years or more after the law came into force (`date_in_force`) while it was still in force
 (before its `date_expired`): "art. 8 Vw" is the

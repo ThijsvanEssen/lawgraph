@@ -6,7 +6,7 @@ inside a line, where the flattened text before it ran on with the indentation of
 
 from __future__ import annotations
 
-from lawgraph.core.citations import strip_xml
+from lawgraph.core.citations import CitationHit, strip_xml
 from lawgraph.core.document_xml import parse_document_xml
 from lawgraph.core.tk_records.kinds import KIND_BILL
 from lawgraph.pipelines.normalize.tk_content import document_props
@@ -121,3 +121,16 @@ def test_the_memorandum_of_a_verzamelwet_explains_each_law_in_its_own_article() 
         "BWBR0035303": set(),
         "BWBR0005181": {("37", "AMENDS"), ("45", "AMENDS"), ("120b", "AMENDS")},
     }
+
+
+def test_a_faction_abbreviation_names_no_law() -> None:
+    """ "Bosman (VVD)" is the party; the abbreviation of the Warenwetregeling Vrijstelling
+    vitamine D stands for it only where no faction is called so."""
+    codes = {"VVD": "BWBR0015032", "AVG": "32016R0679"}
+    text = "De heer Bosman (VVD) vraagt naar de AVG."
+    every: list[CitationHit] = []
+    NamedActs({}, codes).collect_hits(text, every.append)
+    assert [h.raw_match for h in every] == ["VVD", "AVG"]
+    hits: list[CitationHit] = []
+    NamedActs({}, codes, actors={"VVD"}).collect_hits(text, hits.append)
+    assert [h.raw_match for h in hits] == ["AVG"]

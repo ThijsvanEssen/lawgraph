@@ -1084,3 +1084,17 @@ def remove_own_act_edges(store: Store, relations: list[str], source: str) -> int
             },
         )
     )
+
+
+def faction_abbreviations(store: Store) -> set[str]:
+    """What the factions of the Kamers are called, as written (``VVD``): a text that names
+    one of them names no law of that abbreviation."""
+    return set(
+        store.query(
+            f"""
+            SELECT DISTINCT lg_str(props -> 'abbreviation') AS abbreviation
+            FROM {COLLECTION_FACTIONS}
+            WHERE lg_truthy(props -> 'abbreviation')
+            """
+        )
+    )

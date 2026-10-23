@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.core.document_reading import DocumentReading, section_at
+from lawgraph.pipelines.semantic._detection import build_extractor, detect_in_text
+from lawgraph.pipelines.semantic.tk import NamedActs
 
 # The MvT of 33328 (Wet open overheid) cites the VIR-BI in its footnotes only.
 NOTE_71 = (
@@ -99,3 +101,35 @@ def test_the_innermost_section() -> None:
     assert section_at(sections, 20) == "s-2"
     assert section_at(sections, 55) == "s-1"
     assert section_at(sections, 100) is None
+
+
+def test_every_detected_citation_stands_where_its_place_says() -> None:
+    """The invariant of ``meta.place``: the served part, cut at ``start:end``, is the words
+    the linker matched (``raw_match``), whatever lies before it."""
+    props = {
+        **PROPS,
+        "title": "  Titel met de Wet open overheid ",
+        "text": "\n\n  Zie artikel 10 Gw en de Wob. Zie ook artikel 3 Gw.  ",
+    }
+    read = DocumentReading.of(props)
+    served = {
+        "title": props["title"],
+        "text": props["text"],
+        "footnote": {
+            f"fn-{i + 1}": n["text"]
+            for i, n in enumerate(props["footnotes"])
+            if isinstance(n, dict)
+        },
+    }
+    codes = {"Gw": "BWBR0001840", "Wob": "BWBR0005252"}
+    hits = detect_in_text(
+        read.text, build_extractor(codes, {}), extra=NamedActs({}, codes).collect_hits
+    )
+    assert hits
+    for hit in hits:
+        place, _ = read.place(hit.start, hit.end)
+        assert place is not None
+        part = served[place["part"]]
+        if place["part"] == "footnote":
+            part = part[place["footnote_id"]]
+        assert part[place["start"] : place["end"]] == hit.raw_match
