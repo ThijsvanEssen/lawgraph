@@ -431,10 +431,12 @@ def list_articles(
         "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
         "first; ``cited``, the most cited articles of the law first; ``citation_count``, "
         "the most cited judgment first (a standard judgment); each then the newest. "
-        "``year`` and ``tier`` (repeated: any of them) filter ``total`` and the page. "
+        "``year``, ``tier`` (repeated: any of them) and ``subject_area`` (a main area of "
+        "law of the judgment's source: ``Strafrecht``) filter ``total`` and the page. "
         "``facets`` counts the judgments, not the page: per ``year`` without the "
-        "``year`` filter, per ``tier`` (most first) without the ``tier`` filter, each "
-        "under the other filter."
+        "``year`` filter, per ``tier`` (most first) without the ``tier`` filter, per "
+        "``subject_area`` (most first) without the ``subject_area`` filter, each "
+        "under the other filters."
     ),
     tags=["instruments"],
 )
@@ -460,6 +462,14 @@ def get_instrument_judgments_route(
             "tier."
         ),
     ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law of the judgment's source, as "
+            "``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, "
+            "`Bestuursrecht`; ``facets.subject_area`` still counts every area."
+        ),
+    ] = None,
 ) -> InstrumentJudgmentsResponse:
     found = get_citing_judgments(
         store,
@@ -469,6 +479,7 @@ def get_instrument_judgments_route(
         offset=offset,
         year=year,
         tiers=tuple(t.value for t in tier or ()),
+        area=(subject_area or "").strip() or None,
     )
     return InstrumentJudgmentsResponse(
         bwb_id=bwb_id,
@@ -478,6 +489,7 @@ def get_instrument_judgments_route(
         facets=InstrumentJudgmentFacets(
             year=[FacetCountDTO(**row) for row in found.years],
             tier=[FacetCountDTO(**row) for row in found.tiers],
+            subject_area=[FacetCountDTO(**row) for row in found.areas],
         ),
         items=[InstrumentJudgmentItem.from_row(row) for row in found.items],
     )

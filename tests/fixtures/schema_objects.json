@@ -341,7 +341,7 @@
   "CREATE INDEX IF NOT EXISTS lg_authored_document ON lg_authored (document_id)",
   "CREATE INDEX IF NOT EXISTS lg_authored_member ON lg_authored (member_id)",
   "CREATE INDEX IF NOT EXISTS lg_authored_member_date ON lg_authored (member_id, capacity, date) INCLUDE (dossiers)",
-  "CREATE INDEX IF NOT EXISTS lg_cited_by_article ON lg_cited_by (article_id) INCLUDE (judgment_id, edge_key, mentions, date_eff, ecli, court_code, tier, cited)",
+  "CREATE INDEX IF NOT EXISTS lg_cited_by_article_areas ON lg_cited_by (article_id) INCLUDE (judgment_id, edge_key, mentions, date_eff, ecli, court_code, tier, cited, areas)",
   "CREATE INDEX IF NOT EXISTS lg_cited_by_judgment ON lg_cited_by (judgment_id)",
   "CREATE INDEX IF NOT EXISTS lg_document_light_motion_kind ON lg_document_light (lg_str(props -> 'motion_kind')) WHERE lg_str(props -> 'motion_kind') IS NOT NULL",
   "CREATE INDEX IF NOT EXISTS lg_document_light_paper ON lg_document_light (lg_str(props -> 'dossier_number'), upper(coalesce(lg_str(props -> 'dossier_suffix'), '')), lg_num(props -> 'sequence'))",

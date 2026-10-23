@@ -240,6 +240,19 @@ AREA_CIVIL = "Civiel recht"
 AREA_ADMINISTRATIVE = "Bestuursrecht"
 
 
+def subject_areas(subjects: list[str] | None) -> list[str]:
+    """The main areas of law of a judgment's subjects, each once, in order: each subject up
+    to its first ';' (``Bestuursrecht; Belastingrecht`` is in ``Bestuursrecht``), as the
+    database reads them (``lg_subject_areas``)."""
+    return list(
+        dict.fromkeys(
+            area
+            for subject in subjects or []
+            if (area := subject.split(";")[0].strip())
+        )
+    )
+
+
 def area_of_law(subjects: list[str] | None) -> str | None:
     """The area of law of a judgment: the first part of its first subject."""
     for subject in subjects or []:

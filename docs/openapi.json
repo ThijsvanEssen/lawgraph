@@ -71,7 +71,7 @@
           "articles"
         ],
         "summary": "Passages of judgments that cite an article",
-        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, each under the other filters. 404 when the article is unknown.",
+        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date), `subject_area` (a main area of law of the judgment's source, the part of a subject before its first `;`: `Strafrecht`) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, per `subject_area` (most first) without the `subject_area` filter, each under the other filters. 404 when the article is unknown.",
         "operationId": "get_article_cited_by_passages_api_articles__bwb_id___article_number__cited_by_get",
         "parameters": [
           {
@@ -207,6 +207,24 @@
               "title": "Sort"
             },
             "description": "`date_desc`: the newest judgment first; `citation_count`: the most cited judgment first (a standard judgment), then the newest."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area."
           }
         ],
         "responses": {
@@ -1565,7 +1583,7 @@
           "instruments"
         ],
         "summary": "Every judgment citing this instrument",
-        "description": "Per judgment: light metadata plus the specific articles it refers to. Meant for the case-law layer of the graph. ``total`` is the absolute count, independent of ``limit``. ``sort``: ``date`` (default), the newest first; ``cited``, the most cited articles of the law first; ``citation_count``, the most cited judgment first (a standard judgment); each then the newest. ``year`` and ``tier`` (repeated: any of them) filter ``total`` and the page. ``facets`` counts the judgments, not the page: per ``year`` without the ``year`` filter, per ``tier`` (most first) without the ``tier`` filter, each under the other filter.",
+        "description": "Per judgment: light metadata plus the specific articles it refers to. Meant for the case-law layer of the graph. ``total`` is the absolute count, independent of ``limit``. ``sort``: ``date`` (default), the newest first; ``cited``, the most cited articles of the law first; ``citation_count``, the most cited judgment first (a standard judgment); each then the newest. ``year``, ``tier`` (repeated: any of them) and ``subject_area`` (a main area of law of the judgment's source: ``Strafrecht``) filter ``total`` and the page. ``facets`` counts the judgments, not the page: per ``year`` without the ``year`` filter, per ``tier`` (most first) without the ``tier`` filter, per ``subject_area`` (most first) without the ``subject_area`` filter, each under the other filters.",
         "operationId": "get_instrument_judgments_route_api_instruments__bwb_id__judgments_get",
         "parameters": [
           {
@@ -1654,6 +1672,24 @@
               "title": "Tier"
             },
             "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; ``facets.tier`` still counts every tier."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area."
           }
         ],
         "responses": {
@@ -14597,13 +14633,22 @@
             "type": "array",
             "title": "Tier",
             "description": "Per tier, most first; without the `tier` filter."
+          },
+          "subject_area": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Area",
+            "description": "Per main area of law of the source (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), most first; a judgment counts for each of its areas; without the `subject_area` filter."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "year",
-          "tier"
+          "tier",
+          "subject_area"
         ],
         "title": "CitedByFacets",
         "description": "The judgments that cite an article, counted whatever the page, each facet under the\nother filters."
@@ -28097,13 +28142,22 @@
             "type": "array",
             "title": "Tier",
             "description": "Per tier, the most first. Without the `tier` filter."
+          },
+          "subject_area": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Area",
+            "description": "Per main area of law of the source (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), the most first; a judgment counts for each of its areas. Without the `subject_area` filter."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "year",
-          "tier"
+          "tier",
+          "subject_area"
         ],
         "title": "InstrumentJudgmentFacets",
         "description": "The judgments that cite this instrument counted, not the page, each facet under the\nother filter."
@@ -30463,6 +30517,46 @@
             "title": "Decision Kind",
             "description": "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` (the kantonrechter on an appeal against a traffic fine), `conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they tell, else from the court and the area of law; null when nothing does."
           },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subjects",
+            "description": "The areas of law of the source as it writes them (`Strafrecht`, `Bestuursrecht; Belastingrecht`); empty when it gives none."
+          },
+          "subject_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Areas",
+            "description": "The main areas of law: each of `subjects` up to its first `;`, each once (`Strafrecht`, `Civiel recht`, `Bestuursrecht`). What the `subject_area` filters of the lists take."
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure",
+            "description": "The procedure as the Rechtspraak gives it (`psi:procedure`): `Hoger beroep`, `Cassatie`, `Eerste aanleg - meervoudig`; null when it gives none."
+          },
+          "chamber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chamber",
+            "description": "The chamber or division of the court that the kop names (`Strafkamer`, `Civiele kamer`, `Afdeling civiel recht`, `Team Handel`), as written; null when the kop names none (the metadata of the source does not)."
+          },
           "series_id": {
             "anyOf": [
               {
@@ -30682,6 +30776,10 @@
           "translation_of",
           "names",
           "decision_kind",
+          "subjects",
+          "subject_areas",
+          "procedure",
+          "chamber",
           "series_id",
           "series_size",
           "same_as",

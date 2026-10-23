@@ -165,7 +165,7 @@ def test_the_passages_are_counted_from_the_index_and_read_for_the_page_alone(
         (n["Node Type"], n.get("Index Name"))
         for n in scans
         if n["Relation Name"] == "lg_cited_by"
-    } == {("Index Only Scan", "lg_cited_by_article")}
+    } == {("Index Only Scan", "lg_cited_by_article_areas")}
     for node in scans:
         if node["Relation Name"] in ("edges", "judgments"):
             assert node.get("Index Name") in ("edges_pkey", "judgments_pkey"), node

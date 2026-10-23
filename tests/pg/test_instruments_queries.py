@@ -300,6 +300,7 @@ def test_a_citing_conclusion_names_its_advocate_general(store: GraphStore) -> No
     assert body["facets"] == {
         "year": [{"value": None, "count": 2}],
         "tier": [{"value": None, "count": 2}],
+        "subject_area": [],
     }
     item = next(i for i in body["items"] if i["key"] == "c1")
     assert (item["advocate_general"], item["advocate_general_role"]) == (
@@ -1668,7 +1669,7 @@ def test_the_judgments_citing_a_law_are_read_from_the_index_of_its_citations(
         if "Relation Name" in node
     ]
     assert "edges" not in {relation for relation, *_ in scans}
-    assert ("lg_cited_by", "Index Only Scan", "lg_cited_by_article") in scans
+    assert ("lg_cited_by", "Index Only Scan", "lg_cited_by_article_areas") in scans
     # the judgments of the page alone, by key
     judgments = [n for n in plan_nodes(plan) if n.get("Relation Name") == "judgments"]
     assert [n["Index Name"] for n in judgments] == ["judgments_pkey"]
@@ -1726,6 +1727,56 @@ def test_the_judgments_citing_a_law_by_tier_year_and_citations(
         {"value": "2021", "count": 1},
     ]
     assert len(rechtbank.tiers) == 2
+
+
+def test_the_judgments_citing_a_law_by_main_area_of_law(store: GraphStore) -> None:
+    """``area`` filters the total, the page and the other facets; ``areas`` counts every
+    area under the year and the tiers, a judgment once for each of its areas."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"key": "a1", "type": "article", "labels": ["BWB"],
+          "props": {"bwb_id": BWB, "article_number": "1"}}],
+    )  # fmt: skip
+    judgments = [
+        ("j1", "2019-05-01", "hoge_raad", ["Strafrecht"]),
+        ("j2", "2020-05-01", "hoge_raad", ["Strafrecht", "Civiel recht"]),
+        ("j3", "2020-06-01", "rechtbank", ["Bestuursrecht; Belastingrecht"]),
+        ("j4", "2021-06-01", "rechtbank", []),
+    ]
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"key": key, "type": "judgment", "labels": ["Rechtspraak"],
+          "props": {"ecli": key, "date_eff": date, "tier": tier, "subjects": subjects}}
+         for key, date, tier, subjects in judgments],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [{"key": f"e{key}", "from_id": f"judgments/{key}", "to_id": "articles/a1",
+          "relation": "REFERS_TO", "source": "t"} for key, *_ in judgments]
+    )  # fmt: skip
+
+    every = instruments.get_citing_judgments(store, BWB)
+    assert every.areas == [
+        {"value": "Strafrecht", "count": 2},
+        {"value": "Bestuursrecht", "count": 1},
+        {"value": "Civiel recht", "count": 1},
+    ]
+    penal = instruments.get_citing_judgments(store, BWB, area="Strafrecht")
+    assert (penal.total, [i["judgment"]["key"] for i in penal.items]) == (
+        2,
+        ["j2", "j1"],
+    )
+    assert penal.areas == every.areas
+    assert penal.tiers == [{"value": "hoge_raad", "count": 2}]
+    assert penal.years == [{"value": "2019", "count": 1}, {"value": "2020", "count": 1}]
+    civil_2020 = instruments.get_citing_judgments(
+        store, BWB, area="Civiel recht", year="2020"
+    )
+    assert civil_2020.total == 1
+    assert civil_2020.areas == [
+        {"value": "Bestuursrecht", "count": 1},
+        {"value": "Civiel recht", "count": 1},
+        {"value": "Strafrecht", "count": 1},
+    ]
 
 
 def test_the_judgments_citing_a_law_are_kept_per_request(

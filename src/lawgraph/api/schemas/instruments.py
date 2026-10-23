@@ -397,6 +397,12 @@ class InstrumentJudgmentFacets(StrictModel):
         default_factory=list,
         description="Per tier, the most first. Without the `tier` filter.",
     )
+    subject_area: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per main area of law of the source (`Strafrecht`, `Civiel recht`, "
+        "`Bestuursrecht`), the most first; a judgment counts for each of its areas. "
+        "Without the `subject_area` filter.",
+    )
 
 
 # The order of the judgments citing an instrument.

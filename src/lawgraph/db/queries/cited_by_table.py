@@ -37,7 +37,8 @@ kept AS (
         article_id = EXCLUDED.article_id, judgment_id = EXCLUDED.judgment_id,
         mentions = EXCLUDED.mentions, leden = EXCLUDED.leden,
         date_eff = EXCLUDED.date_eff, ecli = EXCLUDED.ecli,
-        court_code = EXCLUDED.court_code, tier = EXCLUDED.tier, cited = EXCLUDED.cited
+        court_code = EXCLUDED.court_code, tier = EXCLUDED.tier, cited = EXCLUDED.cited,
+        areas = EXCLUDED.areas
     RETURNING 1
 )
 SELECT (SELECT max(id) FROM batch) AS last, (SELECT count(*) FROM kept)::int AS n

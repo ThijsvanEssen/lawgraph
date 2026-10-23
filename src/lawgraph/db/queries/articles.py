@@ -844,35 +844,42 @@ def get_article_explanation_passages(
 class CitedBy:
     """A page of the passages that cite an article: ``{judgment, mention}`` rows, the
     passages that match the filters and the judgments they are in, and ``facets``: per
-    ``year`` and ``tier`` the judgments under the other filters (``{value, count}``)."""
+    ``year``, ``tier`` and ``subject_area`` the judgments under the other filters
+    (``{value, count}``)."""
 
     rows: list[dict[str, Any]]
     total: int
     judgment_total: int
     echr_judgment_total: int = 0
     facets: dict[str, list[dict[str, Any]]] = field(
-        default_factory=lambda: {"year": [], "tier": []}
+        default_factory=lambda: {"year": [], "tier": [], "subject_area": []}
     )
 
 
 # ``hits``: per judgment that cites the article (a row of ``lg_cited_by``), one row per
 # mention that passes the court and lid filters, with only what sorts and counts it; ``kept``:
-# those of the tiers and the year asked for; ``page``: those of the page, cut by a limit (so
+# those of the tiers, the year and the main area of law asked for; ``page``: those of the page, cut by a limit (so
 # the planner reads their edges by key, not every edge). The mentions of the page are read
 # whole from their edges after the cut. Each facet counts the judgments of ``hits`` under
 # the other filter.
 _TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR h.tier = ANY(%(tiers)s::text[]))"
 _YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
+_AREA_KEPT = "(%(area)s::text IS NULL OR h.areas @> ARRAY[%(area)s::text])"
 
 
-def _cited_by_facet(value: str, where: str, order: str) -> str:
-    """SQL: the judgments of ``hits`` under *where*, counted per *value*, in *order*."""
+def _cited_by_facet(value: str, where: str, order: str, *, many: bool = False) -> str:
+    """SQL: the judgments of ``hits`` under *where*, counted per *value*, in *order*; with
+    *many*, *value* is an array and a judgment counts for each of its values."""
+    source = (
+        f"hits h CROSS JOIN LATERAL unnest(h.{value}) AS u(value)" if many else "hits h"
+    )
+    column = "u.value" if many else f"h.{value}"
     return f"""(
             SELECT coalesce(json_agg(json_build_object('value', f.value, 'count', f.n)
                                      ORDER BY {order}), '[]'::json)
             FROM (
-                SELECT h.{value} AS value, count(DISTINCT h.edge)::int AS n
-                FROM hits h WHERE {where} GROUP BY h.{value}
+                SELECT {column} AS value, count(DISTINCT h.edge)::int AS n
+                FROM {source} WHERE {where} GROUP BY {column}
             ) f
         )"""
 
@@ -894,14 +901,14 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
     return f"""
     WITH hits AS MATERIALIZED (
         SELECT c.edge_key AS edge, m.position, c.date_eff AS date, c.ecli, c.cited, c.tier,
-               substr(c.date_eff, 1, 4) AS year
+               c.areas, substr(c.date_eff, 1, 4) AS year
         FROM {CITED_BY_TABLE} c
         CROSS JOIN LATERAL {_MENTIONS_OF_LID if lid else _EVERY_MENTION}
         WHERE c.article_id = %(article_id)s
           AND (%(court)s::text IS NULL OR c.court_code = %(court)s::text)
     ),
     kept AS (
-        SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT}
+        SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
     ),
     page AS (
         SELECT h.edge, h.position, row_number() OVER (ORDER BY {order}) AS n
@@ -914,8 +921,24 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         -- one edge per judgment and article
         (SELECT count(DISTINCT edge)::int FROM kept) AS judgment_total,
         json_build_object(
-            'year', {_cited_by_facet("year", _TIERS_KEPT, "f.value ASC NULLS FIRST")},
-            'tier', {_cited_by_facet("tier", _YEAR_KEPT, "f.n DESC, f.value ASC")}
+            'year', {
+        _cited_by_facet(
+            "year", f"{_TIERS_KEPT} AND {_AREA_KEPT}", "f.value ASC NULLS FIRST"
+        )
+    },
+            'tier', {
+        _cited_by_facet(
+            "tier", f"{_YEAR_KEPT} AND {_AREA_KEPT}", "f.n DESC, f.value ASC"
+        )
+    },
+            'subject_area', {
+        _cited_by_facet(
+            "areas",
+            f"{_TIERS_KEPT} AND {_YEAR_KEPT}",
+            "f.n DESC, f.value ASC",
+            many=True,
+        )
+    }
         ) AS facets,
         -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
         (
@@ -924,7 +947,11 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(
-                'judgment', {listed_judgment("j", "l", "'inbound_citation_count', j.pj_inbound_citation_count")},
+                'judgment', {
+        listed_judgment(
+            "j", "l", "'inbound_citation_count', j.pj_inbound_citation_count"
+        )
+    },
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
             ) ORDER BY r.n), '[]'::json)
             FROM page r
@@ -984,6 +1011,7 @@ def get_article_cited_by(
     court: str | None = None,
     tiers: tuple[str, ...] = (),
     year: str | None = None,
+    area: str | None = None,
     lid: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -994,10 +1022,12 @@ def get_article_cited_by(
     ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
     judgments that cite the article, whatever the filters: HUDOC names the article they
     apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code),
-    any of the ``tiers`` and the ``year`` (of its date) of the judgment, and a ``lid``
-    number that the mention names. ``facets`` counts the judgments per ``year`` (oldest
-    first, none first) without the year filter, and per ``tier`` (most first) without the
-    tier filter. ``sort`` (``CITED_BY_SORTS``): the newest judgment first, or the most
+    any of the ``tiers``, the ``year`` (of its date) and the main ``area`` of law (the part
+    of a subject of the source before its first ';': ``Strafrecht``) of the judgment, and
+    a ``lid`` number that the mention names. ``facets`` counts the judgments, each under
+    the other filters: per ``year`` (oldest first, none first), per ``tier`` (most first)
+    and per main area of law (``subject_area``, most first; a judgment counts for each of
+    its areas). ``sort`` (``CITED_BY_SORTS``): the newest judgment first, or the most
     cited first.
 
     A much cited article has thousands of judgments (6:162 BW: 10,500), each an edge with
@@ -1013,6 +1043,7 @@ def get_article_cited_by(
         "court": court.upper() if court else None,
         "tiers": list(chosen) or None,
         "year": year,
+        "area": area,
         "lid": lid.lower() if lid else None,
         "limit": limit,
         "offset": offset,
@@ -1040,5 +1071,8 @@ def get_article_cited_by(
         total=int(answer.get("total") or 0),
         judgment_total=int(answer.get("judgment_total") or 0),
         echr_judgment_total=int(answer.get("echr_judgment_total") or 0),
-        facets={name: list(facets.get(name) or []) for name in ("year", "tier")},
+        facets={
+            name: list(facets.get(name) or [])
+            for name in ("year", "tier", "subject_area")
+        },
     )

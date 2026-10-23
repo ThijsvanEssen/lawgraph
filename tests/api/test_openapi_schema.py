@@ -265,7 +265,7 @@ def test_an_article_lists_the_passages_that_cite_it() -> None:
         "echr_judgment_total",
         "facets",
     } == _properties("ArticleCitedByResponse")
-    assert {"year", "tier"} == _properties("CitedByFacets")
+    assert {"year", "tier", "subject_area"} == _properties("CitedByFacets")
     assert {
         "judgment",
         "paragraph_id",
