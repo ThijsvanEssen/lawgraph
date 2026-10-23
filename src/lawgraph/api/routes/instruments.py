@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -38,6 +39,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentDefinitionsResponse,
     InstrumentDelegatedItem,
     InstrumentDelegatedResponse,
+    InstrumentDelegatedSummaryItem,
     InstrumentDetailDTO,
     InstrumentDivisionDTO,
     InstrumentDossierItem,
@@ -67,7 +69,11 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import get_law_annexes
 from lawgraph.db.queries.articles import get_current_references
 from lawgraph.db.queries.definitions import definitions_of
-from lawgraph.db.queries.delegations import get_basis, get_delegated_by_law
+from lawgraph.db.queries.delegations import (
+    count_expired_delegated,
+    get_basis,
+    get_delegated_by_law,
+)
 from lawgraph.db.queries.instrument_links import (
     get_eu_links,
     get_international_links,
@@ -614,31 +620,58 @@ def get_instrument_references_route(
     )
 
 
+_VALIDITY = Query(
+    description="Those in force today (`in_force`), those no longer in force (`expired`) or "
+    "`all`, as on the list of instruments."
+)
+
+
 @router.get(
     "/{bwb_id}/delegated",
     response_model=InstrumentDelegatedResponse,
     summary="Regulations issued under a law",
     description=(
-        'The regulations in force whose preamble ("Gelet op") names an article in force '
-        "of this law as their legal basis (`BASED_ON`), one per regulation with the "
+        'The regulations whose preamble ("Gelet op") names an article in force of this '
+        "law as their legal basis (`BASED_ON`), one per regulation with the "
         "articles it names, whether those give the power it is made under (`basis_kind`), "
         "its articles that work each out (`referring`), the other laws it names "
         "(`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): "
-        "AMvBs first, then ministerial regulations, then the others; by title. A repealed "
-        "regulation (as on the list: `expired_on` today or before) or article is left "
-        "out. Empty for an unknown instrument."
+        "AMvBs first, then ministerial regulations, then the others; by title. By "
+        "`validity` those in force (the default), those no longer in force (`expired_on` "
+        "today or before) or all, each with its `expired_on`; `expired_total` counts the "
+        "ones no longer in force whatever was asked for and `by_kind` the items per kind. "
+        "A repealed article is left out. `detail=summary`: the light form, per regulation "
+        "only the articles of the law it names, without `referring`, `also_based_on` and "
+        "`sub_delegated`. Empty for an unknown instrument."
     ),
     tags=["instruments"],
 )
 def get_instrument_delegated_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
+    validity: Annotated[Literal["in_force", "expired", "all"], _VALIDITY] = "in_force",
+    detail: Annotated[
+        Literal["full", "summary"],
+        Query(description="`summary`: the light form, see the description."),
+    ] = "full",
 ) -> InstrumentDelegatedResponse:
-    items = in_regulation_order(
-        InstrumentDelegatedItem.from_row(row)
-        for row in get_delegated_by_law(store, bwb_id)
+    rows = get_delegated_by_law(store, bwb_id, validity, detail == "summary")
+    items: list[InstrumentDelegatedItem] | list[InstrumentDelegatedSummaryItem]
+    if detail == "summary":
+        items = in_regulation_order(
+            InstrumentDelegatedSummaryItem.from_row(row) for row in rows
+        )
+    else:
+        items = in_regulation_order(
+            InstrumentDelegatedItem.from_row(row) for row in rows
+        )
+    return InstrumentDelegatedResponse(
+        bwb_id=bwb_id,
+        total=len(items),
+        expired_total=count_expired_delegated(store, bwb_id),
+        by_kind=dict(Counter(item.kind or "unknown" for item in items)),
+        items=items,
     )
-    return InstrumentDelegatedResponse(bwb_id=bwb_id, total=len(items), items=items)
 
 
 @router.get(
@@ -649,20 +682,31 @@ def get_instrument_delegated_route(
         'The legal basis of a regulation: per law its preamble ("Gelet op") names an '
         "article in force of (`BASED_ON`), by title, the articles it names with the leden "
         "and onderdelen, whether they give the power it is made under (`basis_kind`) and "
-        "the articles of the regulation that refer to each (`referring`). Empty for a law "
-        "without a preamble basis and for an unknown instrument. The other way: "
-        "`.../delegated`."
+        "the articles of the regulation that refer to each (`referring`). By `validity` "
+        "the laws in force (the default), those no longer in force or all, each with its "
+        "`expired_on`; `expired_total` counts the ones no longer in force whatever was "
+        "asked for. Empty for a law without a preamble basis and for an unknown "
+        "instrument. The other way: `.../delegated`."
     ),
     tags=["instruments"],
 )
 def get_instrument_basis_route(
     bwb_id: str,
     store: Annotated[GraphStore, Depends(get_store)],
+    validity: Annotated[Literal["in_force", "expired", "all"], _VALIDITY] = "in_force",
 ) -> InstrumentBasisResponse:
     instrument = resolve_instrument(store, bwb_id)
     rows = get_basis(store, instrument["id"]) if instrument else []
-    items = [InstrumentBasisItem.from_row(row) for row in rows]
-    return InstrumentBasisResponse(bwb_id=bwb_id, total=len(items), items=items)
+    kept = [
+        r for r in rows if validity == "all" or r["expired"] == (validity == "expired")
+    ]
+    items = [InstrumentBasisItem.from_row(row) for row in kept]
+    return InstrumentBasisResponse(
+        bwb_id=bwb_id,
+        total=len(items),
+        expired_total=sum(1 for r in rows if r["expired"]),
+        items=items,
+    )
 
 
 @router.get(

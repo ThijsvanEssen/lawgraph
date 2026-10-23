@@ -1983,7 +1983,7 @@
           "instruments"
         ],
         "summary": "Regulations issued under a law",
-        "description": "The regulations in force whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. A repealed regulation (as on the list: `expired_on` today or before) or article is left out. Empty for an unknown instrument.",
+        "description": "The regulations whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. By `validity` those in force (the default), those no longer in force (`expired_on` today or before) or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for and `by_kind` the items per kind. A repealed article is left out. `detail=summary`: the light form, per regulation only the articles of the law it names, without `referring`, `also_based_on` and `sub_delegated`. Empty for an unknown instrument.",
         "operationId": "get_instrument_delegated_route_api_instruments__bwb_id__delegated_get",
         "parameters": [
           {
@@ -1994,6 +1994,39 @@
               "type": "string",
               "title": "Bwb Id"
             }
+          },
+          {
+            "name": "validity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "in_force",
+                "expired",
+                "all"
+              ],
+              "type": "string",
+              "description": "Those in force today (`in_force`), those no longer in force (`expired`) or `all`, as on the list of instruments.",
+              "default": "in_force",
+              "title": "Validity"
+            },
+            "description": "Those in force today (`in_force`), those no longer in force (`expired`) or `all`, as on the list of instruments."
+          },
+          {
+            "name": "detail",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "full",
+                "summary"
+              ],
+              "type": "string",
+              "description": "`summary`: the light form, see the description.",
+              "default": "full",
+              "title": "Detail"
+            },
+            "description": "`summary`: the light form, see the description."
           }
         ],
         "responses": {
@@ -2027,7 +2060,7 @@
           "instruments"
         ],
         "summary": "The laws a regulation is issued under",
-        "description": "The legal basis of a regulation: per law its preamble (\"Gelet op\") names an article in force of (`BASED_ON`), by title, the articles it names with the leden and onderdelen, whether they give the power it is made under (`basis_kind`) and the articles of the regulation that refer to each (`referring`). Empty for a law without a preamble basis and for an unknown instrument. The other way: `.../delegated`.",
+        "description": "The legal basis of a regulation: per law its preamble (\"Gelet op\") names an article in force of (`BASED_ON`), by title, the articles it names with the leden and onderdelen, whether they give the power it is made under (`basis_kind`) and the articles of the regulation that refer to each (`referring`). By `validity` the laws in force (the default), those no longer in force or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for. Empty for a law without a preamble basis and for an unknown instrument. The other way: `.../delegated`.",
         "operationId": "get_instrument_basis_route_api_instruments__bwb_id__basis_get",
         "parameters": [
           {
@@ -2038,6 +2071,23 @@
               "type": "string",
               "title": "Bwb Id"
             }
+          },
+          {
+            "name": "validity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "in_force",
+                "expired",
+                "all"
+              ],
+              "type": "string",
+              "description": "Those in force today (`in_force`), those no longer in force (`expired`) or `all`, as on the list of instruments.",
+              "default": "in_force",
+              "title": "Validity"
+            },
+            "description": "Those in force today (`in_force`), those no longer in force (`expired`) or `all`, as on the list of instruments."
           }
         ],
         "responses": {
@@ -13550,6 +13600,18 @@
             "title": "Kind",
             "description": "Its BWB type, lower case."
           },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "articles": {
             "items": {
               "$ref": "#/components/schemas/BasisArticleDTO"
@@ -13563,6 +13625,7 @@
         "required": [
           "instrument",
           "kind",
+          "expired_on",
           "articles"
         ],
         "title": "BasisLawDTO",
@@ -27267,6 +27330,18 @@
             "title": "Kind",
             "description": "Its BWB type, lower case."
           },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "basis_kind": {
             "anyOf": [
               {
@@ -27297,6 +27372,7 @@
         "required": [
           "instrument",
           "kind",
+          "expired_on",
           "basis_kind",
           "articles"
         ],
@@ -27314,13 +27390,19 @@
             "type": "integer",
             "title": "Total"
           },
+          "expired_total": {
+            "type": "integer",
+            "title": "Expired Total",
+            "description": "How many of the laws its preamble names are no longer in force, whatever `validity` asked for.",
+            "default": 0
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/InstrumentBasisItem"
             },
             "type": "array",
             "title": "Items",
-            "description": "Every law its preamble names an article in force of, by title."
+            "description": "Every law of the `validity` asked for its preamble names an article in force of, by title."
           }
         },
         "additionalProperties": false,
@@ -27328,6 +27410,7 @@
         "required": [
           "bwb_id",
           "total",
+          "expired_total",
           "items"
         ],
         "title": "InstrumentBasisResponse",
@@ -27385,6 +27468,18 @@
             "title": "Date In Force",
             "description": "When the regulation itself entered into force."
           },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "basis_kind": {
             "anyOf": [
               {
@@ -27432,6 +27527,7 @@
           "instrument",
           "kind",
           "date_in_force",
+          "expired_on",
           "basis_kind",
           "articles",
           "also_based_on",
@@ -27451,13 +27547,37 @@
             "type": "integer",
             "title": "Total"
           },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/InstrumentDelegatedItem"
+          "expired_total": {
+            "type": "integer",
+            "title": "Expired Total",
+            "description": "How many regulations issued under an article in force of the law are no longer in force, whatever `validity` asked for.",
+            "default": 0
+          },
+          "by_kind": {
+            "additionalProperties": {
+              "type": "integer"
             },
-            "type": "array",
+            "type": "object",
+            "title": "By Kind",
+            "description": "`total` per `kind` (`unknown` without one)."
+          },
+          "items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InstrumentDelegatedItem"
+                },
+                "type": "array"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/InstrumentDelegatedSummaryItem"
+                },
+                "type": "array"
+              }
+            ],
             "title": "Items",
-            "description": "Every regulation in force issued under an article of the law: AMvBs first, then ministerial regulations, then the others; by title."
+            "description": "Every regulation of the `validity` asked for issued under an article of the law: AMvBs first, then ministerial regulations, then the others; by title. With `detail=summary` the light form."
           }
         },
         "additionalProperties": false,
@@ -27465,10 +27585,91 @@
         "required": [
           "bwb_id",
           "total",
+          "expired_total",
+          "by_kind",
           "items"
         ],
         "title": "InstrumentDelegatedResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/delegated."
+      },
+      "InstrumentDelegatedSummaryItem": {
+        "properties": {
+          "instrument": {
+            "$ref": "#/components/schemas/InstrumentSummaryDTO"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "Its BWB type, lower case: `amvb`, `ministeriele-regeling`, `kb`, …"
+          },
+          "date_in_force": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date In Force",
+            "description": "When the regulation itself entered into force."
+          },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
+          "basis_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "delegates",
+                  "mentioned"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis Kind",
+            "description": "`delegates` when one of `articles` does: the law gives the power it is made under; `mentioned` when it only names them (\"Genoemd in de aanhef van\"); null when not known."
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/BasisArticleDTO"
+            },
+            "type": "array",
+            "title": "Articles",
+            "description": "The articles of the law it is issued under, in the order of the law."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instrument",
+          "kind",
+          "date_in_force",
+          "expired_on",
+          "basis_kind",
+          "articles"
+        ],
+        "title": "InstrumentDelegatedSummaryItem",
+        "description": "A regulation whose preamble names an article of the law, in the light form\n(`detail=summary`): without what it takes reading its own articles for."
       },
       "InstrumentDetailDTO": {
         "properties": {
@@ -38015,6 +38216,18 @@
             "title": "Date In Force",
             "description": "When the regulation itself entered into force."
           },
+          "expired_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expired On",
+            "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
+          },
           "basis_kind": {
             "anyOf": [
               {
@@ -38046,6 +38259,7 @@
           "instrument",
           "kind",
           "date_in_force",
+          "expired_on",
           "basis_kind",
           "articles"
         ],
