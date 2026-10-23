@@ -51,6 +51,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
@@ -380,7 +381,8 @@ class MemberOfMeta(CommitteePeriod):
 
 class ServedInMeta(_Meta):
     posts: list[GovernmentFunctionProps] | None = None
-    """The posts held in the cabinet, as in the member's `government_functions`."""
+    """The posts held in the cabinet or under the ministry, as in the member's
+    `government_functions`."""
 
 
 class AuthoredMeta(_Meta):
@@ -480,6 +482,7 @@ _COMMIT = COLLECTION_COMMITMENTS
 _MEMBER = COLLECTION_MEMBERS
 _FACTION = COLLECTION_FACTIONS
 _CABINET = COLLECTION_CABINETS
+_MINISTRY = COLLECTION_MINISTRIES
 _COMMITTEE = COLLECTION_COMMITTEES
 
 RELATIONS: tuple[RelationSpec, ...] = (
@@ -679,6 +682,7 @@ RELATIONS: tuple[RelationSpec, ...] = (
             (_J, _J),
             (_ACT, _ACT),
             (_FACTION, _FACTION),
+            (_MINISTRY, _MINISTRY),
         ),
         "A judgment → an earlier one of the same court in the same case (an interim "
         "judgment followed by the final one): an earlier instance its metadata names that "
@@ -688,7 +692,9 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "the new faction, which had no seat before and has at least as many (`meta.reason` "
         "`alle_zetels`, "
         "`meta.effective_date`, `meta.seats`; `semantic tk-faction-succession`). A faction "
-        "whose seats do not pass that way has no successor.",
+        "whose seats do not pass that way has no successor. A ministry → the name it "
+        "followed (`data/ministries.json`: Justitie en Veiligheid → Veiligheid en "
+        "Justitie).",
         meta=ContinuesMeta,
     ),
     RelationSpec(
@@ -777,9 +783,14 @@ RELATIONS: tuple[RelationSpec, ...] = (
         (
             (_ACT, _COMMITTEE),
             (_CASE, _COMMITTEE),
+            (_I, _MINISTRY),
+            (_DOSSIER, _MINISTRY),
+            (_COMMIT, _MINISTRY),
         ),
-        "The lead committee (`voortouwcommissie`) of an activity or case; absent for "
-        "plenary.",
+        "Who leads it. The lead committee (`voortouwcommissie`) of an activity or case; "
+        "absent for plenary. The ministry of a BWB regulation (first responsible: its WTI "
+        "`eerstverantwoordelijke`), of a dossier (that of the bewindspersoon who brought it "
+        "in) and of a commitment: its `ministry`.",
     ),
     RelationSpec(
         "MADE_IN",
@@ -806,9 +817,10 @@ RELATIONS: tuple[RelationSpec, ...] = (
     ),
     RelationSpec(
         "SERVED_IN",
-        ((_MEMBER, _CABINET),),
-        "The posts a member held in a cabinet, one edge per member and cabinet, "
-        "`meta.posts` as in the member's `government_functions`.",
+        ((_MEMBER, _CABINET), (_MEMBER, _MINISTRY)),
+        "The posts a member held in a cabinet, one edge per member and cabinet, and under "
+        "a ministry, one edge per member and ministry (the `ministry` of the post on its "
+        "day); `meta.posts` as in the member's `government_functions`.",
         meta=ServedInMeta,
     ),
     RelationSpec(

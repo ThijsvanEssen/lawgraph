@@ -60,6 +60,7 @@ _KEY_OF: dict[str, Any] = {
     ),
     "dossier": lambda a: f"dossiers/{make_node_key(a)}",
     "kabinet": lambda a: f"cabinets/{a}",
+    "ministerie": lambda a: f"ministries/{a}",
     "fractie": lambda a: f"factions/{a}",
 }
 

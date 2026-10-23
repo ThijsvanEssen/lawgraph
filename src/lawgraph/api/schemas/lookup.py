@@ -24,6 +24,7 @@ LookupKind = Literal[
     "faction",
     "committee",
     "cabinet",
+    "ministry",
     "member",
 ]
 

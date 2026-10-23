@@ -14,6 +14,7 @@ from lawgraph.api.seo.pages.base import SITE_IMAGE, Page
 from lawgraph.api.seo.pages.government import (
     cabinet_page,
     commitment_page,
+    ministry_page,
     publication_page,
 )
 from lawgraph.api.seo.pages.judgments import judgment_page
@@ -28,7 +29,12 @@ from lawgraph.api.seo.pages.parliament import (
     faction_page,
     member_page,
 )
-from lawgraph.api.seo.paint import article_paint, judgment_paint
+from lawgraph.api.seo.paint import (
+    article_paint,
+    document_paint,
+    judgment_paint,
+    law_paint,
+)
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -46,18 +52,21 @@ class SourcePage:
 
 
 SOURCE_PAGES: dict[str, SourcePage] = {
-    "wet": SourcePage(seo.law, law_page, "/og/wet.png"),
+    "wet": SourcePage(seo.law, law_page, "/og/wet.png", paint=law_paint),
     "artikel": SourcePage(
         seo.article, article_page, "/og/artikel.png", paint=article_paint
     ),
     "uitspraak": SourcePage(
         seo.judgment, judgment_page, "/og/uitspraak.png", paint=judgment_paint
     ),
-    "kamerstuk": SourcePage(seo.paper, document_page, "/og/kamerstuk.png"),
+    "kamerstuk": SourcePage(
+        seo.paper, document_page, "/og/kamerstuk.png", paint=document_paint
+    ),
     "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),
     "lid": SourcePage(seo.member, member_page),
     "fractie": SourcePage(seo.faction, faction_page),
     "kabinet": SourcePage(seo.cabinet, cabinet_page),
+    "ministerie": SourcePage(seo.ministry, ministry_page),
     "commissie": SourcePage(seo.committee, committee_page),
     "publicatie": SourcePage(seo.publication, publication_page),
     "toezegging": SourcePage(seo.commitment, commitment_page),

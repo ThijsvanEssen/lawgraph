@@ -80,7 +80,7 @@ the `date` of its paper or case (`lg_signed_date`), with indexes on `member_id` 
 `(member_id, capacity, date)` that includes the `dossiers`, kept by triggers on `edges` (a
 signature, and a paper or a case placed in or taken out of a dossier or a case), `documents`
 and `cases`, and filled once: the dossiers of a member or a faction (`get_actor_dossiers`) and
-the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and its `dossiers`, those an activity is `ABOUT` or a case `PART_OF` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_cited_by` holds every `REFERS_TO` edge from a judgment into an article with its number of `mentions`, the `leden` each mention names (in their order), and the judgment's `date_eff`, `ecli`, `court_code`, `tier`, `inbound_citation_count` (as `cited`) and main areas of law (`areas`, `lg_subject_areas` of its `subjects`; null for a row written before they were kept, `semantic graph-light --only cited-by --every` writes them), with an index (`lg_cited_by_article_areas`) on `article_id` that includes all but the `leden`, kept by triggers on `edges` and `judgments` (a row for each edge of a judgment that is there) and filled once: the passages citing an article (`get_article_cited_by`) and the judgments citing a law (`get_citing_judgments`) are counted, filtered (by year, tier and main area of law) and sorted from it, and only the edges and judgments of the page are read. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and its `dossiers`, those an activity is `ABOUT` or a case `PART_OF` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_cited_by` holds every `REFERS_TO` edge from a judgment into an article with its number of `mentions`, the `leden` each mention names (in their order), and the judgment's `date_eff`, `ecli`, `court_code`, `tier`, `inbound_citation_count` (as `cited`) and main areas of law (`areas`, `lg_subject_areas` of its `subjects`; null for a row written before they were kept, `semantic graph-light --only cited-by --all` writes them), with an index (`lg_cited_by_article_areas`) on `article_id` that includes all but the `leden`, kept by triggers on `edges` and `judgments` (a row for each edge of a judgment that is there) and filled once: the passages citing an article (`get_article_cited_by`) and the judgments citing a law (`get_citing_judgments`) are counted, filtered (by year, tier and main area of law) and sorted from it, and only the edges and judgments of the page are read. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them, 5 times as often as in all summaries, and in a fifth of them or in a fifth of the
 summaries that hold the stem, at most 20, the most telling first ("noodwer" of art. 41 Sr,
@@ -130,6 +130,7 @@ the markers.
 | Member | `members` |
 | Faction | `factions` |
 | Cabinet | `cabinets` |
+| Ministry | `ministries` |
 | Annex | `annexes` |
 
 | Relation | From → To | Meaning |
@@ -149,17 +150,17 @@ the markers.
 | `REFERS_TO` | Article → Article, Article → Instrument, Document → Article, Document → Instrument, Document → Document, Judgment → Article, Judgment → Instrument, Judgment → Judgment, Instrument → Article, Instrument → Instrument | A text refers to an article, instrument, judgment or Kamerstuk: the reference is in the text, never only in metadata (a judgment's earlier instance or conclusion is `APPEAL_OF` or `ADVISES_ON`), and two judgments of one case tied by `APPEAL_OF`, `CONTINUES`, `REFERRED_BY`, `ADVISES_ON` or `ANSWERS` have that edge only. The source node says who refers; article → article edges also carry a `semantic_type`. From an instrument: a regulation whose text names the CELEX number of an EU act it does not `IMPLEMENTS`, or an EU act → an article or act its text names. Judgment → instrument: a law the conclusion of an ECHR judgment names by its BWB id. Document → document: its subject names the paper by dossier and number, "(Kamerstuk 36945-XIV-1)" (`meta.basis` `subject`, `meta.text` as written), unless it `ANSWERS` it. |
 | `EXPLAINS` | Document → ArticleVersion, Document → Article, Document → Instrument | A document (MvT, NvT) explains the article version or instrument it introduced or changed. Written per dossier: every MvT and NvT of a dossier explains everything its law changed; an MvT edge carries `meta.section_anchor` when one of its sections is about that article. |
 | `APPEAL_OF` | Judgment → Judgment | An appeal or cassation judgment → the judgment it appeals: an earlier instance its metadata names (`meta.basis` `formal_relation`), else the decision its text says it appeals, by date and case number (`appeal_text`). |
-| `CONTINUES` | Judgment → Judgment, Activity → Activity, Faction → Faction | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. An activity → the moved activity it replaced (`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). A faction → the faction it passed all its seats to: the holders of its last day who sit the day after sit in the new faction, which had no seat before and has at least as many (`meta.reason` `alle_zetels`, `meta.effective_date`, `meta.seats`; `semantic tk-faction-succession`). A faction whose seats do not pass that way has no successor. |
+| `CONTINUES` | Judgment → Judgment, Activity → Activity, Faction → Faction, Ministry → Ministry | A judgment → an earlier one of the same court in the same case (an interim judgment followed by the final one): an earlier instance its metadata names that shares its court and case number. An activity → the moved activity it replaced (`Activiteit.VervangenDoor`; `meta.reason` `verplaatst`). A faction → the faction it passed all its seats to: the holders of its last day who sit the day after sit in the new faction, which had no seat before and has at least as many (`meta.reason` `alle_zetels`, `meta.effective_date`, `meta.seats`; `semantic tk-faction-succession`). A faction whose seats do not pass that way has no successor. A ministry → the name it followed (`data/ministries.json`: Justitie en Veiligheid → Veiligheid en Justitie). |
 | `REFERRED_BY` | Judgment → Judgment | A decision after referral (verwijzing) → the ruling of the Hoge Raad that set aside the earlier decision and sent the case to it: an earlier instance its metadata names that is a Hoge Raad ruling (not a preliminary ruling). |
 | `ADVISES_ON` | Judgment → Judgment | The conclusion of an advocate-general (Parket bij de Hoge Raad, or of the court itself) → the judgment in its case, one way only: the formal relation of either, when the side it calls the conclusion is one (`meta.basis` `formal_relation`), else a case number the two share (`case_number`). |
 | `ANSWERS` | Judgment → Judgment, Document → Commitment, Document → Document | A preliminary ruling (prejudiciële beslissing) → the decision that asked its questions: the earlier instance its metadata names (`meta.basis` `formal_relation`), else the ECLI or the case number and date its text names (`referral_text`). A letter → the commitment it fulfils (`Toezegging.KamerbriefNakoming`). A letter of the government → a motion its subject names by dossier and number, "Uitvoering van de motie … (Kamerstuk 25424-795)" (`meta.basis` `subject`, `meta.text` the whole subject, `meta.reference` the reference as written), or its text or a footnote names: "Kamerstuk 36 764, nr. 28", "de motie-Kathmann (36764, nr. 31)" (`meta.basis` `text` or `footnote`, `meta.text` the line or footnote, confidence 0.9). |
 | `SAME_AS` | Judgment → Judgment, Instrument → Instrument, Document → Instrument, Member → Member | A publication of a decision → the publication of the same decision that replaces it (an old arrest published again under a new ECLI): the ECLI its metadata names as `dcterms:isReplacedBy`. The lists show the decision once, by the one kept. The BWB text of a treaty (`BWBV…`) → its Verdragenbank treaty, by the treaty number the text names (`wetgeving@verdragnummer`). A paper of the Staatsblad or the Staatscourant → the publication of the BWB of the same official id (`stb-2019-33`, `stcrt-2020-12345`), by their keys. A bare `Persoon` of the Tweede Kamer → the member with a role who is the same person: the same birth date, surname and initials (`tk-person-duplicates`). |
 | `SCOPED_BY` | Article → Annex | An article whose scope is defined by an annex. |
 | `ABOUT` | Activity → Case, Activity → Dossier, Decision → Case, Decision → Dossier, Decision → Document, Commitment → Dossier | The subject of an activity, decision or commitment: Activity/Decision → Case and Dossier; Commitment → Dossier. A vote of the Eerste Kamer on a motion → the motion, its Kamerstuk with that letter (`Kamerstuk I 37020, M`): a paper of the Eerste Kamer has no case, where a decision of the Tweede Kamer is about the case of its motion. A commitment fulfilled by a letter in a dossier is about that dossier (`meta.basis` `nakoming`), one without is about the dossiers on the agenda of its debate (`agenda`). |
-| `LED_BY` | Activity → Committee, Case → Committee | The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. |
+| `LED_BY` | Activity → Committee, Case → Committee, Instrument → Ministry, Dossier → Ministry, Commitment → Ministry | Who leads it. The lead committee (`voortouwcommissie`) of an activity or case; absent for plenary. The ministry of a BWB regulation (first responsible: its WTI `eerstverantwoordelijke`), of a dossier (that of the bewindspersoon who brought it in) and of a commitment: its `ministry`. |
 | `MADE_IN` | Commitment → Activity, Document → Activity, Decision → Activity | The activity in which a commitment (toezegging) was made, or a decision taken (the activity of its agenda item: `Agendapunt.Activiteit`), or of which a document is the record (a stenogram of its debate: `Document.Activiteit`), or a motion submitted: the debate held on the day its case started that has the case on its agenda and took no decision on it (`meta.reason` `ingediend`). |
 | `MEMBER_OF` | Member → Committee, Member → Faction | Membership of a committee or faction, with from/to dates and role. |
-| `SERVED_IN` | Member → Cabinet | The posts a member held in a cabinet, one edge per member and cabinet, `meta.posts` as in the member's `government_functions`. |
+| `SERVED_IN` | Member → Cabinet, Member → Ministry | The posts a member held in a cabinet, one edge per member and cabinet, and under a ministry, one edge per member and ministry (the `ministry` of the post on its day); `meta.posts` as in the member's `government_functions`. |
 | `AUTHORED` | Member → Document, Member → Case, Member → Commitment | A person signed or submitted a document or case; `role` says how (first signatory, co-signatory, …), `function` as what (`Functie`) and `capacity` in which capacity (`kamerlid`, `bewindspersoon`, `overig`). A bewindspersoon made a commitment (`role` `toezegger`). |
 | `RELATED_TO` | Case → Case, Dossier → Dossier, Judgment → Judgment | Case → case: the Kamer relates the two (`Zaak.GerelateerdNaar`, `meta.case_kinds`). Dossier → dossier: the Kamer relates a case of this dossier to a case of the other (`Zaak.GerelateerdNaar`), mostly a letter of the government to the motion it answers; `meta.cases` counts the pairs of cases, `meta.case_kinds` names them, `meta.pairs` gives the papers of the 5 newest pairs (`{kinds, from, to}`, a side `{case, paper, kind, dossier_number, dossier_suffix, sequence, date}`). Judgment → judgment: its summary names the other as a connected case, "Samenhang met 24/03860 E", "Zie ook: ECLI:NL:GHDHA:2025:1539" (`meta.basis` `summary_text`, `meta.text` the sentence as written); only on an exact match of the ECLI, or of the case number among the judgments of the same court (the Hoge Raad's type letter is not part of the comparison). |
 | `REVISES` | Dossier → Dossier, Document → Document | A supplementary budget or a slotwet revises the budget of its chapter and year (`meta.rule`: `begrotingswijziging` or `slotwet`; Dossier → Dossier); an amended amendment or motion replaces the one it names, "ter vervanging van nr. 21" (`meta.rule` `vervanging`, `Zaak.VervangenVanuit`; Document → Document). |
@@ -396,7 +397,7 @@ its keys to the model of `REFERS_TO`.
 |  | `record_ids` | `list[str]` | The `FractieZetelPersoon` records of the faction seat. |
 |  | `observed_from` | `str` | The first day the Eerste Kamer site showed the seat. |
 |  | `observed_until` | `str` | The day it no longer did; null while it does. |
-| `SERVED_IN` | `posts` | `list[object]` | The posts held in the cabinet, as in the member's `government_functions`. |
+| `SERVED_IN` | `posts` | `list[object]` | The posts held in the cabinet or under the ministry, as in the member's `government_functions`. |
 |  | `posts[].cabinet_key` | `str` | The cabinet node. |
 |  | `posts[].cabinet` | `str` | Its name: "kabinet-Rutte IV". |
 |  | `posts[].function` | `str` | The post as the source writes it: "Minister van Infrastructuur en Waterstaat". |
@@ -1689,6 +1690,33 @@ A Dutch cabinet since 1945, from its Rijksoverheid page; key from its name (`rut
 | `origin` | `object` | The page or the record it was read from. |
 
 <!-- props:cabinets:end -->
+
+### Ministry (`ministries`)
+
+A ministry under one of its names, from `data/ministries.json` (TOOI, the Rijksoverheid
+before it), by `semantic tooi-ministries`; key our own (`fin`, `venj`). A name that followed
+another `CONTINUES` it. A regulation, a dossier and a commitment are `LED_BY` the ministry
+their `ministry` names; a member who held a post under it `SERVED_IN` it, those posts in
+`meta.posts`.
+
+<!-- props:ministries:begin (generated: python -m lawgraph.core.props_catalogue) -->
+
+| Prop | Type | Meaning |
+|------|------|---------|
+| `name` | `str` | `Financiën`. |
+| `abbreviation` | `str` | The abbreviation TOOI gives: `FIN`. |
+| `tooi` | `str` | The TOOI code of the organisation: `mnre1090`. |
+| `periods` | `list[object]` | Its periods under this name, oldest first. |
+| `periods[].from_date` | `str` | The first day; null where no source dates it. |
+| `periods[].to_date` | `str` | The last day; null while it has the name, or where no source says. |
+| `periods[].successor` | `str` | The key of the name that followed. |
+| `periods[].basis` | `str` | The Staatscourant decree the end rests on (TOOI). |
+| `periods[].source` | `str` | `tooi` or `rijksoverheid`. |
+| `periods[].successor_source` | `str` | `curated` for a succession no source gives. |
+| `successor` | `str` | The key of the name that followed its last period; null while it has it. |
+| `to_date` | `str` | The last day it had this name; null while it has it. |
+
+<!-- props:ministries:end -->
 
 `MEMBER_OF` into a faction or committee of the Eerste Kamer has `meta.observed_from`,
 `observed_until`, and `role` (committee).

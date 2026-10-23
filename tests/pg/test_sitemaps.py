@@ -298,6 +298,14 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
             _node("naamloos", "committee", slug="naamloos"),
         ],
     )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "ministries",
+        [
+            _node("fin", "ministry", name="Financiën"),
+            _node("venj", "ministry", name="Veiligheid en Justitie",
+                  to_date="2017-12-31"),
+        ],
+    )  # fmt: skip
     kinds = command.kinds(store)
     assert _paths(kinds, "leden") == [
         ("/leden/rob-jetten", None),
@@ -318,6 +326,11 @@ def test_members_factions_cabinets_and_committees(store: GraphStore) -> None:
     assert _paths(kinds, "commissies") == [
         ("/commissies/ek-jenv", None),
         ("/commissies/szw", None),
+    ]
+    # the last day of a former name
+    assert _paths(kinds, "ministeries") == [
+        ("/ministeries/fin", None),
+        ("/ministeries/venj", "2017-12-31"),
     ]
 
 

@@ -21,6 +21,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.api.routes.documents import get_document_text
+from lawgraph.api.routes.instruments import (
+    get_instrument,
+    get_instrument_basis_route,
+    list_articles,
+    list_articles_at,
+)
 from lawgraph.api.routes.judgments import get_judgment_detail
 from lawgraph.api.routes.nodes import get_node_graph
 from lawgraph.api.schemas.articles import (
@@ -34,14 +41,21 @@ from lawgraph.api.schemas.dossiers import DossierDocumentDTO
 from lawgraph.api.schemas.nodes import NodeGraphResponse
 from lawgraph.api.validity import article_validity_dto
 from lawgraph.config.constants import (
+    COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    RELATION_ACCOMPANIES,
     RELATION_ADVISES_ON,
     RELATION_APPEAL_OF,
+    RELATION_LEGISLATED_IN,
+    RELATION_MADE_IN,
+    RELATION_PART_OF,
 )
 from lawgraph.core.delegations import delegation_clauses
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.names import text_of
 from lawgraph.core.staatsblad_laws import is_law
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 from lawgraph.db.queries.articles import (
@@ -376,3 +390,194 @@ def _first_earlier(store: GraphStore, key: str) -> dict[str, Any] | None:
     buckets = _light(store, key, _EARLIER)["neighbors"]["buckets"]
     items = buckets[0]["items"] if buckets else []
     return items[0] if items else None
+
+
+# The articles of a law the paint sets, with their text: more than a screen of them; the app
+# adds the rest of its page under them.
+_LAW_ARTICLES = 12
+
+# The preview of an article in the list, as the reader asks it (``PREVIEW_CHARS``).
+_LAW_PREVIEW = 600
+
+# The relation the band "Behoort bij" of a law names: the bill that made it.
+_LAW_BAND = NeighborFilter(relations=(RELATION_LEGISLATED_IN,), direction="outbound")
+
+
+def law_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The law of the BWB of *row* as its first paint reads it: its answer of
+    ``/api/instruments/{bwb_id}``, the first articles of its list with their text of today
+    (``/articles`` and ``/articles/at/{today}``, as the reader asks its first page), and the
+    laws its Gelet op names (``/basis``), and its light node of the bill that made it (its
+    band). None for an act of
+    the EU or a law of the Staatsblad (the reader asks their texts article by article)."""
+    bwb_id = text_of((row.get("props") or {}).get("bwb_id"))
+    if not bwb_id:
+        return None
+    detail = get_instrument(bwb_id, store)
+    listed = list_articles(
+        bwb_id,
+        store,
+        text_preview_chars=_LAW_PREVIEW,
+        limit=_LAW_ARTICLES,
+        offset=0,
+        division=None,
+    )
+    texts = list_articles_at(
+        bwb_id,
+        dutch_today(),
+        store,
+        text_preview_chars=0,
+        include_text=True,
+        limit=_LAW_ARTICLES,
+        offset=0,
+        division=None,
+        include=None,
+    )
+    # the reader names them under the head of a regulation that is no wet (its kind decides)
+    basis = get_instrument_basis_route(bwb_id, store).model_dump(mode="json")["items"]
+    today = [
+        item.model_dump(
+            mode="json",
+            include={
+                "article_number",
+                "text",
+                "parts",
+                "tables",
+                "headings",
+                "footnote_marks",
+                "footnotes",
+            },
+        )
+        for item in texts.items
+    ]
+    with_text = {t["article_number"] for t in today if t.get("text")}
+    return {
+        "kind": "law",
+        "bwb_id": bwb_id,
+        "instrument": detail.model_dump(mode="json"),
+        "total": listed.total,
+        # its annexes counted: the contents beside the text list them
+        "annexes": len(listed.annexes),
+        # an article's preview only where its text of today is not there
+        "articles": [
+            {
+                **item.model_dump(mode="json", exclude={"text_preview"}),
+                "text_preview": (
+                    None if item.article_number in with_text else item.text_preview
+                ),
+            }
+            for item in listed.items
+        ],
+        "texts": today,
+        "basis": basis,
+        "light": get_node_graph(
+            COLLECTION_INSTRUMENTS,
+            row["key"],
+            store,
+            _LAW_BAND,
+            limit=1,
+            offset=0,
+            sort="key",
+            props="full",
+            edge_meta="light",
+        ).model_dump(mode="json", include={"neighbors": {"buckets"}}),
+    }
+
+
+# The characters of a Kamerstuk's text the paint sets: its first alineas, more than a screen.
+_DOCUMENT_TEXT = 6000
+
+# The relations its band "Behoort bij" and its head name: its dossier and zaak, the debate
+# it was made in, the letter it accompanies and its own bijlagen.
+_DOCUMENT_BAND = NeighborFilter(
+    relations=(RELATION_PART_OF, RELATION_MADE_IN, RELATION_ACCOMPANIES)
+)
+
+# The props of its light node its citation and its band read.
+_DOCUMENT_PROPS = (
+    "session_year",
+    "dossier_number",
+    "dossier_suffix",
+    "kind",
+    "chamber",
+)
+
+# The widest numbers of its alineas the paint measures its margin by.
+_DOCUMENT_NUMBERS = 20
+
+
+def document_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The Kamerstuk of *row* as its first paint reads it: its answer of
+    ``/api/documents/{key}`` with its text up to the end of an alinea past
+    ``_DOCUMENT_TEXT`` characters (its alineas, sections, tables and footnotes in it), the
+    widest numbers of all its alineas, and its light node of its dossier, zaak, debate and
+    bijlagen with the props its citation reads; the votes on it come with its answer. None for
+    one without text, or with the articles it explains (their section comes with the app)."""
+    key = row["key"]
+    doc = get_document_text(key, store)
+    if not doc.text or doc.explains:
+        return None
+    # after a whole alinea, or a whole line of a text without alineas
+    ends = [p.char_end for p in doc.paragraphs if p.char_end >= _DOCUMENT_TEXT]
+    line = doc.text.find("\n", _DOCUMENT_TEXT)
+    cut = (
+        (ends[0] if ends else None) if doc.paragraphs else (line if line >= 0 else None)
+    )
+    cut = cut or len(doc.text)
+    numbers = sorted(
+        {str(p.number) for p in doc.paragraphs if p.number is not None},
+        key=lambda n: (-len(n), n),
+    )[:_DOCUMENT_NUMBERS]
+    sections = [s for s in doc.sections if s.char_start < cut]
+    # a line the reader leaves out as the heading of a section past the cut ("Voorzitter: …")
+    later = {s.heading.strip().lower() for s in doc.sections if s.char_start >= cut}
+    lines = {
+        doc.text[p.char_start : p.char_end].strip().lower() for p in doc.paragraphs
+    }
+    headings = sorted(later & {line for line in lines if line})
+    closed = {s.id for s in sections if s.char_end <= cut}
+    shown = doc.model_copy(
+        update={
+            "text": doc.text[:cut],
+            "paragraphs": [p for p in doc.paragraphs if p.char_end <= cut],
+            "sections": sections,
+            "tables": [t for t in doc.tables if t.start < cut],
+            # a note at its marker in the text shown, or at the end of a section shown whole
+            "footnotes": [
+                f
+                for f in doc.footnotes
+                if (f.at is not None and f.at < cut)
+                or (f.at is None and f.section_id in closed)
+            ],
+        }
+    )
+    graph = get_node_graph(
+        COLLECTION_DOCUMENTS,
+        key,
+        store,
+        _DOCUMENT_BAND,
+        limit=1,
+        offset=0,
+        sort="key",
+        props="full",
+        edge_meta="light",
+    )
+    props = graph.node.props or {}
+    return {
+        "kind": "paper",
+        "document": shown.model_dump(mode="json"),
+        "whole": cut == len(doc.text),
+        # its sections counted: the contents beside the text list them
+        "section_count": len(doc.sections),
+        "headings": headings,
+        "numbers": numbers,
+        "light": {
+            "node": {
+                "key": graph.node.key,
+                "props": {
+                    name: props[name] for name in _DOCUMENT_PROPS if props.get(name)
+                },
+            },
+            **graph.model_dump(mode="json", include={"neighbors": {"buckets"}}),
+        },
+    }
