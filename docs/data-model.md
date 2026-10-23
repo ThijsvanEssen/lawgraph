@@ -509,6 +509,10 @@ statutes made by the legislator:
   concepts (`scw_bwb_rechtsgebieden`, `scw_bwb_themas`), the slugs unique in their list.
   Written by `normalize bwb`; `lg_legal_area_keys` and `lg_policy_domain_keys` (GIN indexes)
   are what `/api/instruments` filters on.
+- `ministry` of a BWB regulation is the ministry first responsible for it, from the same WTI;
+  the column `ministry` is what `/api/instruments?ministry=` and the counts of
+  `/api/ministries/{key}` read. A law, a dossier and a commitment answer their ministry with
+  its name (`ministry_name`).
 - `abbreviation` of an instrument is the abbreviation it is cited by
   (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
@@ -560,6 +564,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `policy_domains[].id` | `str` | The id of its TOOI concept (`scw_bwb_themas`). |
 | `policy_domains[].uri` | `str` | The URI of that concept. |
 | `policy_domains[].slug` | `str` | Its slug, unique in the list. |
+| `ministry` | `str` | The key of the ministry first responsible for a BWB regulation: the one its WTI names (`eerstverantwoordelijke`), under its name of today (`normalize bwb`). |
 | `bwb_id` | `str` | The BWB id: `BWBR0001854`, a treaty `BWBV...`. |
 | `celex` | `str` | The CELEX number of an EU act: `32016L0680`. |
 | `title` | `str` | A BWB regulation its citeertitel, else its intitule; an EU act its printed title; a Verdragenbank treaty its Dutch title, else its English one. |

@@ -400,6 +400,18 @@ def test_normalize_writes_the_legal_areas_and_themes_with_their_tooi_concepts() 
     assert row["policy_domains"][0]["uri"]
 
 
+def test_normalize_writes_the_ministry_the_wti_names_under_its_name_of_today() -> None:
+    """``Veiligheid en Justitie`` (the WTI keeps the name of 2010) is Justitie en
+    Veiligheid now; a responsible that is no ministry (a ZBO) gives none."""
+    zbo = BW1_GENERAL.replace("Veiligheid en Justitie", "De Nederlandsche Bank N.V.")
+    store = _WtiStore({BW1: BW1_GENERAL, SR: zbo}, {BW1: {}, SR: {}})
+
+    _normalize(store)
+
+    assert store.subjects[make_node_key(BW1)]["ministry"] == "jenv"
+    assert store.subjects[make_node_key(SR)]["ministry"] is None
+
+
 def test_without_the_thesauri_the_labels_are_written_without_a_uri() -> None:
     store = _WtiStore({BW1: BW1_GENERAL}, {BW1: {}})
 

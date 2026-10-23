@@ -12,6 +12,7 @@ from lawgraph.api.params import (
     DateSort,
     ListLimit,
     LongListLimit,
+    MinistryKey,
     OpenedSort,
     PageLimit,
     Tier,
@@ -107,7 +108,8 @@ router = APIRouter()
         "free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind "
         "filter, a minimum article count, and the registers of the BWB: a legal area "
         "(`legal_area`, a main area includes its specific areas) and a government theme "
-        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
+        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing; and "
+        "the ministry first responsible for a BWB regulation (`ministry`, its WTI). "
         "`facets` counts the instruments under the filters per legal area (a tree) and per "
         "theme, each without its own filter. The regulations that change other "
         "regulations (`amending` on an item) are hidden from the list without a search "
@@ -184,6 +186,10 @@ def list_instruments(
             "force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
         ),
     ] = None,
+    ministry: Annotated[
+        MinistryKey | None,
+        Query(description="The ministry first responsible (``GET /api/ministries``)."),
+    ] = None,
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
@@ -195,6 +201,7 @@ def list_instruments(
         article_count_min=article_count_min,
         legal_area=legal_area,
         policy_domain=policy_domain,
+        ministry=ministry.value if ministry else None,
         sort=sort,
         limit=limit,
         offset=offset,

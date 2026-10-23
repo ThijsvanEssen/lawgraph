@@ -566,6 +566,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("citation_title"),
         _str("treaty_number"),
         _str("date_published"),
+        # the ministry first responsible for a BWB regulation (its WTI)
+        Column("ministry", "text", "lg_str(props -> 'ministry')", added=True),
     ),
     COLLECTION_ARTICLES: (
         _str("bwb_id"),
@@ -827,6 +829,7 @@ INDEXES: dict[str, tuple[tuple[tuple[str, ...], bool], ...]] = {
         (("citation_title",), False),
         (("treaty_number",), False),
         (("kind", "date_published"), False),
+        (("ministry",), False),
     ),
     COLLECTION_ARTICLES: (
         (("labels",), False),

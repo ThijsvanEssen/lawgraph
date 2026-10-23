@@ -947,7 +947,7 @@
           "instruments"
         ],
         "summary": "Paginated list of instruments",
-        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. The same holds for the instruments no longer in force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and `all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch day). `facets=false` leaves them out (null): the pages after the first need none.",
+        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing; and the ministry first responsible for a BWB regulation (`ministry`, its WTI). `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. The same holds for the instruments no longer in force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and `all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch day). `facets=false` leaves them out (null): the pages after the first need none.",
         "operationId": "list_instruments_api_instruments_get",
         "parameters": [
           {
@@ -1232,6 +1232,24 @@
               "title": "Validity"
             },
             "description": "The instruments in force today (`in_force`), those no longer in force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
+          },
+          {
+            "name": "ministry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MinistryKey"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ministry first responsible (``GET /api/ministries``).",
+              "title": "Ministry"
+            },
+            "description": "The ministry first responsible (``GET /api/ministries``)."
           }
         ],
         "responses": {
@@ -4761,6 +4779,50 @@
                   },
                   "type": "array",
                   "title": "Response List Ministries Api Ministries Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ministries/{key}": {
+      "get": {
+        "tags": [
+          "ministries",
+          "government"
+        ],
+        "summary": "Ministry detail",
+        "description": "One ministry: its names (``periods``, ``predecessors``), its bewindspersonen per cabinet, newest first (``cabinets``), and the counts of what is its own, each the ``total`` of a list filtered on ``ministry``: ``laws`` (the BWB regulations in force it is first responsible for, ``/api/instruments``), ``open_dossiers`` (``/api/dossiers?status=open``) and ``open_commitments`` (``/api/commitments?status=Openstaand``).",
+        "operationId": "get_ministry_api_ministries__key__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MinistryDetailDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -9633,6 +9695,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -9669,7 +9744,8 @@
           "functions",
           "capacities",
           "document_count",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "ActorDossierDTO",
         "description": "A dossier a member or faction authored documents in.\n\n``roles`` are the distinct ``AUTHORED`` roles as the source wrote them\n(``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``functions`` and ``capacities``\nwhat they signed as, which changes over time (a Kamerlid who became minister-president);\n``document_count`` the distinct documents authored in the dossier."
@@ -15163,6 +15239,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -15183,7 +15272,8 @@
           "dossiers",
           "activity",
           "fulfilled_by",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "CommitmentDTO",
         "description": "A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."
@@ -19602,6 +19692,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -19647,7 +19750,8 @@
           "senate",
           "next_activity",
           "relations",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "DossierDetailResponse",
         "description": "A dossier with the size of everything attached to it, and what it links to."
@@ -21150,6 +21254,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -21182,7 +21299,8 @@
           "ministry",
           "initiative",
           "cabinet",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "DossierSummaryDTO",
         "description": "A dossier in a list.\n\n``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of\nthe zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,\n``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``); null without\none (\"zonder soort\": no kind is made up from its papers). ``kind_basis`` is ``case``\nwith a kind. A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has\n``phases``: every phase of the curated list in its order, each done when a paper, an\nactivity or a decision of the Kamer marks it; ``current_phase`` is the furthest done\nphase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was\npublished, or the Eerste Kamer adopted it), ``verworpen`` (a chamber voted the bill\ndown) or ``ingetrokken`` (the government withdrew it by letter, ``withdrawal_letter``);\n``tk_decision`` is the last decision of the Tweede Kamer on the bill and ``ek_outcome``\nits outcome in the Eerste Kamer."
@@ -27075,6 +27193,17 @@
             "title": "Expired On",
             "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
           },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the one its WTI names (``eerstverantwoordelijke``), under its name of today; null for one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+          },
           "validity": {
             "anyOf": [
               {
@@ -27249,6 +27378,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -27278,6 +27420,7 @@
           "inbound_citation_count",
           "amending",
           "expired_on",
+          "ministry",
           "validity",
           "date_signed",
           "date_published",
@@ -27292,7 +27435,8 @@
           "same_treaty",
           "treaty",
           "completeness",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "InstrumentDetailDTO",
         "description": "One instrument: its identifiers, names, classification and dates."
@@ -28207,6 +28351,17 @@
             "title": "Expired On",
             "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
           },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the one its WTI names (``eerstverantwoordelijke``), under its name of today; null for one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+          },
           "path": {
             "anyOf": [
               {
@@ -28218,6 +28373,19 @@
             ],
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
             "readOnly": true
           }
         },
@@ -28243,7 +28411,9 @@
           "official_url",
           "amending",
           "expired_on",
-          "path"
+          "ministry",
+          "path",
+          "ministry_name"
         ],
         "title": "InstrumentListItemDTO",
         "description": "Row in the paginated /api/instruments list."
@@ -32536,6 +32706,66 @@
         "title": "MemberVotesResponse",
         "description": "Response for GET /api/members/{key}/votes."
       },
+      "MinistryCabinetDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null while it lasts."
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryPostDTO"
+            },
+            "type": "array",
+            "title": "Posts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "from_date",
+          "to_date",
+          "posts"
+        ],
+        "title": "MinistryCabinetDTO",
+        "description": "A cabinet with the posts held under the ministry in it, in order of start."
+      },
       "MinistryDTO": {
         "properties": {
           "key": {
@@ -32610,6 +32840,120 @@
         ],
         "title": "MinistryDTO",
         "description": "A ministry name of ``data/ministries.json``: a name that came back (Economische\nZaken) has a period for each time; a former one names its successor and the last day\nit had its name (``successor`` and ``until`` of its last period)."
+      },
+      "MinistryDetailDTO": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/MinistryKey"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "abbreviation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbreviation"
+          },
+          "tooi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tooi",
+            "description": "The TOOI code: ``mnre1045``."
+          },
+          "successor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryPeriodDTO"
+            },
+            "type": "array",
+            "title": "Periods"
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryKey"
+            },
+            "type": "array",
+            "title": "Predecessors",
+            "description": "The names it followed (``Veiligheid en Justitie`` for ``Justitie en Veiligheid``), each a ministry of its own."
+          },
+          "cabinets": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryCabinetDTO"
+            },
+            "type": "array",
+            "title": "Cabinets",
+            "description": "The cabinets with a post under it, newest first: a post is under the ministry it had on its day (``government_functions[].ministry``)."
+          },
+          "laws": {
+            "type": "integer",
+            "title": "Laws",
+            "description": "The BWB regulations it is first responsible for (the WTI's ``eerstverantwoordelijke``), as ``GET /api/instruments?ministry=`` lists them: those in force, without the ones that change others.",
+            "default": 0
+          },
+          "open_dossiers": {
+            "type": "integer",
+            "title": "Open Dossiers",
+            "description": "Its open dossiers: ``GET /api/dossiers?status=open&ministry=`` (a dossier's ministry is that of the bewindspersoon who signed it first).",
+            "default": 0
+          },
+          "open_commitments": {
+            "type": "integer",
+            "title": "Open Commitments",
+            "description": "Its open commitments: ``GET /api/commitments?status=Openstaand&ministry=``.",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "abbreviation",
+          "tooi",
+          "successor",
+          "until",
+          "periods",
+          "predecessors",
+          "cabinets",
+          "laws",
+          "open_dossiers",
+          "open_commitments"
+        ],
+        "title": "MinistryDetailDTO",
+        "description": "A ministry with its bewindspersonen per cabinet, and how many laws, open dossiers\nand open commitments are its own: each the ``total`` of a list with ``ministry``."
       },
       "MinistryKey": {
         "type": "string",
@@ -32754,6 +33098,89 @@
         ],
         "title": "MinistryPeriodDTO",
         "description": "A stretch in which the ministry had its name, and where that is known from."
+      },
+      "MinistryPostDTO": {
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/PersonRefDTO"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Post"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As Rijksoverheid names the post."
+          },
+          "portfolio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portfolio"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date",
+            "description": "The day it began."
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null while it lasts."
+          },
+          "acting": {
+            "type": "boolean",
+            "title": "Acting",
+            "description": "A stand-in (ad interim).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member",
+          "post",
+          "function",
+          "portfolio",
+          "from_date",
+          "to_date",
+          "acting"
+        ],
+        "title": "MinistryPostDTO",
+        "description": "A post under the ministry, as the cabinet lists it (``GET /api/cabinets/{key}``)."
       },
       "NeighborBucketDTO": {
         "properties": {

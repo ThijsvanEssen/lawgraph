@@ -7,7 +7,8 @@ Only that first element is kept. Its ``<afkortingen>`` list is sorted alphabetic
 source, so the position of an abbreviation says nothing about its importance. Its
 ``<rechtsgebieden>`` (a ``hoofdgebied`` with a ``specifiekgebied``) and ``<overheidsdomeinen>``
 are concepts of the TOOI thesauri ``scw_bwb_rechtsgebieden`` and ``scw_bwb_themas``, by their
-label.
+label. Its ``<eerstverantwoordelijke>`` names the ministry first responsible for it, by a
+name of the ministry that may be an earlier one (``Veiligheid en Justitie``).
 """
 
 from __future__ import annotations
@@ -63,6 +64,12 @@ def parse_subjects(general_info_xml: str) -> tuple[list[dict[str, Any]], list[st
         if domain and domain not in domains:
             domains.append(domain)
     return areas, domains
+
+
+def parse_responsible(general_info_xml: str) -> str | None:
+    """The ``<eerstverantwoordelijke>`` of a regulation as the WTI writes it; ``None`` when
+    it names none. Raises ``ET.ParseError`` on broken XML."""
+    return _text(ET.fromstring(general_info_xml), "eerstverantwoordelijke")
 
 
 def assign_slugs(concepts: Sequence[tuple[str, str, str | None]]) -> dict[str, str]:
