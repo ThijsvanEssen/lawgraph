@@ -8,6 +8,7 @@ import functools
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._helpers import side_by_side
@@ -17,6 +18,7 @@ from lawgraph.db.queries.search.clause import (
     QueryWords,
     query_words,
 )
+from lawgraph.db.queries.search.counts import Counted, count_type
 from lawgraph.db.queries.search.parser import kept_notation_parser, notation
 from lawgraph.db.queries.search.ranking import rank_hits
 from lawgraph.db.queries.search.signers import Signed, signed_for
@@ -32,6 +34,8 @@ Searches = dict[str, Callable[[], list[Hit]]]
 # of the whole request answering 503 at its deadline.
 FULL_BUDGET = 3.0
 FALLBACK_BUDGET = 1.0
+# How long the count of one type may take (seconds): past it the type has no count.
+COUNT_BUDGET = 1.0
 # How long one type of a live search may read (seconds): what it has not found by then, it
 # answers empty and ``partial`` (the full search after Enter has it).
 LIVE_BUDGET = 0.25
@@ -168,6 +172,40 @@ def search_full(
     cited first, else the newest that hold the words; the other types by the start of a
     word of a name, without a rank).
     Returns the hits per type and the types that fell back."""
+    hits, partial, _ = search_full_counted(
+        store,
+        q=q,
+        types=types,
+        kinds=kinds,
+        limit=limit,
+        period=period,
+        signed=signed,
+        words=words,
+        any_word=any_word,
+        motion_kinds=motion_kinds,
+        counting=False,
+    )
+    return hits, partial
+
+
+def search_full_counted(
+    store: GraphStore,
+    *,
+    q: str,
+    types: list[str],
+    kinds: list[str] | None = None,
+    limit: int = 20,
+    period: Period = NO_PERIOD,
+    signed: Signed | None = None,
+    words: QueryWords | None = None,
+    any_word: bool = False,
+    motion_kinds: list[str] | None = None,
+    counting: bool = True,
+) -> tuple[dict[str, list[Hit]], set[str], dict[str, Counted | None]]:
+    """``search_full`` and, with *counting*, how many hits each type has and how they
+    divide (``counts.count_type``), side by side with the searches: per type that is
+    counted (``SearchType.match``) its ``Counted``, None when it took longer than
+    ``COUNT_BUDGET``; a type without a count is not in it."""
     asked = _asked(
         store,
         q,
@@ -181,15 +219,35 @@ def search_full(
         motion_kinds=motion_kinds,
     )
     if asked is None:
-        return {t: [] for t in types}, set()
+        return {t: [] for t in types}, set(), {}
     full = _searches(asked, types, live=False)
     live = _searches(asked, types, live=True)
-    found = _heavy_first(
-        {t: functools.partial(_full_or_live, full[t], live[t]) for t in full}
+    tasks: dict[str, Callable[[], Any]] = {
+        t: functools.partial(_full_or_live, full[t], live[t]) for t in full
+    }
+    counted = [t for t in full if counting and SEARCHES[t].match]
+    tasks.update(
+        {f"{t}{_COUNT}": functools.partial(_counted, t, asked) for t in counted}
     )
-    hits = {t: rank_hits(q, rows) for t, (rows, _) in found.items()}
-    partial = {t for t, (_, cut) in found.items() if cut}
-    return hits, partial
+    found = _heavy_first(tasks)
+    hits = {t: rank_hits(q, found[t][0]) for t in full}
+    partial = {t for t in full if found[t][1]}
+    return hits, partial, {t: found[f"{t}{_COUNT}"] for t in counted}
+
+
+# The suffix of the task that counts a type, beside the one that searches it.
+_COUNT = ":count"
+
+
+def _counted(table: str, asked: Asked) -> Counted | None:
+    """The count of the type *table* within ``COUNT_BUDGET``, None past it; none found
+    for a type that has no date of its own when a period is asked."""
+    kind = SEARCHES[table]
+    if asked.period and not kind.period_date:
+        return Counted(0, False, {facet.name: [] for facet in kind.facets})
+    with read_budget(COUNT_BUDGET, "A count"):
+        return count_type(kind, asked)
+    return None
 
 
 def _full_or_live(
@@ -209,7 +267,12 @@ def _heavy_first[R](searches: dict[str, Callable[[], R]]) -> dict[str, R]:
     another in the thread of the request meanwhile, so that the answer takes about as long
     as the slowest type; in the order of *searches*."""
     heavy = [t for t, kind in SEARCHES.items() if kind.heavy]
-    order = sorted(searches, key=lambda t: heavy.index(t) if t in heavy else len(heavy))
+
+    def place(task: str) -> int:
+        table = task.removesuffix(_COUNT)
+        return heavy.index(table) if table in heavy else len(heavy)
+
+    order = sorted(searches, key=place)
     found = dict(
         zip(order, side_by_side(_SEARCHES, [searches[t] for t in order]), strict=True)
     )

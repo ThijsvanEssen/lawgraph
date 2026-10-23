@@ -10,9 +10,10 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
 from lawgraph.api.params import TopLimit, parse_choices
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
-from lawgraph.api.schemas.common import judgment_cite_dto
+from lawgraph.api.schemas.common import FacetCountDTO, judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import (
+    SearchCountDTO,
     SearchedDTO,
     SearchResponse,
     SearchResultItem,
@@ -33,9 +34,11 @@ from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.resolve import CONFIDENCE_NAME, NO_MATCH
 from lawgraph.db.queries.resolve import resolve as resolve_query
 from lawgraph.db.queries.search.clause import Period, query_words
+from lawgraph.db.queries.search.counts import Counted
 from lawgraph.db.queries.search.dispatch import (
     LIVE_STALE_WAIT,
     search_full,
+    search_full_counted,
     search_live,
     signed_of,
 )
@@ -50,6 +53,10 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
+
+# The most hits of a type skipped by ``offset``: the full search ranks the first this many
+# plus a page (deeper, the facets and the period narrow the search).
+OFFSET_MAX = 500
 
 
 @router.get(
@@ -76,7 +83,8 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "dossier the day it was opened, a vote its date, a commitment the day it was "
         "made, a law the day it came into force (`date_in_force`), an article the day "
         "its law came into force; a type without a date of its own (a member, a "
-        "faction, a committee, a cabinet) finds nothing within a period. A citation in "
+        "faction, a committee, a cabinet) finds nothing within a period. An article "
+        "only a citation names, with no text of its own, is no hit. A citation in "
         "`q` (`art. 6:162 BW`, `artikel 287 Sr`, `Sr 287`, a full ECLI) puts its "
         "article or judgment first, and so does the whole name of a judgment "
         "(`Urgenda`, `Lindenbaum/Cohen`: one of its `names`, any case). Every hit has "
@@ -237,6 +245,17 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
         "1, `exact`, with `concept` the term (not with a period, nor when its type is not "
         "in `types`); it is `best` unless `resolved` names something with confidence 0.9 "
         "or more."
+        "\n\n"
+        "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
+        "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
+        "how many hits it has (`total`; `capped`: at least that many, the count stops "
+        "after 5,000 rows), and `facets`, the hits divided by instance (`tier`) and "
+        "decision year (`year`) for `judgments`, by `kind` for `documents`, by "
+        "`validity` (in force, expired, not in force yet) for `instruments`; the rows "
+        "that hold the words, unranked, so a count may be more than the hits a citation "
+        "or a name puts first. A type without a count of its own (`members`, ...) has "
+        "the hits it found, `capped` when it found as many as asked for. A count that "
+        "takes over a second is null. `mode=live` has neither."
     ),
     tags=["search"],
 )
@@ -291,6 +310,22 @@ def search(
             "votes only those motions and the votes on them."
         ),
     ] = None,
+    offset: Annotated[
+        int,
+        Query(
+            ge=0,
+            le=OFFSET_MAX,
+            description="Hits of each type to skip (a page of `limit`); only with "
+            "`mode=full`. At most 500: a type ranks no more.",
+        ),
+    ] = 0,
+    facets: Annotated[
+        bool,
+        Query(
+            description="Also count the hits per type (`counts`) and divide them by "
+            "property (`facets`); only with `mode=full`."
+        ),
+    ] = False,
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -304,6 +339,8 @@ def search(
         # once per query: of its lanes only the first resolves, and "Meer …" asks it again
         search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
+    if mode == "live" and (offset or facets):
+        raise Invalid("mode", "`live` has no `offset` or `facets`: use `full`.")
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
     if date_from and date_to and date_from > date_to:
@@ -313,20 +350,19 @@ def search(
         iso_day(date_to),
     )
     motion_kinds = parse_choices(motion_kind, MOTION_KINDS, "motion_kind")
-    search = search_live if mode == "live" else search_full
     words = query_words(store, q)
     signed = signed_of(store, q, requested_types, words)
     asked: dict[str, Any] = {
         "q": q,
         "types": requested_types,
         "kinds": kind_list,
-        "limit": limit,
+        "limit": offset + limit,
         "period": period,
         "signed": signed,
         "words": words,
         "motion_kinds": list(motion_kinds) if motion_kinds else None,
     }
-    raw, partial = search(store, **asked)
+    raw, partial, counted = _searched(store, mode, facets, asked)
     any_word = (
         mode == "full"
         and not any(raw.values())
@@ -336,7 +372,7 @@ def search(
     if any_word:
         # no hit holds every word: those that hold one at least, said in ``matched``;
         # not while typing, where a word not yet typed whole holds nothing yet
-        raw, partial = search(store, **asked, any_word=True)
+        raw, partial, counted = _searched(store, mode, facets, asked, any_word=True)
         any_word = any(raw.values())
 
     names = load_dossier_names(store) if "documents" in raw else {}
@@ -347,7 +383,9 @@ def search(
         others = [
             i for i in grouped.get(concept.collection, []) if i.key != concept.key
         ]
-        grouped[concept.collection] = [concept, *others][:limit]
+        grouped[concept.collection] = [concept, *others]
+    fetched = {t: len(items) for t, items in grouped.items()}
+    grouped = {t: items[offset : offset + limit] for t, items in grouped.items()}
     total = sum(len(items) for items in grouped.values())
 
     logger.debug("Search '%s' → %d hits across %s", q, total, requested_types)
@@ -368,7 +406,61 @@ def search(
         left_out=words.left_out,
         matched="any" if any_word else "all",
         best=_best(grouped, resolved, concept),
+        offset=offset,
+        counts=_counts(counted, fetched, offset + limit) if facets else None,
+        facets=_facets(counted) if facets else None,
     )
+
+
+def _counts(
+    counted: dict[str, Counted | None], fetched: dict[str, int], asked: int
+) -> dict[str, SearchCountDTO | None]:
+    """The count of each type of *fetched* (the hits it found of the *asked* up to the end
+    of its page): the one counted (never fewer than the hits found, which a citation or a
+    name may find beyond the words), else, for a type that is not counted, the hits found;
+    at least that many when it found all *asked*."""
+    found: dict[str, SearchCountDTO | None] = {}
+    for table, n in fetched.items():
+        if table not in counted:
+            found[table] = SearchCountDTO(total=n, capped=n >= asked)
+        elif (count := counted[table]) is None:
+            found[table] = None
+        else:
+            found[table] = SearchCountDTO(
+                total=max(count.total, n), capped=count.capped
+            )
+    return found
+
+
+def _facets(
+    counted: dict[str, Counted | None],
+) -> dict[str, dict[str, list[FacetCountDTO]]]:
+    """The facets of each type counted, in a type's order."""
+    return {
+        table: {
+            name: [FacetCountDTO(value=value, count=n) for value, n in values]
+            for name, values in count.facets.items()
+        }
+        for table, count in counted.items()
+        if count is not None and count.facets
+    }
+
+
+def _searched(
+    store: GraphStore,
+    mode: str,
+    facets: bool,
+    asked: dict[str, Any],
+    any_word: bool = False,
+) -> tuple[dict[str, list[dict[str, Any]]], set[str], dict[str, Counted | None]]:
+    """The hits per type of the search *asked*, the types that fell back, and with *facets*
+    the count of each type (``search_full_counted``)."""
+    more: dict[str, Any] = {"any_word": True} if any_word else {}
+    if mode == "live":
+        return (*search_live(store, **asked, **more), {})
+    if facets:
+        return search_full_counted(store, **asked, **more)
+    return (*search_full(store, **asked, **more), {})
 
 
 def _concept_item(

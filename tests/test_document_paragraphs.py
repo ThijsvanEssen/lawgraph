@@ -133,3 +133,20 @@ def test_a_paper_without_xml_structure_still_numbers_its_lines() -> None:
         ("body", 1),
         ("body", 2),
     ]
+
+
+def test_the_letter_of_an_amendment_part_opens_its_line() -> None:
+    # the source gives "Ja" (a part inserted after J) as the number of the part, apart from
+    # the line that says what it changes: one alinea, not a body line "Ja" of its own
+    xml = fixture_text("kst_32467_14.xml").replace(
+        '<lidnr status="officieel">I</lidnr>', '<lidnr status="officieel">Ja</lidnr>'
+    )
+    parsed = parse_document_xml(xml)
+    lines = [parsed.text[p["char_start"] : p["char_end"]] for p in parsed.paragraphs]
+    assert "Ja" not in lines, show_items(lines)
+    assert "Ja Na artikel 7 wordt een artikel ingevoegd, luidende:" in lines, (
+        show_items(lines)
+    )
+    assert any(line.startswith("II In artikel 13, eerste lid") for line in lines), (
+        show_items(lines)
+    )

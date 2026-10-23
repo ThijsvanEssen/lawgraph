@@ -122,7 +122,8 @@ of its own zaak, `Wetgeving`, `Initiatiefwetgeving`, `Begroting`, `Verdrag`, `In
 `Voorstel van wet`, `Memorie van toelichting`, `Advies Raad van State`, `Verslag`, `Nota n.a.v.
 het verslag`, `Nota van wijziging / Amendement`, `Stemmingen`, `Eindtekst`, each `{name, done,
 date}`: done when a paper of the dossier, an activity about it that took place or a decision on
-its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
+its own zaak has a value of the Kamer the list names for it, `date` the first date of those; the
+advice of the Raad van State is dated by the day its paper gives (`advice_date`), not the day it was filed),
 `current_phase` (the furthest done phase in the order of the list, not the one with the latest
 date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
 four days after the bill passed; null for none), `closed`, `outcome` (`aangenomen`, `verworpen`
@@ -196,6 +197,8 @@ carries `source` (`url`, `retrieved_on`, `composition_date`: the day of the comp
 A member of the Eerste Kamer who was a member of the Tweede Kamer is one member: the one born
 that day whose surname ends their name, when exactly one is; else a member of their own,
 `ek_<slug>`.
+
+A member's votes (`/api/members/{key}/votes`) carry `in_office`, the posts they held on the day of the vote; `in_office=true` keeps the votes cast in office, `in_office=false` those cast out of office (as Kamerlid alone), left out all.
 
 The end of a cabinet, of a phase of a cabinet and of a post in it (`to_date`, in
 `/api/cabinets`, in a cabinet's `phases` and seats, and in a member's `government_functions`)
@@ -446,6 +449,26 @@ accents and punctuation. An entry is added only after its article has been read 
 holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `AVG`) needs
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
 notes a term whose article the graph does not have.
+
+### Search pages and facets
+
+`/api/search?mode=full` pages through the hits of each type (`offset`, at most 500, a page
+of `limit`) and with `facets=true` counts them and divides them:
+
+* `counts.<type>` is `{total, capped}`: the rows that hold the words of the query (unranked,
+  from the indexes of the words), counted to at most 5,000 (`search/counts.py`
+  `COUNT_CAP`). With `capped` the total is a lower bound and the facets are those of the
+  rows found first. A type that is not counted (members, factions, cabinets, committees,
+  commitments, decisions) has the hits it found as `total`, `capped` when it found as many
+  as the page needed. A count that takes over a second is null.
+* `facets.<type>.<facet>` is a list of `{value, count}`, the largest first (`year` the
+  newest first; a null value counts the hits without one): `judgments.tier` and
+  `judgments.year` (of the decision), `documents.kind`, `instruments.validity` (`in_force`,
+  `expired`, `not_in_force_yet`: the state of `core/validity.py`, as `/api/instruments`
+  gives it; null where the source says none). A facet counts every hit of the type whatever
+  the page, under the period and `kind` of the request, not under the value of another facet.
+* The count and the facets run beside the searches, and are not asked for by default.
+  `mode=live` has neither `offset` nor `facets`. No hit is ranked by authority.
 
 ### Neighbour filters
 

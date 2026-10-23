@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import StrictModel, WithPath
+from lawgraph.api.schemas.common import FacetCountDTO, StrictModel, WithPath
 from lawgraph.api.schemas.completeness import Completeness
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.config.constants import Collection
@@ -82,6 +82,20 @@ class SearchedDTO(StrictModel):
     )
 
 
+class SearchCountDTO(StrictModel):
+    """How many hits a type has."""
+
+    total: int = Field(
+        description="The hits of the type that hold the words, before `offset` and "
+        "`limit`: the rows that hold every word of `q` (not fewer than the hits "
+        "listed). At least this many when `capped`."
+    )
+    capped: bool = Field(
+        description="Counting stopped at the cap (5,000 rows): `total` is a lower bound "
+        "and the facets are those of the rows found first, not of all."
+    )
+
+
 class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
 
@@ -132,4 +146,26 @@ class SearchResponse(StrictModel):
         "else the hit of the concept `q` is the term of (`concept`), else the one hit of "
         "`results` that is `exact`. Null when none is, or more than "
         "one (`BW`: each book), however well words match (`huurverhoging`).",
+    )
+    offset: int = Field(
+        default=0,
+        description="The hits of each type skipped (`offset` of the request): `results` "
+        "holds the hits from the offset-th on.",
+    )
+    counts: dict[str, SearchCountDTO | None] | None = Field(
+        default=None,
+        description="With `facets=true`: per type of `types` that is counted "
+        "(`articles`, `dossiers`, `documents`, `instruments`, `judgments`) how many hits "
+        "it has; null for a type whose count took longer than a second. Null without "
+        "`facets=true`.",
+    )
+    facets: dict[str, dict[str, list[FacetCountDTO]]] | None = Field(
+        default=None,
+        description="With `facets=true`: per type the hits divided by a property, each "
+        "value with its count, the largest first (`year` the newest first; a null value "
+        "counts the hits without one), over the hits counted (`counts`, `capped`): "
+        "`judgments.tier` (the instance: `hoge_raad`, `gerechtshof`, ...) and "
+        "`judgments.year` (of the decision), `documents.kind`, `instruments.validity` "
+        "(`in_force`, `expired`, `not_in_force_yet`, as `/api/instruments` says it; null "
+        "when its source says none). Null without `facets=true`.",
     )

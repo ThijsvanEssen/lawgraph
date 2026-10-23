@@ -29,6 +29,16 @@ _STATUS = (
 )
 
 
+def effective_date(props: dict[str, Any], moved_to: list[dict[str, Any]]) -> str | None:
+    """The day an activity was held: its ``date``, but for one moved (``Verplaatst``) the
+    latest day of those that took its place; its own when none has a day."""
+    if props.get("status") == "Verplaatst":
+        days = sorted(m["date"] for m in moved_to if m.get("date"))
+        if days:
+            return str(days[-1])
+    return props.get("date")
+
+
 class ActivityMoveDTO(WithPath):
     """An activity that took the place of another, or whose place another took
     (``CONTINUES``, ``Activiteit.VervangenDoor``)."""
@@ -60,6 +70,13 @@ class ActivityDTO(WithPath):
     )
     date: str | None = Field(None, description="The day it was (to be) held.")
     status: str | None = Field(None, description=_STATUS)
+    effective_date: str | None = Field(
+        None,
+        description="The day it was held, or is to be: ``date``, but for a ``Verplaatst`` "
+        "activity the day of the one that took its place (``moved_to``; the latest when "
+        "there are several), since ``date`` is the day it was first set for and did not "
+        "go ahead. Null without a date.",
+    )
     agenda_title: str | None = Field(
         None, description="Its subject (``Activiteit.Onderwerp``)."
     )
@@ -105,6 +122,7 @@ class ActivityDTO(WithPath):
             kind=props.get("kind") or None,
             date=props.get("date"),
             status=props.get("status"),
+            effective_date=effective_date(props, row.get("moved_to") or []),
             agenda_title=props.get("agenda_title") or None,
             tk_url=tk_url(NodeType.ACTIVITY.value, props),
             committee=TimelineCommitteeDTO(**committee) if committee else None,

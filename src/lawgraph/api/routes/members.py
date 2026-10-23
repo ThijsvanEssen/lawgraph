@@ -84,7 +84,8 @@ router = APIRouter()
         "demissionary bewindspersoon and Kamerlid), `coalition` and "
         "`coalition_factions` as on the feed (null and `[]` without a coalition vote "
         "and in the Eerste Kamer; `limit` (1-200, default 50) and `offset` page them, "
-        "`in_office=true` keeps the votes cast in office alone before the page is cut, "
+        "`in_office=true` keeps the votes cast in office alone and "
+        "`in_office=false` those cast out of office alone, before the page is cut, "
         "and `next_offset` is the offset of the next page, null after a page that was "
         "not full); the dossiers the member authored documents in (`AUTHORED`), each a "
         "dossier summary plus `roles` (the source's role names), `functions` and "
@@ -211,12 +212,14 @@ def list_member_votes(
         int, Query(ge=0, le=100_000, description="Skip the newest that many votes.")
     ] = 0,
     in_office: Annotated[
-        bool,
+        bool | None,
         Query(
-            description="Only the votes cast while the member held a post of the "
-            "government (``in_office`` not empty), before the page is cut."
+            description="``true``: only the votes cast while the member held a post of "
+            "the government (``in_office`` not empty); ``false``: only those cast while "
+            "they held none (as Kamerlid alone); left out: all. Applied before the page "
+            "is cut."
         ),
-    ] = False,
+    ] = None,
 ) -> MemberVotesResponse:
     member_id = require_node(store, COLLECTION_MEMBERS, key, "Member")["id"]
     votes = get_member_votes(

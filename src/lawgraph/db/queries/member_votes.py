@@ -28,7 +28,7 @@ def get_member_votes(
     *,
     limit: int = 100,
     offset: int = 0,
-    in_office: bool = False,
+    in_office: bool | None = None,
 ) -> list[dict[str, Any]]:
     """How a member voted, newest first.
 
@@ -43,8 +43,9 @@ def get_member_votes(
     party votes tens of thousands of times), and more when the roll-calls among those
     leave less than a page.
 
-    ``offset`` skips the newest that many; with *in_office* only the votes cast while the
-    member held a post of ``government_functions`` count, before the page is cut.
+    ``offset`` skips the newest that many; with *in_office* true only the votes cast while the
+    member held a post of ``government_functions`` count, with false only those cast
+    while they held none, before the page is cut.
     """
     candidates = max(limit + offset, 1) * VOTE_CANDIDATES
     while True:
@@ -62,7 +63,7 @@ def _member_votes_params(
     limit: int,
     candidates: int,
     offset: int = 0,
-    in_office: bool = False,
+    in_office: bool | None = None,
 ) -> dict[str, Any]:
     return {
         "member_id": member_id,
@@ -76,12 +77,12 @@ def _member_votes_params(
     }
 
 
-# With ``in_office``: a vote on a day the member held a post of ``government_functions``
-# (both days included); without it every vote. ``{date}`` is the day of the vote.
+# With ``in_office`` true: a vote on a day the member held a post of ``government_functions``
+# (both days included); false: a vote on a day they held none; null: every vote.
 def _in_office_on(date: str) -> str:
-    """SQL: whether *date* falls in a post of the member's ``government_functions``,
-    when ``in_office`` asks it; true without it."""
-    return f"""(%(in_office)s IS NOT TRUE OR EXISTS (
+    """SQL: whether *date* falls in a post of the member's ``government_functions`` as
+    ``in_office`` asks (true, or false); true when it asks nothing (null)."""
+    return f"""(%(in_office)s::boolean IS NULL OR %(in_office)s::boolean = EXISTS (
     SELECT 1 FROM {COLLECTION_MEMBERS} om
     CROSS JOIN LATERAL json_array_elements(
         {array_or_empty("om.props -> 'government_functions'")}
@@ -161,11 +162,11 @@ _MEMBER_VOTES = f"""
             FROM json_array_elements(
                 {array_or_empty("member.props -> 'government_functions'")}
             ) AS g(post)
-            WHERE %(in_office)s
+            WHERE %(in_office)s::boolean IS TRUE
               AND coalesce(lg_str(g.post -> 'from_date'), '') <= s.last_day
               AND coalesce(lg_str(g.post -> 'to_date'), '9999-12-31') >= s.first_day
         ) o
-        WHERE %(in_office)s IS NOT TRUE OR o.first_day IS NOT NULL
+        WHERE %(in_office)s::boolean IS NOT TRUE OR o.first_day IS NOT NULL
     ),
     -- per period the newest votes of the faction: the decisions of the period newest first
     -- (their index of the dates), each with the faction's vote on it; a faction votes on

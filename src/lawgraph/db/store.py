@@ -10,6 +10,7 @@ import atexit
 import contextlib
 import hashlib
 import os
+import queue
 import re
 import threading
 import time
@@ -57,6 +58,7 @@ from lawgraph.db.payloads import (
     open_payload_store,
 )
 from lawgraph.db.request_context import (
+    Cancellation,
     ReadTimedOut,
     RequestCancelled,
     current_cancellation,
@@ -251,6 +253,91 @@ _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
 
 
+class _Read:
+    """One streamed read (``GraphStore.query``): the connection it took of its pool, its
+    cursor, and the request it reads for."""
+
+    def __init__(
+        self,
+        pool: ConnectionPool,
+        conn: psycopg.Connection[Any],
+        cancellation: Cancellation | None,
+    ) -> None:
+        self.pool = pool
+        self.conn = conn
+        self.cancellation = cancellation
+        self.name = f"lg_{uuid.uuid4().hex}"
+        self.cursor: psycopg.ServerCursor[Any] | None = None
+
+    def open_cursor(self, statement: str) -> psycopg.ServerCursor[Any]:
+        self.cursor = self.conn.cursor(name=self.name, row_factory=_rows)
+        _open_cursors[self.name] = statement
+        return self.cursor
+
+    def end(self) -> None:
+        """Close its cursor and give its connection back: the pool ends its transaction.
+        Out of its request first, so no cancel of the request reaches the next read on
+        it."""
+        try:
+            if self.cursor is not None:
+                with contextlib.suppress(psycopg.Error):
+                    self.cursor.close()
+            _open_cursors.pop(self.name, None)
+            if self.cancellation is not None:
+                self.cancellation.end(self.conn)
+        finally:
+            self.pool.putconn(self.conn)
+
+
+def _named_error(exc: psycopg.Error) -> Exception | None:
+    """What a read raises for *exc* when the API knows it by name: a lock not granted, a
+    server out of reach; None for any other error of the server, raised as it is."""
+    if isinstance(exc, psycopg.errors.LockNotAvailable):
+        return _not_granted("A read", exc)
+    if isinstance(exc, psycopg.OperationalError) and _is_unreachable(exc):
+        return _unavailable(exc)
+    return None
+
+
+# The reads their readers left before the last row, for ``_releaser`` to end.
+_abandoned: queue.SimpleQueue[_Read] = queue.SimpleQueue()
+_releaser: threading.Thread | None = None
+_releaser_lock = threading.Lock()
+
+
+def _abandon(read: _Read) -> None:
+    """End *read*, left before its last row, on a thread of its own. Who leaves it may be
+    the garbage collector, which closes a read in a reference cycle in whatever thread
+    allocates, under whatever lock that thread holds: ending it there (under the lock of
+    its request, which it takes too) once waited for ever for a lock its own thread held,
+    and with it every collection of the process after it, so that every read left in a cycle
+    kept its connection idle in a transaction until the pool had none (23 Oct). A
+    ``SimpleQueue`` takes it without a lock."""
+    _abandoned.put(read)
+
+
+def _start_releaser() -> None:
+    """Start ``_releaser`` once, before the first read (not from ``_abandon``)."""
+    global _releaser
+    if _releaser is not None:
+        return
+    with _releaser_lock:
+        if _releaser is None:
+            _releaser = threading.Thread(
+                target=_end_abandoned, name="lawgraph-release", daemon=True
+            )
+            _releaser.start()
+
+
+def _end_abandoned() -> None:
+    while True:
+        read = _abandoned.get()
+        try:
+            read.end()
+        except Exception as exc:  # noqa: BLE001 — the next read is ended all the same
+            logger.warning("A read left before its end was not ended: %s", exc)
+
+
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
     """The statements of this process that have run for over *min_seconds*: ``{pid, state,
     seconds, wait, query}``, the longest first. On a connection of its own, so a pool whose
@@ -398,9 +485,11 @@ class GraphStore:
         }
 
     def ping(self) -> None:
-        """``DatabaseUnavailable`` when the database cannot be reached."""
+        """``DatabaseUnavailable`` when the database cannot be reached, or no connection
+        of the pool comes free within what the request has left."""
+        left = read_time_left()
         try:
-            with self.pool.connection() as conn:
+            with self.pool.connection(timeout=left) as conn:
                 conn.execute("SELECT 1")
         except (psycopg.OperationalError, PoolTimeout) as exc:
             raise _unavailable(exc) from exc
@@ -515,7 +604,8 @@ class GraphStore:
         A row is the value of the one column a query selects (a document, a count, a key),
         or a dict of its columns. A read runs on a server-side cursor, so ``batch_size``
         rows are in flight however large the result (41,000 BWB toestanden of 80 KB are
-        3 GB); its connection is held until the reader stops, however it stops. A statement
+        3 GB); its connection is held until the reader stops, however it stops (one left
+        before its last row is given back on a thread of its own, ``_abandon``). A statement
         that writes runs to the end at once (``execute``).
 
         ``indexes_only`` keeps the planner from reading a whole table where an index can
@@ -555,48 +645,49 @@ class GraphStore:
         brakes: tuple[bool, bool, bool] = (False, False, False),
     ) -> Iterator[Any]:
         budget = read_budget_ms()
+        _start_releaser()
+        # a request waits for a connection of the pool no longer than it has left; a
+        # computation in the background waits its turn
+        pool = self._reading_pool()
+        wait = budget / 1000 if reads_in_background() else min(60.0, budget / 1000)
         try:
-            # a request waits for a connection of the pool no longer than it has left; a
-            # computation in the background waits its turn
-            pool = self._reading_pool()
-            wait = budget / 1000 if reads_in_background() else min(60.0, budget / 1000)
-            cancellation = current_cancellation()
-            with (
-                pool.connection(timeout=wait) as conn,
-                (
-                    cancellation.reading(conn)
-                    if cancellation is not None
-                    else contextlib.nullcontext()
-                ),
-            ):
-                yield from self._read(
-                    conn,
-                    statement,
-                    params,
-                    batch_size,
-                    budget,
-                    brakes,
-                )
+            conn = pool.getconn(timeout=wait)
         except PoolTimeout as exc:
             raise ReadTimedOut(
                 "No connection of the pool came free before the deadline of the request."
             ) from exc
-        except psycopg.errors.LockNotAvailable as exc:
-            raise _not_granted("A read", exc) from exc
-        except psycopg.OperationalError as exc:
-            if _is_unreachable(exc):
-                raise _unavailable(exc) from exc
+        except psycopg.Error as exc:
+            if (named := _named_error(exc)) is None:
+                raise
+            raise named from exc
+        read = _Read(pool, conn, current_cancellation())
+        try:
+            yield from self._read(read, statement, params, batch_size, budget, brakes)
+        except GeneratorExit:
+            _abandon(read)
             raise
+        except psycopg.Error as exc:
+            read.end()
+            if (named := _named_error(exc)) is None:
+                raise
+            raise named from exc
+        except BaseException:
+            read.end()
+            raise
+        read.end()
 
     def _read(
         self,
-        conn: psycopg.Connection[Any],
+        read: _Read,
         statement: Statement,
         params: Params,
         batch_size: int,
         budget: int,
         brakes: tuple[bool, bool, bool],
     ) -> Iterator[Any]:
+        conn = read.conn
+        if read.cancellation is not None:
+            read.cancellation.start(conn)
         # a ceiling for each statement (the DECLARE, every FETCH), not for the stream; in
         # a request of the API no more than the request has left
         conn.execute(f"SET LOCAL statement_timeout = {budget}")
@@ -610,17 +701,17 @@ class GraphStore:
         if index_order:
             # A page of each node's edges in index order, not all of them sorted (``query``).
             conn.execute("SET LOCAL enable_bitmapscan = off")
-        name = f"lg_{uuid.uuid4().hex}"
         text = re.sub(r"\s+", " ", statement_text(statement)).strip()
-        _open_cursors[name] = text[:300]
+        cursor = read.open_cursor(text[:300])
+        cursor.itersize = batch_size
         try:
-            with conn.cursor(name=name, row_factory=_rows) as cursor:
-                cursor.itersize = batch_size
-                cursor.execute(_query(statement), params)
-                yield from cursor
+            cursor.execute(_query(statement), params)
+            # not ``yield from``: that closes the cursor, on the server, when the reader
+            # leaves; ``_abandon`` does that on a thread of its own
+            for row in cursor:  # noqa: UP028
+                yield row
         except psycopg.errors.QueryCanceled as exc:
-            cancellation = current_cancellation()
-            if cancellation is not None and cancellation.cancelled:
+            if read.cancellation is not None and read.cancellation.cancelled:
                 raise RequestCancelled(
                     f"The client went away; its read was cancelled: {text[:300]}"
                 ) from exc
@@ -628,8 +719,6 @@ class GraphStore:
                 f"A read ran for over {budget / 1000:.0f} s (LAWGRAPH_READ_TIMEOUT_MS, "
                 f"or what the request had left) and was cancelled: {text[:300]}"
             ) from exc
-        finally:
-            _open_cursors.pop(name, None)
 
     def execute(self, statement: Statement, params: Params = None) -> list[Any]:
         """Run a statement that writes, in a transaction of its own, sent again when the
