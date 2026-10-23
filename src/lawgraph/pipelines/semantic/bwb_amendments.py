@@ -11,6 +11,10 @@ pipelines), nothing is guessed:
   carrying the effective date and the article version. A republication
   (``tekstplaatsing``) changes nothing and has no edge; the edges of this step into an
   article that it no longer derives go;
+* a version whose commencement publication is another than its origin says that
+  publication put the origin's change in force: ``COMMENCES`` (commencement → origin,
+  the first effective date among the versions), one edge for all articles. A version is
+  one if it changes the article, as above;
 * a publication (and a regulation) lists the parliamentary dossier(s) of the bill
   behind it, which becomes ``LEGISLATED_IN`` (instrument → dossier) when that
   dossier is in the graph (a Rijkswet's, ``33440-(R1990)``, is named ``33440``).
@@ -32,6 +36,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     RELATION_AMENDS,
+    RELATION_COMMENCES,
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
@@ -126,6 +131,8 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         # publication key -> dossier numbers already written this run
         self._known_dossiers: dict[str, set[str]] = {}
         self._removed = 0  # amendment edges no longer derived
+        # (commencement key, origin key) -> earliest effective date seen (None: unknown)
+        self._commences: dict[tuple[str, str], str | None] = {}
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
@@ -133,6 +140,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None, remembers=True)
         self._known_dossiers = {}
         self._removed = 0
+        self._commences = {}
 
         rows = self._track(
             semantic_bwb.amending_article_versions(self.store), "article versions"
@@ -140,6 +148,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         for rows_chunk in chunked_aligned(rows, self._CHUNK, _article_identity):
             self._process_versions(rows_chunk, nodes, edges, result)
         self._link_regulation_dossiers(edges)
+        self._write_commencements(edges)
 
         edges.flush_into(result)
         logger.info(
@@ -170,6 +179,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
                 continue
             pair, kind = classified
+            self._note_commencement(row)
             wanted.setdefault(pair, []).append((row, kind))
 
         # every article of the chunk: also one whose versions no longer make an edge
@@ -204,6 +214,43 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         if not (bwb_id and stam_id):
             return None
         return (str(bwb_id), str(stam_id)), kind
+
+    def _note_commencement(self, row: dict[str, Any]) -> None:
+        """Remember the pair (commencement, origin) of a version whose commencement is
+        another publication than its origin, with the earliest effective date."""
+        commencement = row.get("commencement")
+        if not (isinstance(commencement, dict) and commencement.get("id")):
+            return
+        origin = publication_key(str(row["origin"]["id"]))
+        commencing = publication_key(str(commencement["id"]))
+        if commencing == origin:
+            return
+        date = row.get("valid_from")
+        pair = (commencing, origin)
+        if pair not in self._commences or (
+            date is not None
+            and (self._commences[pair] is None or date < self._commences[pair])
+        ):
+            self._commences[pair] = date
+
+    def _write_commencements(self, edges: EdgeWriter) -> None:
+        """COMMENCES: every pair of the run; those no longer derived go."""
+        for (commencing, origin), date in self._commences.items():
+            edges.add(
+                _instrument_id(commencing),
+                _instrument_id(origin),
+                RELATION_COMMENCES,
+                source=EDGE_SOURCE,
+                confidence=EXACT_CONFIDENCE,
+                meta={"effective_date": date},
+            )
+        edges.flush()
+        gone = edges.remove_stale_of_source(RELATION_COMMENCES, EDGE_SOURCE)
+        logger.info(
+            "%d commencements; removed %d no longer derived.",
+            len(self._commences),
+            gone,
+        )
 
     @staticmethod
     def _keep_earliest(

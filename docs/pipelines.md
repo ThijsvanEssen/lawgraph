@@ -1412,7 +1412,11 @@ Every run reads all of them, also under `--since`.
    (`tekstplaatsing-wijziging`, `tekstplaatsing-vernummering`: the Grondwet placed again as a
    whole, Stb. 2019, 33) changes nothing and has no edge; the edges of the step into an article
    that it no longer derives are removed;
-4. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
+4. writes `COMMENCES` from the commencement publication of a version that changes an article
+   to its origin publication when they differ (Stb. 2024, 197 sets the date of Stb. 2024, 108):
+   one edge per pair, confidence 1.0, `meta.effective_date` the earliest of its versions; the
+   `COMMENCES` of the step that it no longer derives are removed;
+5. writes `LEGISLATED_IN` from each publication and each regulation to the dossiers of
    `dossier_numbers` that exist (`queries/dossier_keys`: the dossier of that number, else the
    one of a Rijkswet of that number, `33440-(R1990)` for `33440`), and removes its
    `LEGISLATED_IN` from a regulation to a dossier the regulation no longer lists.
