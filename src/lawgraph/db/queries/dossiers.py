@@ -10,6 +10,7 @@ from lawgraph.config.constants import (
     CHAMBER_EK,
     CHANGE_RELATIONS,
     COLLECTION_ACTIVITIES,
+    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_ARTICLES,
     COLLECTION_CASES,
     COLLECTION_COMMITMENTS,
@@ -672,7 +673,25 @@ SELECT
         SELECT coalesce(json_agg(json_build_object(
             'key', p.key,
             'cite', coalesce(p.citation_title, lg_str(p.props -> 'display_name')),
+            'signed_on', lg_str(p.props -> 'date_signed'),
             'published_on', lg_str(p.props -> 'date_published'),
+            'commencement', (
+                SELECT json_build_object(
+                    'key', c.key,
+                    'cite', coalesce(c.citation_title, lg_str(c.props -> 'display_name')),
+                    'published_on', lg_str(c.props -> 'date_published')
+                )
+                FROM {COLLECTION_EDGES} e
+                JOIN {COLLECTION_ARTICLE_VERSIONS} v
+                  ON v.key = lg_str(e.doc -> 'meta' -> 'article_version')
+                JOIN {COLLECTION_INSTRUMENTS} c
+                  ON c.key = replace(lg_str(v.props -> 'commencement_publication' -> 'id'),
+                                     '-', '_')
+                WHERE e.from_id = p.id AND e.relation = ANY(%(changes)s)
+                  AND c.id <> p.id
+                ORDER BY lg_str(e.doc -> 'meta' -> 'effective_date') ASC NULLS LAST, c.key ASC
+                LIMIT 1
+            ),
             'first_effective_date', (
                 SELECT min(lg_str(e.doc -> 'meta' -> 'effective_date'))
                 FROM {COLLECTION_EDGES} e
@@ -747,7 +766,10 @@ def get_dossier_hub(
     case. *documents_by_kind* counts the documents of ``GET /api/dossiers/{n}/documents``
     (by the kinds in their order); *senate* the Eerste Kamer documents among them.
     *enacted* are the publications ``LEGISLATED_IN`` the dossier, the earliest published
-    first: ``{key, cite, published_on, first_effective_date, instrument}``, the date the
+    first: ``{key, cite, signed_on, published_on, commencement, first_effective_date,
+    instrument}``, *commencement* ``{key, cite, published_on}`` the publication that put the
+    earliest of what it enacted into force (the ``commencement_publication`` of that article
+    version; null where it is the publication itself or the BWB names none), the date the
     earliest ``effective_date`` of what it enacted, *instrument* ``{key, title}`` of the law
     whose articles it ``ESTABLISHES`` (null for one that only changes other laws).
 

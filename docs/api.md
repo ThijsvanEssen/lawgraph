@@ -152,7 +152,15 @@ earliest published first, with `cite` (`Stb. 2024, 193`), `path`, `published_on`
 `first_effective_date` (the earliest `effective_date` of what it enacted, as the BWB gives it;
 null for a law of the Staatsblad the BWB does not hold, whose publication names no date it took
 effect) and `instrument` (`{key, title, path}` of the law whose articles it established; null
-for a publication that only changes other laws).
+for a publication that only changes other laws). The end of the chain is there too: `signed_on`
+(the day the Koning and the minister signed it) and `commencement` (`{key, cite, published_on,
+path}`: the inwerkingtredingsbesluit, `Stb. 2024, 197`, the `commencement_publication` the BWB
+names on the earliest version it enacted; null where the publication itself puts it into force).
+`in_force_since` is the earliest `first_effective_date` that is today or past (null until then).
+`proposed_by` is who brought the bill in: `first_signed` of the dossier with the person
+(`member_key`, `name`, `function`, `capacity`, `date`, `path`) and the `ministry`.
+In `senate.progress` the papers `publicatie wet` and `publicatie inwerkingtreding` carry `path`,
+the Staatsblad page of that publication, instead of only the eerstekamer.nl `url`.
 
 `tk_url` of a Tweede Kamer document or activity, wherever it appears (timeline, document lists and
 detail, node responses), is its page on tweedekamer.nl, made from the number the site knows: the
