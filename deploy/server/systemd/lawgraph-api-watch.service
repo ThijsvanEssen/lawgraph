@@ -1,0 +1,11 @@
+[Unit]
+Description=LawGraph: the watch of the API (/api/health; evidence and a restart after 3 failures)
+After=lawgraph-api.service
+RequiresMountsFor=/srv/lawgraph
+
+[Service]
+Type=oneshot
+User=ubuntu
+# the restart, its wait and the evidence: at most some five minutes
+TimeoutStartSec=600
+ExecStart=/bin/sh /srv/lawgraph/bin/api-watch.sh
