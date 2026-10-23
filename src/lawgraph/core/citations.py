@@ -226,11 +226,11 @@ _ART_RANGE_PAT = (
 # lid, the "257e" of "artikelen 255a en 257e, achtste lid" an article.
 _DIGIT_LID_PAT = rf"{DIGIT_ORDINAL}(?:\s*(?:,|en|of)\s*{DIGIT_ORDINAL})*\s+lid"
 _NEXT_NUM_PAT = rf"(?!{_DIGIT_LID_PAT}){_NUM_PAREN_PAT}"
-# Enumeration: "36e", "36e en 36f", "282a, 282b en 282c", "338 (lid 2) en 339"
+# Enumeration: "36e", "36e en 36f", "282a, 282b en 282c", "36, en 41", "338 (lid 2) en 339"
 _ART_ENUM_PAT = (
     rf"{_NUM_PAREN_PAT}"
     rf"(?:\s*,\s*{_NEXT_NUM_PAT})*"
-    rf"(?:\s+(?:en|of)\s+{_NEXT_NUM_PAT})?"
+    rf"(?:\s*,?\s+(?:en|of)\s+{_NEXT_NUM_PAT})?"
 )
 # Range takes priority over enum to avoid "2 tot" being parsed as just "2"
 ARTICLE_NUMBERS_PATTERN = rf"(?:{_ART_RANGE_PAT}|{_ART_ENUM_PAT})"
@@ -324,9 +324,10 @@ def _numbers_of(items: list[ChainItem]) -> Iterator[tuple[ChainItem, str]]:
             yield item, number
 
 
-# What comes between the article and the law: "van", "in", "uit", and a determiner.
+# What comes between the article and the law: "van", "in", "uit", and a determiner ("der":
+# "artikel 17 der Landbouwwet").
 LAW_CONNECTOR_RE = re.compile(
-    r"\s*,?\s*(?:(?:van|in|uit|krachtens|ingevolge)\s+)?(?:(?:de|het)\s+)?",
+    r"\s*,?\s*(?:(?:van|in|uit|krachtens|ingevolge)\s+)?(?:(?:de|het)\s+|der\s+)?",
     re.IGNORECASE,
 )
 # "van die wet": the law that was named last.
@@ -400,7 +401,9 @@ def parse_article_numbers(raw: str) -> list[str]:
     )
     if range_m:
         return [range_m.group(1), range_m.group(2)]
-    parts = re.split(r"\s*,\s*|\s+(?:en|of)\s+", raw, flags=re.IGNORECASE)
+    parts = re.split(
+        r"\s*,\s*(?:(?:en|of)\s+)?|\s+(?:en|of)\s+", raw, flags=re.IGNORECASE
+    )
     result = [
         p.strip()
         for p in parts

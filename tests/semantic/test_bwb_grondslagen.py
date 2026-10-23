@@ -51,7 +51,9 @@ def _regulations_with_basis(store: _Store) -> Iterator[dict[str, Any]]:
     regulation; the XML is not parsed again."""
     store.reads += 1
     return iter(
-        r for r in store.raw_rows if r["key"] in store.instruments and r["basis"]
+        r
+        for r in store.raw_rows
+        if r["key"] in store.instruments and (r["basis"] or r.get("basis_preamble"))
     )
 
 
@@ -82,6 +84,23 @@ def _regulations(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_bwb, "articles_in_order", _articles_in_order)
 
 
+def _names(monkeypatch: pytest.MonkeyPatch, names: dict[str, str]) -> None:
+    """The laws the graph knows by name (title -> BWB id), no codes."""
+    pipeline = BWBGrondslagenSemanticPipeline
+    monkeypatch.setattr(pipeline, "_load_code_choices", lambda self: ({}, {}))
+    monkeypatch.setattr(
+        pipeline,
+        "_load_instrument_aliases",
+        lambda self: {name: (law, None) for name, law in names.items()},
+    )
+    monkeypatch.setattr(pipeline, "_load_law_dates", lambda self: {})
+
+
+@pytest.fixture(autouse=True)
+def _no_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    _names(monkeypatch, {})
+
+
 def _run(store: _Store):
     return BWBGrondslagenSemanticPipeline(store=store).run()
 
@@ -89,7 +108,12 @@ def _run(store: _Store):
 def _row(bwb_id: str = AMVB_ID, xml: str = AMVB_XML) -> dict[str, Any]:
     """What the query returns of the regulation ``normalize bwb`` makes of this XML."""
     props = instrument_props(parse_toestand(xml), bwb_id)
-    return {"key": make_node_key(bwb_id), "bwb_id": bwb_id, "basis": props["basis"]}
+    return {
+        "key": make_node_key(bwb_id),
+        "bwb_id": bwb_id,
+        "basis": props["basis"],
+        "basis_preamble": props["basis_preamble"],
+    }
 
 
 def test_creates_based_on_edges_for_gelet_op_articles() -> None:
@@ -294,3 +318,41 @@ def test_an_edge_says_whether_the_article_delegates() -> None:
 
     kinds = {k: m["basis_kind"] for k, m in _edges_by_target(store).items()}
     assert kinds == {"3": "delegates", "4": "mentioned"}
+
+
+ARBO_XML = """<toestand bwb-id="BWBR0008498"><wetgeving><wet-besluit>
+  <aanhef><considerans>
+    <considerans.al>Op de voordracht van de Staatssecretaris van Sociale Zaken;</considerans.al>
+    <considerans.al bevat="grondslag">Gelet op de artikelen 1, 2, 4, 5, 6, 10, 20, 23a, 24, 36,
+      en 41 van de Arbeidsomstandighedenwet en de
+      <extref doc="jci1.3:c:BWBR0007952&amp;artikel=5" bwb-id="BWBR0007952">artikelen 5 en 8 van
+      de Winkeltijdenwet</extref>;</considerans.al>
+  </considerans></aanhef></wet-besluit></wetgeving></toestand>"""
+ARBOWET_ID = "BWBR0010346"
+WINKELTIJDEN_ID = "BWBR0007952"
+
+
+def test_a_law_named_without_a_link_is_read_from_the_preamble(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Arbeidsomstandighedenbesluit links only the Winkeltijdenwet; the Arbowet it is
+    mainly made under stands in words ("..., en 41 van de Arbeidsomstandighedenwet")."""
+    _names(
+        monkeypatch,
+        {"Arbeidsomstandighedenwet": ARBOWET_ID, "Winkeltijdenwet": WINKELTIJDEN_ID},
+    )
+    arbowet = {make_node_key(ARBOWET_ID, n) for n in ("1", "5", "23a", "41", "99")}
+    store = _Store(
+        [_row("BWBR0008498", ARBO_XML)],
+        instruments={make_node_key("BWBR0008498")},
+        articles=arbowet | {make_node_key(WINKELTIJDEN_ID, "8")},
+    )
+
+    _run(store)
+
+    targets = {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
+    assert targets == {
+        make_node_key(ARBOWET_ID, n) for n in ("1", "5", "23a", "41")
+    } | {make_node_key(WINKELTIJDEN_ID, "8")}
+    by_target = {e["to_id"].removeprefix("articles/"): e for e in store.edges.values()}
+    assert by_target[make_node_key(ARBOWET_ID, "41")]["confidence"] < 1.0

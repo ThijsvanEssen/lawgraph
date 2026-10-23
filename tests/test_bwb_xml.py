@@ -161,6 +161,23 @@ def test_legal_basis_comes_from_the_preamble(amvb) -> None:
     assert not failing, show_items(failing)
 
 
+def test_the_preamble_text_is_kept_for_the_law_it_names_without_a_link() -> None:
+    xml = """<toestand bwb-id="BWBR0008498"><wetgeving><wet-besluit><aanhef><considerans>
+      <considerans.al>Op de voordracht van de Staatssecretaris;</considerans.al>
+      <considerans.al bevat="grondslag">Gelet op de artikelen 1 en 2 van de
+        Arbeidsomstandighedenwet en de <extref doc="jci1.3:c:BWBR0007952&amp;artikel=5"
+        bwb-id="BWBR0007952">artikelen 5 en 8 van de Winkeltijdenwet</extref>;</considerans.al>
+      </considerans></aanhef></wet-besluit></wetgeving></toestand>"""
+
+    toestand = parse_toestand(xml)
+
+    assert toestand.basis_preamble == (
+        "Gelet op de artikelen 1 en 2 van de Arbeidsomstandighedenwet en de artikelen 5 en 8 "
+        "van de Winkeltijdenwet;"
+    )
+    assert [(b.bwb_id, b.article) for b in toestand.basis] == [("BWBR0007952", "5")]
+
+
 def test_preamble_references_that_are_not_the_legal_basis_are_ignored(amvb) -> None:
     # "Op de voordracht…" and "Den Raad van State gehoord" paragraphs carry no basis
     assert len(amvb.basis) <= 6
