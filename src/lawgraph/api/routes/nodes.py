@@ -789,9 +789,20 @@ def _votes(result: Surroundings) -> list[SurroundingVoteDTO]:
                     faction=_node(result, h.other),
                     choice=h.meta.get("choice"),
                     seats=h.meta.get("seats"),
+                    members=None,
                 )
                 for h in result.by_faction.get(d, [])
                 if h.other in result.nodes
+            ]
+            + [
+                SurroundingFactionVoteDTO(
+                    faction=_node(result, faction),
+                    choice=next(iter(cast)) if len(cast) == 1 else "Verdeeld",
+                    seats=sum(cast.values()),
+                    members=cast,
+                )
+                for faction, cast in result.rolled.get(d, {}).items()
+                if faction in result.nodes
             ],
         )
         for d in result.votes
@@ -839,7 +850,7 @@ def _gaps(
         gap(
             "votes",
             f"No vote per faction is recorded for {len(bare)} of the {len(votes)} "
-            "decisions shown (a hamerstuk, a roll call, or a vote not yet read).",
+            "decisions shown (a hamerstuk, or a roll call without member votes).",
         )
     return gaps
 

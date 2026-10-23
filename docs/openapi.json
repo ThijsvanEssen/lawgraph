@@ -38431,7 +38431,7 @@
               }
             ],
             "title": "Choice",
-            "description": "`Voor`, `Tegen`, ..."
+            "description": "`Voor`, `Tegen`, ...; of a roll call `Verdeeld` when the members of the faction did not all vote alike."
           },
           "seats": {
             "anyOf": [
@@ -38442,7 +38442,23 @@
                 "type": "null"
               }
             ],
-            "title": "Seats"
+            "title": "Seats",
+            "description": "The seats of the faction's vote; of a roll call the members who voted."
+          },
+          "members": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Members",
+            "description": "Of a roll call: how many members of the faction cast each choice, by the faction they sat in on the day; null for a vote by faction."
           }
         },
         "additionalProperties": false,
@@ -38450,7 +38466,8 @@
         "required": [
           "faction",
           "choice",
-          "seats"
+          "seats",
+          "members"
         ],
         "title": "SurroundingFactionVoteDTO",
         "description": "How one faction voted on a decision."
@@ -38693,7 +38710,7 @@
           "total": {
             "type": "integer",
             "title": "Total",
-            "description": "The edges of the section's kinds at the node and its paper and case, whatever `items` holds (a node reached twice counts twice)."
+            "description": "The distinct nodes of the section's kinds at the node and its document, case and dossier, per relation, whatever `items` holds."
           },
           "kinds": {
             "items": {
@@ -38814,7 +38831,7 @@
             },
             "type": "array",
             "title": "Factions",
-            "description": "Empty for a decision without a vote per faction (a hamerstuk, a roll call, `props.vote_kind` `member`)."
+            "description": "Of a vote by faction its `VOTED` edges; of a roll call (`props.vote_kind` `member`) derived from the votes of its members; empty for a hamerstuk and a roll call whose member votes or memberships are not read."
           }
         },
         "additionalProperties": false,

@@ -536,17 +536,16 @@ its total beside it:
   `via`, the node it hangs at.
 - `votes` (+ `votes_total`): the decisions on the paper or its case (made in the activity, for an
   activity), newest first, each with `about` (the paper or case) and `factions`: the choice and
-  seats of each faction from its `VOTED` edge. The tally and `passed` are in the decision's props.
+  seats of each faction from its `VOTED` edge; of a roll call (`vote_kind` `member`) derived from the `VOTED` edges of its members, by the faction each sat in on the day: `choice` (`Verdeeld` when they voted unlike), `seats` the members who voted and `members` the count per choice. The tally and `passed` are in the decision's props.
 - `follows`: the commitment a letter fulfils, the letters that answer the paper, the paper that
   replaces it (`REVISES`); of a commitment the letters that fulfil it; of an activity the
   commitments and papers made in it. `context`: the debate a paper or decision was made in and the
   committee that leads its case.
 - `gaps`: per section, what the data does not hold (no signer, no faction for N signers on that
   day, no dossier, no law, no vote, no vote per faction for N of the decisions shown: a hamerstuk
-  or a roll call has none). A section that is empty without a gap is empty in the data.
+  or a roll call without member votes). A section that is empty without a gap is empty in the data.
 
-A `total` counts edges (a node reached from the paper and from its case counts twice); `items` are
-distinct per relation.
+A `total` counts distinct nodes per relation, as `items` lists them, so a cut reads N of M.
 
 ### Order of the connections
 

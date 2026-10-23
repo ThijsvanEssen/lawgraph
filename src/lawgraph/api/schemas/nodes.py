@@ -498,8 +498,8 @@ class SurroundingSectionDTO(StrictModel):
     """Some nodes of one kind of surrounding, and how many there are."""
 
     total: int = Field(
-        description="The edges of the section's kinds at the node and its paper and "
-        "case, whatever `items` holds (a node reached twice counts twice)."
+        description="The distinct nodes of the section's kinds at the node and its "
+        "document, case and dossier, per relation, whatever `items` holds."
     )
     kinds: list[SurroundingKindDTO] = Field(
         description="`total` per relation and collection."
@@ -549,8 +549,17 @@ class SurroundingFactionVoteDTO(StrictModel):
     """How one faction voted on a decision."""
 
     faction: BaseNodeDTO
-    choice: str | None = Field(description="`Voor`, `Tegen`, ...")
-    seats: int | None
+    choice: str | None = Field(
+        description="`Voor`, `Tegen`, ...; of a roll call `Verdeeld` when the members "
+        "of the faction did not all vote alike."
+    )
+    seats: int | None = Field(
+        description="The seats of the faction's vote; of a roll call the members who voted."
+    )
+    members: dict[str, int] | None = Field(
+        description="Of a roll call: how many members of the faction cast each choice, by "
+        "the faction they sat in on the day; null for a vote by faction."
+    )
 
 
 class SurroundingVoteDTO(StrictModel):
@@ -565,8 +574,9 @@ class SurroundingVoteDTO(StrictModel):
         "the decision asked for."
     )
     factions: list[SurroundingFactionVoteDTO] = Field(
-        description="Empty for a decision without a vote per faction (a hamerstuk, a "
-        "roll call, `props.vote_kind` `member`)."
+        description="Of a vote by faction its `VOTED` edges; of a roll call (`props."
+        "vote_kind` `member`) derived from the votes of its members; empty for a "
+        "hamerstuk and a roll call whose member votes or memberships are not read."
     )
 
 

@@ -43,11 +43,12 @@ def graph(store: GraphStore) -> GraphStore:
         ],
         "cases": [_node("z1", "case", kind="Motie")],
         "dossiers": [_node("36000", "dossier", number="36000")],
-        "members": [_node(k, "member", name=k) for k in ("a", "b", "c")],
+        "members": [_node(k, "member", name=k) for k in ("a", "b", "c", "d")],
         "factions": [_node(k, "faction", name=k) for k in ("f1", "f2")],
         "decisions": [
             _node("b1", "decision", date=day, tally={"Voor": 15, "Tegen": 10}),
             _node("b2", "decision", date="2026-03-01", vote_kind="faction"),
+            _node("b3", "decision", date="2026-03-05", vote_kind="member"),
         ],
         "articles": [_node("a1", "article", bwb_id="BWBR1", article_number="1")],
         "instruments": [
@@ -94,6 +95,17 @@ def graph(store: GraphStore) -> GraphStore:
             ),
             _edge("decisions/b1", "cases/z1", "ABOUT"),
             _edge("decisions/b2", MOTION, "ABOUT"),
+            _edge("decisions/b2", "cases/z1", "ABOUT"),
+            _edge("decisions/b3", MOTION, "ABOUT"),
+            _edge("members/b", "decisions/b3", "VOTED", meta={"choice": "Voor"}),
+            _edge("members/d", "decisions/b3", "VOTED", meta={"choice": "Tegen"}),
+            _edge("members/c", "decisions/b3", "VOTED", meta={"choice": "Voor"}),
+            _edge(
+                "members/d",
+                "factions/f1",
+                "MEMBER_OF",
+                meta={"from_date": "2020-01-01", "to_date": None},
+            ),
             _edge("decisions/b1", DOSSIER, "ABOUT"),
             _edge("decisions/b2", DOSSIER, "ABOUT"),
             _edge(
@@ -190,16 +202,22 @@ def test_the_votes_on_the_paper_and_its_case_have_the_vote_per_faction(
 ) -> None:
     body = _get(client, MOTION)
 
-    assert body["votes_total"] == 2
-    first, second = body["votes"]
+    assert body["votes_total"] == 3  # b2 is on the paper and the case: once
+    first, roll, second = body["votes"]
     assert (first["node"]["id"], first["about"]) == ("decisions/b1", "cases/z1")
     assert [
         (f["faction"]["id"], f["choice"], f["seats"]) for f in first["factions"]
     ] == [("factions/f1", "Voor", 15), ("factions/f2", "Tegen", 10)]
+    # a roll call: its members by the faction they sat in that day (c had left f2)
+    assert roll["node"]["id"] == "decisions/b3"
+    assert [
+        (f["faction"]["id"], f["choice"], f["seats"], f["members"])
+        for f in roll["factions"]
+    ] == [("factions/f1", "Verdeeld", 2, {"Tegen": 1, "Voor": 1})]
     assert (second["node"]["id"], second["factions"]) == ("decisions/b2", [])
     assert [g["reason"] for g in body["gaps"] if g["section"] == "votes"] == [
-        "No vote per faction is recorded for 1 of the 2 decisions shown "
-        "(a hamerstuk, a roll call, or a vote not yet read)."
+        "No vote per faction is recorded for 1 of the 3 decisions shown "
+        "(a hamerstuk, or a roll call without member votes)."
     ]
 
 
@@ -264,7 +282,7 @@ def test_cap_cuts_a_section_but_not_its_total(client: TestClient) -> None:
 
     assert len(body["submitters"]) == 1 and body["submitters_total"] == 3
     assert len(body["laws"]["items"]) == 1 and body["laws"]["total"] == 3
-    assert len(body["votes"]) == 1 and body["votes_total"] == 2
+    assert len(body["votes"]) == 1 and body["votes_total"] == 3
 
 
 def test_another_collection_is_422_and_a_missing_node_404(client: TestClient) -> None:

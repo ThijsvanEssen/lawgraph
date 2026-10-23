@@ -11,6 +11,7 @@ never walked.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -138,7 +139,7 @@ def _select(ask: Ask, n: int, counting: bool) -> str:
     if counting:
         return f"""
         SELECT {n} AS ask, e.relation, e.{other}_collection AS collection,
-               count(*)::int AS n
+               count(DISTINCT e.{other}_id)::int AS n
         FROM edges e
         WHERE e.{own}_id = ANY(%(ids_{n})s) AND e.relation = ANY(%(relations_{n})s)
               {collections}
@@ -264,6 +265,9 @@ _MEMBER_OF_FACTION = Reach(
     (RELATION_MEMBER_OF,), "out", (COLLECTION_FACTIONS,), ("from_date", "to_date")
 )
 _VOTED = Reach((RELATION_VOTED,), "in", (COLLECTION_FACTIONS,), ("choice", "seats"))
+_CAST = Reach((RELATION_VOTED,), "in", (COLLECTION_MEMBERS,), ("choice",))
+# the most member votes of one roll call: the Tweede Kamer has 150 members
+_ROLL_CALL = 200
 
 # What a dossier holds, counted by the edges that reach it: (relation, collection of the
 # source) -> name.
@@ -295,6 +299,9 @@ class Surroundings:
     votes_total: int = 0
     # per decision shown: the vote of each faction
     by_faction: dict[str, list[Hit]] = field(default_factory=dict)
+    # per roll call shown: the member votes of each faction, per choice, by the faction the
+    # voter sat in on the day (decision -> faction id -> choice -> members)
+    rolled: dict[str, dict[str, dict[str, int]]] = field(default_factory=dict)
     follows: Section = field(default_factory=Section)
     context: Section = field(default_factory=Section)
     nodes: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -452,6 +459,31 @@ def _first_signer_first(found: Section, cap: int) -> None:
     found.hits = [h for h in ranked if once[h.other] is h][:cap]
 
 
+def _roll_calls(
+    store: GraphStore, decisions: list[str], nodes: dict[str, dict[str, Any]]
+) -> dict[str, dict[str, dict[str, int]]]:
+    """Of the roll calls among *decisions* (``vote_kind`` ``member``), how the members of
+    each faction voted, by the faction each sat in on the day of the decision."""
+    roll = [
+        d
+        for d in decisions
+        if (nodes[d].get("props") or {}).get("vote_kind") == "member"
+    ]
+    cast = read_all(store, {"cast": Ask(roll, _CAST, _ROLL_CALL)})["cast"]
+    sat = read_all(store, {"sat": Ask(_ids(cast), _MEMBER_OF_FACTION, 20)})["sat"]
+    found: dict[str, dict[str, dict[str, int]]] = {}
+    for decision in roll:
+        faction_of = _faction_on(sat, _date(nodes[decision]) or None)
+        tally: dict[str, Counter[str]] = {}
+        for hit in cast:
+            faction = faction_of.get(hit.other)
+            choice = hit.meta.get("choice")
+            if hit.node == decision and faction and isinstance(choice, str):
+                tally.setdefault(faction, Counter())[choice] += 1
+        found[decision] = {f: dict(sorted(c.items())) for f, c in sorted(tally.items())}
+    return found
+
+
 def _date(node: dict[str, Any] | None) -> str:
     value = ((node or {}).get("props") or {}).get("date")
     return value if isinstance(value, str) else ""
@@ -511,7 +543,9 @@ def get_surroundings(
         result.by_faction.setdefault(hit.node, []).append(hit)
     day = _date(nodes.get(focal)) or None
     result.factions = _faction_on(later["member_of"], day)
+    result.rolled = _roll_calls(store, result.votes, nodes)
     named = [h.other for hs in result.by_faction.values() for h in hs]
+    named += [f for per in result.rolled.values() for f in per]
     named += result.factions.values()
     nodes.update(light_nodes(store, [i for i in _unique(named) if i not in nodes]))
     result.nodes = nodes
