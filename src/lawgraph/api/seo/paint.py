@@ -511,11 +511,11 @@ def document_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | N
     ``/api/documents/{key}`` with its text up to the end of an alinea past
     ``_DOCUMENT_TEXT`` characters (its alineas, sections, tables and footnotes in it), the
     widest numbers of all its alineas, and its light node of its dossier, zaak, debate and
-    bijlagen with the props its citation reads; the votes on it come with its answer. None for
-    one without text, or with the articles it explains (their section comes with the app)."""
+    bijlagen with the props its citation reads; the votes on it and the articles it explains
+    come with its answer. None for one without text."""
     key = row["key"]
     doc = get_document_text(key, store)
-    if not doc.text or doc.explains:
+    if not doc.text:
         return None
     # after a whole alinea, or a whole line of a text without alineas
     ends = [p.char_end for p in doc.paragraphs if p.char_end >= _DOCUMENT_TEXT]
