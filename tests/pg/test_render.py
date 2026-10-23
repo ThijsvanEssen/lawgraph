@@ -2427,6 +2427,58 @@ def test_a_judgment_is_painted_first_with_its_first_paragraphs_and_its_band(
     ]
 
 
+def test_a_law_is_painted_first_with_its_first_articles_and_their_text(
+    painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Its answer, its articles in force counted and the first of them, each with its text
+    of today (a preview only where that is not there), its basis and the bill that made it."""
+    # its six reads on a cold test database, however slow the runner
+    monkeypatch.setattr(render, "PAINT_BUDGET", 30.0)
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [
+            _node("av_162", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="1992-01-01", current=True, text="1. Hij die …",
+                  parts=[{"id": "lid-1", "kind": "lid", "number": "1", "start": 3,
+                          "end": 12}]),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instrument_versions",
+        [
+            _node(
+                "iv_6",
+                "instrument_version",
+                bwb_id="BWBR0005289",
+                valid_from="1992-01-01",
+            )
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge("li1", "instruments/bwbr0005289", "dossiers/36496", "LEGISLATED_IN")]
+    )
+    response = _get(painting, "/wetten/BWBR0005289")
+    assert_status(response, 200)
+    painted = _painted(response.text)
+    assert painted is not None and painted["kind"] == "law"
+    assert painted["bwb_id"] == "BWBR0005289"
+    assert painted["instrument"]["citation_title"] == "Burgerlijk Wetboek Boek 6"
+    assert (painted["total"], painted["annexes"]) == (2, 0)
+    articles = {a["article_number"]: a for a in painted["articles"]}
+    assert set(articles) == {"162", "163"}
+    assert [t["article_number"] for t in painted["texts"]] == ["162"]
+    assert painted["texts"][0]["text"] == "1. Hij die …"
+    # the preview stands only where the text of today does not
+    assert articles["162"]["text_preview"] is None
+    assert articles["163"]["text_preview"].startswith("Geen verplichting")
+    assert painted["basis"] == []
+    (bucket,) = painted["light"]["neighbors"]["buckets"]
+    assert (bucket["relation"], [i["key"] for i in bucket["items"]]) == (
+        "LEGISLATED_IN",
+        ["36496"],
+    )
+
+
 def test_a_judgment_whose_parties_were_not_read_is_not_painted_first(
     painting: TestClient, store: GraphStore
 ) -> None:

@@ -21,6 +21,12 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.api.routes.instruments import (
+    get_instrument,
+    get_instrument_basis_route,
+    list_articles,
+    list_articles_at,
+)
 from lawgraph.api.routes.judgments import get_judgment_detail
 from lawgraph.api.routes.nodes import get_node_graph
 from lawgraph.api.schemas.articles import (
@@ -34,14 +40,17 @@ from lawgraph.api.schemas.dossiers import DossierDocumentDTO
 from lawgraph.api.schemas.nodes import NodeGraphResponse
 from lawgraph.api.validity import article_validity_dto
 from lawgraph.config.constants import (
+    COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RELATION_ADVISES_ON,
     RELATION_APPEAL_OF,
+    RELATION_LEGISLATED_IN,
 )
 from lawgraph.core.delegations import delegation_clauses
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.names import text_of
 from lawgraph.core.staatsblad_laws import is_law
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 from lawgraph.db.queries.articles import (
@@ -376,3 +385,95 @@ def _first_earlier(store: GraphStore, key: str) -> dict[str, Any] | None:
     buckets = _light(store, key, _EARLIER)["neighbors"]["buckets"]
     items = buckets[0]["items"] if buckets else []
     return items[0] if items else None
+
+
+# The articles of a law the paint sets, with their text: more than a screen of them; the app
+# adds the rest of its page under them.
+_LAW_ARTICLES = 12
+
+# The preview of an article in the list, as the reader asks it (``PREVIEW_CHARS``).
+_LAW_PREVIEW = 600
+
+# The relation the band "Behoort bij" of a law names: the bill that made it.
+_LAW_BAND = NeighborFilter(relations=(RELATION_LEGISLATED_IN,), direction="outbound")
+
+
+def law_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The law of the BWB of *row* as its first paint reads it: its answer of
+    ``/api/instruments/{bwb_id}``, the first articles of its list with their text of today
+    (``/articles`` and ``/articles/at/{today}``, as the reader asks its first page), and the
+    laws its Gelet op names (``/basis``), and its light node of the bill that made it (its
+    band). None for an act of
+    the EU or a law of the Staatsblad (the reader asks their texts article by article)."""
+    bwb_id = text_of((row.get("props") or {}).get("bwb_id"))
+    if not bwb_id:
+        return None
+    detail = get_instrument(bwb_id, store)
+    listed = list_articles(
+        bwb_id,
+        store,
+        text_preview_chars=_LAW_PREVIEW,
+        limit=_LAW_ARTICLES,
+        offset=0,
+        division=None,
+    )
+    texts = list_articles_at(
+        bwb_id,
+        dutch_today(),
+        store,
+        text_preview_chars=0,
+        include_text=True,
+        limit=_LAW_ARTICLES,
+        offset=0,
+        division=None,
+        include=None,
+    )
+    # the reader names them under the head of a regulation that is no wet (its kind decides)
+    basis = get_instrument_basis_route(bwb_id, store).model_dump(mode="json")["items"]
+    today = [
+        item.model_dump(
+            mode="json",
+            include={
+                "article_number",
+                "text",
+                "parts",
+                "tables",
+                "headings",
+                "footnote_marks",
+                "footnotes",
+            },
+        )
+        for item in texts.items
+    ]
+    with_text = {t["article_number"] for t in today if t.get("text")}
+    return {
+        "kind": "law",
+        "bwb_id": bwb_id,
+        "instrument": detail.model_dump(mode="json"),
+        "total": listed.total,
+        # its annexes counted: the contents beside the text list them
+        "annexes": len(listed.annexes),
+        # an article's preview only where its text of today is not there
+        "articles": [
+            {
+                **item.model_dump(mode="json", exclude={"text_preview"}),
+                "text_preview": (
+                    None if item.article_number in with_text else item.text_preview
+                ),
+            }
+            for item in listed.items
+        ],
+        "texts": today,
+        "basis": basis,
+        "light": get_node_graph(
+            COLLECTION_INSTRUMENTS,
+            row["key"],
+            store,
+            _LAW_BAND,
+            limit=1,
+            offset=0,
+            sort="key",
+            props="full",
+            edge_meta="light",
+        ).model_dump(mode="json", include={"neighbors": {"buckets"}}),
+    }
