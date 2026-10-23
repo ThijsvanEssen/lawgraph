@@ -111,7 +111,13 @@ def _phase_dates(
 ) -> list[str | None]:
     """The date of every record that marks *phase* (None for one without a date)."""
     return [
-        *(d.get("date") for d in docs if d.get("kind") in phase.documents),
+        *(
+            # an advice of the Raad van State is of the day its paper gives, not of the day
+            # it was filed with the bill
+            d.get("advice_date") or d.get("date")
+            for d in docs
+            if d.get("kind") in phase.documents
+        ),
         *(
             a.get("date")
             for a in activities

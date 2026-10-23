@@ -815,6 +815,16 @@ class EnactedInstrumentDTO(WithPath):
     )
 
 
+class CommencementPublicationDTO(WithPath):
+    """The publication that put a law into force."""
+
+    path_source = PathSource(collection="instruments")
+
+    key: str
+    cite: str | None = Field(None, description="As it is cited: `Stb. 2024, 197`.")
+    published_on: str | None = Field(None, description="The day it was published.")
+
+
 class EnactedPublicationDTO(WithPath):
     """A publication the dossier's law was enacted in: one ``LEGISLATED_IN`` the dossier."""
 
@@ -822,7 +832,17 @@ class EnactedPublicationDTO(WithPath):
 
     key: str
     cite: str | None = Field(None, description="As it is cited: `Stb. 2024, 193`.")
+    signed_on: str | None = Field(
+        None, description="The day the Koning and the minister signed it."
+    )
     published_on: str | None = Field(None, description="The day it was published.")
+    commencement: CommencementPublicationDTO | None = Field(
+        None,
+        description="The publication that put what it enacted into force (the "
+        "inwerkingtredingsbesluit, `Stb. 2024, 197`), as the BWB names it for the earliest "
+        "of what it enacted; null when the publication itself puts it into force or the "
+        "BWB names none.",
+    )
     first_effective_date: str | None = Field(
         None,
         description="The earliest effective date of what it enacted (the "
@@ -834,6 +854,28 @@ class EnactedPublicationDTO(WithPath):
         None,
         description="The law it enacted, whose articles it established; null for a "
         "publication that only changes other laws.",
+    )
+
+
+class DossierProposerDTO(WithPath):
+    """Who brought the bill in: the person who signed its earliest signed document first
+    (the cabinet of that day is ``cabinet`` of the dossier)."""
+
+    path_source = PathSource("members", key_field="member_key")
+
+    member_key: str | None = None
+    name: str | None = None
+    function: str | None = Field(
+        None, description="As the source writes it: `minister van Binnenlandse Zaken`."
+    )
+    capacity: SigningCapacity | None = Field(
+        None,
+        description="`bewindspersoon` (the government brought it in) or `kamerlid` (an "
+        "initiative bill).",
+    )
+    date: str | None = Field(None, description="The day they signed.")
+    ministry: MinistryKey | None = Field(
+        None, description="Their ministry, as `ministry` of the dossier."
     )
 
 
@@ -866,6 +908,12 @@ class EkPaperDTO(StrictModel):
         None, description="As the page writes it: ``EK, B``, ``TK, 2``; null for none."
     )
     url: str
+    path: str | None = Field(
+        None,
+        description="Its readable address where the graph holds the paper itself: "
+        "`publicatie wet` and `publicatie inwerkingtreding` are the Staatsblad pages "
+        "(`/stb/2024/193`) of `enacted`; null for any other paper.",
+    )
 
 
 class EkStepDTO(StrictModel):
@@ -1014,6 +1062,18 @@ class DossierDetailResponse(DossierSummaryDTO):
         description="The publications its law was enacted in (`Stb. 2024, 193`), the "
         "earliest published first: the same `legislated_in` edges as `instruments`.",
     )
+    proposed_by: DossierProposerDTO | None = Field(
+        None,
+        description="Who brought the bill in, from the signature `ministry`, `initiative` "
+        "and `cabinet` are read from (`semantic tk-government`); null where nobody in "
+        "government or parliament signed.",
+    )
+    in_force_since: str | None = Field(
+        None,
+        description="The day the law of the dossier came into force: the earliest "
+        "`first_effective_date` of `enacted` that is today or past; null for a dossier "
+        "whose law is not in force (yet).",
+    )
     laws_named: list[DossierLawNamedDTO] = Field(
         default_factory=list,
         description=(
@@ -1062,9 +1122,15 @@ class DossierDetailResponse(DossierSummaryDTO):
         laws_named: list[dict[str, Any]] | None = None,
         next_activity: dict[str, Any] | None = None,
         legal_effect: LegalEffectDTO | None = None,
+        proposer: dict[str, Any] | None = None,
+        today: str = "",
     ) -> DossierDetailResponse:
         counts = counts or {}
         hub = hub or {}
+        enacted = [
+            EnactedPublicationDTO.model_validate(row)
+            for row in hub.get("enacted") or []
+        ]
         return cls(
             **_dossier_fields(doc),
             document_count=counts.get("documents", 0),
@@ -1072,16 +1138,24 @@ class DossierDetailResponse(DossierSummaryDTO):
             decision_count=counts.get("decisions", 0),
             commitment_count=counts.get("commitments", 0),
             instruments=merge_instruments(hub.get("instruments") or []),
-            enacted=[
-                EnactedPublicationDTO.model_validate(row)
-                for row in hub.get("enacted") or []
-            ],
+            enacted=enacted,
+            proposed_by=proposer_of(doc, proposer),
+            in_force_since=min(
+                (
+                    p.first_effective_date
+                    for p in enacted
+                    if p.first_effective_date and p.first_effective_date <= today
+                ),
+                default=None,
+            ),
             laws_named=[DossierLawNamedDTO(**law) for law in laws_named or []],
             legal_effect=legal_effect or LegalEffectDTO(),
             committees=[DossierCommitteeDTO(**c) for c in hub.get("committees") or []],
             documents_by_kind=dict(hub.get("documents_by_kind") or {}),
             senate=_ek(
-                hub.get("senate") or {}, (doc.get("props") or {}).get("ek_bill")
+                hub.get("senate") or {},
+                (doc.get("props") or {}).get("ek_bill"),
+                enacted,
             ),
             relations=[DossierRelationDTO.from_row(r) for r in relations or []],
             next_activity=(
@@ -1090,7 +1164,60 @@ class DossierDetailResponse(DossierSummaryDTO):
         )
 
 
-def _ek(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDTO:
+def proposer_of(
+    doc: dict[str, Any], member: dict[str, Any] | None
+) -> DossierProposerDTO | None:
+    """Who brought the dossier in: its ``first_signed`` and *member* (``{name, slug}``, the
+    person it names), with the ministry and cabinet the dossier carries."""
+    props = doc.get("props") or {}
+    first = props.get("first_signed")
+    if not first:
+        return None
+    return DossierProposerDTO(
+        member_key=first.get("member"),
+        name=(member or {}).get("name"),
+        function=first.get("function"),
+        capacity=first.get("capacity"),
+        date=first.get("date"),
+        ministry=props.get("ministry"),
+        path_props={"slug": (member or {}).get("slug")},
+    )
+
+
+# The items of the Afkondiging step of eerstekamer.nl that are the Staatsblad pages.
+_LAW_ITEM = "publicatie wet"
+_COMMENCEMENT_ITEM = "publicatie inwerkingtreding"
+
+
+def _link_publications(
+    progress: list[dict[str, Any]], enacted: list[EnactedPublicationDTO]
+) -> list[dict[str, Any]]:
+    """*progress* with the address of the Staatsblad page on each item that is one: the
+    publication of the law, and of its commencement, that came out on the day of the item."""
+    law = {p.published_on: p.path for p in reversed(enacted) if p.published_on}
+    commencing = {
+        p.commencement.published_on: p.commencement.path
+        for p in reversed(enacted)
+        if p.commencement and p.commencement.published_on
+    }
+    pages = {_LAW_ITEM: law, _COMMENCEMENT_ITEM: commencing}
+    return [
+        {
+            **step,
+            "papers": [
+                {**item, "path": pages.get(item.get("kind"), {}).get(item.get("date"))}
+                for item in step.get("papers") or []
+            ],
+        }
+        for step in progress
+    ]
+
+
+def _ek(
+    counted: dict[str, Any],
+    bill: dict[str, Any] | None,
+    enacted: list[EnactedPublicationDTO],
+) -> DossierSenateDTO:
     """The Eerste Kamer of a dossier: its documents counted, and the page of its bill."""
     if not bill:
         return DossierSenateDTO.model_validate(counted)
@@ -1099,7 +1226,7 @@ def _ek(counted: dict[str, Any], bill: dict[str, Any] | None) -> DossierSenateDT
             **counted,
             "submitted_on": bill.get("submitted_on"),
             "status": bill.get("status"),
-            "progress": bill.get("progress") or [],
+            "progress": _link_publications(bill.get("progress") or [], enacted),
             "source": {"url": bill.get("url"), "read_on": bill.get("read_on")},
         }
     )

@@ -53,6 +53,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
+from lawgraph.core.letter_kinds import ARTICLE_100_SUBJECT, GOVERNMENT_LETTER
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
@@ -1257,6 +1258,18 @@ def feed_title(alias: str = "") -> str:
     )
 
 
+def article_100_letter(alias: str = "") -> str:
+    """Whether a document (of the row *alias*) is an artikel 100-brief: the rule of
+    ``core/letter_kinds.letter_kind`` on its ``kind`` and ``pj_subject``, the predicate of
+    the partial index ``documents_article_100``. The index and the list write it alike, or
+    the planner does not take the index."""
+    p = f"{alias}." if alias else ""
+    return (
+        f"{p}kind = '{GOVERNMENT_LETTER}'"
+        f" AND public.lg_str({p}pj_subject) ~* '{ARTICLE_100_SUBJECT}'"
+    )
+
+
 # The instruments list holds every instrument but the publications: an index per sort of
 # it over those alone, so that a page does not pass every publication on the way.
 _LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
@@ -1309,6 +1322,12 @@ _LIST_INDEXES: dict[str, tuple[str, ...]] = {
         built_beforehand(
             "CREATE INDEX IF NOT EXISTS documents_feed_title_g"
             f" ON documents USING gin (({feed_title()}) gin_trgm_ops)"
+        ),
+        # the artikel 100-brieven (``letter_kind=article_100``): a few hundred letters,
+        # newest first
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS documents_article_100"
+            f" ON documents (date DESC NULLS LAST, key) WHERE {article_100_letter()}"
         ),
     ),
     # /api/decisions, newest first: a page reads as far as it goes in the order of the list,
@@ -1661,6 +1680,9 @@ DOCUMENT_LIGHT_PROPS = (
     "dossier_number",
     "dossier_suffix",
     "sequence",
+    # the day of an advice of the Raad van State as its paper opens, which the phase of a
+    # bill dates by (``core/advice_dates.py``)
+    "advice_date",
     # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
     "dictum",
     # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)

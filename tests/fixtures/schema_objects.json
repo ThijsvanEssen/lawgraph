@@ -231,6 +231,7 @@
   "CREATE INDEX IF NOT EXISTS decisions_motion_kind ON decisions (public.lg_str(props -> 'motion_kind')) WHERE public.lg_str(props -> 'motion_kind') IS NOT NULL",
   "CREATE INDEX IF NOT EXISTS decisions_passed ON decisions (passed)",
   "CREATE INDEX IF NOT EXISTS decisions_search_words ON decisions USING gin ((lower(coalesce(props ->> 'subject', '') || ' ' || coalesce(props ->> 'kind', ''))) gin_trgm_ops)",
+  "CREATE INDEX IF NOT EXISTS documents_article_100 ON documents (date DESC NULLS LAST, key) WHERE kind = 'Brief regering' AND public.lg_str(pj_subject) ~* '^(?:(?:aanvullende?|aanvulling(?: op de)?|kennisgeving)[\\s:\u2013-]*)?artikel[\\s-]*100(?![0-9])(?![\\s-]*procedure)|\\(artikel[\\s-]*100(?![0-9])[^)]*\\)\\s*$'",
   "CREATE INDEX IF NOT EXISTS documents_date ON documents (date)",
   "CREATE INDEX IF NOT EXISTS documents_dossier_number ON documents (dossier_number)",
   "CREATE INDEX IF NOT EXISTS documents_dossier_numbers ON documents USING gin (dossier_numbers)",

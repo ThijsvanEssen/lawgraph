@@ -27,6 +27,7 @@ from lawgraph.api.schemas.documents import (
     readable_sections,
 )
 from lawgraph.config.constants import Chamber
+from lawgraph.core.letter_kinds import LetterKind
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
@@ -61,8 +62,9 @@ OFFSET_MAX = 10_000
         "``title`` and ``session_year``; of a motion or an amendment how it ended "
         "(``outcome``) and of a motion of censure or of no confidence ``motion_kind``. "
         "``motion_kind=censure,no_confidence`` keeps those motions: one open while its "
-        "``outcome`` is null. ``facets`` counts per ``kind`` and ``chamber``, "
-        "each without its own filter; ``facets=false`` reads one page only."
+        "``outcome`` is null. ``letter_kind=article_100`` keeps the artikel 100-brieven of "
+        "the government, as their subject names them. ``facets`` counts per ``kind`` and "
+        "``chamber``, each without its own filter; ``facets=false`` reads one page only."
     ),
     tags=["documents"],
 )
@@ -95,6 +97,14 @@ def list_chamber_documents(
             "afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions."
         ),
     ] = None,
+    letter_kind: Annotated[
+        LetterKind | None,
+        Query(
+            description="A kind of letter of the government that its subject names: "
+            "``article_100`` the artikel 100-brieven (a deployment of the armed forces, "
+            "artikel 100 Grondwet). Only those letters."
+        ),
+    ] = None,
     facets: Annotated[bool, Query(description="Count per kind and chamber.")] = True,
     limit: PageLimit = 50,
     offset: Annotated[
@@ -116,6 +126,7 @@ def list_chamber_documents(
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
         motion_kinds=parse_choices(motion_kind, MOTION_KINDS, "motion_kind"),
+        letter_kind=letter_kind,
         limit=limit,
         offset=offset,
         facets=facets,

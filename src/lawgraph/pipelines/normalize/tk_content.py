@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_TK,
 )
+from lawgraph.core.advice_dates import is_advice, read_advice_days
 from lawgraph.core.amendment_explanation import read_explanation
 from lawgraph.core.batching import chunked
 from lawgraph.core.document_xml import TEXT_SOURCE, ParsedDocument, parse_document_xml
@@ -140,5 +141,12 @@ def document_props(parsed: ParsedDocument, *, kind: str | None) -> dict[str, Any
         # what an amendment is for, as its Toelichting opens; null for any other document
         "explanation": (
             read_explanation(parsed.text, sections) if is_amendment(kind) else None
+        ),
+        # the days of an advice of the Raad van State and of its nader rapport, as its paper
+        # opens; null for any other document
+        **(
+            read_advice_days(parsed.text)
+            if is_advice(kind)
+            else {"advice_date": None, "report_date": None}
         ),
     }

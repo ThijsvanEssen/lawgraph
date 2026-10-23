@@ -94,6 +94,22 @@ def test_a_phase_takes_its_first_date() -> None:
     assert phase == {"name": name, "done": True, "date": "2024-04-01"}
 
 
+def test_the_advice_of_the_raad_van_state_is_dated_by_its_own_day() -> None:
+    advice = {
+        **_doc(
+            "Advies Afdeling advisering Raad van State en Nader rapport", "2024-02-05"
+        ),
+        "advice_date": "2023-11-15",
+    }
+    undated = _doc("Advies Afdeling advisering Raad van State", "2024-03-01")
+    name = "Advies Raad van State"
+    phases = dossier_phases("Wetgeving", [advice], [], [])
+    assert next(p for p in phases or [] if p["name"] == name)["date"] == "2023-11-15"
+    # a paper whose opening gives no day keeps the day it was filed
+    phases = dossier_phases("Wetgeving", [undated], [], [])
+    assert next(p for p in phases or [] if p["name"] == name)["date"] == "2024-03-01"
+
+
 def test_the_decisions_on_the_bill_itself_mark_the_stemmingen() -> None:
     motion = {"decision_kind": "Stemmen - aangenomen", "case_kind": "Motie"}
     postponed = {"decision_kind": "Stemmen - uitstellen", "case_kind": "Wetgeving"}
