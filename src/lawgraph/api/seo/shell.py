@@ -18,7 +18,7 @@ import json
 import os
 import re
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -52,8 +52,9 @@ class Shell:
     start: dict[str, Any]
     # the addresses that moved, to where they are now (``moved.json``), or empty
     moved: dict[str, str]
-    # the script of the first paint of a reader's address (``first-paint.js``), or empty
-    first_paint: str = ""
+    # the scripts of the first paint of a reader's address by the kind of its bron
+    # (``first-paint-article.js``), the one for every kind under "" (``first-paint.js``)
+    first_paint: dict[str, str] = field(default_factory=dict)
 
 
 _lock = threading.Lock()
@@ -115,13 +116,18 @@ def _moved(index: Path) -> dict[str, str]:
     }
 
 
-def _first_paint(index: Path) -> str:
-    """The script that paints a reader's address before the app has come, from
-    ``first-paint.js`` beside the shell; a front end of before has none."""
-    try:
-        return (index.parent / "first-paint.js").read_text("utf-8")
-    except OSError:
-        return ""
+def _first_paint(index: Path) -> dict[str, str]:
+    """The scripts that paint a reader's address before the app has come, beside the shell:
+    one per kind of bron (``first-paint-judgment.js`` under ``judgment``), and the one that
+    paints every kind (``first-paint.js``) under ""; a front end of before has none."""
+    scripts: dict[str, str] = {}
+    for file in sorted(index.parent.glob("first-paint*.js")):
+        kind = file.stem.removeprefix("first-paint").removeprefix("-")
+        try:
+            scripts[kind] = file.read_text("utf-8")
+        except OSError:
+            continue
+    return scripts
 
 
 def _beside[T](index: Path, name: str, kind: type[T]) -> T | None:
@@ -243,8 +249,11 @@ def _paint(page: Page) -> str:
     """The source of *page* as the front end paints it first, and the script that paints
     it, after the content: it runs before the browser paints. Nothing for a page the front
     end does not paint first, or a front end without the script."""
-    script = shell().first_paint
-    if page.first_paint is None or not script:
+    if page.first_paint is None:
+        return ""
+    scripts = shell().first_paint
+    script = scripts.get(str(page.first_paint.get("kind", ""))) or scripts.get("")
+    if not script:
         return ""
     data = json.dumps(page.first_paint, ensure_ascii=False).replace("</", "<\\/")
     return (

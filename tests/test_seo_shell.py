@@ -36,7 +36,7 @@ def test_a_whole_build_is_read_without_a_word(
     (index.parent / "first-paint.js").write_text("paint()")
     read = shell.shell()
     assert set(read.routes) == {"/zoeken"} and read.start == {"heading": "Kop"}
-    assert read.first_paint == "paint()"
+    assert read.first_paint == {"": "paint()"}
     assert _errors(caplog) == []
 
 
@@ -51,7 +51,7 @@ def test_a_build_without_the_first_paint_paints_nothing_first(
         body="<h1>T</h1>",
         first_paint={"kind": "article"},
     )
-    assert shell.shell().first_paint == ""
+    assert shell.shell().first_paint == {}
     assert "first-paint-data" not in shell.render(page)
     assert _errors(caplog) == []
 
@@ -78,6 +78,25 @@ def test_the_source_a_page_paints_first_stands_after_its_content_with_the_script
     assert '"a <\\/script> b"' in html
     page.first_paint = None
     assert "first-paint" not in shell.render(page)
+
+
+def test_a_page_gets_the_script_of_its_kind_else_the_one_of_every_kind(
+    index: Path,
+) -> None:
+    """The build writes a script per kind of bron beside the one that paints every kind: a
+    page carries only the code of its own kind."""
+    (index.parent / "first-paint.js").write_text("all()")
+    (index.parent / "first-paint-judgment.js").write_text("judgment()")
+    page = Page(
+        title="T",
+        description="D",
+        path="/uitspraken/X",
+        body="<h1>T</h1>",
+        first_paint={"kind": "judgment"},
+    )
+    assert "<script>judgment()</script>" in shell.render(page)
+    page.first_paint = {"kind": "article"}
+    assert "<script>all()</script>" in shell.render(page)
 
 
 @pytest.mark.parametrize(

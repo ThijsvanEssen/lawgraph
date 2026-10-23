@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from lawgraph.api.routes.judgments import get_judgment_detail
+from lawgraph.api.routes.nodes import get_node_graph
 from lawgraph.api.schemas.articles import (
     ArticleExplanationDTO,
     ArticleSummaryDTO,
@@ -29,8 +31,15 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import InstrumentSummaryDTO
 from lawgraph.api.schemas.completeness import COMPLETENESS_ADAPTER, completeness_dto
 from lawgraph.api.schemas.dossiers import DossierDocumentDTO
+from lawgraph.api.schemas.nodes import NodeGraphResponse
 from lawgraph.api.validity import article_validity_dto
+from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
+    RELATION_ADVISES_ON,
+    RELATION_APPEAL_OF,
+)
 from lawgraph.core.delegations import delegation_clauses
+from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.names import text_of
 from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.db import GraphStore
@@ -44,6 +53,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_documents,
     load_dossier_names,
 )
+from lawgraph.db.queries.nodes import NeighborFilter
 from lawgraph.db.queries.unlinked_references import (
     law_reference_counts,
     reference_counts,
@@ -227,3 +237,142 @@ def _law_neighbor(instrument: dict[str, Any] | None) -> dict[str, Any] | None:
         "display_name": props.get("display_name"),
         "props": {name: props[name] for name in _LAW_PROPS if props.get(name)},
     }
+
+
+# The characters of a judgment's text the paint sets: its first paragraphs, more than a
+# screen of them; the app adds the rest under them.
+_JUDGMENT_TEXT = 6000
+
+# What the props of a judgment hold of its text, which its paragraphs give.
+_JUDGMENT_BULK = ("paragraphs", "text", "footnotes", "sections")
+
+# The relations the band "Behoort bij" of a judgment names: its procesgang and its conclusie.
+_BAND = NeighborFilter(relations=(RELATION_APPEAL_OF, RELATION_ADVISES_ON))
+_EARLIER = NeighborFilter(relations=(RELATION_APPEAL_OF,), direction="outbound")
+
+# How many instances before its eerdere aanleg the band names (``eerdereAanleg``).
+_CHAIN = 3
+
+# The props of its light node the band reads (``procesgang-chain``).
+_BAND_PROPS = ("outcome", "unresolved_appeal_targets", "translation_of")
+
+
+def judgment_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The judgment of *row* as its first paint reads it: its answer of
+    ``/api/judgments/{ecli}`` with its first paragraphs (those of ``_JUDGMENT_TEXT``
+    characters) without their citations, and its light node for the band as
+    ``/api/nodes/judgments/{key}?limit=1`` gives it, of its procesgang and conclusie, with
+    the instances before its eerdere aanleg. None for one withdrawn, a translation, one with
+    connected cases (their sentences come later), one without text, or one whose parties
+    were not read (the reader reads them from its whole text)."""
+    ecli = ecli_of_key(row["key"])
+    if not ecli:
+        return None
+    detail = get_judgment_detail(ecli, store)
+    judgment = detail.judgment
+    if (
+        judgment.withdrawn
+        or judgment.translation_of
+        or detail.related_to
+        or not judgment.paragraphs
+        # its parties read from its whole text, which the paint has not
+        or judgment.parties is None
+    ):
+        return None
+    kept, size = [], 0
+    for paragraph in judgment.paragraphs:
+        if size >= _JUDGMENT_TEXT:
+            break
+        kept.append(paragraph.model_copy(update={"citations": []}))
+        size += len(paragraph.text or "")
+    ids = {p.paragraph_id for p in kept}
+    notes = [
+        note.model_copy(update={"citations": []})
+        for note in judgment.footnotes
+        if note.paragraph_id in ids
+    ]
+    # its props without its text, which its paragraphs hold
+    light_props = {
+        name: value
+        for name, value in (judgment.props or {}).items()
+        if name not in _JUDGMENT_BULK
+    }
+    shown = judgment.model_copy(
+        update={"paragraphs": kept, "footnotes": notes, "props": light_props}
+    )
+    return {
+        "kind": "judgment",
+        "judgment": shown.model_dump(mode="json"),
+        "whole": len(kept) == len(judgment.paragraphs),
+        # the numbers of all its paragraphs, for the margin they stand in to be as wide as
+        # the reader's
+        "numbers": sorted({p.number for p in judgment.paragraphs if p.number}),
+        "same_as": [s.model_dump(mode="json") for s in detail.same_as],
+        "conclusions": [c.model_dump(mode="json") for c in detail.conclusions],
+        "completeness": (
+            COMPLETENESS_ADAPTER.dump_python(detail.completeness, mode="json")
+            if detail.completeness
+            else None
+        ),
+        "light": _band_light(store, row["key"]),
+        "chain": _chain(store, row["key"]),
+    }
+
+
+def _band_light(store: GraphStore, key: str) -> dict[str, Any]:
+    """The light node of the judgment *key* as its band reads it: the buckets of its
+    procesgang and conclusie, and the props it names its outcome by."""
+    graph = _graph(store, key, _BAND)
+    props = graph.node.props or {}
+    return {
+        "node": {
+            "props": {name: props[name] for name in _BAND_PROPS if props.get(name)}
+        },
+        **graph.model_dump(mode="json", include={"neighbors": {"buckets"}}),
+    }
+
+
+def _graph(store: GraphStore, key: str, filters: NeighborFilter) -> NodeGraphResponse:
+    """The light node of the judgment *key* (``limit=1``) of the edges *filters* lets
+    through, as ``/api/nodes`` gives it."""
+    return get_node_graph(
+        COLLECTION_JUDGMENTS,
+        key,
+        store,
+        filters,
+        limit=1,
+        offset=0,
+        sort="key",
+        props="full",
+        edge_meta="light",
+    )
+
+
+def _light(store: GraphStore, key: str, filters: NeighborFilter) -> dict[str, Any]:
+    """The light node of the judgment *key* (``limit=1``) of the edges *filters* lets
+    through: its buckets as ``/api/nodes`` gives them."""
+    return _graph(store, key, filters).model_dump(
+        mode="json", include={"neighbors": {"buckets"}}
+    )
+
+
+def _chain(store: GraphStore, key: str) -> list[dict[str, Any]]:
+    """The instances before the eerdere aanleg of the judgment *key*, the nearest first:
+    each the first of its own ``APPEAL_OF`` (outbound), up to ``_CHAIN`` steps past the
+    eerdere aanleg, as the band asks them."""
+    found: list[dict[str, Any]] = []
+    step = _first_earlier(store, key)
+    for _ in range(_CHAIN):
+        if step is None:
+            break
+        step = _first_earlier(store, step["key"])
+        if step is not None:
+            found.append(step)
+    return found
+
+
+def _first_earlier(store: GraphStore, key: str) -> dict[str, Any] | None:
+    """The first eerdere aanleg of the judgment *key*, as its light node names it."""
+    buckets = _light(store, key, _EARLIER)["neighbors"]["buckets"]
+    items = buckets[0]["items"] if buckets else []
+    return items[0] if items else None
