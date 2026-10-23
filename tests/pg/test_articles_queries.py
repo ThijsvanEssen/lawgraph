@@ -1059,7 +1059,14 @@ def test_an_article_without_a_stam_id_is_explained_through_its_versions_by_numbe
 CITED = "articles/sr_287"
 
 
-def _judgment(key: str, ecli: str, court: str, tier: str, date: str | None) -> Any:
+def _judgment(
+    key: str,
+    ecli: str,
+    court: str,
+    tier: str,
+    date: str | None,
+    subjects: list[str] | None = None,
+) -> Any:
     props: dict[str, Any] = {
         "ecli": ecli,
         "display_name": f"{court} {key}",
@@ -1070,6 +1077,8 @@ def _judgment(key: str, ecli: str, court: str, tier: str, date: str | None) -> A
     }
     if date:
         props["date_eff"] = date
+    if subjects:
+        props["subjects"] = subjects
     return _node(key, "judgment", ["Rechtspraak"], **props)
 
 
@@ -1078,10 +1087,38 @@ def _seed_cited_by(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "judgments",
         [
-            _judgment("j1", "ECLI:NL:HR:2020:1", "HR", "cassatie", "2020-05-01"),
-            _judgment("j2", "ECLI:NL:RBAMS:2021:2", "RBAMS", "first", "2021-01-01"),
-            _judgment("j3", "ECLI:NL:GHDHA:2021:3", "GHDHA", "appeal", "2021-01-01"),
-            _judgment("j4", "ECLI:NL:RBAMS:2019:4", "RBAMS", "first", None),
+            _judgment(
+                "j1",
+                "ECLI:NL:HR:2020:1",
+                "HR",
+                "cassatie",
+                "2020-05-01",
+                ["Strafrecht"],
+            ),
+            _judgment(
+                "j2",
+                "ECLI:NL:RBAMS:2021:2",
+                "RBAMS",
+                "first",
+                "2021-01-01",
+                ["Civiel recht"],
+            ),
+            _judgment(
+                "j3",
+                "ECLI:NL:GHDHA:2021:3",
+                "GHDHA",
+                "appeal",
+                "2021-01-01",
+                ["Strafrecht", "Civiel recht"],
+            ),
+            _judgment(
+                "j4",
+                "ECLI:NL:RBAMS:2019:4",
+                "RBAMS",
+                "first",
+                None,
+                ["Bestuursrecht; Belastingrecht", "Bestuursrecht"],
+            ),
             _judgment("j5", "ECLI:NL:HR:2022:5", "HR", "cassatie", "2022-01-01"),
             _judgment("j6", "ECLI:NL:HR:2022:6", "HR", "cassatie", "2022-01-01"),
         ],
@@ -1210,6 +1247,11 @@ def test_the_facets_count_every_judgment_that_cites_an_article(
             {"value": "appeal", "count": 1},
             {"value": "cassatie", "count": 1},
         ],
+        "subject_area": [
+            {"value": "Civiel recht", "count": 2},
+            {"value": "Strafrecht", "count": 2},
+            {"value": "Bestuursrecht", "count": 1},
+        ],
     }
 
     one_year = get_article_cited_by(store, CITED, year="2021")
@@ -1237,7 +1279,43 @@ def test_the_facets_count_every_judgment_that_cites_an_article(
         {"value": "cassatie", "count": 1},
     ]
     nothing = get_article_cited_by(store, "articles/none")
-    assert nothing.facets == {"year": [], "tier": []}
+    assert nothing.facets == {"year": [], "tier": [], "subject_area": []}
+
+
+def test_the_passages_are_filtered_and_counted_by_main_area_of_law(
+    store: GraphStore,
+) -> None:
+    """A judgment is in each main area its subjects name (``Bestuursrecht; Belastingrecht``
+    is in ``Bestuursrecht``, once); the area filters the passages and every other facet,
+    and its own facet still counts every area, under the other filters."""
+    _seed_cited_by(store)
+
+    penal = get_article_cited_by(store, CITED, area="Strafrecht")
+    assert _snippets(penal.rows) == [("j3", "d"), ("j1", "a"), ("j1", "b")]
+    assert (penal.total, penal.judgment_total) == (3, 2)
+    assert penal.facets["tier"] == [
+        {"value": "appeal", "count": 1},
+        {"value": "cassatie", "count": 1},
+    ]
+    assert penal.facets["year"] == [
+        {"value": "2020", "count": 1},
+        {"value": "2021", "count": 1},
+    ]
+    assert (
+        penal.facets["subject_area"]
+        == get_article_cited_by(store, CITED).facets["subject_area"]
+    )
+
+    civil_2021 = get_article_cited_by(store, CITED, area="Civiel recht", year="2021")
+    assert _snippets(civil_2021.rows) == [("j3", "d"), ("j2", "c")]
+    assert civil_2021.facets["subject_area"] == [
+        {"value": "Civiel recht", "count": 2},
+        {"value": "Strafrecht", "count": 1},
+    ]
+    administrative = get_article_cited_by(store, CITED, area="Bestuursrecht")
+    assert _snippets(administrative.rows) == [("j4", "e")]
+    nothing = get_article_cited_by(store, CITED, area="Internationaal publiekrecht")
+    assert (nothing.rows, nothing.total) == ([], 0)
 
 
 def test_the_echr_judgments_that_cite_an_article_are_counted_apart(

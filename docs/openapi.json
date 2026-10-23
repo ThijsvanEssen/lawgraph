@@ -71,7 +71,7 @@
           "articles"
         ],
         "summary": "Passages of judgments that cite an article",
-        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, each under the other filters. 404 when the article is unknown.",
+        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date), `subject_area` (a main area of law of the judgment's source, the part of a subject before its first `;`: `Strafrecht`) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, per `subject_area` (most first) without the `subject_area` filter, each under the other filters. 404 when the article is unknown.",
         "operationId": "get_article_cited_by_passages_api_articles__bwb_id___article_number__cited_by_get",
         "parameters": [
           {
@@ -207,6 +207,24 @@
               "title": "Sort"
             },
             "description": "`date_desc`: the newest judgment first; `citation_count`: the most cited judgment first (a standard judgment), then the newest."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area."
           }
         ],
         "responses": {
@@ -947,7 +965,7 @@
           "instruments"
         ],
         "summary": "Paginated list of instruments",
-        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. The same holds for the instruments no longer in force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and `all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch day). `facets=false` leaves them out (null): the pages after the first need none.",
+        "description": "A paginated list of statutes, regulations and EU instruments. Supports free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind filter, a minimum article count, and the registers of the BWB: a legal area (`legal_area`, a main area includes its specific areas) and a government theme (`policy_domain`), each by TOOI id or slug; an unknown value finds nothing; and the ministry first responsible for a BWB regulation (`ministry`, its WTI). `facets` counts the instruments under the filters per legal area (a tree) and per theme, each without its own filter. The regulations that change other regulations (`amending` on an item) are hidden from the list without a search and shown with one; `amending` says otherwise (`hide`, `show`, `only`), and the facet `amending` counts both. The same holds for the instruments no longer in force (`validity`: `in_force`, `expired` or `all`; left out, `in_force` without `q` and `all` with it; `expired_on` on an item, as the BWB gives it, read on the Dutch day). `facets=false` leaves them out (null): the pages after the first need none.",
         "operationId": "list_instruments_api_instruments_get",
         "parameters": [
           {
@@ -1232,6 +1250,24 @@
               "title": "Validity"
             },
             "description": "The instruments in force today (`in_force`), those no longer in force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
+          },
+          {
+            "name": "ministry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MinistryKey"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ministry first responsible (``GET /api/ministries``).",
+              "title": "Ministry"
+            },
+            "description": "The ministry first responsible (``GET /api/ministries``)."
           }
         ],
         "responses": {
@@ -1547,7 +1583,7 @@
           "instruments"
         ],
         "summary": "Every judgment citing this instrument",
-        "description": "Per judgment: light metadata plus the specific articles it refers to. Meant for the case-law layer of the graph. ``total`` is the absolute count, independent of ``limit``. ``sort``: ``date`` (default), the newest first; ``cited``, the most cited articles of the law first; ``citation_count``, the most cited judgment first (a standard judgment); each then the newest. ``year`` and ``tier`` (repeated: any of them) filter ``total`` and the page. ``facets`` counts the judgments, not the page: per ``year`` without the ``year`` filter, per ``tier`` (most first) without the ``tier`` filter, each under the other filter.",
+        "description": "Per judgment: light metadata plus the specific articles it refers to. Meant for the case-law layer of the graph. ``total`` is the absolute count, independent of ``limit``. ``sort``: ``date`` (default), the newest first; ``cited``, the most cited articles of the law first; ``citation_count``, the most cited judgment first (a standard judgment); each then the newest. ``year``, ``tier`` (repeated: any of them) and ``subject_area`` (a main area of law of the judgment's source: ``Strafrecht``) filter ``total`` and the page. ``facets`` counts the judgments, not the page: per ``year`` without the ``year`` filter, per ``tier`` (most first) without the ``tier`` filter, per ``subject_area`` (most first) without the ``subject_area`` filter, each under the other filters.",
         "operationId": "get_instrument_judgments_route_api_instruments__bwb_id__judgments_get",
         "parameters": [
           {
@@ -1636,6 +1672,24 @@
               "title": "Tier"
             },
             "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; ``facets.tier`` still counts every tier."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area."
           }
         ],
         "responses": {
@@ -4768,6 +4822,50 @@
         }
       }
     },
+    "/api/ministries/{key}": {
+      "get": {
+        "tags": [
+          "ministries",
+          "government"
+        ],
+        "summary": "Ministry detail",
+        "description": "One ministry: its names (``periods``, ``predecessors``), its bewindspersonen per cabinet, newest first (``cabinets``), and the counts of what is its own, each the ``total`` of a list filtered on ``ministry``: ``laws`` (the BWB regulations in force it is first responsible for, ``/api/instruments``), ``open_dossiers`` (``/api/dossiers?status=open``) and ``open_commitments`` (``/api/commitments?status=Openstaand``).",
+        "operationId": "get_ministry_api_ministries__key__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MinistryDetailDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/cabinets": {
       "get": {
         "tags": [
@@ -5507,7 +5605,7 @@
           "documents"
         ],
         "summary": "The papers of the chambers",
-        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``; of a motion or an amendment how it ended (``outcome``) and of a motion of censure or of no confidence ``motion_kind``. ``motion_kind=censure,no_confidence`` keeps those motions: one open while its ``outcome`` is null. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
+        "description": "The papers of the Tweede Kamer and the Eerste Kamer, newest first, with their metadata (no text): ``chamber``, ``kind``, ``dossier_number`` (the dossier it is numbered in), ``number`` (the nr., or the letter of the Eerste Kamer), ``date``, ``title`` and ``session_year``; of a motion or an amendment how it ended (``outcome``) and of a motion of censure or of no confidence ``motion_kind``. ``motion_kind=censure,no_confidence`` keeps those motions: one open while its ``outcome`` is null. ``letter_kind=article_100`` keeps the artikel 100-brieven of the government, as their subject names them. ``facets`` counts per ``kind`` and ``chamber``, each without its own filter; ``facets=false`` reads one page only.",
         "operationId": "list_chamber_documents_api_documents_get",
         "parameters": [
           {
@@ -5624,6 +5722,25 @@
               "title": "Motion Kind"
             },
             "description": "Comma-separated kinds of motion: ``censure`` (motie van afkeuring), ``no_confidence`` (motie van wantrouwen). Only those motions."
+          },
+          {
+            "name": "letter_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "article_100",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A kind of letter of the government that its subject names: ``article_100`` the artikel 100-brieven (a deployment of the armed forces, artikel 100 Grondwet). Only those letters.",
+              "title": "Letter Kind"
+            },
+            "description": "A kind of letter of the government that its subject names: ``article_100`` the artikel 100-brieven (a deployment of the armed forces, artikel 100 Grondwet). Only those letters."
           },
           {
             "name": "facets",
@@ -9646,6 +9763,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -9682,7 +9812,8 @@
           "functions",
           "capacities",
           "document_count",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "ActorDossierDTO",
         "description": "A dossier a member or faction authored documents in.\n\n``roles`` are the distinct ``AUTHORED`` roles as the source wrote them\n(``Eerste ondertekenaar``, ``Mede ondertekenaar``, ...); ``functions`` and ``capacities``\nwhat they signed as, which changes over time (a Kamerlid who became minister-president);\n``document_count`` the distinct documents authored in the dossier."
@@ -12098,6 +12229,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "COMMENCES",
               "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
@@ -14501,13 +14633,22 @@
             "type": "array",
             "title": "Tier",
             "description": "Per tier, most first; without the `tier` filter."
+          },
+          "subject_area": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Area",
+            "description": "Per main area of law of the source (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), most first; a judgment counts for each of its areas; without the `subject_area` filter."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "year",
-          "tier"
+          "tier",
+          "subject_area"
         ],
         "title": "CitedByFacets",
         "description": "The judgments that cite an article, counted whatever the page, each facet under the\nother filters."
@@ -14926,6 +15067,61 @@
         "title": "ColorSourceDTO",
         "description": "Where the colours of a Kamer were read."
       },
+      "CommencementPublicationDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cite",
+            "description": "As it is cited: `Stb. 2024, 197`."
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On",
+            "description": "The day it was published."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "cite",
+          "published_on",
+          "path"
+        ],
+        "title": "CommencementPublicationDTO",
+        "description": "The publication that put a law into force."
+      },
       "CommitmentActivityDTO": {
         "properties": {
           "key": {
@@ -15176,6 +15372,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -15196,7 +15405,8 @@
           "dossiers",
           "activity",
           "fulfilled_by",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "CommitmentDTO",
         "description": "A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."
@@ -19557,6 +19767,29 @@
             "title": "Enacted",
             "description": "The publications its law was enacted in (`Stb. 2024, 193`), the earliest published first: the same `legislated_in` edges as `instruments`."
           },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DossierProposerDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who brought the bill in, from the signature `ministry`, `initiative` and `cabinet` are read from (`semantic tk-government`); null where nobody in government or parliament signed."
+          },
+          "in_force_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Force Since",
+            "description": "The day the law of the dossier came into force: the earliest `first_effective_date` of `enacted` that is today or past; null for a dossier whose law is not in force (yet)."
+          },
           "laws_named": {
             "items": {
               "$ref": "#/components/schemas/DossierLawNamedDTO"
@@ -19615,6 +19848,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -19654,13 +19900,16 @@
           "instruments",
           "legal_effect",
           "enacted",
+          "proposed_by",
+          "in_force_since",
           "laws_named",
           "committees",
           "documents_by_kind",
           "senate",
           "next_activity",
           "relations",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "DossierDetailResponse",
         "description": "A dossier with the size of everything attached to it, and what it links to."
@@ -20326,6 +20575,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "COMMENCES",
                   "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
@@ -20611,6 +20861,110 @@
         ],
         "title": "DossierPhaseDTO",
         "description": "A phase of the bar of a bill."
+      },
+      "DossierProposerDTO": {
+        "properties": {
+          "member_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As the source writes it: `minister van Binnenlandse Zaken`."
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kamerlid",
+                  "bewindspersoon",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity",
+            "description": "`bewindspersoon` (the government brought it in) or `kamerlid` (an initiative bill)."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "The day they signed."
+          },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Their ministry, as `ministry` of the dossier."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member_key",
+          "name",
+          "function",
+          "capacity",
+          "date",
+          "ministry",
+          "path"
+        ],
+        "title": "DossierProposerDTO",
+        "description": "Who brought the bill in: the person who signed its earliest signed document first\n(the cabinet of that day is ``cabinet`` of the dossier)."
       },
       "DossierRefDTO": {
         "properties": {
@@ -21163,6 +21517,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -21195,7 +21562,8 @@
           "ministry",
           "initiative",
           "cabinet",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "DossierSummaryDTO",
         "description": "A dossier in a list.\n\n``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of\nthe zaak that is the dossier itself (``Wetgeving``, ``Initiatiefwetgeving``,\n``Begroting``, ``Verdrag``, ``Initiatiefnota``, ``PKB/Structuurvisie``); null without\none (\"zonder soort\": no kind is made up from its papers). ``kind_basis`` is ``case``\nwith a kind. A bill (``Wetgeving``, ``Initiatiefwetgeving``, ``Begroting``) has\n``phases``: every phase of the curated list in its order, each done when a paper, an\nactivity or a decision of the Kamer marks it; ``current_phase`` is the furthest done\nphase in that order. A closed dossier has an ``outcome``: ``aangenomen`` (its law was\npublished, or the Eerste Kamer adopted it), ``verworpen`` (a chamber voted the bill\ndown) or ``ingetrokken`` (the government withdrew it by letter, ``withdrawal_letter``);\n``tk_decision`` is the last decision of the Tweede Kamer on the bill and ``ek_outcome``\nits outcome in the Eerste Kamer."
@@ -21919,6 +22287,18 @@
           "url": {
             "type": "string",
             "title": "Url"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address where the graph holds the paper itself: `publicatie wet` and `publicatie inwerkingtreding` are the Staatsblad pages (`/stb/2024/193`) of `enacted`; null for any other paper."
           }
         },
         "additionalProperties": false,
@@ -21927,7 +22307,8 @@
           "kind",
           "date",
           "number",
-          "url"
+          "url",
+          "path"
         ],
         "title": "EkPaperDTO",
         "description": "A paper of a step of a bill, as the page of the Eerste Kamer lists it."
@@ -22117,6 +22498,18 @@
             "title": "Cite",
             "description": "As it is cited: `Stb. 2024, 193`."
           },
+          "signed_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed On",
+            "description": "The day the Koning and the minister signed it."
+          },
           "published_on": {
             "anyOf": [
               {
@@ -22128,6 +22521,17 @@
             ],
             "title": "Published On",
             "description": "The day it was published."
+          },
+          "commencement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommencementPublicationDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The publication that put what it enacted into force (the inwerkingtredingsbesluit, `Stb. 2024, 197`), as the BWB names it for the earliest of what it enacted; null when the publication itself puts it into force or the BWB names none."
           },
           "first_effective_date": {
             "anyOf": [
@@ -22171,7 +22575,9 @@
         "required": [
           "key",
           "cite",
+          "signed_on",
           "published_on",
+          "commencement",
           "first_effective_date",
           "instrument",
           "path"
@@ -22194,6 +22600,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "COMMENCES",
               "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
@@ -27088,6 +27495,17 @@
             "title": "Expired On",
             "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
           },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the one its WTI names (``eerstverantwoordelijke``), under its name of today; null for one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+          },
           "validity": {
             "anyOf": [
               {
@@ -27262,6 +27680,19 @@
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
             "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -27291,6 +27722,7 @@
           "inbound_citation_count",
           "amending",
           "expired_on",
+          "ministry",
           "validity",
           "date_signed",
           "date_published",
@@ -27305,7 +27737,8 @@
           "same_treaty",
           "treaty",
           "completeness",
-          "path"
+          "path",
+          "ministry_name"
         ],
         "title": "InstrumentDetailDTO",
         "description": "One instrument: its identifiers, names, classification and dates."
@@ -27709,13 +28142,22 @@
             "type": "array",
             "title": "Tier",
             "description": "Per tier, the most first. Without the `tier` filter."
+          },
+          "subject_area": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Area",
+            "description": "Per main area of law of the source (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), the most first; a judgment counts for each of its areas. Without the `subject_area` filter."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "year",
-          "tier"
+          "tier",
+          "subject_area"
         ],
         "title": "InstrumentJudgmentFacets",
         "description": "The judgments that cite this instrument counted, not the page, each facet under the\nother filter."
@@ -28220,6 +28662,17 @@
             "title": "Expired On",
             "description": "The first day it was no longer in force (repealed or lapsed), as the BWB gives it; null while in force."
           },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry first responsible for a BWB regulation (``GET /api/ministries``): the one its WTI names (``eerstverantwoordelijke``), under its name of today; null for one the WTI gives none or no ministry (a ZBO), and for any other instrument."
+          },
           "path": {
             "anyOf": [
               {
@@ -28231,6 +28684,19 @@
             ],
             "title": "Path",
             "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
             "readOnly": true
           }
         },
@@ -28256,7 +28722,9 @@
           "official_url",
           "amending",
           "expired_on",
-          "path"
+          "ministry",
+          "path",
+          "ministry_name"
         ],
         "title": "InstrumentListItemDTO",
         "description": "Row in the paginated /api/instruments list."
@@ -29091,6 +29559,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "COMMENCES",
               "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",
@@ -30048,6 +30517,46 @@
             "title": "Decision Kind",
             "description": "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` (the kantonrechter on an appeal against a traffic fine), `conclusie` or `prejudiciële beslissing`. From the metadata and the kop where they tell, else from the court and the area of law; null when nothing does."
           },
+          "subjects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subjects",
+            "description": "The areas of law of the source as it writes them (`Strafrecht`, `Bestuursrecht; Belastingrecht`); empty when it gives none."
+          },
+          "subject_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Areas",
+            "description": "The main areas of law: each of `subjects` up to its first `;`, each once (`Strafrecht`, `Civiel recht`, `Bestuursrecht`). What the `subject_area` filters of the lists take."
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure",
+            "description": "The procedure as the Rechtspraak gives it (`psi:procedure`): `Hoger beroep`, `Cassatie`, `Eerste aanleg - meervoudig`; null when it gives none."
+          },
+          "chamber": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chamber",
+            "description": "The chamber or division of the court that the kop names (`Strafkamer`, `Civiele kamer`, `Afdeling civiel recht`, `Team Handel`), as written; null when the kop names none (the metadata of the source does not)."
+          },
           "series_id": {
             "anyOf": [
               {
@@ -30267,6 +30776,10 @@
           "translation_of",
           "names",
           "decision_kind",
+          "subjects",
+          "subject_areas",
+          "procedure",
+          "chamber",
           "series_id",
           "series_size",
           "same_as",
@@ -32549,6 +33062,66 @@
         "title": "MemberVotesResponse",
         "description": "Response for GET /api/members/{key}/votes."
       },
+      "MinistryCabinetDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date"
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null while it lasts."
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryPostDTO"
+            },
+            "type": "array",
+            "title": "Posts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "from_date",
+          "to_date",
+          "posts"
+        ],
+        "title": "MinistryCabinetDTO",
+        "description": "A cabinet with the posts held under the ministry in it, in order of start."
+      },
       "MinistryDTO": {
         "properties": {
           "key": {
@@ -32623,6 +33196,120 @@
         ],
         "title": "MinistryDTO",
         "description": "A ministry name of ``data/ministries.json``: a name that came back (Economische\nZaken) has a period for each time; a former one names its successor and the last day\nit had its name (``successor`` and ``until`` of its last period)."
+      },
+      "MinistryDetailDTO": {
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/MinistryKey"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "abbreviation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbreviation"
+          },
+          "tooi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tooi",
+            "description": "The TOOI code: ``mnre1045``."
+          },
+          "successor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryPeriodDTO"
+            },
+            "type": "array",
+            "title": "Periods"
+          },
+          "predecessors": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryKey"
+            },
+            "type": "array",
+            "title": "Predecessors",
+            "description": "The names it followed (``Veiligheid en Justitie`` for ``Justitie en Veiligheid``), each a ministry of its own."
+          },
+          "cabinets": {
+            "items": {
+              "$ref": "#/components/schemas/MinistryCabinetDTO"
+            },
+            "type": "array",
+            "title": "Cabinets",
+            "description": "The cabinets with a post under it, newest first: a post is under the ministry it had on its day (``government_functions[].ministry``)."
+          },
+          "laws": {
+            "type": "integer",
+            "title": "Laws",
+            "description": "The BWB regulations it is first responsible for (the WTI's ``eerstverantwoordelijke``), as ``GET /api/instruments?ministry=`` lists them: those in force, without the ones that change others.",
+            "default": 0
+          },
+          "open_dossiers": {
+            "type": "integer",
+            "title": "Open Dossiers",
+            "description": "Its open dossiers: ``GET /api/dossiers?status=open&ministry=`` (a dossier's ministry is that of the bewindspersoon who signed it first).",
+            "default": 0
+          },
+          "open_commitments": {
+            "type": "integer",
+            "title": "Open Commitments",
+            "description": "Its open commitments: ``GET /api/commitments?status=Openstaand&ministry=``.",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "abbreviation",
+          "tooi",
+          "successor",
+          "until",
+          "periods",
+          "predecessors",
+          "cabinets",
+          "laws",
+          "open_dossiers",
+          "open_commitments"
+        ],
+        "title": "MinistryDetailDTO",
+        "description": "A ministry with its bewindspersonen per cabinet, and how many laws, open dossiers\nand open commitments are its own: each the ``total`` of a list with ``ministry``."
       },
       "MinistryKey": {
         "type": "string",
@@ -32768,6 +33455,89 @@
         "title": "MinistryPeriodDTO",
         "description": "A stretch in which the ministry had its name, and where that is known from."
       },
+      "MinistryPostDTO": {
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/PersonRefDTO"
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Post"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As Rijksoverheid names the post."
+          },
+          "portfolio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portfolio"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date",
+            "description": "The day it began."
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null while it lasts."
+          },
+          "acting": {
+            "type": "boolean",
+            "title": "Acting",
+            "description": "A stand-in (ad interim).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member",
+          "post",
+          "function",
+          "portfolio",
+          "from_date",
+          "to_date",
+          "acting"
+        ],
+        "title": "MinistryPostDTO",
+        "description": "A post under the ministry, as the cabinet lists it (``GET /api/cabinets/{key}``)."
+      },
       "NeighborBucketDTO": {
         "properties": {
           "relation": {
@@ -32781,6 +33551,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "COMMENCES",
                   "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
@@ -33040,6 +33811,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "COMMENCES",
                   "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
@@ -33336,6 +34108,7 @@
                   "AMENDS",
                   "INTRODUCES",
                   "REPEALS",
+                  "COMMENCES",
                   "TRANSPOSED_TO",
                   "BASED_ON",
                   "IMPLEMENTS",
@@ -34474,6 +35247,7 @@
                     "AMENDS",
                     "INTRODUCES",
                     "REPEALS",
+                    "COMMENCES",
                     "TRANSPOSED_TO",
                     "BASED_ON",
                     "IMPLEMENTS",
@@ -35123,6 +35897,7 @@
               "AMENDS",
               "INTRODUCES",
               "REPEALS",
+              "COMMENCES",
               "TRANSPOSED_TO",
               "BASED_ON",
               "IMPLEMENTS",

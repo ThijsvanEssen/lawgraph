@@ -136,6 +136,50 @@ def test_the_pages_after_a_fill_are_those_the_triggers_kept(store: GraphStore) -
     assert cited_by_table.fill_cited_by(store, every=True) == 5
 
 
+def _areas(store: GraphStore) -> dict[str, Any]:
+    return {
+        r["judgment_id"].rsplit("/", 1)[1]: r["areas"]
+        for r in store.query(f"SELECT judgment_id, areas FROM {schema.CITED_BY_TABLE}")
+    }
+
+
+def test_the_main_areas_of_law_of_a_judgment_are_kept_with_its_citations(
+    store: GraphStore,
+) -> None:
+    """The areas of its ``subjects`` (each up to its first ';', once) with the edge, whichever
+    is written first; again when its subjects change; a fill gives the same."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_judgment("j1", subjects=["Bestuursrecht; Belastingrecht", "Bestuursrecht"]),
+         _judgment("j2"), _judgment("j3", subjects=["Strafrecht"])],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [_citation("j1", [["1"]]), _citation("j2", [[]]), _citation("j4", [[]])]
+    )
+    store.bulk_insert_or_update_nodes(
+        "judgments", [_judgment("j4", subjects=["Civiel recht"])]
+    )
+    store.bulk_insert_or_update_edges([_citation("j3", [["1"]])])
+    kept = {
+        "j1": ["Bestuursrecht"],
+        "j2": [],
+        "j3": ["Strafrecht"],
+        "j4": ["Civiel recht"],
+    }
+    assert _areas(store) == kept
+
+    store.bulk_insert_or_update_nodes(
+        "judgments", [_judgment("j3", subjects=["Strafrecht", "Civiel recht; Familie"])]
+    )
+    kept["j3"] = ["Strafrecht", "Civiel recht"]
+    assert _areas(store) == kept
+
+    store.execute(f"UPDATE {schema.CITED_BY_TABLE} SET areas = NULL")
+    assert cited_by_table.fill_cited_by(store) == 0
+    assert cited_by_table.fill_cited_by(store, every=True) == 4
+    assert _areas(store) == kept
+
+
 def test_a_release_without_the_table_starts_on_a_database_with_it(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:

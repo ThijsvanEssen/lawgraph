@@ -406,6 +406,34 @@ def test_a_judgment_without_names_or_kind_has_none():
     assert judgment.summary_en is None and judgment.translation_of is None
 
 
+def test_a_judgment_carries_its_areas_of_law_procedure_and_chamber():
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {
+            **_JUDGMENT_DOC["props"],
+            "subjects": ["Strafrecht", "Bestuursrecht; Belastingrecht"],
+            "judgment_metadata": {"type": "Cassatie"},
+            "paragraphs": [
+                {
+                    "id": "p-1",
+                    "kind": "subheading",
+                    "text": "HOGE RAAD\n\nSTRAFKAMER\n\nNr. 1",
+                }
+            ],
+        },
+    }
+
+    judgment = JudgmentDTO.from_document(doc)
+
+    assert judgment.subjects == ["Strafrecht", "Bestuursrecht; Belastingrecht"]
+    assert judgment.subject_areas == ["Strafrecht", "Bestuursrecht"]
+    assert (judgment.procedure, judgment.chamber) == ("Cassatie", "Strafkamer")
+
+    bare = JudgmentDTO.from_document(_JUDGMENT_DOC)
+    assert (bare.subjects, bare.subject_areas) == ([], [])
+    assert (bare.procedure, bare.chamber) == (None, None)
+
+
 def test_the_judgment_list_carries_names_and_kind(monkeypatch):
     row = {**_LIST_ROW, "names": ["Haviltex"], "decision_kind": "arrest"}
     stub_route(

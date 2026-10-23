@@ -12,6 +12,7 @@ from lawgraph.api.params import (
     DateSort,
     ListLimit,
     LongListLimit,
+    MinistryKey,
     OpenedSort,
     PageLimit,
     Tier,
@@ -107,7 +108,8 @@ router = APIRouter()
         "free-text search (`q`), a jurisdiction filter (`nl`/`eu`), a kind "
         "filter, a minimum article count, and the registers of the BWB: a legal area "
         "(`legal_area`, a main area includes its specific areas) and a government theme "
-        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing. "
+        "(`policy_domain`), each by TOOI id or slug; an unknown value finds nothing; and "
+        "the ministry first responsible for a BWB regulation (`ministry`, its WTI). "
         "`facets` counts the instruments under the filters per legal area (a tree) and per "
         "theme, each without its own filter. The regulations that change other "
         "regulations (`amending` on an item) are hidden from the list without a search "
@@ -184,6 +186,10 @@ def list_instruments(
             "force (`expired`), or `all`. Left out: `in_force` without `q`, `all` with it."
         ),
     ] = None,
+    ministry: Annotated[
+        MinistryKey | None,
+        Query(description="The ministry first responsible (``GET /api/ministries``)."),
+    ] = None,
 ) -> InstrumentListResponse:
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
@@ -195,6 +201,7 @@ def list_instruments(
         article_count_min=article_count_min,
         legal_area=legal_area,
         policy_domain=policy_domain,
+        ministry=ministry.value if ministry else None,
         sort=sort,
         limit=limit,
         offset=offset,
@@ -424,10 +431,12 @@ def list_articles(
         "count, independent of ``limit``. ``sort``: ``date`` (default), the newest "
         "first; ``cited``, the most cited articles of the law first; ``citation_count``, "
         "the most cited judgment first (a standard judgment); each then the newest. "
-        "``year`` and ``tier`` (repeated: any of them) filter ``total`` and the page. "
+        "``year``, ``tier`` (repeated: any of them) and ``subject_area`` (a main area of "
+        "law of the judgment's source: ``Strafrecht``) filter ``total`` and the page. "
         "``facets`` counts the judgments, not the page: per ``year`` without the "
-        "``year`` filter, per ``tier`` (most first) without the ``tier`` filter, each "
-        "under the other filter."
+        "``year`` filter, per ``tier`` (most first) without the ``tier`` filter, per "
+        "``subject_area`` (most first) without the ``subject_area`` filter, each "
+        "under the other filters."
     ),
     tags=["instruments"],
 )
@@ -453,6 +462,14 @@ def get_instrument_judgments_route(
             "tier."
         ),
     ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law of the judgment's source, as "
+            "``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, "
+            "`Bestuursrecht`; ``facets.subject_area`` still counts every area."
+        ),
+    ] = None,
 ) -> InstrumentJudgmentsResponse:
     found = get_citing_judgments(
         store,
@@ -462,6 +479,7 @@ def get_instrument_judgments_route(
         offset=offset,
         year=year,
         tiers=tuple(t.value for t in tier or ()),
+        area=(subject_area or "").strip() or None,
     )
     return InstrumentJudgmentsResponse(
         bwb_id=bwb_id,
@@ -471,6 +489,7 @@ def get_instrument_judgments_route(
         facets=InstrumentJudgmentFacets(
             year=[FacetCountDTO(**row) for row in found.years],
             tier=[FacetCountDTO(**row) for row in found.tiers],
+            subject_area=[FacetCountDTO(**row) for row in found.areas],
         ),
         items=[InstrumentJudgmentItem.from_row(row) for row in found.items],
     )

@@ -15,6 +15,7 @@ from lawgraph.core.bwb_wti import (
     label_concepts,
     parse_abbreviations,
     parse_citation_titles,
+    parse_responsible,
     parse_subjects,
     thesaurus_concepts,
     with_concepts,
@@ -334,3 +335,9 @@ def test_different_titles_sharing_an_abbreviation_stay_without_it() -> None:
         "a": None,
         "b": None,
     }
+
+
+def test_the_responsible_ministry_is_named_as_the_wti_writes_it() -> None:
+    assert parse_responsible(BW1_GENERAL) == "Veiligheid en Justitie"
+    without = BW1_GENERAL.replace("eerstverantwoordelijke", "x")
+    assert parse_responsible(without) is None

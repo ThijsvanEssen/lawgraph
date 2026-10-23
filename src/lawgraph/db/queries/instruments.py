@@ -225,13 +225,14 @@ CITING_MAX_AGE = 3600.0
 
 @dataclass(frozen=True)
 class CitingJudgments:
-    """A page of the judgments that cite a law, how many there are, per year and per
-    tier."""
+    """A page of the judgments that cite a law, how many there are, per year, per tier and
+    per main area of law."""
 
     items: list[dict[str, Any]]
     total: int
     years: list[dict[str, Any]]
     tiers: list[dict[str, Any]] = field(default_factory=list)
+    areas: list[dict[str, Any]] = field(default_factory=list)
 
 
 def get_citing_judgments(
@@ -243,26 +244,44 @@ def get_citing_judgments(
     offset: int = 0,
     year: str | None = None,
     tiers: tuple[str, ...] = (),
+    area: str | None = None,
 ) -> CitingJudgments:
     """The judgments that cite any article of the law *identifier* (BWB id or CELEX), in
     the order of *sort* (``INSTRUMENT_JUDGMENT_SORTS``): a page (``{judgment,
     cited_articles}``), ``total`` (every citing judgment under *year* and of any of
-    *tiers*), ``years`` (``[{value, count}]``: per year of ``date_eff`` under *tiers*,
-    whatever *year*; the oldest first, those without a date first of all) and ``tiers``
-    (per tier under *year*, whatever *tiers*; the most first). One reading, kept per request
+    *tiers* and in the main area of law *area* (the part of a subject of the source before
+    its first ';'), ``years`` (``[{value, count}]``: per year of ``date_eff`` under *tiers*
+    and *area*, whatever *year*; the oldest first, those without a date first of all),
+    ``tiers`` (per tier under *year* and *area*, whatever *tiers*; the most first) and
+    ``areas`` (per main area under *year* and *tiers*, whatever *area*; the most first; a
+    judgment counts for each of its areas). One reading, kept per request
     ``CITING_MAX_AGE`` (``lasting``)."""
     scope = scope_of(identifier)
     chosen = tuple(dict.fromkeys(tiers))
     found = lasting(
         store,
-        ("law judgments", scope.prop, scope.value, sort, limit, offset, year, chosen),
+        (
+            "law judgments",
+            scope.prop,
+            scope.value,
+            sort,
+            limit,
+            offset,
+            year,
+            chosen,
+            area,
+        ),
         lambda: _citing_judgments(
-            store, scope.prop, scope.value, sort, limit, offset, year, chosen
+            store, scope.prop, scope.value, sort, limit, offset, year, chosen, area
         ),
         CITING_MAX_AGE,
     )
     return CitingJudgments(
-        found["items"], found["total"], found["years"], found.get("tiers") or []
+        found["items"],
+        found["total"],
+        found["years"],
+        found.get("tiers") or [],
+        found.get("areas") or [],
     )
 
 
@@ -298,6 +317,7 @@ _LISTED_JUDGMENT = listed_judgment(
 
 _YEAR_KEPT = "(%(year)s::text IS NULL OR substr(k.date_eff, 1, 4) = %(year)s::text)"
 _TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR k.tier = ANY(%(tiers)s::text[]))"
+_AREA_KEPT = "(%(area)s::text IS NULL OR k.areas @> ARRAY[%(area)s::text])"
 
 
 def _citing_judgments(
@@ -309,6 +329,7 @@ def _citing_judgments(
     offset: int,
     year: str | None,
     tiers: tuple[str, ...],
+    area: str | None,
 ) -> dict[str, Any]:
     """``get_citing_judgments`` from the database, in one statement. Every citing judgment
     is read from the ranges of the law's articles in the index of ``lg_cited_by`` (their
@@ -320,18 +341,19 @@ def _citing_judgments(
     articles = f"ARRAY({_articles_of(prop)})"
     statement = f"""
         WITH citations AS MATERIALIZED (
-            SELECT c.judgment_id, c.date_eff, c.tier, c.cited
+            SELECT c.judgment_id, c.date_eff, c.tier, c.cited, c.areas
             FROM {CITED_BY_TABLE} c
             WHERE c.article_id = ANY({articles})
         ),
         cites AS MATERIALIZED (
             SELECT c.judgment_id, count(*)::int AS cited_count, min(c.date_eff) AS date_eff,
-                   min(c.tier) AS tier, max(c.cited) AS cited
+                   min(c.tier) AS tier, max(c.cited) AS cited,
+                   max(c.areas) AS areas
             FROM citations c
             GROUP BY c.judgment_id
         ),
         kept AS (
-            SELECT * FROM cites k WHERE {_YEAR_KEPT} AND {_TIERS_KEPT}
+            SELECT * FROM cites k WHERE {_YEAR_KEPT} AND {_TIERS_KEPT} AND {_AREA_KEPT}
         ),
         top AS (
             SELECT k.judgment_id, row_number() OVER (ORDER BY {order}) AS n
@@ -345,13 +367,20 @@ def _citing_judgments(
                 SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
                                          ORDER BY value NULLS FIRST), '[]')
                 FROM (SELECT substr(k.date_eff, 1, 4) AS value, count(*)::int AS count
-                      FROM cites k WHERE {_TIERS_KEPT} GROUP BY 1) per_year
+                      FROM cites k WHERE {_TIERS_KEPT} AND {_AREA_KEPT} GROUP BY 1) per_year
             ),
             'tiers', (
                 SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
                                          ORDER BY count DESC, value ASC NULLS LAST), '[]')
                 FROM (SELECT k.tier AS value, count(*)::int AS count
-                      FROM cites k WHERE {_YEAR_KEPT} GROUP BY 1) per_tier
+                      FROM cites k WHERE {_YEAR_KEPT} AND {_AREA_KEPT} GROUP BY 1) per_tier
+            ),
+            'areas', (
+                SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
+                                         ORDER BY count DESC, value ASC NULLS LAST), '[]')
+                FROM (SELECT a.value, count(*)::int AS count
+                      FROM cites k CROSS JOIN LATERAL unnest(k.areas) AS a(value)
+                      WHERE {_YEAR_KEPT} AND {_TIERS_KEPT} GROUP BY 1) per_area
             ),
             'items', (
                 SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
@@ -390,6 +419,7 @@ def _citing_judgments(
                     "offset": offset,
                     "year": year,
                     "tiers": list(tiers) or None,
+                    "area": area,
                 },
             )
         ),
@@ -398,7 +428,7 @@ def _citing_judgments(
     return (
         cast(dict[str, Any], row)
         if row
-        else {"items": [], "total": 0, "years": [], "tiers": []}
+        else {"items": [], "total": 0, "years": [], "tiers": [], "areas": []}
     )
 
 
@@ -1057,6 +1087,7 @@ def get_instruments_list(
     article_count_min: int | None = None,
     legal_area: str | None = None,
     policy_domain: str | None = None,
+    ministry: str | None = None,
     sort: str = "title",
     limit: int = 50,
     offset: int = 0,
@@ -1084,6 +1115,8 @@ def get_instruments_list(
         instruments under the filters per legal area (a tree of main and specific areas,
         without the ``legal_area`` filter) and per government theme (without the
         ``policy_domain`` filter); an unknown value finds nothing.
+      * *ministry* keeps the BWB regulations that ministry is first responsible for
+        (``props.ministry``, the indexed column ``ministry``).
       * *in_force_from* and *in_force_to* bound the day it came into force
         (``date_in_force``, by ``instruments_date_in_force``), *published_from* and
         *published_to* the day it was published (``date_published``), each inclusive.
@@ -1121,6 +1154,8 @@ def get_instruments_list(
     ]
     if jurisdiction:
         conditions.append("jurisdiction = %(jurisdiction)s")
+    if ministry:
+        conditions.append("ministry = %(ministry)s")
     if article_count_min is not None:
         conditions.append("article_count >= %(article_count_min)s")
     for value, clause in (
@@ -1167,6 +1202,7 @@ def get_instruments_list(
         "article_count_min": article_count_min,
         "legal_area": legal_area.strip().lower() if legal_area else None,
         "policy_domain": policy_domain.strip().lower() if policy_domain else None,
+        "ministry": ministry,
         "in_force_from": in_force_from,
         "in_force_to": in_force_to,
         "published_from": published_from,
@@ -1302,6 +1338,7 @@ def _list_item(row: dict[str, Any]) -> dict[str, Any]:
         "publication_number": props.get("publication_number"),
         "amending": props.get("amending") is True,
         "date_expired": props.get("date_expired"),
+        "ministry": props.get("ministry"),
     }
 
 

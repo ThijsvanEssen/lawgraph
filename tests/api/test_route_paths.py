@@ -68,6 +68,7 @@ ROUTES = [
     ("GET", "/api/factions/{key}/votes"),
     ("GET", "/api/factions/{key}/touched-instruments"),
     ("GET", "/api/ministries"),
+    ("GET", "/api/ministries/{key}"),
     ("GET", "/api/cabinets"),
     ("GET", "/api/cabinets/{key}"),
     ("GET", "/api/cabinets/{key}/seats"),
