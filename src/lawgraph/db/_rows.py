@@ -235,6 +235,7 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
     "factions": ("name", "abbreviation"),
     "committees": ("name", "abbreviation", "slug"),
     "cabinets": ("name", "abbreviation"),
+    "ministries": ("name", "abbreviation"),
     "activities": (
         "kind",
         "agenda_title",
@@ -283,6 +284,7 @@ CANVAS_TITLE_PROPS: dict[str, tuple[str, ...]] = {
     "factions": ("chamber",),
     "committees": ("title", "chamber"),
     "cabinets": ("from_date", "to_date"),
+    "ministries": ("to_date",),
     "cases": ("citation_title",),
     "annexes": ("instrument_abbreviation", "instrument_citation_title"),
     "decisions": ("agenda_item_subject", "result"),

@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core import props
 from lawgraph.core.text_fold import ascii_slug
@@ -99,6 +100,7 @@ class NodeType(str, Enum):
     MEMBER = "member"  # member of parliament or minister
     FACTION = "faction"  # parliamentary party / political group
     CABINET = "cabinet"  # a Dutch cabinet since 1945 (kabinet), from Rijksoverheid
+    MINISTRY = "ministry"  # a ministry under one of its names (data/ministries.json)
     INSTRUMENT_VERSION = "instrument_version"  # dated version of an instrument
     ARTICLE_VERSION = "article_version"  # dated version of an article
     ANNEX = "annex"  # annex (bijlage) of an instrument
@@ -174,6 +176,9 @@ COLLECTIONS: tuple[CollectionSpec, ...] = (
     ),
     CollectionSpec(
         COLLECTION_CABINETS, NodeType.CABINET, "Cabinet", props.CabinetProps
+    ),
+    CollectionSpec(
+        COLLECTION_MINISTRIES, NodeType.MINISTRY, "Ministry", props.MinistryProps
     ),
     CollectionSpec(
         COLLECTION_ANNEXES, NodeType.ANNEX, "Annex", props.AnnexProps, stub=True

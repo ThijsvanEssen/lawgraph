@@ -897,6 +897,44 @@ def test_a_cabinet_has_its_bewindspersonen_and_parties(
     assert before["title"] == "Kabinet-Schoof (2024–2026), Concordans"
 
 
+def test_a_ministry_has_its_names_and_its_bewindspersonen(
+    client: TestClient, store: GraphStore
+) -> None:
+    _seed_people(store)
+    store.bulk_insert_or_update_nodes(
+        "ministries",
+        [
+            _node("az", "ministry", name="Algemene Zaken", abbreviation="AZ",
+                  periods=[{"from_date": None, "to_date": None}]),
+            _node("hn", "ministry", name="Handel en Nijverheid", to_date="1946-07-02",
+                  successor="ez",
+                  periods=[{"from_date": "1945-06-24", "to_date": "1946-07-02"}]),
+            _node("ez", "ministry", name="Economische Zaken"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("s2", "members/m_jetten", "ministries/az", "SERVED_IN",
+                  posts=[{"function": "Minister van Algemene Zaken"}]),
+            _edge("n1", "ministries/ez", "ministries/hn", "CONTINUES"),
+        ]
+    )  # fmt: skip
+    page = _head(_get(client, "/ministeries/az").text)
+    assert page["title"] == "Ministerie van Algemene Zaken, Concordans"
+    assert 'href="/leden/rob-jetten"' in page["main"]
+    assert "Minister van Algemene Zaken" in page["main"]
+    assert page["data"]["@graph"][0]["@type"] == "GovernmentOrganization"
+    former = _head(_get(client, "/ministeries/hn").text)
+    assert (
+        former["title"] == "Ministerie van Handel en Nijverheid (tot 1946), Concordans"
+    )
+    assert 'href="/ministeries/ez"' in former["main"]  # what followed it
+    assert (
+        'href="/ministeries/hn"' in _head(_get(client, "/ministeries/ez").text)["main"]
+    )
+    assert_status(_get(client, "/ministeries/nope"), 404)
+
+
 def test_a_committee_lists_its_members_with_their_role(
     client: TestClient, store: GraphStore
 ) -> None:

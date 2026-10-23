@@ -234,6 +234,7 @@ from lawgraph.pipelines.semantic.tk_person_duplicates import (
 from lawgraph.pipelines.semantic.tk_transposition_tables import (
     TKTranspositionTablesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPipeline
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
 
@@ -1121,6 +1122,13 @@ SEMANTIC: list[Pipeline] = [
             "Who in government made each commitment and brought each dossier in (ministry "
             "or initiative), and the cabinet in office then."
         ),
+    ),
+    _pipeline(
+        TooiMinistriesSemanticPipeline,
+        "The ministries as nodes, each name that followed another CONTINUES it; LED_BY "
+        "from every regulation, dossier and commitment to its ministry, SERVED_IN from "
+        "every member to the ministries they held a post under.",
+        after=("tk-government",),
     ),
     _pipeline(
         TKCoalitionVotesSemanticPipeline,

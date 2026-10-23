@@ -437,7 +437,10 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
             for doc in docs:
                 writer.add_doc(doc)
         removed = removals.remove_edges_except(
-            self.store, RELATION_SERVED_IN, [doc["key"] for doc in docs]
+            self.store,
+            RELATION_SERVED_IN,
+            [doc["key"] for doc in docs],
+            source=SOURCE_RIJKSOVERHEID,
         )
         logger.info(
             "Rijksoverheid: %d members served in a cabinet (%d edges removed).",

@@ -17,7 +17,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
-| TOOI | `tooi` | none (`lawgraph ministries build`) | none |
+| TOOI | `tooi` | none (`lawgraph ministries build`) | `tooi-ministries` |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
 | The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-list-stats` |
 
@@ -2163,6 +2163,13 @@ TOOI's dates are those of the decrees: `justitie` until 30 November 2010 and `ve
 31 December 2017, while the cabinets changed the names of the posts earlier; a post that
 uses a name before its first period keeps that name.
 
+**Semantic `tooi-ministries`.** Every name of the table is a node `ministries/<key>`
+([fields](data-model.md#ministry-ministries)), a name that followed another `CONTINUES` it. A
+regulation (its WTI, `normalize bwb`), a dossier and a commitment (`semantic tk-government`)
+whose `ministry` names one are `LED_BY` it; a member who held a post under one (`normalize
+rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
+what it no longer derives goes.
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it. A
@@ -2204,6 +2211,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
+| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize rijksoverheid` (the posts) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |

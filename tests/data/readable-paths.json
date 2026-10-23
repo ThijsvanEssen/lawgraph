@@ -158,6 +158,11 @@
       "path": "/kabinetten/rutte_iv"
     },
     {
+      "focus": "ministries/jenv",
+      "props": {},
+      "path": "/ministeries/jenv"
+    },
+    {
       "focus": "factions/ek_democraten_1966",
       "props": {},
       "path": "/fracties/ek_democraten_1966"
@@ -434,6 +439,10 @@
     {
       "path": "/kabinetten/rutte_iv",
       "focus": "cabinets/rutte_iv"
+    },
+    {
+      "path": "/ministeries/jenv",
+      "focus": "ministries/jenv"
     },
     {
       "path": "/fracties/d66",

@@ -26,6 +26,7 @@ COLLECTION_COMMITTEES = "committees"
 COLLECTION_MEMBERS = "members"
 COLLECTION_FACTIONS = "factions"
 COLLECTION_CABINETS = "cabinets"
+COLLECTION_MINISTRIES = "ministries"
 COLLECTION_RAW_SOURCES = "raw_sources"
 COLLECTION_ANNEXES = "annexes"
 COLLECTION_PIPELINE_STATE = "pipeline_state"  # until when each phase is complete
@@ -48,6 +49,7 @@ Collection = Literal[
     "members",
     "factions",
     "cabinets",
+    "ministries",
     "annexes",
 ]
 COLLECTION_NAMES: tuple[Collection, ...] = get_args(Collection)

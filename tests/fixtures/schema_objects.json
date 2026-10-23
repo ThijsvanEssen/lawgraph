@@ -106,7 +106,10 @@
   "members_derive BEFORE INSERT OR UPDATE OF props ON members FOR EACH ROW EXECUTE FUNCTION public.lg_derive_members",
   "members_version_delete AFTER DELETE ON members REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version",
   "members_version_insert AFTER INSERT ON members REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version",
-  "members_version_update AFTER UPDATE ON members REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version"
+  "members_version_update AFTER UPDATE ON members REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version",
+  "ministries_version_delete AFTER DELETE ON ministries REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version",
+  "ministries_version_insert AFTER INSERT ON ministries REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version",
+  "ministries_version_update AFTER UPDATE ON ministries REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION lg_bump_data_version"
  ],
  "functions": [
   "lg_alnum_tokens",
@@ -384,6 +387,7 @@
   "CREATE UNIQUE INDEX IF NOT EXISTS instruments_key ON instruments (key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS judgments_ecli ON judgments (ecli)",
   "CREATE UNIQUE INDEX IF NOT EXISTS judgments_key ON judgments (key)",
-  "CREATE UNIQUE INDEX IF NOT EXISTS members_key ON members (key)"
+  "CREATE UNIQUE INDEX IF NOT EXISTS members_key ON members (key)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS ministries_key ON ministries (key)"
  ]
 }
