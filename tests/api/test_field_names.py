@@ -21,6 +21,7 @@ DATE_PREFIXED = {
     ("AmendingInstrumentDTO", "date_signed"),
     ("DelegatedRegulationDTO", "date_in_force"),
     ("InstrumentDelegatedItem", "date_in_force"),
+    ("InstrumentDelegatedSummaryItem", "date_in_force"),
     ("InstrumentDetailDTO", "date_in_force"),
     ("InstrumentDetailDTO", "date_published"),
     ("InstrumentDetailDTO", "date_signed"),

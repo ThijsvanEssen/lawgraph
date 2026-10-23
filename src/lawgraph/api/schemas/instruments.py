@@ -1742,6 +1742,7 @@ class BasisLawDTO(StrictModel):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     articles: list[BasisArticleDTO]
 
     @classmethod
@@ -1750,6 +1751,7 @@ class BasisLawDTO(StrictModel):
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(instrument.get("props") or {}),
+            expired_on=(instrument.get("props") or {}).get("date_expired"),
             articles=[BasisArticleDTO.from_row(a) for a in row.get("articles") or []],
         )
 
@@ -1762,6 +1764,7 @@ class SubDelegatedDTO(StrictModel):
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None, description="`delegates` when one of `articles` does; " + BASIS_KIND
     )
@@ -1779,13 +1782,14 @@ class SubDelegatedDTO(StrictModel):
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
         )
 
 
-class InstrumentDelegatedItem(StrictModel):
-    """A regulation whose preamble ("Gelet op") names an article of the law."""
+class _DelegatedFields(StrictModel):
+    """What the light and the full form of a regulation issued under a law share."""
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(
@@ -1794,12 +1798,50 @@ class InstrumentDelegatedItem(StrictModel):
     date_in_force: str | None = Field(
         None, description="When the regulation itself entered into force."
     )
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None,
         description="`delegates` when one of `articles` does: the law gives the power it "
         'is made under; `mentioned` when it only names them ("Genoemd in de aanhef '
         'van"); null when not known.',
     )
+
+
+class InstrumentDelegatedSummaryItem(_DelegatedFields):
+    """A regulation whose preamble names an article of the law, in the light form
+    (`detail=summary`): without what it takes reading its own articles for."""
+
+    articles: list[BasisArticleDTO] = Field(
+        description="The articles of the law it is issued under, in the order of the law."
+    )
+    sub_delegated: list[SubDelegatedDTO] = Field(
+        default_factory=list,
+        description="The regulations in force issued under its articles in turn, as on the "
+        "full form.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> InstrumentDelegatedSummaryItem:
+        """From a row of ``get_delegated_by_law`` with ``summary``."""
+        instrument = row["instrument"]
+        props = instrument.get("props") or {}
+        articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
+        return cls(
+            instrument=InstrumentSummaryDTO.from_document(instrument),
+            kind=regulation_kind(props),
+            date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
+            basis_kind=summary_basis_kind(list(articles)),
+            articles=articles,
+            sub_delegated=in_regulation_order(
+                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+            ),
+        )
+
+
+class InstrumentDelegatedItem(_DelegatedFields):
+    """A regulation whose preamble ("Gelet op") names an article of the law."""
+
     articles: list[ImplementedBasisArticleDTO] = Field(
         description="The articles of the law it is issued under, in the order of the law, "
         "each with its articles that work it out (`referring`)."
@@ -1828,6 +1870,7 @@ class InstrumentDelegatedItem(StrictModel):
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(props),
             date_in_force=props.get("date_in_force"),
+            expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
             also_based_on=[
@@ -1844,6 +1887,7 @@ class InstrumentBasisItem(StrictModel):
 
     instrument: InstrumentSummaryDTO
     kind: str | None = Field(description="Its BWB type, lower case.")
+    expired_on: str | None = Field(None, description=EXPIRED_ON)
     basis_kind: BasisKind | None = Field(
         None, description="`delegates` when one of `articles` does; " + BASIS_KIND
     )
@@ -1862,6 +1906,7 @@ class InstrumentBasisItem(StrictModel):
         return cls(
             instrument=InstrumentSummaryDTO.from_document(law),
             kind=regulation_kind(law.get("props") or {}),
+            expired_on=(law.get("props") or {}).get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
         )
@@ -1872,9 +1917,15 @@ class InstrumentBasisResponse(StrictModel):
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int
+    expired_total: int = Field(
+        0,
+        description="How many of the laws its preamble names are no longer in force, "
+        "whatever `validity` asked for.",
+    )
     items: list[InstrumentBasisItem] = Field(
         default_factory=list,
-        description="Every law its preamble names an article in force of, by title.",
+        description="Every law of the `validity` asked for its preamble names an article "
+        "in force of, by title.",
     )
 
 
@@ -1940,8 +1991,18 @@ class InstrumentDelegatedResponse(StrictModel):
 
     bwb_id: str = Field(..., description=_REQUESTED)
     total: int
-    items: list[InstrumentDelegatedItem] = Field(
+    expired_total: int = Field(
+        0,
+        description="How many regulations issued under an article in force of the law are "
+        "no longer in force, whatever `validity` asked for.",
+    )
+    by_kind: dict[str, int] = Field(
+        default_factory=dict,
+        description="`total` per `kind` (`unknown` without one).",
+    )
+    items: list[InstrumentDelegatedItem] | list[InstrumentDelegatedSummaryItem] = Field(
         default_factory=list,
-        description="Every regulation in force issued under an article of the law: AMvBs "
-        "first, then ministerial regulations, then the others; by title.",
+        description="Every regulation of the `validity` asked for issued under an article "
+        "of the law: AMvBs first, then ministerial regulations, then the others; by "
+        "title. With `detail=summary` the light form.",
     )
