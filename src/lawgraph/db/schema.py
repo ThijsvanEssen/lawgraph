@@ -1677,6 +1677,9 @@ DOCUMENT_LIGHT_PROPS = (
     "dossier_number",
     "dossier_suffix",
     "sequence",
+    # the day of an advice of the Raad van State as its paper opens, which the phase of a
+    # bill dates by (``core/advice_dates.py``)
+    "advice_date",
     # what a motion asks or says, which a list of votes shows (``core/motion_dictum.py``)
     "dictum",
     # what an amendment is for, as its Toelichting opens (``core/amendment_explanation.py``)

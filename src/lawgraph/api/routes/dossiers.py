@@ -76,6 +76,7 @@ from lawgraph.db.queries.dossiers import (
     get_next_activity,
 )
 from lawgraph.db.queries.law_names import get_laws_named
+from lawgraph.db.queries.members import get_member_brief
 from lawgraph.db.queries.not_found import require
 
 router = APIRouter()
@@ -311,8 +312,9 @@ def get_dossier(
         lambda: count_dossier_members(store, dossier_id),
         lambda: get_laws_named(store, laws_in_title(title)),
         lambda: get_next_activity(store, dossier_id, dutch_today().isoformat()),
+        lambda: _proposer(store, dossier),
     )
-    relations, hub, implements, counts, laws_named, next_activity = answers
+    relations, hub, implements, counts, laws_named, next_activity, proposer = answers
     hub_rows = list(hub.get("instruments") or [])
     names = get_instrument_names(
         store, sorted({row["id"] for row in [*hub_rows, *implements]})
@@ -325,7 +327,15 @@ def get_dossier(
         relations=relations,
         laws_named=laws_named,
         next_activity=next_activity,
+        proposer=proposer,
+        today=dutch_today().isoformat(),
     )
+
+
+def _proposer(store: GraphStore, dossier: dict[str, Any]) -> dict[str, Any] | None:
+    """The person who brought the dossier in (its ``first_signed``): ``{name, slug}``."""
+    key = ((dossier.get("props") or {}).get("first_signed") or {}).get("member")
+    return get_member_brief(store, str(key)) if key else None
 
 
 @router.get(

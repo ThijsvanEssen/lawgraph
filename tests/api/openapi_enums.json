@@ -1626,6 +1626,11 @@
   "brief",
   "overig"
  ],
+ "/components/schemas/DossierProposerDTO/properties/capacity/anyOf/0": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
+ ],
  "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
   "kamerlid",
   "bewindspersoon",

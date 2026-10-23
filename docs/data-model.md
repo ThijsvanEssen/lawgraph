@@ -64,7 +64,7 @@ other characters a space (" mr drs r van gelder "), under a trigram index: the s
 judgment by them. A trigger keeps it on every write of a judgment's props and `semantic
 graph-light` fills it for the judgments written before; it raises no data version. `lg_document_light` holds per paper
 what the signals of its dossier read (`schema.DOCUMENT_LIGHT_PROPS`: kind, date, titles,
-dossier numbers, case kinds, sequence, a motion's dictum, an amendment's explanation, and
+dossier numbers, case kinds, sequence, the day of an advice of the Raad van State, a motion's dictum, an amendment's explanation, and
 how a motion or an amendment ended: `outcome`, `decided_on`, `tally`, `decision`) and `has_text`, whether its text is
 in the data (which a row of the feed opens on), without its text, kept and filled the same way
 from `documents`; indexed by dossier number, suffix and sequence, which `/api/lookup` finds a
@@ -1327,6 +1327,8 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `raw` | `object` | The record of the Tweede Kamer as it came. |
 | `dictum` | `str` | Of a motion, what it asks or says as it writes it: the lines from the first that begins with `verzoekt`, `roept`, `spreekt`, `draagt` or `vraagt` to `en gaat over tot de orde van de dag`, joined (`core/motion_dictum.py`); absent for any other paper and for a text without that closing formula. Also kept by `semantic tk-dictum` for the motions whose text was read before. |
 | `explanation` | `str` | Of an amendment, what it is for: the first paragraph of its "Toelichting", whole sentences up to 400 characters, else cut at a word with "…" (`core/amendment_explanation.py`); absent for any other paper and for one without a Toelichting. |
+| `advice_date` | `str` | Of an advice of the Raad van State, the day of the advice as its paper opens ("het advies ... d.d. 15 november 2023"; `core/advice_dates.py`). `date` is the day it was filed, months later; absent for any other paper and for one whose opening gives no day. |
+| `report_date` | `str` | Of such a paper, the day of the nader rapport as it opens ("het nader rapport d.d. 2 februari 2024"); absent without one. |
 | `outcome` | `str` | Of a motion or an amendment, how it ended (`semantic tk-paper-outcomes`, `core/votes.py`): `aangenomen`, `verworpen`, `ingetrokken`, `aangehouden`, `vervallen` or `vervangen`. |
 | `decided_on` | `str` | The day of the decision that gave the outcome; null without one. |
 | `tally` | `{str: int}` | The seats per choice of that decision. |

@@ -122,7 +122,8 @@ of its own zaak, `Wetgeving`, `Initiatiefwetgeving`, `Begroting`, `Verdrag`, `In
 `Voorstel van wet`, `Memorie van toelichting`, `Advies Raad van State`, `Verslag`, `Nota n.a.v.
 het verslag`, `Nota van wijziging / Amendement`, `Stemmingen`, `Eindtekst`, each `{name, done,
 date}`: done when a paper of the dossier, an activity about it that took place or a decision on
-its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
+its own zaak has a value of the Kamer the list names for it, `date` the first date of those; the
+advice of the Raad van State is dated by the day its paper gives (`advice_date`), not the day it was filed),
 `current_phase` (the furthest done phase in the order of the list, not the one with the latest
 date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
 four days after the bill passed; null for none), `closed`, `outcome` (`aangenomen`, `verworpen`
@@ -151,7 +152,15 @@ earliest published first, with `cite` (`Stb. 2024, 193`), `path`, `published_on`
 `first_effective_date` (the earliest `effective_date` of what it enacted, as the BWB gives it;
 null for a law of the Staatsblad the BWB does not hold, whose publication names no date it took
 effect) and `instrument` (`{key, title, path}` of the law whose articles it established; null
-for a publication that only changes other laws).
+for a publication that only changes other laws). The end of the chain is there too: `signed_on`
+(the day the Koning and the minister signed it) and `commencement` (`{key, cite, published_on,
+path}`: the inwerkingtredingsbesluit, `Stb. 2024, 197`, the `commencement_publication` the BWB
+names on the earliest version it enacted; null where the publication itself puts it into force).
+`in_force_since` is the earliest `first_effective_date` that is today or past (null until then).
+`proposed_by` is who brought the bill in: `first_signed` of the dossier with the person
+(`member_key`, `name`, `function`, `capacity`, `date`, `path`) and the `ministry`.
+In `senate.progress` the papers `publicatie wet` and `publicatie inwerkingtreding` carry `path`,
+the Staatsblad page of that publication, instead of only the eerstekamer.nl `url`.
 
 `tk_url` of a Tweede Kamer document or activity, wherever it appears (timeline, document lists and
 detail, node responses), is its page on tweedekamer.nl, made from the number the site knows: the

@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.5",
+    "version": "0.80.6",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -8789,6 +8789,18 @@
             "title": "Status",
             "description": "``Activiteit.Status`` as the source writes it: ``Gepland`` (still to come, also when its date has passed), ``Uitgevoerd``, ``Geannuleerd``, ``Verplaatst``, ``Vervallen``; null when the source gives none (the Eerste Kamer gives none)."
           },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date",
+            "description": "The day it was held, or is to be: ``date``, but for a ``Verplaatst`` activity the day of the one that took its place (``moved_to``; the latest when there are several), since ``date`` is the day it was first set for and did not go ahead. Null without a date."
+          },
           "agenda_title": {
             "anyOf": [
               {
@@ -8880,6 +8892,7 @@
           "kind",
           "date",
           "status",
+          "effective_date",
           "agenda_title",
           "tk_url",
           "committee",
@@ -14932,6 +14945,61 @@
         "title": "ColorSourceDTO",
         "description": "Where the colours of a Kamer were read."
       },
+      "CommencementPublicationDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "cite": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cite",
+            "description": "As it is cited: `Stb. 2024, 197`."
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On",
+            "description": "The day it was published."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "cite",
+          "published_on",
+          "path"
+        ],
+        "title": "CommencementPublicationDTO",
+        "description": "The publication that put a law into force."
+      },
       "CommitmentActivityDTO": {
         "properties": {
           "key": {
@@ -19563,6 +19631,29 @@
             "title": "Enacted",
             "description": "The publications its law was enacted in (`Stb. 2024, 193`), the earliest published first: the same `legislated_in` edges as `instruments`."
           },
+          "proposed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DossierProposerDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who brought the bill in, from the signature `ministry`, `initiative` and `cabinet` are read from (`semantic tk-government`); null where nobody in government or parliament signed."
+          },
+          "in_force_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Force Since",
+            "description": "The day the law of the dossier came into force: the earliest `first_effective_date` of `enacted` that is today or past; null for a dossier whose law is not in force (yet)."
+          },
           "laws_named": {
             "items": {
               "$ref": "#/components/schemas/DossierLawNamedDTO"
@@ -19660,6 +19751,8 @@
           "instruments",
           "legal_effect",
           "enacted",
+          "proposed_by",
+          "in_force_since",
           "laws_named",
           "committees",
           "documents_by_kind",
@@ -20617,6 +20710,110 @@
         ],
         "title": "DossierPhaseDTO",
         "description": "A phase of the bar of a bill."
+      },
+      "DossierProposerDTO": {
+        "properties": {
+          "member_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Key"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As the source writes it: `minister van Binnenlandse Zaken`."
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "kamerlid",
+                  "bewindspersoon",
+                  "overig"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity",
+            "description": "`bewindspersoon` (the government brought it in) or `kamerlid` (an initiative bill)."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "The day they signed."
+          },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Their ministry, as `ministry` of the dossier."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member_key",
+          "name",
+          "function",
+          "capacity",
+          "date",
+          "ministry",
+          "path"
+        ],
+        "title": "DossierProposerDTO",
+        "description": "Who brought the bill in: the person who signed its earliest signed document first\n(the cabinet of that day is ``cabinet`` of the dossier)."
       },
       "DossierRefDTO": {
         "properties": {
@@ -21925,6 +22122,18 @@
           "url": {
             "type": "string",
             "title": "Url"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address where the graph holds the paper itself: `publicatie wet` and `publicatie inwerkingtreding` are the Staatsblad pages (`/stb/2024/193`) of `enacted`; null for any other paper."
           }
         },
         "additionalProperties": false,
@@ -21933,7 +22142,8 @@
           "kind",
           "date",
           "number",
-          "url"
+          "url",
+          "path"
         ],
         "title": "EkPaperDTO",
         "description": "A paper of a step of a bill, as the page of the Eerste Kamer lists it."
@@ -22123,6 +22333,18 @@
             "title": "Cite",
             "description": "As it is cited: `Stb. 2024, 193`."
           },
+          "signed_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed On",
+            "description": "The day the Koning and the minister signed it."
+          },
           "published_on": {
             "anyOf": [
               {
@@ -22134,6 +22356,17 @@
             ],
             "title": "Published On",
             "description": "The day it was published."
+          },
+          "commencement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommencementPublicationDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The publication that put what it enacted into force (the inwerkingtredingsbesluit, `Stb. 2024, 197`), as the BWB names it for the earliest of what it enacted; null when the publication itself puts it into force or the BWB names none."
           },
           "first_effective_date": {
             "anyOf": [
@@ -22177,7 +22410,9 @@
         "required": [
           "key",
           "cite",
+          "signed_on",
           "published_on",
+          "commencement",
           "first_effective_date",
           "instrument",
           "path"

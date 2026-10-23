@@ -119,6 +119,20 @@ def test_only_a_motion_has_a_dictum_whatever_its_text_quotes(
     assert bool(_written(store)[0].props["dictum"]) is dictum
 
 
+def test_an_advice_of_the_raad_van_state_gets_the_days_its_paper_opens_with() -> None:
+    """kst-36944-4: filed with the bill, advised on 23 April 2025, reported on 8 May 2026."""
+    store = _store(
+        "doc-1", kind="Advies Afdeling advisering Raad van State en Nader rapport"
+    )
+    _run(store, _raw("kst-36944-4", "kst_36944_4", "doc-1"))
+    props = _written(store)[0].props
+    assert (props["advice_date"], props["report_date"]) == ("2025-04-23", "2026-05-08")
+    other = _store("doc-2", kind="Brief regering")
+    _run(other, _raw("kst-27830-488", "kst_27830_488", "doc-2"))
+    props = _written(other)[0].props
+    assert (props["advice_date"], props["report_date"]) == (None, None)
+
+
 def test_only_the_props_of_the_text_are_written() -> None:
     """A shallow merge: what ``normalize tk-dossiers`` wrote stays."""
     store = _store("doc-1")
@@ -136,6 +150,8 @@ def test_only_the_props_of_the_text_are_written() -> None:
         "tables",
         "dictum",
         "explanation",
+        "advice_date",
+        "report_date",
     }
 
 

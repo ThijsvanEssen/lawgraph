@@ -260,6 +260,7 @@ def test_the_advice_of_the_raad_van_state_gets_its_text_by_default(
         "ADVIES AFDELING ADVISERING RAAD VAN STATE EN NADER RAPPORT\n"
     )
     assert props["dictum"] is None
+    assert (props["advice_date"], props["report_date"]) == ("2025-04-23", "2026-05-08")
     assert [s["heading"] for s in props["sections"]][:2] == [
         "1. Inhoud van het voorstel",
         "2. Minderjarige verdachten die worden uitgenodigd voor verhoor",
