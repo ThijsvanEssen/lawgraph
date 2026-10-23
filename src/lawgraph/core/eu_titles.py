@@ -46,6 +46,9 @@ _AUTHOR_PARTICLES = frozenset({"van", "het", "de", "en", "der"})
 _DESIGNATION_RE = re.compile(r"((?:[^\W\d]+ )*?[^\W\d]+)(?= *[(\d]| +van\b)", re.I)
 _SHORT_TITLE_RE = re.compile(r"\(([^()\d]+)\)$")
 _QUOTES = " \"'„“”‘’"
+# The reference of the Commission document that EUR-Lex prints at the end of the title of
+# a proposal ("… met derde landen /* COM/93/476DEF */"): a comment of the register, no title.
+_REGISTER_COMMENT_RE = re.compile(r"\s*/\*.*?\*/")
 
 
 @dataclass(frozen=True)
@@ -90,7 +93,15 @@ def act_names(celex: str, printed: Sequence[str]) -> EuActNames:
     """The title, citation title and short title of an act from its printed title (the
     paragraphs of ``core.eurlex_html.EuAct.title``)."""
     # NFKC: the old format writes "Richtlĳn" with the ligature "ĳ"
-    paragraphs = [unicodedata.normalize("NFKC", paragraph) for paragraph in printed]
+    paragraphs = [
+        collapsed
+        for paragraph in printed
+        if (
+            collapsed := _REGISTER_COMMENT_RE.sub(
+                "", unicodedata.normalize("NFKC", paragraph)
+            ).strip()
+        )
+    ]
     while len(paragraphs) > 1 and _is_note(paragraphs[-1]):
         paragraphs.pop()
     printed_title = " ".join(paragraphs)

@@ -232,6 +232,7 @@ def test_the_dossiers_around_prinsjesdag_are_related_and_linked(
         _the_api_shows_the_relations_with_their_direction(client)
         _the_lists_find_a_number(client)
         _the_pages_on_tweedekamer_nl_follow_from_the_numbers(client)
+        _a_moved_debate_has_the_day_of_the_one_that_replaced_it(client, today)
     finally:
         app.dependency_overrides.pop(get_store, None)
 
@@ -240,6 +241,17 @@ def _get(client: TestClient, path: str, **params: Any) -> Any:
     response = client.get(path, params=params)
     assert response.status_code == 200, response.text
     return response.json()
+
+
+def _a_moved_debate_has_the_day_of_the_one_that_replaced_it(
+    client: TestClient, today: dt.date
+) -> None:
+    moved = _get(client, "/api/activities/5b9c0e5e_1d3f_4a6c_9b0e_2c7d6f3e8a11")
+    week_ago = (today - dt.timedelta(days=7)).isoformat()
+    assert (moved["status"], moved["date"]) == ("Verplaatst", week_ago)
+    assert moved["effective_date"] == today.isoformat()
+    held = _get(client, "/api/activities/72da4199_b2ec_4f4e_9a19_53071d8e1ab4")
+    assert held["effective_date"] == held["date"] == today.isoformat()
 
 
 def _the_api_lists_the_dossiers_of_a_number(client: TestClient) -> None:

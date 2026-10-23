@@ -216,6 +216,7 @@ signals AS MATERIALIZED (
         'id', c.id,
         'kind', c.p -> 'kind',
         'date', c.p -> 'date',
+        'advice_date', c.p -> 'advice_date',
         'title', {_SIGNAL_TITLE},
         'case_kinds', CASE WHEN ({_SIGNAL_NUMBERS}) = 1
             THEN c.p -> 'case_kinds' ELSE '[]'::json END,
@@ -250,6 +251,7 @@ docs_of AS (
     SELECT m.ord, json_agg(
         json_build_object(
             'date', m.signal -> 'date',
+            'advice_date', m.signal -> 'advice_date',
             'kind', m.signal -> 'kind',
             'own', m.signal -> 'own',
             'sequence', m.signal -> 'sequence',
@@ -345,6 +347,7 @@ def dossier_signals_bind(dossier_ids: list[str]) -> dict[str, Any]:
             "dossier_number",
             "dossier_suffix",
             "sequence",
+            "advice_date",
         ],
         "subject_fields": [
             "kind",

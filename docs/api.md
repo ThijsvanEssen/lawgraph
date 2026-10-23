@@ -122,7 +122,8 @@ of its own zaak, `Wetgeving`, `Initiatiefwetgeving`, `Begroting`, `Verdrag`, `In
 `Voorstel van wet`, `Memorie van toelichting`, `Advies Raad van State`, `Verslag`, `Nota n.a.v.
 het verslag`, `Nota van wijziging / Amendement`, `Stemmingen`, `Eindtekst`, each `{name, done,
 date}`: done when a paper of the dossier, an activity about it that took place or a decision on
-its own zaak has a value of the Kamer the list names for it, `date` the first date of those),
+its own zaak has a value of the Kamer the list names for it, `date` the first date of those; the
+advice of the Raad van State is dated by the day its paper gives (`advice_date`), not the day it was filed),
 `current_phase` (the furthest done phase in the order of the list, not the one with the latest
 date: the Kamer may date a paper by the day it was received, 36937 its Nota n.a.v. het verslag
 four days after the bill passed; null for none), `closed`, `outcome` (`aangenomen`, `verworpen`
