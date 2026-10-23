@@ -17,6 +17,7 @@
     /stb/2026/94                         a publication, by series, year and number
     /leden/rob-jetten                    a lid or bewindspersoon, by its slug
     /kabinetten/rutte_iv                 a cabinet, by its key
+    /ministeries/fin                     a ministry (under one of its names), by its key
     /fracties/d66                        a fractie, by its key
     /commissies/szw                      a commissie, by its slug
     /toezeggingen/TZ202609-124           a toezegging, by its number
@@ -49,6 +50,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.code_families import cited_number
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
@@ -105,6 +107,7 @@ _ONE_PART: dict[str, tuple[str, re.Pattern[str], bool]] = {
     "dossiers": ("dossier", DOSSIER, True),
     "leden": ("lid", SLUG, False),
     "kabinetten": ("kabinet", SLEUTEL, False),
+    "ministeries": ("ministerie", SLEUTEL, False),
     "fracties": ("fractie", SLEUTEL, False),
     "commissies": ("commissie", SLEUTEL, False),
     "stemmingen": ("stemming", SLEUTEL, False),
@@ -189,6 +192,7 @@ def pad_href(pad: Pad) -> str:
     prefix = {
         "lid": "leden",
         "kabinet": "kabinetten",
+        "ministerie": "ministeries",
         "fractie": "fracties",
         "commissie": "commissies",
         "toezegging": "toezeggingen",
@@ -330,6 +334,7 @@ _PATHS: dict[str, Any] = {
     COLLECTION_MEMBERS: _slug("lid", SLUG),
     COLLECTION_COMMITTEES: _slug("commissie", SLEUTEL),
     COLLECTION_CABINETS: _by_key("kabinet"),
+    COLLECTION_MINISTRIES: _by_key("ministerie"),
     COLLECTION_FACTIONS: _by_key("fractie"),
     COLLECTION_DECISIONS: _by_key("stemming"),
     COLLECTION_COMMITMENTS: _commitment,

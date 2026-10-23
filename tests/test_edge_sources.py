@@ -72,6 +72,7 @@ LABELS: dict[str, dict[str, str]] = {
     },
     "semantic.tk_faction_succession": {"EDGE_SOURCE": "tk-faction-succession"},
     "semantic.tk_person_duplicates": {"EDGE_SOURCE": "tk-person-duplicates"},
+    "semantic.tooi_ministries": {"EDGE_SOURCE": "tooi-ministries"},
     "semantic.verdragenbank": {"EDGE_SOURCE": "verdragenbank"},
 }
 # The pipelines whose label is not their name. It only shrinks: renaming a stored label

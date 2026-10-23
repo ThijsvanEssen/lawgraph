@@ -14,6 +14,7 @@ from lawgraph.api.seo.pages.base import SITE_IMAGE, Page
 from lawgraph.api.seo.pages.government import (
     cabinet_page,
     commitment_page,
+    ministry_page,
     publication_page,
 )
 from lawgraph.api.seo.pages.judgments import judgment_page
@@ -58,6 +59,7 @@ SOURCE_PAGES: dict[str, SourcePage] = {
     "lid": SourcePage(seo.member, member_page),
     "fractie": SourcePage(seo.faction, faction_page),
     "kabinet": SourcePage(seo.cabinet, cabinet_page),
+    "ministerie": SourcePage(seo.ministry, ministry_page),
     "commissie": SourcePage(seo.committee, committee_page),
     "publicatie": SourcePage(seo.publication, publication_page),
     "toezegging": SourcePage(seo.commitment, commitment_page),

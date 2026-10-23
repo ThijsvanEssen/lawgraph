@@ -26,6 +26,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
     PUBLICATION_RELATIONS,
     RELATION_ABOUT,
     RELATION_MADE_IN,
@@ -307,6 +308,17 @@ def cabinets(store: GraphStore) -> Iterator[dict[str, Any]]:
                    lg_str(props -> 'from_date')
                ) AS lastmod
         FROM {COLLECTION_CABINETS}
+        ORDER BY id
+        """
+    )
+
+
+def ministries(store: GraphStore) -> Iterator[dict[str, Any]]:
+    """Every ministry, with the last day of its name (none while it has it)."""
+    yield from store.query(
+        f"""
+        SELECT id, '{{}}'::json AS props, lg_str(props -> 'to_date') AS lastmod
+        FROM {COLLECTION_MINISTRIES}
         ORDER BY id
         """
     )

@@ -7964,7 +7964,7 @@
           "lookup"
         ],
         "summary": "The node a readable URL names, exactly",
-        "description": "No guess and no fallback (that is `/api/resolve`): the node, or 404 (`<Kind> '<its parameters>' not found.`). 422 for a parameter that is missing or malformed. `kind` and its parameters: `document` (`dossier` as in the URL, `36600-VIII`, and `number`, a number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` (`law` BWB id or CELEX, or the abbreviation a law is cited by in any case: `wft`, `Sr`, `AVG`, and `bw` with the book in the number; `number`: `6:162` and `162` under BW Boek 6 alike), `annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its `number`, `2025Z15468`), `activity` (one of the Tweede Kamer, a debate: its `number`, `2026A01323`), `law` (`id`, as `law` of an article), `judgment` (`ecli`; a judgment only cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), `official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), `commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` (its `slug`, `rob-jetten`) (`id`).",
+        "description": "No guess and no fallback (that is `/api/resolve`): the node, or 404 (`<Kind> '<its parameters>' not found.`). 422 for a parameter that is missing or malformed. `kind` and its parameters: `document` (`dossier` as in the URL, `36600-VIII`, and `number`, a number of the Tweede Kamer or a letter of the Eerste Kamer; a paper that is not there is 404, not its dossier), `dossier` (`number`, `36455-(R2188)`), `article` (`law` BWB id or CELEX, or the abbreviation a law is cited by in any case: `wft`, `Sr`, `AVG`, and `bw` with the book in the number; `number`: `6:162` and `162` under BW Boek 6 alike), `annex` (`law` BWB id and `label`, `II`), `case` (a zaak of the Tweede Kamer: its `number`, `2025Z15468`), `activity` (one of the Tweede Kamer, a debate: its `number`, `2026A01323`), `law` (`id`, as `law` of an article), `judgment` (`ecli`; a judgment only cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, `year`, `number`), `official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), `commitment` (`number`), `faction`, `committee` (slug), `cabinet`, `ministry` (its key, `fin`) and `member` (its `slug`, `rob-jetten`) (`id`).",
         "operationId": "get_lookup_api_lookup_get",
         "parameters": [
           {
@@ -7987,6 +7987,7 @@
                 "faction",
                 "committee",
                 "cabinet",
+                "ministry",
                 "member"
               ],
               "type": "string",
@@ -11085,6 +11086,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -13118,6 +13120,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -17225,6 +17228,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -20682,6 +20686,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -24935,6 +24940,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -27288,6 +27294,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection",
@@ -28492,6 +28499,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection",
@@ -30234,6 +30242,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -31077,6 +31086,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection",
@@ -32116,6 +32126,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -33181,6 +33192,19 @@
             },
             "type": "array",
             "title": "Periods"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -33192,10 +33216,11 @@
           "tooi",
           "successor",
           "until",
-          "periods"
+          "periods",
+          "path"
         ],
         "title": "MinistryDTO",
-        "description": "A ministry name of ``data/ministries.json``: a name that came back (Economische\nZaken) has a period for each time; a former one names its successor and the last day\nit had its name (``successor`` and ``until`` of its last period)."
+        "description": "A ministry name of ``data/ministries.json``: a name that came back (Economische\nZaken) has a period for each time; a former one names its successor and the last day\nit had its name (``successor`` and ``until`` of its last period). A node of the graph\ntoo (``/api/nodes/ministries/{key}``), at ``/ministeries/{key}``."
       },
       "MinistryDetailDTO": {
         "properties": {
@@ -33290,6 +33315,19 @@
             "title": "Open Commitments",
             "description": "Its open commitments: ``GET /api/commitments?status=Openstaand&ministry=``.",
             "default": 0
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -33306,7 +33344,8 @@
           "cabinets",
           "laws",
           "open_dossiers",
-          "open_commitments"
+          "open_commitments",
+          "path"
         ],
         "title": "MinistryDetailDTO",
         "description": "A ministry with its bewindspersonen per cabinet, and how many laws, open dossiers\nand open commitments are its own: each the ``total`` of a list with ``ministry``."
@@ -33611,6 +33650,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -33716,6 +33756,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -33942,6 +33983,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -36086,6 +36128,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"
@@ -36644,6 +36687,7 @@
               "members",
               "factions",
               "cabinets",
+              "ministries",
               "annexes"
             ],
             "title": "Collection"

@@ -61,6 +61,7 @@ FINDERS: dict[LookupKind, tuple[tuple[str, ...], Callable[..., str | None]]] = {
     "faction": (("id",), lookup.find_faction),
     "committee": (("id",), lookup.find_committee),
     "cabinet": (("id",), lookup.find_cabinet),
+    "ministry": (("id",), lookup.find_ministry),
     "member": (("id",), lookup.find_member),
 }
 
@@ -86,8 +87,8 @@ FINDERS: dict[LookupKind, tuple[tuple[str, ...], Callable[..., str | None]]] = {
         "cited is answered, with `stub`), `publication` (`series` stb, stcrt or trb, "
         "`year`, `number`), "
         "`official` (`id` of officielebekendmakingen.nl: `stb-2026-94`, `kst-36799-31`), "
-        "`commitment` (`number`), `faction`, `committee` (slug), `cabinet` and `member` "
-        "(its `slug`, `rob-jetten`) (`id`)."
+        "`commitment` (`number`), `faction`, `committee` (slug), `cabinet`, `ministry` "
+        "(its key, `fin`) and `member` (its `slug`, `rob-jetten`) (`id`)."
     ),
     tags=["lookup"],
 )
