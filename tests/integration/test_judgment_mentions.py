@@ -218,6 +218,7 @@ def test_the_facets_count_every_citing_judgment_and_tiers_combine(api: Api) -> N
             {"value": "hoge_raad", "count": 1},
             {"value": "rechtbank", "count": 1},
         ],
+        "subject_area": [],
     }
 
     two = api.get_json(
