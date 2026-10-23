@@ -2521,7 +2521,8 @@ def test_a_kamerstuk_is_painted_first_with_its_first_alineas(
     painting: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Its answer with its text up to the end of an alinea past the cut, the widest numbers
-    of all its alineas, a later heading a line repeats, its light node, and the vote on it."""
+    of all its alineas, a later heading a line repeats, its light node, the vote on it and
+    what it explains."""
     monkeypatch.setattr(render, "PAINT_BUDGET", 30.0)
     monkeypatch.setattr(paint, "_DOCUMENT_TEXT", 20)
     text = "Voorzitter: Kops\nDe eerste alinea.\nDe tweede.\nVoorzitter: Kops\nEind."
@@ -2541,7 +2542,12 @@ def test_a_kamerstuk_is_painted_first_with_its_first_alineas(
         ],
     )  # fmt: skip
     store.bulk_insert_or_update_edges(
-        [_edge("p80", "documents/kst_36496_80", "cases/z_1", "PART_OF")]
+        [
+            _edge("p80", "documents/kst_36496_80", "cases/z_1", "PART_OF"),
+            _edge(
+                "e80", "documents/kst_36496_80", "articles/bwbr0005289_162", "EXPLAINS"
+            ),
+        ]
     )
     response = _get(painting, "/kamerstukken/36496/80")
     assert_status(response, 200)
@@ -2556,6 +2562,8 @@ def test_a_kamerstuk_is_painted_first_with_its_first_alineas(
     assert painted["numbers"][0] in {"1", "2", "3", "4", "5"}
     # the vote on it, which its head says
     assert [d["key"] for d in doc["decisions"]] == ["s_1"]
+    # and the article it explains, which its section Licht toe counts
+    assert [e["key"] for e in doc["explains"]] == ["bwbr0005289_162"]
 
 
 def test_a_judgment_whose_parties_were_not_read_is_not_painted_first(
