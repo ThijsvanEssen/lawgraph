@@ -146,6 +146,9 @@ SAMPLES: dict[str, list[tuple[str, dict[str, Any]]]] = {
             {"name": "kabinet-Rutte IV", "from_date": "2022-01-10", "to_date": "2024"},
         )
     ],
+    "ministries": [
+        ("ministries/venj", {"name": "Veiligheid en Justitie", "to_date": "2017-12-31"})
+    ],
     "activities": [
         (
             "activities/a",

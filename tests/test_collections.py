@@ -46,6 +46,7 @@ _PINNED = [
     ("members", "member", "Member", "MemberProps", False),
     ("factions", "faction", "Faction", "FactionProps", False),
     ("cabinets", "cabinet", "Cabinet", "CabinetProps", False),
+    ("ministries", "ministry", "Ministry", "MinistryProps", False),
     ("annexes", "annex", "Annex", "AnnexProps", True),
 ]
 

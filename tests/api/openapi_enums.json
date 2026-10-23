@@ -92,6 +92,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/ArticleExplanationDTO/properties/scope": [
@@ -156,6 +157,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/BaseNodeDTO/properties/kind_group/anyOf/0": [
@@ -324,6 +326,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/DecisionMotionKindCount/properties/value": [
@@ -547,6 +550,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/DossierMutationNode/properties/kind": [
@@ -556,6 +560,11 @@
  "/components/schemas/DossierPhaseDTO/properties/chamber": [
   "TK",
   "EK"
+ ],
+ "/components/schemas/DossierProposerDTO/properties/capacity/anyOf/0": [
+  "kamerlid",
+  "bewindspersoon",
+  "overig"
  ],
  "/components/schemas/DossierRelationDTO/properties/direction": [
   "outgoing",
@@ -783,6 +792,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/FeedPeriodsResponse/properties/per": [
@@ -873,6 +883,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/InstrumentDossierItem/properties/via": [
@@ -924,6 +935,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/InstrumentReferenceDTO/properties/direction": [
@@ -1003,6 +1015,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/JudgmentDTO/properties/conclusion_outcome/anyOf/0": [
@@ -1061,6 +1074,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/JudgmentListItemDTO/properties/decision_kind/anyOf/0": [
@@ -1104,6 +1118,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/MemberCommitteeDTO/properties/chamber": [
@@ -1191,6 +1206,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/NeighborBucketDTO/properties/direction": [
@@ -1247,6 +1263,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/NeighborDTO/properties/direction": [
@@ -1310,6 +1327,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/NodeNeighborhoodEdge/properties/relation/anyOf/0": [
@@ -1492,6 +1510,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/ResolveMatch/properties/kind": [
@@ -1537,6 +1556,7 @@
   "members",
   "factions",
   "cabinets",
+  "ministries",
   "annexes"
  ],
  "/components/schemas/Searched": [
@@ -1633,11 +1653,6 @@
   "amendement",
   "wetsvoorstel",
   "brief",
-  "overig"
- ],
- "/components/schemas/DossierProposerDTO/properties/capacity/anyOf/0": [
-  "kamerlid",
-  "bewindspersoon",
   "overig"
  ],
  "/components/schemas/TimelineSignatoryDTO/properties/capacity/anyOf/0": [
@@ -1857,6 +1872,7 @@
   "faction",
   "committee",
   "cabinet",
+  "ministry",
   "member"
  ],
  "/paths//api/members/get/parameters/10/schema": [

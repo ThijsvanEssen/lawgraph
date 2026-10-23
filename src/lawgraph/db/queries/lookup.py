@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_MEMBERS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.code_families import CODE_FAMILIES, code_of, native_number
 from lawgraph.core.documents import chamber_of
@@ -297,6 +298,10 @@ def find_member(store: GraphStore, slug: str) -> str | None:
 
 def find_cabinet(store: GraphStore, key: str) -> str | None:
     return _exists(store, COLLECTION_CABINETS, key.strip())
+
+
+def find_ministry(store: GraphStore, key: str) -> str | None:
+    return _exists(store, COLLECTION_MINISTRIES, key.strip())
 
 
 def _answer_rows(

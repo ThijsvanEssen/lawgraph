@@ -22,6 +22,7 @@ from lawgraph.config.constants import (
     COLLECTION_CABINETS,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
@@ -32,6 +33,7 @@ from lawgraph.core.names import (
     cabinet_title,
     commitment_title,
     joined,
+    ministry_title,
     publication_title,
     text_of,
 )
@@ -133,6 +135,53 @@ def cabinet_page(row: dict[str, Any]) -> Page:
                 foundingDate=props.get("from_date"),
                 dissolutionDate=props.get("to_date"),
             ),
+        },
+        body=body,
+    )
+
+
+def ministry_page(row: dict[str, Any]) -> Page:
+    props = row["props"] or {}
+    key = row["key"]
+    name = text_of(props.get("name")) or key
+    title = ministry_title(props, key)
+    path = path_of(row["id"], props) or ""
+    periods = [
+        period(p.get("from_date"), p.get("to_date"))
+        for p in props.get("periods") or []
+        if isinstance(p, dict)
+    ]
+    spans = [p for p in periods if p]
+
+    def names(pairs: list[tuple[str, str | None]]) -> str:
+        return ", ".join(
+            link(path_of(node_id(COLLECTION_MINISTRIES, k)), n or k) for k, n in pairs
+        )
+
+    before, after = names(row.get("before") or []), names(row.get("after") or [])
+    served = bullets(
+        [
+            member_link(m) + _functions(m)
+            for m in row.get("served") or []
+            if text_of(m.get("name"))
+        ]
+    )
+    body = (
+        f"<h1>{escape(title)}</h1>"
+        + bullets([escape(s[:1].upper() + s[1:]) for s in spans])
+        + (f"<p>Voortgezet als: {after}</p>" if after else "")
+        + (f"<p>Voortzetting van: {before}</p>" if before else "")
+        + section("Bewindspersonen", served)
+    )
+    return Page(
+        title=title,
+        description=cut(joined(", ", title, *spans), DESCRIPTION_MAX),
+        path=path,
+        crumbs=[(title, path)],
+        data={
+            "@type": "GovernmentOrganization",
+            "name": f"Ministerie van {name}",
+            **present(alternateName=text_of(props.get("abbreviation"))),
         },
         body=body,
     )

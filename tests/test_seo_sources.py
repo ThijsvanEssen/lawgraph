@@ -32,6 +32,7 @@ _WITH_SITE_IMAGE = (
     "lid",
     "fractie",
     "kabinet",
+    "ministerie",
     "commissie",
     "publicatie",
     "toezegging",

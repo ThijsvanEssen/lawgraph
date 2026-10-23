@@ -16,7 +16,7 @@ Writes ``sitemap.xml`` and its parts (``core/sitemaps.py``) into ``--out`` (defa
 - ``dossiers``: every dossier with a paper;
 - ``leden``: the members who sat in a chamber or held a post in a cabinet;
 - ``fracties``, ``kabinetten``, ``commissies``: every one with a name (a committee with a
-  slug);
+  slug); ``ministeries``: every ministry name;
 - ``publicaties``: in the Staatsblad and the Tractatenblad since 2018 whose page is
   indexed: a title of their own or a regulation they change by name;
 - ``toezeggingen``: those made since 2018 that have a text;
@@ -73,6 +73,7 @@ def kinds(store: GraphStore) -> dict[str, Iterable[sitemaps.Entry]]:
         "leden": entries(queries.members(store)),
         "fracties": entries(queries.factions(store)),
         "kabinetten": entries(queries.cabinets(store)),
+        "ministeries": entries(queries.ministries(store)),
         "commissies": entries(queries.committees(store)),
         "publicaties": entries(queries.publications(store)),
         "toezeggingen": entries(queries.commitments(store)),
