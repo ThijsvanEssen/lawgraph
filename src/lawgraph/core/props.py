@@ -1507,6 +1507,41 @@ class CabinetProps(_CommonProps):
     """The page or the record it was read from."""
 
 
+class MinistryPeriodProps(_StrictBase):
+    """A stretch in which a ministry had its name (``data/ministries.json``)."""
+
+    from_date: str | None = None
+    """The first day; null where no source dates it."""
+    to_date: str | None = None
+    """The last day; null while it has the name, or where no source says."""
+    successor: str | None = None
+    """The key of the name that followed."""
+    basis: str | None = None
+    """The Staatscourant decree the end rests on (TOOI)."""
+    source: str | None = None
+    """`tooi` or `rijksoverheid`."""
+    successor_source: str | None = None
+    """`curated` for a succession no source gives."""
+
+
+class MinistryProps(_CommonProps):
+    """A ministry under one of its names (`semantic ministries`, from
+    `data/ministries.json`)."""
+
+    name: str | None = None
+    """`Financiën`."""
+    abbreviation: str | None = None
+    """The abbreviation TOOI gives: `FIN`."""
+    tooi: str | None = None
+    """The TOOI code of the organisation: `mnre1090`."""
+    periods: list[MinistryPeriodProps] | None = None
+    """Its periods under this name, oldest first."""
+    successor: str | None = None
+    """The key of the name that followed its last period; null while it has it."""
+    to_date: str | None = None
+    """The last day it had this name; null while it has it."""
+
+
 # ---------------------------------------------------------------------------
 # factions
 # ---------------------------------------------------------------------------

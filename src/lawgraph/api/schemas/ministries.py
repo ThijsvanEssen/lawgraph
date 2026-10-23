@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field, computed_field
 
 from lawgraph.api.params import MinistryKey, Post
-from lawgraph.api.schemas.common import END_OF_OFFICE, StrictModel
+from lawgraph.api.schemas.common import END_OF_OFFICE, PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.core.ministries import MINISTRIES, MINISTRY_BY_KEY, Ministry, Source
 
@@ -53,10 +53,13 @@ class MinistryPeriodDTO(StrictModel):
     )
 
 
-class MinistryDTO(StrictModel):
+class MinistryDTO(WithPath):
     """A ministry name of ``data/ministries.json``: a name that came back (Economische
     Zaken) has a period for each time; a former one names its successor and the last day
-    it had its name (``successor`` and ``until`` of its last period)."""
+    it had its name (``successor`` and ``until`` of its last period). A node of the graph
+    too (``/api/nodes/ministries/{key}``), at ``/ministeries/{key}``."""
+
+    path_source = PathSource("ministries")
 
     key: MinistryKey
     name: str
@@ -174,7 +177,7 @@ class MinistryDetailDTO(MinistryDTO):
         for cabinet in cabinets.values():
             cabinet.posts.sort(key=lambda p: (p.from_date or "", p.member.name or ""))
         return cls(
-            **MinistryDTO.from_ministry(ministry).model_dump(),
+            **MinistryDTO.from_ministry(ministry).model_dump(exclude={"path"}),
             predecessors=[
                 MinistryKey(m.key)
                 for m in MINISTRIES

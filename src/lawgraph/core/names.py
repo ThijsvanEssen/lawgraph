@@ -348,6 +348,13 @@ def cabinet_title(props: dict[str, Any], key: str) -> str:
     return f"{name} ({span})" if span else name
 
 
+def ministry_title(props: dict[str, Any], key: str) -> str:
+    """``Ministerie van Financiën``; ``(tot 2017)`` after a former name."""
+    name = f"Ministerie van {text_of(props.get('name')) or key}"
+    until = text_of(props.get("to_date"))
+    return f"{name} (tot {until[:4]})" if until else name
+
+
 def committee_title(props: dict[str, Any], key: str) -> str:
     """``Vaste commissie voor Sociale Zaken en Werkgelegenheid (SZW)``, with ``, Eerste
     Kamer`` for one of the Eerste Kamer."""
@@ -398,6 +405,7 @@ _TITLED: dict[str, Callable[[dict[str, Any], str], str]] = {
     "cases": case_title,
     "factions": faction_title,
     "cabinets": cabinet_title,
+    "ministries": ministry_title,
     "committees": committee_title,
     "decisions": lambda props, key: decision_title(props),
     "activities": activity_title,

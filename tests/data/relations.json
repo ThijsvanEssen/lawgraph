@@ -16,6 +16,7 @@
     "members",
     "factions",
     "cabinets",
+    "ministries",
     "annexes"
   ],
   "relations": [
@@ -357,11 +358,13 @@
       "name": "CONTINUES",
       "sources": [
         "judgments",
-        "activities"
+        "activities",
+        "ministries"
       ],
       "targets": [
         "judgments",
-        "activities"
+        "activities",
+        "ministries"
       ],
       "ends": [
         [
@@ -371,6 +374,10 @@
         [
           "activities",
           "activities"
+        ],
+        [
+          "ministries",
+          "ministries"
         ]
       ]
     },
@@ -520,10 +527,14 @@
       "name": "LED_BY",
       "sources": [
         "activities",
-        "cases"
+        "cases",
+        "instruments",
+        "dossiers",
+        "commitments"
       ],
       "targets": [
-        "committees"
+        "committees",
+        "ministries"
       ],
       "ends": [
         [
@@ -533,6 +544,18 @@
         [
           "cases",
           "committees"
+        ],
+        [
+          "instruments",
+          "ministries"
+        ],
+        [
+          "dossiers",
+          "ministries"
+        ],
+        [
+          "commitments",
+          "ministries"
         ]
       ]
     },
@@ -587,12 +610,17 @@
         "members"
       ],
       "targets": [
-        "cabinets"
+        "cabinets",
+        "ministries"
       ],
       "ends": [
         [
           "members",
           "cabinets"
+        ],
+        [
+          "members",
+          "ministries"
         ]
       ]
     },
