@@ -201,11 +201,29 @@ class _Flattener:
             self._table(element)
         elif name == "voetnoot":
             self._legacy_footnote(element)
+        elif name == "amendement-lid":
+            self._amendment_part(element, depth)
         elif len(element) == 0:
             self._body(self._inline(element))  # the title of the document, a caption
         else:
             for child in element:
                 self._visit(child, depth, parent=name)
+
+    def _amendment_part(self, element: ET.Element, depth: int) -> None:
+        """A part of an amendment: its letter or numeral (``I``, ``Ja``) opens the line
+        that says what the part changes, not a line of its own."""
+        number = ""
+        for child in element:
+            name = local_name(child.tag)
+            if name == "lidnr":
+                number = self._inline(child)
+            elif name == "wat" and number:
+                self._body(collapse_ws(f"{number} {self._inline(child)}"))
+                number = ""
+            else:
+                self._visit(child, depth, parent="amendement-lid")
+        if number:  # a part without a "wat": the letter stays
+            self._body(number)
 
     def _divisie(self, element: ET.Element, depth: int) -> None:
         for child in element:
