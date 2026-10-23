@@ -22,6 +22,10 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
+from lawgraph.db.version_cache import cached_rows
+
+# What the statements below read, for the answers kept per version of these tables.
+TABLES = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES, COLLECTION_EDGES)
 
 
 def expired(alias: str) -> str:
@@ -352,33 +356,37 @@ def get_delegated_by_law(
     regulations of the validity issued under its articles that are not issued under the law
     itself (``instrument``, ``articles``: those of the regulation they name). Repealed
     articles are left out. With *summary* only ``instrument``, ``articles`` without
-    ``referring`` and ``sub_delegated``. One query."""
-    return list(
-        store.query(
-            _DELEGATED_SUMMARY_SQL if summary else _DELEGATED_BY_LAW_SQL,
-            {
-                "bwb": bwb_id.upper(),
-                "based_on": RELATION_BASED_ON,
-                "refers_to": RELATION_REFERS_TO,
-                "today": dutch_today().isoformat(),
-                "validity": validity,
-            },
-        )
+    ``referring`` and ``sub_delegated``. One query, kept while its tables stand still: the
+    Awb has 850 regulations in force, which took 10 s cold on prod (23 Oct), and the
+    warm-up asks it."""
+    return cached_rows(
+        store,
+        _DELEGATED_SUMMARY_SQL if summary else _DELEGATED_BY_LAW_SQL,
+        {
+            "bwb": bwb_id.upper(),
+            "based_on": RELATION_BASED_ON,
+            "refers_to": RELATION_REFERS_TO,
+            "today": dutch_today().isoformat(),
+            "validity": validity,
+        },
+        tables=TABLES,
     )
 
 
 def count_expired_delegated(store: GraphStore, bwb_id: str) -> int:
     """How many regulations ``BASED_ON`` an article in force of the law *bwb_id* are no
     longer in force."""
-    rows = store.query(
+    rows = cached_rows(
+        store,
         _EXPIRED_COUNT_SQL,
         {
             "bwb": bwb_id.upper(),
             "based_on": RELATION_BASED_ON,
             "today": dutch_today().isoformat(),
         },
+        tables=TABLES,
     )
-    return int(next(iter(rows)))
+    return int(rows[0])
 
 
 # The basis of one regulation: the articles its preamble names, per law (one per law, by

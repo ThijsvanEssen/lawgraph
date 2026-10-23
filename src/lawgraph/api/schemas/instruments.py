@@ -1504,7 +1504,7 @@ class EuLinkDTO(StrictModel):
     """An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.
 
     `IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication
-    as a national implementing measure of the act, or it enacted or changed the regulation
+    as a national implementing measure of the act, or it enacted the regulation
     (`national_implementing_measure`, `meta.publications`), or the considerans of the
     regulation says it implements the act (`considerans`). It links instruments: no source
     names the article that implements. `REFERS_TO`: the text of the regulation names the

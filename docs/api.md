@@ -71,7 +71,7 @@ Kamer by its address (`kst-37020-X-53`) once its text was read from there; null 
 ### Instruments
 
 `IMPLEMENTS` rests on an implementation source (`bases`): `national_implementing_measure`
-(EUR-Lex lists the publication, or the publication that enacted or changed the regulation, as
+(EUR-Lex lists the publication, or the publication that enacted the regulation, as
 a national implementing measure of the act; `meta.publications`) or `considerans` (the
 considerans of the regulation says it implements the act). It is not per article, so
 `eu-links` has no article list for it. An act the text only names is under `mentions`

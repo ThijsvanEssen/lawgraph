@@ -46,9 +46,17 @@ def graph(store: GraphStore) -> GraphStore:
         "members": [_node(k, "member", name=k) for k in ("a", "b", "c", "d")],
         "factions": [_node(k, "faction", name=k) for k in ("f1", "f2")],
         "decisions": [
-            _node("b1", "decision", date=day, tally={"Voor": 15, "Tegen": 10}),
+            _node(
+                "b1",
+                "decision",
+                date=day,
+                tally={"Voor": 15, "Tegen": 10},
+                primary_case_id="z1",
+            ),
             _node("b2", "decision", date="2026-03-01", vote_kind="faction"),
             _node("b3", "decision", date="2026-03-05", vote_kind="member"),
+            # taken on another case of the same agenda item: ABOUT z1 as well
+            _node("b4", "decision", date=day, primary_case_id="Z-2"),
         ],
         "articles": [_node("a1", "article", bwb_id="BWBR1", article_number="1")],
         "instruments": [
@@ -94,6 +102,7 @@ def graph(store: GraphStore) -> GraphStore:
                 meta={"from_date": "2020-01-01", "to_date": "2026-01-01"},
             ),
             _edge("decisions/b1", "cases/z1", "ABOUT"),
+            _edge("decisions/b4", "cases/z1", "ABOUT"),
             _edge("decisions/b2", MOTION, "ABOUT"),
             _edge("decisions/b2", "cases/z1", "ABOUT"),
             _edge("decisions/b3", MOTION, "ABOUT"),
@@ -202,7 +211,10 @@ def test_the_votes_on_the_paper_and_its_case_have_the_vote_per_faction(
 ) -> None:
     body = _get(client, MOTION)
 
-    assert body["votes_total"] == 3  # b2 is on the paper and the case: once
+    # b2 is on the paper and the case: once; b4 was taken on another case: not at all
+    assert body["votes_total"] == 3
+    assert "decisions/b4" not in _ids(body["votes"])
+    assert "decisions/b4" not in _ids(_get(client, "cases/z1")["votes"])
     first, roll, second = body["votes"]
     assert (first["node"]["id"], first["about"]) == ("decisions/b1", "cases/z1")
     assert [
