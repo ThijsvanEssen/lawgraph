@@ -17,7 +17,11 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.core.courts import CODE_OTHER, COURT_BY_CODE, OTHER_COURT_BY_NAME, Court
-from lawgraph.core.identifiers import EU_ACT_KINDS
+from lawgraph.core.identifiers import (
+    CELEX_PREPARATORY_SECTOR,
+    EU_ACT_KINDS,
+    KIND_PROPOSAL,
+)
 from lawgraph.core.judgment_kinds import KIND_OF_COURT_KIND
 from lawgraph.core.judgment_names import CURATED_NAMES
 from lawgraph.core.time import dutch_today
@@ -77,10 +81,14 @@ _INSTRUMENTS = f"""
            )) AS jurisdiction,
            -- what the list of its articles holds by default
            {article_count("i")} AS article_count,
-           -- an EU act by the letter of its CELEX number (no source names its kind)
+           -- an EU act by the letter of its CELEX number (no source names its kind), a
+           -- preparatory act by its sector: a proposal
            coalesce(
-               CASE WHEN i.bwb_id IS NULL AND i.celex ~ '^3[0-9]{{4}}[A-Z]'
-                    THEN %(eu_kinds)s::jsonb ->> substr(i.celex, 6, 1) END,
+               CASE WHEN i.bwb_id IS NOT NULL THEN NULL
+                    WHEN i.celex ~ '^3[0-9]{{4}}[A-Z]'
+                    THEN %(eu_kinds)s::jsonb ->> substr(i.celex, 6, 1)
+                    WHEN left(i.celex, 1) = '{CELEX_PREPARATORY_SECTOR}'
+                    THEN '{KIND_PROPOSAL}' END,
                lower(lg_str(i.props -> 'kind'))
            ) AS kind,
            -- what refers to the law: to the law itself, and to each of its articles and

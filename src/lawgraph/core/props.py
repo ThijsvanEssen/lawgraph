@@ -200,8 +200,9 @@ class InstrumentProps(_CommonProps):
     kind: str | None = None
     """BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`,
     `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the
-    Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic
-    graph-list-stats`."""
+    Staatsblad the BWB does not hold (yet) `wet`; an EU act by its CELEX number (`richtlijn`,
+    `verordening`, `besluit`, `kaderbesluit`; a proposal, sector 5, `voorstel`); lower-cased
+    by `semantic graph-list-stats`."""
     lang: str | None = None
     """Of an EU act: the language its text was read in."""
     meta: dict[str, Any] | None = None
@@ -1536,7 +1537,8 @@ class MinistryProps(_CommonProps):
     abbreviation: str | None = None
     """The abbreviation TOOI gives: `FIN`."""
     tooi: str | None = None
-    """The TOOI code of the organisation: `mnre1090`."""
+    """The TOOI code of the organisation: `mnre1090`; null for a name before about 2010,
+    which TOOI does not list (a former one)."""
     periods: list[MinistryPeriodProps] | None = None
     """Its periods under this name, oldest first."""
     successor: str | None = None

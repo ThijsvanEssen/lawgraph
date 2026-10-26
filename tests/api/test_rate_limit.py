@@ -13,6 +13,7 @@ from starlette.types import Message
 
 from lawgraph.api import middleware
 from lawgraph.api.middleware import RateLimitMiddleware, rate_limit_key
+from tests.asserts import assert_status
 
 PERIOD = 60.0
 
@@ -141,3 +142,28 @@ def test_an_exempt_network_is_not_counted(monkeypatch) -> None:
     )
     assert [_start(limiter, "192.0.2.9")["status"] for _ in range(3)] == [200] * 3
     assert [_start(limiter, "198.51.100.7")["status"] for _ in range(2)] == [200, 429]
+
+
+def test_the_app_logs_a_429_of_the_limiter(monkeypatch, caplog) -> None:
+    """The limiter sits outside the request log, so it writes the refusal's line itself:
+    through the whole app a 429 is in the log, with the network and the path."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+
+    monkeypatch.setattr(middleware, "RATE_LIMIT_CALLS", 1)
+    monkeypatch.setattr(middleware, "RATE_LIMIT_PERIOD", PERIOD)
+    monkeypatch.setattr(app, "middleware_stack", None)  # built again with this limit
+    client = TestClient(
+        app, client=("198.51.100.7", 4711), raise_server_exceptions=False
+    )
+    try:
+        with caplog.at_level(logging.INFO, logger=middleware.logger.name):
+            client.get("/api/health")
+            refused = client.get("/api/health?q=geheim")
+    finally:
+        app.middleware_stack = None  # the next test builds the stack of the real limit
+    assert_status(refused, 429)
+    lines = [r.getMessage() for r in caplog.records if r.name == middleware.logger.name]
+    assert "198.51.100.0 GET /api/health → 429 (rate limit)" in lines, lines
+    assert "geheim" not in "\n".join(lines)

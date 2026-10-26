@@ -582,7 +582,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
 | `aliases` | `list[str]` | Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW". |
 | `jurisdiction` | `str` | `nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank). |
-| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic graph-list-stats`. |
+| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; an EU act by its CELEX number (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`; a proposal, sector 5, `voorstel`); lower-cased by `semantic graph-list-stats`. |
 | `lang` | `str` | Of an EU act: the language its text was read in. |
 | `meta` | `object` | Of an EU act: the `meta` of its raw record. |
 | `external_id` | `str` | Of a Verdragenbank treaty: its id in the register. |
@@ -1706,7 +1706,7 @@ their `ministry` names; a member who held a post under it `SERVED_IN` it, those 
 |------|------|---------|
 | `name` | `str` | `Financiën`. |
 | `abbreviation` | `str` | The abbreviation TOOI gives: `FIN`. |
-| `tooi` | `str` | The TOOI code of the organisation: `mnre1090`. |
+| `tooi` | `str` | The TOOI code of the organisation: `mnre1090`; null for a name before about 2010, which TOOI does not list (a former one). |
 | `periods` | `list[object]` | Its periods under this name, oldest first. |
 | `periods[].from_date` | `str` | The first day; null where no source dates it. |
 | `periods[].to_date` | `str` | The last day; null while it has the name, or where no source says. |
@@ -1848,7 +1848,10 @@ it (an index, an SRU listing: its file is probably on its way); `pipelines/retri
 
 ## Tables, indexes and search
 
-Defined in `db/schema.py` and created when the store starts (`ensure_schema`). The store refuses
+Defined in `db/schema.py` and created when the store starts (`ensure_schema`), only when its
+statements differ from those last applied (their digest, under `schema` in `pipeline_state`):
+a start on the same schema takes no lock of a table. A new schema is applied by one process at a
+time, and gives way (`lock_timeout`, then a retry) to a command that holds a table. The store refuses
 a database whose tables this version cannot run on (`SchemaOutdated`: a column of the schema the
 table lacks and the schema does not add itself, or a required column it does not know), and one that does not sort
 strings by the ICU collation `und-u-kf-upper` of `create_database_sql` (`CollationMismatch`): the

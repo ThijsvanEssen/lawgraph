@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.8",
+    "version": "0.80.10",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -33644,7 +33644,7 @@
               }
             ],
             "title": "Tooi",
-            "description": "The TOOI code: ``mnre1045``."
+            "description": "The TOOI code: ``mnre1045``. TOOI lists every ministry since about 2010, so one without a code is a former one, also where no source dates its end."
           },
           "successor": {
             "anyOf": [
@@ -33665,7 +33665,8 @@
                 "type": "null"
               }
             ],
-            "title": "Until"
+            "title": "Until",
+            "description": "The last day of its last period. Null for a current ministry (one with a ``tooi`` code), and for a former one whose end no source dates."
           },
           "periods": {
             "items": {
@@ -33733,7 +33734,7 @@
               }
             ],
             "title": "Tooi",
-            "description": "The TOOI code: ``mnre1045``."
+            "description": "The TOOI code: ``mnre1045``. TOOI lists every ministry since about 2010, so one without a code is a former one, also where no source dates its end."
           },
           "successor": {
             "anyOf": [
@@ -33754,7 +33755,8 @@
                 "type": "null"
               }
             ],
-            "title": "Until"
+            "title": "Until",
+            "description": "The last day of its last period. Null for a current ministry (one with a ``tooi`` code), and for a former one whose end no source dates."
           },
           "periods": {
             "items": {

@@ -116,3 +116,39 @@ def test_a_database_that_cannot_be_created_logs_why(
         store._create_database_if_missing()
     assert "ICU locale missing" in caplog.text
     assert "s3cret" not in caplog.text
+
+
+def test_the_schema_is_applied_again_after_it_gave_way(
+    pools: list[_Pool], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A statement of the schema that waited past its ``lock_timeout`` or deadlocked with a
+    running command: the store waits and applies it again."""
+    failures = [
+        psycopg.errors.LockNotAvailable("lock timeout"),
+        psycopg.errors.DeadlockDetected("deadlock detected"),
+    ]
+    waits: list[float] = []
+
+    def busy(conn: object, **_kw: object) -> None:
+        if failures:
+            raise failures.pop(0)
+
+    monkeypatch.setattr(store, "ensure_schema", busy)
+    monkeypatch.setattr(store, "_sleep", waits.append)
+    monkeypatch.setattr(store, "open_payload_store", lambda *_a, **_kw: object())
+    graph = GraphStore()
+    graph.close()
+    assert waits == list(store.SCHEMA_RETRY_WAITS[:2])
+
+
+def test_a_schema_that_keeps_giving_way_is_lock_not_granted(
+    pools: list[_Pool], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def busy(conn: object, **_kw: object) -> None:
+        raise psycopg.errors.LockNotAvailable("lock timeout")
+
+    monkeypatch.setattr(store, "ensure_schema", busy)
+    monkeypatch.setattr(store, "_sleep", lambda _s: None)
+    with pytest.raises(LockNotGranted, match="Applying the schema"):
+        GraphStore()
+    assert [pool.closed for pool in pools] == [True]

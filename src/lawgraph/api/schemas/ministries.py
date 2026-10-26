@@ -64,9 +64,17 @@ class MinistryDTO(WithPath):
     key: MinistryKey
     name: str
     abbreviation: str | None = None
-    tooi: str | None = Field(None, description="The TOOI code: ``mnre1045``.")
+    tooi: str | None = Field(
+        None,
+        description="The TOOI code: ``mnre1045``. TOOI lists every ministry since about "
+        "2010, so one without a code is a former one, also where no source dates its end.",
+    )
     successor: MinistryKey | None = None
-    until: str | None = None
+    until: str | None = Field(
+        None,
+        description="The last day of its last period. Null for a current ministry (one "
+        "with a ``tooi`` code), and for a former one whose end no source dates.",
+    )
     periods: list[MinistryPeriodDTO] = Field(default_factory=list)
 
     @classmethod

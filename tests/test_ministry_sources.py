@@ -15,11 +15,12 @@ from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.curated import LISTS
 from lawgraph.core.ministries import (
     DATA,
+    MINISTRIES,
     MINISTRY_BY_KEY,
     classify_function,
     current_on,
 )
-from lawgraph.core.ministry_sources import build_ministries, tooi_names
+from lawgraph.core.ministry_sources import build_ministries, page_spans, tooi_names
 from lawgraph.core.rijksoverheid import parse_page
 from tests.paths import FIXTURES, fixture_text
 
@@ -96,6 +97,31 @@ def test_every_succession_and_period_in_the_table_holds() -> None:
         assert None not in ends[:-1], (
             f"{ministry.key}: only the last period may be open"
         )
+
+
+def test_a_ministry_without_a_tooi_code_is_a_former_one() -> None:
+    """TOOI lists every ministry since about 2010: one it does not know has ended, also
+    where no source dates the end (``until`` null); the pages hold no post under it."""
+    spans = page_spans(build_cabinets(_pages(), lambda text: None))
+    former = [m.key for m in MINISTRIES if m.tooi is None]
+    held = [key for key in former if spans[key][1] is None]
+    assert held == [], held
+    undated = {m.key for m in MINISTRIES if m.tooi is None and m.to_date is None}
+    assert undated == {"vene", "owen", "scheepvaart", "ogd", "uor", "or", "zo"}
+    assert {m.key for m in MINISTRIES if m.tooi and m.to_date is None} == {
+        "az",
+        "bz",
+        "jenv",
+        "bzk",
+        "ocw",
+        "fin",
+        "def",
+        "ienw",
+        "ezk",
+        "lvvn",
+        "szw",
+        "vws",
+    }
 
 
 @pytest.mark.parametrize(

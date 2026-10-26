@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
+from lawgraph.core.identifiers import KIND_PROPOSAL
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.models import node_id
 from lawgraph.core.time import dutch_today
@@ -1143,8 +1144,12 @@ def get_instruments_list(
         "article_count": "article_count DESC NULLS LAST, key DESC",
     }[sort]
     # Without a kind, every instrument but the publications (one without a kind too): the
-    # condition of the list's indexes, written out so that every plan can use them.
-    no_publications = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
+    # condition of the list's indexes, written out so that every plan can use them; and no
+    # proposal of the EU, which is no regulation.
+    regulations = (
+        f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
+        f" AND kind IS DISTINCT FROM '{KIND_PROPOSAL}'"
+    )
     conditions = [
         # a treaty of the Verdragenbank whose BWB text is in the graph (``SAME_AS`` into it)
         # is that text, which has the articles: listed once, as the text
@@ -1168,7 +1173,7 @@ def get_instruments_list(
             conditions.append(clause)
     if tokens:
         conditions.append(search)
-    own = {"kind": "kind = %(kind)s" if kind else no_publications}
+    own = {"kind": "kind = %(kind)s" if kind else regulations}
     if legal_area:
         own["legal_area"] = (
             "lg_legal_area_keys(instruments.props) @> ARRAY[%(legal_area)s]::text[]"
@@ -1235,7 +1240,7 @@ def get_instruments_list(
             facet_rows(
                 "kind",
                 "instruments",
-                where([*filters.clauses("kind"), no_publications]),
+                where([*filters.clauses("kind"), regulations]),
             ),
             facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
             facet_rows(

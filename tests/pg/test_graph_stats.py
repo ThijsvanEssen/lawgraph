@@ -81,17 +81,20 @@ def test_an_eu_act_is_of_the_kind_its_celex_letter_names(store: GraphStore) -> N
             _node("32016l0680", "instrument", celex="32016L0680"),
             _node("32016r0679", "instrument", celex="32016R0679"),
             _node("32002f0584", "instrument", celex="32002F0584"),
+            _node("51993pc0476", "instrument", celex="51993PC0476"),
             _node("verdrag", "instrument", treaty_number="010783", kind="Verdrag"),
         ],
     )
     graph_stats.refresh_instruments(store, dry_run=False)
     assert {
         key: _props(store, "instruments", key)["kind"]
-        for key in ("32016l0680", "32016r0679", "32002f0584", "verdrag")
+        for key in ("32016l0680", "32016r0679", "32002f0584", "51993pc0476", "verdrag")
     } == {
         "32016l0680": "richtlijn",
         "32016r0679": "verordening",
         "32002f0584": "kaderbesluit",
+        # a preparatory act of the Commission (sector 5): a proposal, never in force
+        "51993pc0476": "voorstel",
         "verdrag": "verdrag",
     }
     assert graph_stats.refresh_instruments(store, dry_run=True) == 0

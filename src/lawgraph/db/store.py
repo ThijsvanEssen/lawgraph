@@ -168,6 +168,32 @@ def _retry_unreachable[T](what: str, write: Callable[[], T]) -> T:
     return write()
 
 
+# The waits before the schema is applied again, when a statement of it waited past its
+# ``lock_timeout`` or deadlocked with a running command: it gives way to that command.
+SCHEMA_RETRY_WAITS = (2.0, 5.0, 10.0, 20.0)
+_GIVES_WAY = (psycopg.errors.LockNotAvailable, psycopg.errors.DeadlockDetected)
+
+
+def _ensure_schema(conn: psycopg.Connection[Any]) -> None:
+    """``ensure_schema``, tried again after each of ``SCHEMA_RETRY_WAITS``; then
+    ``LockNotGranted``."""
+    for wait in SCHEMA_RETRY_WAITS:
+        try:
+            ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
+            return
+        except _GIVES_WAY as exc:
+            logger.warning(
+                "The schema gave way to a running command (%s); trying again in %.0fs.",
+                type(exc).__name__,
+                wait,
+            )
+            _sleep(wait)
+    try:
+        ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
+    except _GIVES_WAY as exc:
+        raise _not_granted("Applying the schema", exc) from exc
+
+
 def _sleep(seconds: float) -> None:
     time.sleep(seconds)
 
@@ -495,7 +521,7 @@ class GraphStore:
             raise _unavailable(exc) from exc
         try:
             with self.pool.connection() as conn:
-                ensure_schema(conn, allowed_collation=ALLOW_COLLATION)
+                _ensure_schema(conn)
         except BaseException as exc:
             self.pool.close()  # its workers would go on connecting
             if isinstance(exc, psycopg.OperationalError | PoolTimeout):
