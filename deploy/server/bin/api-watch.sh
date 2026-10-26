@@ -3,7 +3,8 @@
 # At the third failure in a row it keeps the evidence (the sessions of the database and a stack dump of every
 # thread, SIGUSR1) in ops/api-hang-<date>-<time>.txt, restarts the API, waits until it answers and alerts. Never
 # while a deploy runs (deploy.yml's tmp/deploying) or while the API started less than 10 minutes ago, never two
-# at once (flock), and at most one restart per 30 minutes: past that it alerts only.
+# at once (flock), and at most one restart per 30 minutes: past that it alerts only. It also alerts, at most once
+# per 6 hours, when / or /srv/lawgraph is fuller than 85 %.
 DIR=/srv/lawgraph
 STATE=$DIR/tmp/api-watch
 OUT_DIR=$DIR/ops
@@ -17,6 +18,15 @@ flock -n 9 || exit 0
 now=$(date +%s)
 age() { echo $((now - $(stat -c %Y "$1"))); }
 alert() { "$DIR/bin/alert.sh" "API health: $1" || true; }
+
+for mount in / "$DIR"; do
+  used=$(df --output=pcent "$mount" | tail -1 | tr -dc 0-9)
+  mark=$STATE/disk-$(echo "$mount" | tr / _)
+  if [ "$used" -gt 85 ] && { [ ! -e "$mark" ] || [ "$(age "$mark")" -gt 21600 ]; }; then
+    touch "$mark"
+    "$DIR/bin/alert.sh" "Schijf $mount: waarschuwing, $used% vol [actie]" || true
+  fi
+done
 
 # a deploy changes the API (a marker older than an hour is one a killed deploy left)
 if [ -e "$DIR/tmp/deploying" ] && [ "$(age "$DIR/tmp/deploying")" -lt 3600 ]; then
