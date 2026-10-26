@@ -103,7 +103,9 @@ jobs:
             waited=$((waited + 1))
           done
           [ "$waited" -eq 0 ] || echo "[deploy] took $LOCK after waiting ${waited} s"
-          trap 'rmdir "$LOCK"' EXIT
+          # the watch of the API (deploy/server/bin/api-watch.sh) leaves the API alone meanwhile
+          touch "$DEPLOY_DIR/tmp/deploying"
+          trap 'rm -f "$DEPLOY_DIR/tmp/deploying"; rmdir "$LOCK"' EXIT
           cd "$DEPLOY_DIR/app"
           # the tags too: a bootstrap records `git describe` of the checkout
           git fetch --quiet --tags origin
@@ -198,7 +200,9 @@ jobs:
             waited=$((waited + 1))
           done
           [ "$waited" -eq 0 ] || echo "[rollback] took $LOCK after waiting ${waited} s"
-          trap 'rmdir "$LOCK"' EXIT
+          # the watch of the API (deploy/server/bin/api-watch.sh) leaves the API alone meanwhile
+          touch "$DEPLOY_DIR/tmp/deploying"
+          trap 'rm -f "$DEPLOY_DIR/tmp/deploying"; rmdir "$LOCK"' EXIT
           git checkout --quiet --detach "$prev"
           # the lock of the previous commit; a commit from before uv.lock installs its ranges
           if [ -f uv.lock ]; then

@@ -49,31 +49,21 @@ def national_measures(store: Store) -> Iterator[Any]:
     )
 
 
-# The pairs of both, every pair once where it first occurs: the regulations by key, then the
-# pairs of the versions, sorted.
+# The regulations each publication enacted, every pair once, by key. A regulation a
+# publication merely changed is not one: an amending act names no regulation that implements.
 _REGULATIONS_OF_PUBLICATIONS_SQL = """
-WITH pairs AS (
-    SELECT lg_str(r.props -> 'enacted_publication') AS publication, r.bwb_id,
-           1 AS part, row_number() OVER (ORDER BY r.key) AS n
-    FROM instruments r
-    WHERE lg_str(r.props -> 'source') = %(source)s
-      AND lg_str(r.props -> 'enacted_publication') = ANY(%(publications)s)
-    UNION ALL
-    SELECT publication, bwb_id, 2 AS part,
-           row_number() OVER (ORDER BY publication NULLS FIRST, bwb_id NULLS FIRST) AS n
+SELECT json_build_array(publication, bwb_id)
+FROM (
+    SELECT DISTINCT ON (publication, bwb_id) publication, bwb_id, key
     FROM (
-        SELECT DISTINCT lg_str(v.props -> 'origin_publication' -> 'id') AS publication,
-               v.bwb_id
-        FROM article_versions v
-        WHERE lg_str(v.props -> 'origin_publication' -> 'id') = ANY(%(publications)s)
-    ) collected
-),
-first_pairs AS (
-    SELECT DISTINCT ON (publication, bwb_id) publication, bwb_id, part, n
-    FROM pairs
-    ORDER BY publication, bwb_id, part, n
-)
-SELECT json_build_array(publication, bwb_id) FROM first_pairs ORDER BY part, n
+        SELECT lg_str(r.props -> 'enacted_publication') AS publication, r.bwb_id, r.key
+        FROM instruments r
+        WHERE lg_str(r.props -> 'source') = %(source)s
+          AND lg_str(r.props -> 'enacted_publication') = ANY(%(publications)s)
+    ) enacted
+    ORDER BY publication, bwb_id, key
+) pairs
+ORDER BY key
 """
 
 
@@ -81,7 +71,7 @@ def regulations_of_publications(
     store: Store, publications: list[str]
 ) -> Iterator[list[str]]:
     """``[publication id, bwb_id]`` for every regulation one of *publications* enacted
-    (``props.enacted_publication``) or made a version of an article of (its origin)."""
+    (``props.enacted_publication``)."""
     return store.query(
         _REGULATIONS_OF_PUBLICATIONS_SQL,
         {"source": SOURCE_BWB, "publications": publications},

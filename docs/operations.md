@@ -490,6 +490,7 @@ Runs:
 | `Nacht <script>` | a night backfill of `ops/` (`_night.sh`) |
 | `Ops <script>` | the steps of an ops script (`_steps.sh`) |
 | `Deploy <versie>` | the rollback of a deploy |
+| `API health` | the watch of the API (`deploy/server/bin/api-watch.sh`) |
 
 Outcomes:
 
@@ -499,6 +500,7 @@ Outcomes:
 | `bron-weg` | a source refused us; the rest went on |
 | `overgeslagen` | not run, another run held the lock (`3x`: the run, so often in a row) |
 | `vast` | a step in slices went no further |
+| `herstart` | the API was restarted and answers again |
 
 Causes:
 
@@ -521,6 +523,7 @@ Causes:
 | `server-ongewijzigd` | the deploy failed before it changed the server |
 | `teruggezet` | the deploy failed; the previous version runs again |
 | `terugzetten-faalt` | the deploy failed and the previous version does not answer |
+| `geen-antwoord` | `/api/health` failed 3 times in a row |
 
 Follow-ups:
 
@@ -607,6 +610,18 @@ The server's own config is kept in `deploy/server/`: the systemd units and timer
 Caddy, and `alert.sh`. The ops actions `config-check` (read only: the diff against the live files,
 `systemd-analyze verify`, `caddy validate`) and `config-apply` (the same, then only what changed, installed and
 reloaded) keep the server and the repo the same; `deploy/server/README.md` has the details.
+
+## Uptime
+
+Nothing that keeps the site up needs a Claude session or a personal key:
+
+- `.github/workflows/uptime.yml` checks `/`, `/api/health` and `/sitemap.xml` from outside every 5 minutes. A failed
+  run is red (GitHub mails it); with the secret `NTFY_TOPIC` (the topic of `/srv/lawgraph/ntfy-topic`) it also
+  pushes once when the site goes down and once when it is back.
+- The API watch on the server (`lawgraph-api-watch.timer`, `deploy/server/bin/api-watch.sh`) restarts a hung API
+  itself, after keeping the evidence.
+- By hand, when both fail: `gh workflow run ops -f action=status`, then
+  `gh workflow run ops -f action=run -f name=restart-api`, then `status` again.
 
 ## Observability
 

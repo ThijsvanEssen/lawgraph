@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -56,10 +56,15 @@ class NamedActs:
     (``core.aliases.code_aliases``: the short title, the WTI abbreviations, the curated ones),
     matched as written: "EVRM" is the Convention, "evrm" nothing. An abbreviation that is
     the law of an article citation ("art. 8 EVRM") belongs to that citation, which cites the
-    article; only one that stands alone names the law."""
+    article; only one that stands alone names the law, and not one that is also what a
+    faction is called (*actors*: "VVD" in "Bosman (VVD)" is the party, not the
+    Warenwetregeling Vrijstelling vitamine D)."""
 
     def __init__(
-        self, aliases: InstrumentAliasMap, codes: Mapping[str, str] | None = None
+        self,
+        aliases: InstrumentAliasMap,
+        codes: Mapping[str, str] | None = None,
+        actors: Collection[str] = (),
     ) -> None:
         self._targets = [
             (bwb_id, celex) for bwb_id, celex in aliases.values() if bwb_id or celex
@@ -67,7 +72,9 @@ class NamedActs:
         self._matcher = AliasMatcher(
             label for label, (bwb_id, celex) in aliases.items() if bwb_id or celex
         )
-        self._codes = dict(codes or {})
+        self._codes = {
+            code: law for code, law in (codes or {}).items() if code not in actors
+        }
         self._code_re = word_alternation(
             self._codes, before=r"(?<![\w-])", after=r"(?![\w-])", flags=0
         )
@@ -177,7 +184,11 @@ class TKSemanticPipeline(SemanticPipelineBase):
             )
 
         extractor = build_extractor(code_aliases, instrument_aliases)
-        named_acts = NamedActs(instrument_aliases, code_aliases)
+        named_acts = NamedActs(
+            instrument_aliases,
+            code_aliases,
+            semantic_tk.faction_abbreviations(self.store),
+        )
         self._dossier_laws = DossierLaws(law_queries.laws_of_dossiers(self.store))
 
         logger.info(

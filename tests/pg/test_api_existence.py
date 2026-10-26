@@ -21,6 +21,7 @@ from lawgraph.api.middleware import VERSION_WAIT
 from lawgraph.config.constants import COLLECTION_ARTICLES
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore
+from lawgraph.db.store import PING_WAIT
 from tests.asserts import assert_status
 
 BW7 = "BWBR0005290"
@@ -99,3 +100,23 @@ def test_a_health_check_waiting_for_the_pool_holds_up_no_other_request(
         f"the root waited {took:.1f} s for the health check"
     )
     assert_status(health, 200)
+
+
+def test_a_health_check_answers_within_its_wait_when_the_pool_stays_held(
+    client: TestClient, store: GraphStore
+) -> None:
+    """While every connection stays held, the health check says so within ``PING_WAIT``,
+    not after the deadline of the request (23 Oct 19:50 UTC: 30 s per check, so a watch
+    of it saw a timeout, not the 503)."""
+    # the data version of the cache headers known, as it is after the first request
+    assert_status(client.get("/"), 200)
+    held = [store.pool.getconn() for _ in range(store.pool.get_stats()["pool_size"])]
+    try:
+        began = time.monotonic()
+        health = client.get("/api/health")
+        took = time.monotonic() - began
+    finally:
+        for conn in held:
+            store.pool.putconn(conn)
+    assert_status(health, 503)
+    assert took < PING_WAIT + 1, f"the health check took {took:.1f} s"

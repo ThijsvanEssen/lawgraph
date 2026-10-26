@@ -1,0 +1,63 @@
+name: uptime
+
+# The site watched from outside the server: every 5 minutes the home page, /api/health and one page that reads
+# the database, each with two tries. A failing run is red in Actions (GitHub mails a failed scheduled run) and,
+# when the secret NTFY_TOPIC is set, sends one push per outage: only when the run before this one was green.
+# Nothing here needs a Claude session or a personal key.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check the site
+        id: check
+        run: |
+          failed=""
+          for url in https://concordans.nl/ https://concordans.nl/api/health https://concordans.nl/sitemap.xml; do
+            code=000
+            for try in 1 2; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "$url") || true
+              [ "$code" = 200 ] && break
+              sleep 15
+            done
+            echo "$url $code"
+            [ "$code" = 200 ] || failed="$failed ${url#https://concordans.nl} http-$code"
+          done
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          [ -z "$failed" ]
+
+      - name: Push once per outage
+        if: failure() && steps.check.outputs.failed != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FAILED: ${{ steps.check.outputs.failed }}
+        run: |
+          [ -n "$NTFY_TOPIC" ] || { echo "no NTFY_TOPIC secret; the red run is the alert"; exit 0; }
+          before=$(gh run list -R "$GITHUB_REPOSITORY" --workflow uptime --limit 2 --json conclusion -q '.[1].conclusion')
+          [ "$before" = failure ] && { echo "already alerted for this outage"; exit 0; }
+          curl -s -H "Priority: high" -d "Uptime concordans.nl: mislukt,$FAILED [actie]" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null
+
+      - name: Push when it is back
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          [ -n "$NTFY_TOPIC" ] || exit 0
+          before=$(gh run list -R "$GITHUB_REPOSITORY" --workflow uptime --limit 2 --json conclusion -q '.[1].conclusion')
+          [ "$before" = failure ] || exit 0
+          curl -s -d "Uptime concordans.nl: hersteld" "https://ntfy.sh/$NTFY_TOPIC" > /dev/null

@@ -42,6 +42,17 @@ def reset_read_deadline(token: contextvars.Token[float | None]) -> None:
     _deadline.reset(token)
 
 
+def read_deadline() -> float | None:
+    """When the reads of the current request must end (on the clock of ``seconds_past``);
+    None outside a request."""
+    return _deadline.get()
+
+
+def seconds_past(deadline: float) -> float:
+    """How long ago *deadline* passed; negative while it lies ahead."""
+    return _now() - deadline
+
+
 # Whether the reads of the current context are computed in the background (the API's warm-up
 # and kept answers, ``in_background``): they take a connection of the store's background
 # pool, not one of the requests.
