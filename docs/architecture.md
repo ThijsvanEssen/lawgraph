@@ -222,7 +222,11 @@ model of its relation has (`core/relations.py`), and leaves `created_at` and eve
 alone. An update writes the keys of `props` and `meta` in alphabetical order (`lg_update`). The API therefore serves them in one order, whichever step wrote them.
 
 `GraphStore.query` streams every read on a server-side cursor, a batch of rows at a time, and
-gives its connection back to the pool when the reader stops. Each statement has a ceiling:
+gives its connection back to the pool when the reader stops; a result smaller than one batch
+gives it back before its first row, so a reader holding it needs no second connection. A read
+of an API request that its reader holds 30 s past the request's deadline is taken back
+(its connection closed and replaced), and the server ends its transaction then too
+(`idle_in_transaction_session_timeout`). Each statement has a ceiling:
 `LAWGRAPH_READ_TIMEOUT_MS` for a batch of a read, `LAWGRAPH_WRITE_TIMEOUT_MS` for a write
 (`docs/operations.md`). A statement that would find its rows across a whole table reads them
 first and writes them in chunks (`db/queries/_chunks.py`). A write is sent again (after 2, 10

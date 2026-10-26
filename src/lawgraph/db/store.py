@@ -63,7 +63,9 @@ from lawgraph.db.request_context import (
     RequestCancelled,
     current_cancellation,
     read_budget_ms,
+    read_deadline,
     reads_in_background,
+    seconds_past,
 )
 
 # db/queries still imports these two through the store, until its packages switch over.
@@ -253,36 +255,82 @@ _open_cursors: dict[str, str] = {}
 _CURSOR_NAME = re.compile(r'FROM "?(lg_[0-9a-f]{32})"?')
 
 
+# How long a read of a request may hold its connection past the deadline of its request
+# before ``_reap_overdue`` takes it back (``LAWGRAPH_API_REQUEST_TIMEOUT_MS`` and this, in all).
+OVERDUE_SECONDS = 30.0
+
+
 class _Read:
     """One streamed read (``GraphStore.query``): the connection it took of its pool, its
-    cursor, and the request it reads for."""
+    cursor, the request it reads for and that request's deadline (None outside one)."""
 
     def __init__(
         self,
         pool: ConnectionPool,
         conn: psycopg.Connection[Any],
         cancellation: Cancellation | None,
+        deadline: float | None,
     ) -> None:
         self.pool = pool
         self.conn = conn
         self.cancellation = cancellation
+        self.deadline = deadline
         self.name = f"lg_{uuid.uuid4().hex}"
         self.cursor: psycopg.ServerCursor[Any] | None = None
+        self.statement = ""
+        # whether it ended: by its reader, by ``_releaser``, or taken back (``reap``)
+        self._ended = False
+        self._ending = threading.Lock()
+        self.reaped = False
+        if deadline is not None:
+            _request_reads[self.name] = self
 
     def open_cursor(self, statement: str) -> psycopg.ServerCursor[Any]:
         self.cursor = self.conn.cursor(name=self.name, row_factory=_rows)
+        self.statement = statement
         _open_cursors[self.name] = statement
         return self.cursor
+
+    def _claim(self) -> bool:
+        """Whether the caller ends it: the first of its reader and ``reap`` does."""
+        with self._ending:
+            ended, self._ended = self._ended, True
+        return not ended
 
     def end(self) -> None:
         """Close its cursor and give its connection back: the pool ends its transaction.
         Out of its request first, so no cancel of the request reaches the next read on
-        it."""
+        it. Nothing when it ended already (``reap``)."""
+        if not self._claim():
+            return
         try:
             if self.cursor is not None:
                 with contextlib.suppress(psycopg.Error):
                     self.cursor.close()
+        finally:
+            self._give_back()
+
+    def reap(self) -> bool:
+        """Take back the connection of a read its reader holds and no longer reads (no
+        fetch of it runs now): closed, so the pool opens a new one in its place and the
+        reader's next fetch fails, never reading on a connection given to another. False
+        while a fetch runs (it ends at its ``statement_timeout``) or when it ended."""
+        if not self.conn.lock.acquire(blocking=False):
+            return False
+        try:
+            if not self._claim():
+                return False
+            self.reaped = True
+            self.conn.close()
+        finally:
+            self.conn.lock.release()
+        self._give_back()
+        return True
+
+    def _give_back(self) -> None:
+        try:
             _open_cursors.pop(self.name, None)
+            _request_reads.pop(self.name, None)
             if self.cancellation is not None:
                 self.cancellation.end(self.conn)
         finally:
@@ -298,6 +346,13 @@ def _named_error(exc: psycopg.Error) -> Exception | None:
         return _unavailable(exc)
     return None
 
+
+# How long a health check waits for a connection of the pool (``GraphStore.ping``).
+PING_WAIT = 5.0
+
+# The reads of requests not yet ended, by the name of their cursor: ``_reap_overdue`` takes back
+# the connection of one held past its request's deadline.
+_request_reads: dict[str, _Read] = {}
 
 # The reads their readers left before the last row, for ``_releaser`` to end.
 _abandoned: queue.SimpleQueue[_Read] = queue.SimpleQueue()
@@ -329,13 +384,39 @@ def _start_releaser() -> None:
             _releaser.start()
 
 
+# How often ``_releaser`` looks for reads held past their request's deadline.
+_REAP_EVERY = 1.0
+
+
 def _end_abandoned() -> None:
     while True:
-        read = _abandoned.get()
+        with contextlib.suppress(queue.Empty):
+            read = _abandoned.get(timeout=_REAP_EVERY)
+            try:
+                read.end()
+            except Exception as exc:  # noqa: BLE001 — the next read is ended all the same
+                logger.warning("A read left before its end was not ended: %s", exc)
         try:
-            read.end()
-        except Exception as exc:  # noqa: BLE001 — the next read is ended all the same
-            logger.warning("A read left before its end was not ended: %s", exc)
+            _reap_overdue()
+        except Exception as exc:  # noqa: BLE001 — the releaser goes on
+            logger.warning("A read held past its deadline was not taken back: %s", exc)
+
+
+def _reap_overdue() -> None:
+    """Take back the connection of every read of a request that its reader holds
+    ``OVERDUE_SECONDS`` past the request's deadline: a reader that stopped without ending
+    it (a thread that waits, a stream no one closes) would keep it idle in a transaction
+    for ever, and eight of them drain the pool (23 Oct 19:50 UTC)."""
+    for read in list(_request_reads.values()):
+        if read.deadline is None or seconds_past(read.deadline) < OVERDUE_SECONDS:
+            continue
+        if read.reap():
+            logger.warning(
+                "A read of a request was held %.0f s past its deadline; its connection "
+                "was taken back: %s",
+                seconds_past(read.deadline),
+                read.statement,
+            )
 
 
 def own_activity(min_seconds: float) -> list[dict[str, Any]]:
@@ -486,10 +567,12 @@ class GraphStore:
 
     def ping(self) -> None:
         """``DatabaseUnavailable`` when the database cannot be reached, or no connection
-        of the pool comes free within what the request has left."""
+        of the pool comes free within ``PING_WAIT`` (or what the request has left): a
+        health check answers at once, also when every connection is held."""
         left = read_time_left()
+        wait = PING_WAIT if left is None else min(PING_WAIT, left)
         try:
-            with self.pool.connection(timeout=left) as conn:
+            with self.pool.connection(timeout=wait) as conn:
                 conn.execute("SELECT 1")
         except (psycopg.OperationalError, PoolTimeout) as exc:
             raise _unavailable(exc) from exc
@@ -604,9 +687,11 @@ class GraphStore:
         A row is the value of the one column a query selects (a document, a count, a key),
         or a dict of its columns. A read runs on a server-side cursor, so ``batch_size``
         rows are in flight however large the result (41,000 BWB toestanden of 80 KB are
-        3 GB); its connection is held until the reader stops, however it stops (one left
-        before its last row is given back on a thread of its own, ``_abandon``). A statement
-        that writes runs to the end at once (``execute``).
+        3 GB). A result of fewer than ``batch_size`` rows gives its connection back before
+        its first row; a larger one holds it until the reader stops, however it stops (one
+        left before its last row is given back on a thread of its own, ``_abandon``; one a
+        request holds ``OVERDUE_SECONDS`` past its deadline is taken back,
+        ``_reap_overdue``). A statement that writes runs to the end at once (``execute``).
 
         ``indexes_only`` keeps the planner from reading a whole table where an index can
         find the rows (``SET LOCAL enable_seqscan = off``, for this statement's transaction
@@ -660,7 +745,7 @@ class GraphStore:
             if (named := _named_error(exc)) is None:
                 raise
             raise named from exc
-        read = _Read(pool, conn, current_cancellation())
+        read = _Read(pool, conn, current_cancellation(), read_deadline())
         try:
             yield from self._read(read, statement, params, batch_size, budget, brakes)
         except GeneratorExit:
@@ -668,6 +753,11 @@ class GraphStore:
             raise
         except psycopg.Error as exc:
             read.end()
+            if read.reaped:
+                raise ReadTimedOut(
+                    "A read was held past the deadline of its request; its connection "
+                    "was taken back."
+                ) from exc
             if (named := _named_error(exc)) is None:
                 raise
             raise named from exc
@@ -691,6 +781,11 @@ class GraphStore:
         # a ceiling for each statement (the DECLARE, every FETCH), not for the stream; in
         # a request of the API no more than the request has left
         conn.execute(f"SET LOCAL statement_timeout = {budget}")
+        if read.deadline is not None:
+            # a read of a request whose reader stops holds no transaction (and its locks)
+            # on the server past its deadline either, whatever the process does
+            idle = budget + int(OVERDUE_SECONDS * 1000)
+            conn.execute(f"SET LOCAL idle_in_transaction_session_timeout = {idle}")
         indexes_only, hash_joins, index_order = brakes
         if indexes_only:
             # The planner prices detoasting at nothing (see ``query``).
@@ -703,13 +798,20 @@ class GraphStore:
             conn.execute("SET LOCAL enable_bitmapscan = off")
         text = re.sub(r"\s+", " ", statement_text(statement)).strip()
         cursor = read.open_cursor(text[:300])
-        cursor.itersize = batch_size
         try:
             cursor.execute(_query(statement), params)
-            # not ``yield from``: that closes the cursor, on the server, when the reader
-            # leaves; ``_abandon`` does that on a thread of its own
-            for row in cursor:  # noqa: UP028
-                yield row
+            while True:
+                rows = cursor.fetchmany(batch_size)
+                if len(rows) < batch_size:
+                    # every row is here: the connection goes back before the reader sees
+                    # one, so a reader that holds the read and reads again (the one row of
+                    # ``next(iter(rows))``, then the nodes it names) needs one connection,
+                    # not two (23 Oct 19:50 UTC: requests that each held one and waited
+                    # for a second drained the pool)
+                    read.end()
+                    yield from rows
+                    return
+                yield from rows
         except psycopg.errors.QueryCanceled as exc:
             if read.cancellation is not None and read.cancellation.cancelled:
                 raise RequestCancelled(
