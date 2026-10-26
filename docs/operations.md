@@ -490,6 +490,7 @@ Runs:
 | `Nacht <script>` | a night backfill of `ops/` (`_night.sh`) |
 | `Ops <script>` | the steps of an ops script (`_steps.sh`) |
 | `Deploy <versie>` | the rollback of a deploy |
+| `API health` | the watch of the API (`deploy/server/bin/api-watch.sh`) |
 
 Outcomes:
 
@@ -499,6 +500,7 @@ Outcomes:
 | `bron-weg` | a source refused us; the rest went on |
 | `overgeslagen` | not run, another run held the lock (`3x`: the run, so often in a row) |
 | `vast` | a step in slices went no further |
+| `herstart` | the API was restarted and answers again |
 
 Causes:
 
@@ -521,6 +523,7 @@ Causes:
 | `server-ongewijzigd` | the deploy failed before it changed the server |
 | `teruggezet` | the deploy failed; the previous version runs again |
 | `terugzetten-faalt` | the deploy failed and the previous version does not answer |
+| `geen-antwoord` | `/api/health` failed 3 times in a row |
 
 Follow-ups:
 

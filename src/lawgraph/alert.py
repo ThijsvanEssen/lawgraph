@@ -48,6 +48,7 @@ OUTCOMES: dict[str, str] = {
     "bron-weg": "a source refused us; the rest went on",
     "overgeslagen": "not run, another run held the lock (`3x`: the run, so often in a row)",
     "vast": "a step in slices went no further",
+    "herstart": "the API was restarted and answers again",
 }
 
 # The causes besides those of KNOWN_FAILURES; ``<…>`` is filled in.
@@ -63,6 +64,7 @@ CAUSES: dict[str, str] = {
     "server-ongewijzigd": "the deploy failed before it changed the server",
     "teruggezet": "the deploy failed; the previous version runs again",
     "terugzetten-faalt": "the deploy failed and the previous version does not answer",
+    "geen-antwoord": "`/api/health` failed 3 times in a row",
 }
 
 FOLLOW_UPS: dict[str, str] = {

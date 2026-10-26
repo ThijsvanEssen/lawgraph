@@ -188,7 +188,7 @@ def _table(heading: str) -> set[str]:
 
 
 def test_every_run_is_in_the_docs() -> None:
-    assert {*alert.RUNS.values(), "Deploy <versie>"} == _table("Runs:")
+    assert {*alert.RUNS.values(), "Deploy <versie>", "API health"} == _table("Runs:")
 
 
 def test_every_outcome_is_in_the_docs() -> None:
@@ -215,4 +215,14 @@ def test_the_deploy_alerts_have_the_form_and_the_codes_of_the_tables() -> None:
     for outcome, cause, follow_up in said:
         assert outcome in alert.OUTCOMES
         assert cause in {*alert.CAUSES, *known}
+        assert follow_up in alert.FOLLOW_UPS
+
+
+def test_the_alerts_of_the_api_watch_have_the_codes_of_the_tables() -> None:
+    script = (ROOT / "deploy" / "server" / "bin" / "api-watch.sh").read_text()
+    said = re.findall(r'alert "([\w-]+), ([\w-]+) \[(\w+)\]"', script)
+    assert len(said) == 3
+    for outcome, cause, follow_up in said:
+        assert outcome in alert.OUTCOMES
+        assert cause in alert.CAUSES
         assert follow_up in alert.FOLLOW_UPS

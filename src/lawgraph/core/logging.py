@@ -221,6 +221,17 @@ def setup_logging() -> None:
     # says it once per retry (db/store.py) and the step ends with the error.
     logging.getLogger("urllib3").setLevel(logging.ERROR)
     logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("psycopg.pool").addFilter(_routine_rollback_as_debug)
+
+
+def _routine_rollback_as_debug(record: logging.LogRecord) -> bool:
+    """The pool says ``rolling back returned connection`` as a warning for every read given
+    back in its transaction (the store reads in one): a thousand lines a minute that bury
+    the warnings of the API. A debug line, kept only when the log level asks for it."""
+    if not record.getMessage().startswith("rolling back returned connection"):
+        return True
+    record.levelno, record.levelname = logging.DEBUG, "DEBUG"
+    return logging.getLogger().isEnabledFor(logging.DEBUG)
 
 
 def _clear_before_a_traceback(live: LiveStatusHandler) -> None:

@@ -5,20 +5,21 @@
 #                    units, and caddy validate plus caddy adapt of the live Caddyfile with the concordans.nl
 #                    block from here, against the live one (the same JSON: nothing changes for the site)
 #   apply.sh apply   check, and only when every check passed: the changed files installed, daemon-reload,
-#                    the changed timers restarted, a new timer enabled, and caddy reloaded when its block changed
+#                    the changed timers restarted, a new timer enabled, the scripts of bin/ in /srv/lawgraph/bin,
+#                    and caddy reloaded when its block changed
 # Stops at the first error. Files on the server that are not here (a drop-in by hand) are named, not touched.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 UNITS=/etc/systemd/system
 CADDYFILE=/etc/caddy/Caddyfile
 SNIPPET=/etc/caddy/concordans.caddy
-ALERT=/srv/lawgraph/bin/alert.sh
+BIN=/srv/lawgraph/bin
 TMP=$(mktemp -d)
 trap 'rm -r "$TMP"' EXIT
 mode=${1:-check}
 changed_units=""
 changed_caddy=0
-changed_alert=0
+changed_bin=""
 failed=0
 
 note() { echo "== $*"; }
@@ -97,14 +98,21 @@ check_caddy() {
   grep -q "^import $SNIPPET\$" "$CADDYFILE" || note "the live Caddyfile has the block inline, not 'import $SNIPPET'"
 }
 
-check_alert() {
-  diff -u "$ALERT" "$HERE/bin/alert.sh" || changed_alert=1
+check_bin() {
+  for f in "$HERE"/bin/*; do
+    name=$(basename "$f")
+    if [ ! -e "$BIN/$name" ]; then
+      note "new: bin/$name"; changed_bin="$changed_bin $name"
+    elif ! diff -u "$BIN/$name" "$f"; then
+      changed_bin="$changed_bin $name"
+    fi
+  done
 }
 
 check_units
 check_caddy
-check_alert
-[ -n "$changed_units" ] || [ "$changed_caddy" -eq 1 ] || [ "$changed_alert" -eq 1 ] || note "no changes: the server is as here"
+check_bin
+[ -n "$changed_units" ] || [ "$changed_caddy" -eq 1 ] || [ -n "$changed_bin" ] || note "no changes: the server is as here"
 [ "$failed" -eq 0 ] || { echo "!! a check failed; nothing applied"; exit 1; }
 [ "$mode" = apply ] || { note "check done${changed_units:+, units to change:$changed_units}"; exit 0; }
 
@@ -114,6 +122,10 @@ if [ "$changed_caddy" -eq 1 ] && ! grep -q "^import $SNIPPET\$" "$CADDYFILE"; th
   exit 1
 fi
 set -e
+for name in $changed_bin; do
+  install -m 755 "$HERE/bin/$name" "$BIN/$name"
+  note "installed bin/$name"
+done
 for name in $changed_units; do
   sudo -n install -m 644 "$HERE/systemd/$name" "$UNITS/$name"
   note "installed $name"
@@ -131,10 +143,6 @@ if [ -n "$changed_units" ]; then
         ;;
     esac
   done
-fi
-if [ "$changed_alert" -eq 1 ]; then
-  install -m 755 "$HERE/bin/alert.sh" "$ALERT"
-  note "installed alert.sh"
 fi
 if [ "$changed_caddy" -eq 1 ]; then
   sudo -n cp "$SNIPPET" "$SNIPPET.bak-$(date -u +%Y%m%d%H%M%S)"
