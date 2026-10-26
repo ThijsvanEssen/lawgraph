@@ -582,7 +582,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
 | `aliases` | `list[str]` | Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW". |
 | `jurisdiction` | `str` | `nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank). |
-| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic graph-list-stats`. |
+| `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; an EU act by its CELEX number (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`; a proposal, sector 5, `voorstel`); lower-cased by `semantic graph-list-stats`. |
 | `lang` | `str` | Of an EU act: the language its text was read in. |
 | `meta` | `object` | Of an EU act: the `meta` of its raw record. |
 | `external_id` | `str` | Of a Verdragenbank treaty: its id in the register. |
