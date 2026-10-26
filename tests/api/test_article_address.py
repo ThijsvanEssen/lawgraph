@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 from types import SimpleNamespace
 from typing import Any
 
@@ -35,6 +35,10 @@ class _Store(FakeStoreBase):
 
     def has_node(self, collection: str, key: str) -> bool:
         return self.get_document(collection, key) is not None
+
+    def query(self, statement: Any, params: Any = None, **_: Any) -> Iterator[int]:
+        """The citation count of the article (``citation_count``): one citation."""
+        return iter([1] if params["key"] == ARTICLE["key"] else [])
 
 
 @pytest.fixture

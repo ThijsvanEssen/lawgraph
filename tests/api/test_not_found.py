@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -65,6 +66,9 @@ class _EmptyStore:
 
     def has_node(self, collection: str, key: str) -> bool:
         return False
+
+    def query(self, statement: Any, params: Any = None, **_: Any) -> Iterator[int]:
+        return iter(())
 
 
 # the queries that answer None for what is not there

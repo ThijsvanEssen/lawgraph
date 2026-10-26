@@ -7,11 +7,14 @@ from __future__ import annotations
 import time
 
 import pytest
+from fastapi.testclient import TestClient
 
 from lawgraph.api import warm
+from lawgraph.api.app import app
+from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes.factions import faction_dossiers
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries.articles import get_article_cited_by
+from lawgraph.db.queries.articles import citation_count
 from tests.pg.plans import pool_busy, recorded
 
 ARTICLE = "articles/bwbr0005416_146"
@@ -42,11 +45,26 @@ def test_a_rarely_cited_article_does_not_wait_for_the_workers_of_the_cache(
     warm-up (``pool_busy``) does not hold the request (it waited 7 s on prod)."""
     _seed_citation(store)
     version_cache.clear()
-    with pool_busy():
-        began = time.monotonic()
-        cited_by = get_article_cited_by(store, ARTICLE, tiers=("hoge_raad",), limit=1)
-        assert time.monotonic() - began < 5
-    assert cited_by.total == 1 and cited_by.facets["tier"][0]["value"] == "hoge_raad"
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        with pool_busy():
+            began = time.monotonic()
+            response = TestClient(app).get(
+                "/api/articles/BWBR0005416/146/cited-by",
+                params={"tier": "hoge_raad", "limit": 1},
+            )
+            assert time.monotonic() - began < 5
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] == 1 and body["facets"]["tier"][0]["value"] == "hoge_raad"
+
+
+def test_an_unknown_article_has_no_passages(store: GraphStore) -> None:
+    assert citation_count(store, "bwbr0005416_146") is None
+    _seed_citation(store)
+    assert citation_count(store, "bwbr0005416_146") == 1
 
 
 def test_the_warm_up_keeps_the_dossiers_of_each_faction_of_today(
