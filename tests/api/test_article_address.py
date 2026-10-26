@@ -70,6 +70,10 @@ def calls(monkeypatch) -> Generator[list[tuple[str, tuple[Any, ...]]]]:
             article=ARTICLE, versions=[{"key": "v1", "props": {}}], dossier_titles={}
         ),
     )
+    monkeypatch.setattr(
+        "lawgraph.api.routes.articles.citation_count",
+        lambda store, key: 1 if key == ARTICLE["key"] else None,
+    )
     stub("get_article_legislative_history", [])
     stub("get_article_explanations", {"total": 0, "items": []})
     stub("get_article_explanation_passages", [])

@@ -1,8 +1,8 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
-statistics of the search, the pages of the newest cabinets and the first page of the
-judgments of the largest areas of law. Off with
+statistics of the search, the pages of the newest cabinets, the dossiers of the active
+factions and the first page of the judgments of the largest areas of law. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
@@ -16,11 +16,13 @@ from functools import partial
 from typing import Any
 
 from lawgraph.api.list_totals import list_totals
+from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -33,7 +35,11 @@ from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
-from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
+from lawgraph.db.queries.articles import (
+    CITED_BY_INLINE_BELOW,
+    get_article_cited_by,
+    most_cited_articles,
+)
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.delegations import (
@@ -45,6 +51,7 @@ from lawgraph.db.queries.delegations import (
 )
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.factions import get_factions
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.instruments import (
@@ -146,7 +153,7 @@ def _warm_law_judgments(store: GraphStore) -> None:
 # cited first, the homepage's network the most cited few. A page the front end does not
 # ask is never read from what was warmed (a page of 50 was warmed while Verbonden asked
 # 200: ~10 s cold for 6:162 BW on 10 Oct).
-WARM_ARTICLE_CITATIONS = 1500
+WARM_ARTICLE_CITATIONS = CITED_BY_INLINE_BELOW
 
 
 def _warm_articles(store: GraphStore) -> None:
@@ -180,6 +187,18 @@ def _warm_delegated(store: GraphStore) -> None:
     for bwb_id in most_cited_laws(store, WARM_LAWS):
         get_delegated_by_law(store, bwb_id, "in_force", True)
         count_expired_delegated(store, bwb_id)
+
+
+# The dossiers of the factions of the Tweede Kamer that sit or sat recently, as the explorer
+# asks them (Verbonden of a faction: the first 100, newest opened first): each reads every
+# paper every member of the faction signed (6 s for the VVD cold on prod, 26 Oct). The page
+# is the one Verbonden asks (``DOSSIERS_SHOWN``), in the order the route defaults to.
+FACTION_DOSSIERS_LIMIT = 100
+
+
+def _warm_faction_dossiers(store: GraphStore) -> None:
+    for faction in get_factions(store, active=True):
+        faction_dossiers(store, faction["id"], FACTION_DOSSIERS_LIMIT, 0, "opened")
 
 
 @dataclass(frozen=True)
@@ -274,6 +293,11 @@ PARTS: tuple[Part, ...] = (
     ),
     # the feed (its counts from ``lg_feed_events``)
     Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
+    Part(
+        "faction dossiers",
+        _warm_faction_dossiers,
+        (COLLECTION_FACTIONS, *FACTION_DOSSIER_TABLES),
+    ),
 )
 # The long tail, warmed after ``PARTS``: on prod (15 Oct) these took 2 to 5 of the 5 to 8
 # minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes

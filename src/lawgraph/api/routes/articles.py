@@ -54,6 +54,8 @@ from lawgraph.core.reference_targets import reference_targets
 from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.articles import (
+    CITED_BY_INLINE_BELOW,
+    citation_count,
     get_article_citations,
     get_article_cited_by,
     get_article_explanation_passages,
@@ -268,7 +270,8 @@ def get_article_cited_by_passages(
         ),
     ] = None,
 ) -> ArticleCitedByResponse:
-    if not store.has_node(COLLECTION_ARTICLES, article.key):
+    citations = citation_count(store, article.key)
+    if citations is None:
         raise NotFound("Article", article.key)
     cited_by = get_article_cited_by(
         store,
@@ -281,6 +284,7 @@ def get_article_cited_by_passages(
         sort=sort,
         limit=limit,
         offset=offset,
+        inline=citations < CITED_BY_INLINE_BELOW,
     )
     items = [
         item for row in cited_by.rows if (item := ArticleCitedByItem.from_row(row))

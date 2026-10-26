@@ -1003,6 +1003,28 @@ CITED_BY_SORTS: dict[str, str] = {
 }
 
 
+# An article cited fewer times than this has a range of the index of ``lg_cited_by`` of a few
+# thousand rows at most: its passages are read in milliseconds, in the request (``inline``),
+# not queued behind the workers of the cache, which a warm-up holds for minutes (an article
+# without a citation took 7 s on prod on 26 Oct, cold). One cited so often is warmed
+# (``warm``).
+CITED_BY_INLINE_BELOW = 1500
+
+
+def citation_count(store: GraphStore, key: str) -> int | None:
+    """How often the article *key* is cited (``inbound_citation_count``); none for an
+    unknown article. A primary-key lookup."""
+    row = next(
+        store.query(
+            f"SELECT coalesce(inbound_citation_count, 0)::int FROM {COLLECTION_ARTICLES}"
+            " WHERE key = %(key)s",
+            {"key": key},
+        ),
+        None,
+    )
+    return None if row is None else int(row)
+
+
 def get_article_cited_by(
     store: GraphStore,
     article_id: str,
@@ -1015,6 +1037,7 @@ def get_article_cited_by(
     lid: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    inline: bool = False,
 ) -> CitedBy:
     """The passages of judgments that cite an article: one row per mention, newest first.
 
@@ -1028,7 +1051,8 @@ def get_article_cited_by(
     the other filters: per ``year`` (oldest first, none first), per ``tier`` (most first)
     and per main area of law (``subject_area``, most first; a judgment counts for each of
     its areas). ``sort`` (``CITED_BY_SORTS``): the newest judgment first, or the most
-    cited first.
+    cited first. With *inline* an answer not kept is computed in the caller's thread
+    (``CITED_BY_INLINE_BELOW``).
 
     A much cited article has thousands of judgments (6:162 BW: 10,500), each an edge with
     its mentions and a judgment with its text. The first pass reads only what filters,
@@ -1064,6 +1088,7 @@ def get_article_cited_by(
             or {}
         ),
         CITED_BY_MAX_AGE,
+        inline=inline,
     )
     facets = answer.get("facets") or {}
     return CitedBy(
