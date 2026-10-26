@@ -611,6 +611,18 @@ Caddy, and `alert.sh`. The ops actions `config-check` (read only: the diff again
 `systemd-analyze verify`, `caddy validate`) and `config-apply` (the same, then only what changed, installed and
 reloaded) keep the server and the repo the same; `deploy/server/README.md` has the details.
 
+## Uptime
+
+Nothing that keeps the site up needs a Claude session or a personal key:
+
+- `.github/workflows/uptime.yml` checks `/`, `/api/health` and `/sitemap.xml` from outside every 5 minutes. A failed
+  run is red (GitHub mails it); with the secret `NTFY_TOPIC` (the topic of `/srv/lawgraph/ntfy-topic`) it also
+  pushes once when the site goes down and once when it is back.
+- The API watch on the server (`lawgraph-api-watch.timer`, `deploy/server/bin/api-watch.sh`) restarts a hung API
+  itself, after keeping the evidence.
+- By hand, when both fail: `gh workflow run ops -f action=status`, then
+  `gh workflow run ops -f action=run -f name=restart-api`, then `status` again.
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
