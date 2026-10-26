@@ -218,7 +218,7 @@ jobs:
           # the previous release applies its schema once at its start, as at a deploy
           docker exec -i "${LAWGRAPH_DB_CONTAINER:-lawgraph-postgres}" psql -X -q -v ON_ERROR_STOP=1 \
             -U lawgraph -d "${LAWGRAPH_DB_NAME:-lawgraph}" -c "DELETE FROM pipeline_state WHERE key = 'schema'" < /dev/null \
-            || echo "[rollback] could not forget the digest of the schema; the start keeps it"
+            || echo "[rollback] could not drop the digest of the schema; the start keeps it"
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
