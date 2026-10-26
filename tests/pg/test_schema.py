@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 
 import psycopg
 import pytest
@@ -164,6 +165,7 @@ def test_a_fresh_database_has_the_tables_of_the_schema(
 
 def test_a_column_the_table_lacks_stops_the_start(conn: psycopg.Connection) -> None:
     conn.execute("ALTER TABLE articles DROP COLUMN stub")
+    _forget_schema(conn)
     with pytest.raises(
         SchemaOutdated, match=r"build the database again.*articles\.stub is missing"
     ):
@@ -177,6 +179,7 @@ def test_a_required_column_the_schema_lacks_stops_the_start(
     default): its inserts would fail."""
     conn.execute("ALTER TABLE edges ADD COLUMN weight int NOT NULL DEFAULT 0")
     conn.execute("ALTER TABLE edges ALTER COLUMN weight DROP DEFAULT")
+    _forget_schema(conn)
     with pytest.raises(SchemaOutdated, match=r"edges\.weight is not in the schema"):
         ensure_schema(conn)
 
@@ -355,6 +358,7 @@ def test_the_start_adds_the_official_id_of_articles_to_a_table_without_it(
     the start adds the column and its index, and the trigger fills it."""
     conn.execute("DROP INDEX articles_official_id_article_number")
     conn.execute("ALTER TABLE articles DROP COLUMN official_id")
+    _forget_schema(conn)
     assert schema_drift(conn) == []
     ensure_schema(conn)
     conn.execute(
@@ -407,6 +411,7 @@ def test_the_start_adds_the_strengths_of_the_terms_to_a_table_without_them(
     """``lg_article_terms.strengths`` on a database built before it (step 0 not run): the
     start adds the column, and the terms kept before have none until the next run."""
     conn.execute("ALTER TABLE lg_article_terms DROP COLUMN strengths")
+    _forget_schema(conn)
     conn.execute(
         "INSERT INTO lg_article_terms (article_id, terms) VALUES ('articles/a', '{dad}')"
     )
@@ -448,3 +453,80 @@ def test_an_older_version_starts_on_the_terms_with_their_strengths(
         ["dad"],
         None,
     )
+
+
+def _forget_schema(conn: psycopg.Connection) -> None:
+    """The database as a release before this one left it: without the digest of this schema."""
+    conn.execute("DELETE FROM pipeline_state WHERE key = %s", (schema.SCHEMA_STATE,))
+
+
+def _index_count(conn: psycopg.Connection, name: str) -> object:
+    return _one(conn, "SELECT count(*) FROM pg_indexes WHERE indexname = %s", name)
+
+
+def test_a_start_on_the_same_schema_runs_no_statement(conn: psycopg.Connection) -> None:
+    """The digest of the schema is the one applied: the start takes no lock of a table,
+    so it meets no command that is running."""
+    conn.execute("DROP INDEX articles_official_id_article_number")
+    ensure_schema(conn)
+    assert _index_count(conn, "articles_official_id_article_number") == 0
+    _forget_schema(conn)
+    ensure_schema(conn)
+    assert _index_count(conn, "articles_official_id_article_number") == 1
+
+
+def test_a_changed_schema_runs_and_keeps_its_digest(
+    conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    newer = schema.statements()
+    monkeypatch.setattr(
+        schema,
+        "statements",
+        lambda: [*newer, "CREATE TABLE IF NOT EXISTS lg_probe (x int)"],
+    )
+    ensure_schema(conn)
+    assert _one(conn, "SELECT count(*) FROM lg_probe") == 0
+    assert (
+        _one(
+            conn,
+            "SELECT doc ->> 'digest' FROM pipeline_state WHERE key = %s",
+            schema.SCHEMA_STATE,
+        )
+        == schema.schema_digest()
+    )
+
+
+def test_two_starts_at_once_on_a_fresh_database(database_url: str) -> None:
+    """Two processes that see a new schema together: one applies it, the other waits for
+    it and then finds its digest."""
+    start = threading.Barrier(2)
+    failed: list[BaseException] = []
+
+    def ensure() -> None:
+        try:
+            with psycopg.connect(database_url) as connection:
+                start.wait()
+                ensure_schema(connection)
+        except BaseException as exc:  # noqa: BLE001 - the test reports it
+            failed.append(exc)
+
+    threads = [threading.Thread(target=ensure) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert failed == []
+    with psycopg.connect(database_url) as connection:
+        assert schema_drift(connection) == []
+
+
+def test_a_table_held_by_another_session_stops_the_schema_after_the_lock_timeout(
+    conn: psycopg.Connection, database_url: str
+) -> None:
+    """A command reading a table in a long transaction: the start does not queue the
+    reads behind its lock (or deadlock with it), it gives up after ``lock_timeout``."""
+    _forget_schema(conn)
+    with psycopg.connect(database_url) as other:
+        other.execute("SELECT count(*) FROM articles")  # its transaction stays open
+        with pytest.raises(psycopg.errors.LockNotAvailable):
+            ensure_schema(conn)

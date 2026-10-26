@@ -115,6 +115,11 @@ jobs:
           # exactly the versions of the commit's uv.lock, into .venv (editable, with the entry
           # points); without the dev extra, and what is not in the lock goes
           "$HOME/.local/bin/uv" sync --quiet --frozen < /dev/null
+          # the release applies its schema once at its start (ensure_schema skips a schema whose
+          # digest is the one kept, and a release before the digest does not keep its own)
+          [ -r "$DEPLOY_DIR/scheduler.env" ] && . "$DEPLOY_DIR/scheduler.env"
+          docker exec -i "${LAWGRAPH_DB_CONTAINER:-lawgraph-postgres}" psql -X -q -v ON_ERROR_STOP=1 \
+            -U lawgraph -d "${LAWGRAPH_DB_NAME:-lawgraph}" -c "DELETE FROM pipeline_state WHERE key = 'schema'" < /dev/null
           since=$(date '+%Y-%m-%d %H:%M:%S')
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
@@ -210,6 +215,10 @@ jobs:
           else
             "$HOME/.local/bin/uv" pip install --quiet --python .venv/bin/python -e . < /dev/null
           fi
+          # the previous release applies its schema once at its start, as at a deploy
+          docker exec -i "${LAWGRAPH_DB_CONTAINER:-lawgraph-postgres}" psql -X -q -v ON_ERROR_STOP=1 \
+            -U lawgraph -d "${LAWGRAPH_DB_NAME:-lawgraph}" -c "DELETE FROM pipeline_state WHERE key = 'schema'" < /dev/null \
+            || echo "[rollback] could not drop the digest of the schema; the start keeps it"
           sudo -n systemctl restart lawgraph-api < /dev/null
           for _ in $(seq 30); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
