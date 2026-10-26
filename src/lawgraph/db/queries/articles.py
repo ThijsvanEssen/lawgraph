@@ -1003,6 +1003,26 @@ CITED_BY_SORTS: dict[str, str] = {
 }
 
 
+# An article cited fewer times than this has a range of the index of ``lg_cited_by`` of a few
+# thousand rows at most: its passages are read in milliseconds, in the request, not queued
+# behind the workers of the cache, which a warm-up holds for minutes (an article without a
+# citation took 7 s on prod on 26 Oct, cold). One cited so often is warmed (``warm``).
+CITED_BY_INLINE_BELOW = 1500
+
+
+def _cited_few_times(store: GraphStore, article_id: str) -> bool:
+    """Whether the article is cited fewer than ``CITED_BY_INLINE_BELOW`` times."""
+    count = next(
+        store.query(
+            f"SELECT inbound_citation_count FROM {COLLECTION_ARTICLES}"
+            " WHERE id = %(id)s",
+            {"id": article_id},
+        ),
+        None,
+    )
+    return int(count or 0) < CITED_BY_INLINE_BELOW
+
+
 def get_article_cited_by(
     store: GraphStore,
     article_id: str,
@@ -1064,6 +1084,7 @@ def get_article_cited_by(
             or {}
         ),
         CITED_BY_MAX_AGE,
+        inline=_cited_few_times(store, article_id),
     )
     facets = answer.get("facets") or {}
     return CitedBy(

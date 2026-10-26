@@ -37,7 +37,16 @@ from lawgraph.api.schemas.factions import (
     FactionDetailDTO,
     FactionDTO,
 )
-from lawgraph.config.constants import COLLECTION_FACTIONS
+from lawgraph.config.constants import (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_CASES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
+    COLLECTION_MEMBERS,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.ek_votes import VOTES_PATH
 from lawgraph.core.official_urls import ek_url
@@ -128,6 +137,34 @@ def get_faction(
     )
 
 
+# What ``actor_dossiers`` of a faction reads: the seats and papers of its members (their
+# edges), the members, the dossiers, and for a dossier without a title what names it: its
+# cases, documents, activities and decisions (``enrich_dossier_docs``).
+FACTION_DOSSIER_TABLES = (
+    COLLECTION_ACTIVITIES,
+    COLLECTION_CASES,
+    COLLECTION_DECISIONS,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_MEMBERS,
+)
+
+
+def faction_dossiers(
+    store: GraphStore, faction_id: str, limit: int, offset: int, sort: str
+) -> ActorDossiersResponse:
+    """A page of the dossiers of a faction. Every paper every member of the faction ever
+    signed is read (6 s for the VVD cold on prod), so the page is kept for the next click
+    while those tables stand still, and the warm-up asks the first page of each faction."""
+    return cached(
+        store,
+        ("faction dossiers", faction_id, limit, offset, sort),
+        lambda: actor_dossiers(store, faction_id, limit, offset, sort),
+        tables=FACTION_DOSSIER_TABLES,
+    )
+
+
 @router.get(
     "/{key}/dossiers",
     response_model=ActorDossiersResponse,
@@ -148,13 +185,7 @@ def list_faction_dossiers(
     sort: ActorDossierSort = "opened",
 ) -> ActorDossiersResponse:
     faction_id = require_node(store, COLLECTION_FACTIONS, key, "Faction")["id"]
-    # every paper every member of the faction ever signed: kept for the next click, per
-    # data version (the date of a paper of any kind is read from ``nodes``)
-    return cached(
-        store,
-        ("faction dossiers", faction_id, limit, offset, sort),
-        lambda: actor_dossiers(store, faction_id, limit, offset, sort),
-    )
+    return faction_dossiers(store, faction_id, limit, offset, sort)
 
 
 @router.get(
