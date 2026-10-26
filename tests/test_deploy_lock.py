@@ -26,7 +26,8 @@ def _lock_part(step: str) -> str:
     end = next(
         i
         for i in range(begin, len(lines))
-        if lines[i].strip() == "trap 'rmdir \"$LOCK\"' EXIT"
+        if lines[i].strip().startswith("trap ")
+        and lines[i].strip().endswith('rmdir "$LOCK"\' EXIT')
     )
     return "\n".join(line[10:] for line in lines[begin : end + 1])
 
