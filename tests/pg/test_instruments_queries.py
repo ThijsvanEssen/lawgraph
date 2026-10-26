@@ -737,6 +737,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _doc("y1", "article", bwb_id="BWBR0000003"),
             _doc("z1", "article", bwb_id="BWBR0000004"),
             _doc("n1", "article", bwb_id="BWBR0000005"),
+            _doc("o1", "article", bwb_id="BWBR0000006"),
             _doc("eu", "article", celex=CELEX),
         ],
     )
@@ -747,6 +748,13 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _doc("a_first", "instrument", bwb_id="BWBR0000003"),
             _doc("bwbr0000004", "instrument", bwb_id="BWBR0000004"),
             # BWBR0000005 has no instrument: dropped, not counted
+            # expired (its articles not marked repealed): no law in force, not counted
+            _doc(
+                "bwbr0000006",
+                "instrument",
+                bwb_id="BWBR0000006",
+                date_expired="2020-01-01",
+            ),
         ],
     )
     store.bulk_insert_or_update_edges(
@@ -761,6 +769,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _edge("articles/z1", "articles/f2", "REFERS_TO"),
             _edge("articles/f1", "articles/z1", "REFERS_TO"),
             _edge("articles/f1", "articles/n1", "REFERS_TO"),
+            _edge("articles/o1", "articles/f1", "REFERS_TO"),
             # inside the law, to a node that is no article, to an EU act (no bwb_id)
             _edge("articles/f1", "articles/f2", "REFERS_TO"),
             _edge("articles/f1", "judgments/j", "REFERS_TO"),
@@ -768,8 +777,8 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
             _edge("articles/f1", "articles/x1", "AMENDS"),
         ]
     )
-    items, total = instruments.get_instrument_related_instruments(store, BWB)
-    assert total == 3
+    items, total, based_on = instruments.get_instrument_related_instruments(store, BWB)
+    assert (total, based_on) == (3, 0)
     assert [
         (i["instrument"]["key"], i["outbound_count"], i["inbound_count"]) for i in items
     ] == [
@@ -788,7 +797,9 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
     # two articles of this law refer to two of the other; none is issued under another
     assert (items[1]["outbound_cited_count"], items[1]["basis"]) == (2, None)
     assert list(items[0]["instrument"]) == ["key", "id", "type", "labels", "props"]
-    items, total = instruments.get_instrument_related_instruments(store, BWB, limit=1)
+    items, total, _ = instruments.get_instrument_related_instruments(
+        store, BWB, limit=1
+    )
     assert (total, len(items)) == (3, 1)
 
 
@@ -819,7 +830,7 @@ def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
             _edge("articles/eu1", "articles/both", "REFERS_TO"),
         ]
     )
-    items, total = instruments.get_instrument_related_instruments(store, CELEX)
+    items, total, _ = instruments.get_instrument_related_instruments(store, CELEX)
     assert total == 3
     # articles, not edges: the two edges from nl1 are one article
     assert [
@@ -1869,7 +1880,7 @@ def test_related_instruments_read_only_the_references_between_articles(
     )
     store.vacuum_analyze()  # planned on statistics, as the real tables are
     seen = recorded(store, monkeypatch, "_stream")
-    items, total = instruments.get_instrument_related_instruments(store, BWB)
+    items, total, _ = instruments.get_instrument_related_instruments(store, BWB)
     assert total == 1 and items[0]["outbound_count"] == 1
     # the statement of the answer, not the read of the data version it is kept under
     ((statement, params),) = [
