@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -67,9 +66,6 @@ class _EmptyStore:
     def has_node(self, collection: str, key: str) -> bool:
         return False
 
-    def query(self, statement: Any, params: Any = None, **_: Any) -> Iterator[int]:
-        return iter(())
-
 
 # the queries that answer None for what is not there
 _NONE_QUERIES = [
@@ -119,7 +115,7 @@ _DETAIL_URLS = [
 
 @pytest.mark.parametrize("url", _DETAIL_URLS)
 def test_a_detail_route_answers_404_for_what_is_not_there(monkeypatch, url):
-    for query in _NONE_QUERIES:
+    for query in (*_NONE_QUERIES, "articles.citation_count"):
         monkeypatch.setattr(f"lawgraph.api.routes.{query}", lambda *a, **k: None)
     monkeypatch.setitem(app.dependency_overrides, get_store, _EmptyStore)
     assert_status(client.get(url), 404)
