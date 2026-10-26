@@ -1,5 +1,5 @@
 -- The ANSWERS edges of the preliminary rulings (rechtspraak-referral-linker) and the rulings that answer no decision.
--- Read only; run before and after `semantic rechtspraak-referrals` over all (ops/rechtspraak-referrals.sh).
+-- Read only; run before and after `semantic rechtspraak-referrals` over all (ops/rechtspraak-referrals-steps.sh).
 --
 -- 1. the ANSWERS edges by basis (formal: props.related_eclis; referral_text: the text names who asked).
 -- 2. the preliminary rulings, those with an ANSWERS edge and those without.
