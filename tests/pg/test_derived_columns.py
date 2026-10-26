@@ -16,6 +16,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.schema import (
     _PROP,
     NODE_COLLECTIONS,
+    SCHEMA_STATE,
     SchemaOutdated,
     _derived,
     ensure_schema,
@@ -157,6 +158,7 @@ def test_a_derived_column_still_generated_stops_the_start(
         "ALTER TABLE dossiers ADD COLUMN number text"
         " GENERATED ALWAYS AS (lg_str(props -> 'number')) STORED"
     )
+    conn.execute("DELETE FROM pipeline_state WHERE key = %s", (SCHEMA_STATE,))
     with pytest.raises(
         SchemaOutdated,
         match=r"dossiers\.number is generated, the schema fills it with a trigger",

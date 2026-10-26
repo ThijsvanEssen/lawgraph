@@ -570,7 +570,7 @@ when the lock is still held after that (then it is run again later). The rollbac
 lock the same way. Data
 migrations that a release needs (a `normalize` or `semantic` step) are not part of it: run them
 on the server after the deploy. An index a release adds to a large table (`ensure_schema` creates
-what is missing at the start of the API, in one transaction that blocks the table) is built
+what is missing at the first start of a release with a changed schema, in one transaction that blocks the table) is built
 beforehand by hand with the same name; the start then finds it. `lawgraph built-beforehand`
 prints the SQL of every such index of `schema.py` (`built_beforehand`): its `CREATE INDEX
 CONCURRENTLY IF NOT EXISTS`, the query that says whether each is valid, and the `ANALYZE` of

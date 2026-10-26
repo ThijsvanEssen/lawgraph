@@ -2736,9 +2736,45 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
     return differences
 
 
+# ``pipeline_state``: the digest of the schema (``schema_digest``) last applied, under this key.
+SCHEMA_STATE = "schema"
+# How long a statement of the schema waits for the lock of a table a running command holds,
+# before the start gives up (``LockNotAvailable``) and the store tries again.
+SCHEMA_LOCK_TIMEOUT = "3s"
+
+
+def schema_digest() -> str:
+    """The digest of every statement of the schema: a release that changes one changes it."""
+    digest = hashlib.sha256()
+    for statement in statements():
+        digest.update(statement.encode())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _applied_digest(conn: psycopg.Connection) -> str | None:
+    """The digest of the schema last applied to the database of *conn*; none on a fresh one."""
+    if conn.execute(
+        "SELECT to_regclass(%s)", (COLLECTION_PIPELINE_STATE,)
+    ).fetchone() == (None,):
+        return None
+    row = conn.execute(
+        f"SELECT doc ->> 'digest' FROM {COLLECTION_PIPELINE_STATE} WHERE key = %s",
+        (SCHEMA_STATE,),
+    ).fetchone()
+    return None if row is None else row[0]
+
+
 def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> None:
-    """Create what is missing of the schema in the database of *conn*, in one transaction
-    that holds a lock, so two processes that start together do not race.
+    """Create what is missing of the schema in the database of *conn*, unless the schema of
+    this version (its ``schema_digest``, kept under ``SCHEMA_STATE``) is the one applied:
+    then the start takes no lock of a table, and meets no command that is running.
+
+    The schema is applied in one transaction under an advisory lock, so two processes that
+    see a new schema together apply it one after the other (the second finds the digest of
+    the first). Its statements wait at most ``SCHEMA_LOCK_TIMEOUT`` for the lock of a table
+    another session holds (``LockNotAvailable``), so they neither queue the reads of the
+    API behind theirs nor deadlock with a running command; the store tries again.
 
     A table that exists keeps its columns: ``CREATE TABLE IF NOT EXISTS`` adds none. When
     this version cannot run on them (a column of its schema the table lacks and the schema
@@ -2753,30 +2789,42 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
     is kept per table (``derive_digest``, under ``DERIVE_STATE``), set here for a new table,
     and ``semantic graph-derive`` derives them again. A database that does not sort by ``COLLATION``
     is refused first (``check_collation``), unless it is *allowed_collation*."""
+    digest = schema_digest()
     with conn.transaction():
         check_collation(conn, allowed_collation)
+        if _applied_digest(conn) == digest:
+            return
+    with conn.transaction():
         conn.execute("SELECT pg_advisory_xact_lock(hashtext('lawgraph_schema'))")
-        # before anything is created: an index on a column the table lacks would fail first
-        differences = schema_drift(conn)
-        if differences:
-            raise SchemaOutdated(
-                "schema outdated, build the database again ("
-                + "; ".join(differences)
-                + ")"
-            )
-        for statement in statements():
-            conn.execute(statement.encode())
-        # a table created now is derived by this version; one there already keeps the
-        # digest its rows were derived by
-        for collection in derived_collections():
-            conn.execute(
-                f"INSERT INTO {COLLECTION_PIPELINE_STATE} (key, doc) VALUES (%s, %s)"
-                " ON CONFLICT (key) DO NOTHING",
-                (
-                    DERIVE_STATE + collection,
-                    Json({"digest": derive_digest(collection)}),
-                ),
-            )
+        if _applied_digest(conn) == digest:
+            return  # another process applied it while this one waited
+        conn.execute(f"SET LOCAL lock_timeout = '{SCHEMA_LOCK_TIMEOUT}'".encode())
+        _apply_schema(conn, digest)
+
+
+def _apply_schema(conn: psycopg.Connection, digest: str) -> None:
+    """Run the statements of the schema, and keep *digest* as the one applied."""
+    # before anything is created: an index on a column the table lacks would fail first
+    differences = schema_drift(conn)
+    if differences:
+        raise SchemaOutdated(
+            "schema outdated, build the database again (" + "; ".join(differences) + ")"
+        )
+    for statement in statements():
+        conn.execute(statement.encode())
+    # a table created now is derived by this version; one there already keeps the
+    # digest its rows were derived by
+    for collection in derived_collections():
+        conn.execute(
+            f"INSERT INTO {COLLECTION_PIPELINE_STATE} (key, doc) VALUES (%s, %s)"
+            " ON CONFLICT (key) DO NOTHING",
+            (DERIVE_STATE + collection, Json({"digest": derive_digest(collection)})),
+        )
+    conn.execute(
+        f"INSERT INTO {COLLECTION_PIPELINE_STATE} (key, doc) VALUES (%s, %s)"
+        " ON CONFLICT (key) DO UPDATE SET doc = EXCLUDED.doc",
+        (SCHEMA_STATE, Json({"digest": digest})),
+    )
 
 
 def create_database_sql(name: str) -> str:

@@ -1848,7 +1848,10 @@ it (an index, an SRU listing: its file is probably on its way); `pipelines/retri
 
 ## Tables, indexes and search
 
-Defined in `db/schema.py` and created when the store starts (`ensure_schema`). The store refuses
+Defined in `db/schema.py` and created when the store starts (`ensure_schema`), only when its
+statements differ from those last applied (their digest, under `schema` in `pipeline_state`):
+a start on the same schema takes no lock of a table. A new schema is applied by one process at a
+time, and gives way (`lock_timeout`, then a retry) to a command that holds a table. The store refuses
 a database whose tables this version cannot run on (`SchemaOutdated`: a column of the schema the
 table lacks and the schema does not add itself, or a required column it does not know), and one that does not sort
 strings by the ICU collation `und-u-kf-upper` of `create_database_sql` (`CollationMismatch`): the
