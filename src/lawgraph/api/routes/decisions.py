@@ -42,6 +42,7 @@ from lawgraph.db.queries.decisions import (
 from lawgraph.db.queries.documents import document_xml_retrieval, get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.search.clause import query_words
 from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
@@ -76,12 +77,17 @@ router = APIRouter()
         "null for a vote on a motion, which the list names no kind of), and in the "
         "detail `factions_for`, `factions_against`, `factions_noted`, `bill_url`, "
         "`source_url`, `retrieved_on`; no votes per faction, so no `tally`), `dossier` "
-        "number, `from` and `to` (the date of the vote, YYYY-MM-DD) and `q` (words of "
-        "the subject, in any case, as the feed matches them: each from the start of a "
-        "word, one of at most four characters as a whole word: `ai` finds AI-modellen, "
-        "not AIV or universitaire; `algoritme` algoritmes, not rekenalgoritme; "
-        "repeated, any of them: `q=AI&q=kunstmatige intelligentie`, each decision "
-        "once). The list holds the decisions with an outcome (`passed` set), and its "
+        "number, `from` and `to` (the date of the vote, YYYY-MM-DD) and `q` (the "
+        "decisions whose subject or kind holds every word of it, in any order and any "
+        "case, as `/api/search` finds a vote: its stop words left out unless they are all "
+        "of it, a word also by its stem of four characters or more (`afkeuringen`: "
+        "afkeuring), a word of the name of a kind of motion (`wantrouwen`) the votes on "
+        "those motions too (`motion_kind`); each word from the start of a word, one of "
+        "at most four characters as a whole word: `ai` finds AI-modellen, not AIV or "
+        "universitaire; `algoritme` algoritmes, not rekenalgoritme; `vertrouwen "
+        "opzeggen` the motion over het opzeggen van het vertrouwen; repeated, any of "
+        "them: `q=AI&q=kunstmatige intelligentie`, each decision once). The list "
+        "holds the decisions with an outcome (`passed` set), and its "
         "facets count those; `unvoted=true` also those that never came to a vote: a "
         "motion or amendment withdrawn, postponed, held or lapsed (`decision_kind` "
         "`Stemmen - ingetrokken`, `- uitstellen`, `- aangehouden`, `- vervallen`), "
@@ -188,9 +194,10 @@ def list_decisions(
     q: Annotated[
         list[str] | None,
         Query(
-            description="Words of the subject, in any case: each from the start of a "
-            "word, one of at most four characters as a whole word. Repeat it for "
-            "decisions that hold any of them (``q=AI&q=kunstmatige intelligentie``)."
+            description="Words of the subject or kind, every one, in any order and any "
+            "case: each from the start of a word, one of at most four characters as a "
+            "whole word. Repeat it for decisions that hold any of them "
+            "(``q=AI&q=kunstmatige intelligentie``)."
         ),
     ] = None,
     party_votes: Annotated[
@@ -243,7 +250,11 @@ def list_decisions(
         dossier_number=dossier,
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
-        q=tuple(word.strip() for word in q or () if word.strip()),
+        q=tuple(
+            words
+            for each in q or ()
+            if (words := tuple(query_words(store, each).words))
+        ),
         faction_votes=tuple(
             key.strip() for key in (party_votes or "").split(",") if key.strip()
         ),

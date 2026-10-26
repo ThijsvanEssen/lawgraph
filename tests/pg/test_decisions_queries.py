@@ -19,6 +19,7 @@ from lawgraph.db.queries.decisions import (
     get_document_decisions,
 )
 from tests.asserts import show_items
+from tests.databases import Api
 from tests.fakes import PATIENCE, until
 from tests.optional import present
 from tests.pg.plans import explain, plan_nodes, recorded
@@ -338,11 +339,14 @@ def test_without_unvoted_only_the_decisions_with_an_outcome(votes: GraphStore) -
         (DecisionFilters(from_date="2023-05-05"), ["s0", "s1", "s2", "s4"]),
         (DecisionFilters(to_date="2023-05-05"), ["s2", "s4"]),
         (DecisionFilters(from_date="2024-01-01", to_date="2024-01-01"), ["s0", "s1"]),
-        # a part of the subject in any case, ASCII or not
-        (DecisionFilters(q=("école",)), ["s1"]),
-        (DecisionFilters(q=("MOTIE",)), ["s1", "s4"]),
-        # any of the words, each decision once
-        (DecisionFilters(q=("école", "amendement", "motie over")), ["s0", "s1"]),
+        # a word of the subject or the kind in any case, ASCII or not
+        (DecisionFilters(q=(("école",),)), ["s1"]),
+        (DecisionFilters(q=(("MOTIE",),)), ["s1", "s2", "s4"]),
+        # any of the queries, every word of one, each decision once
+        (
+            DecisionFilters(q=(("école",), ("amendement",), ("motie", "over"))),
+            ["s0", "s1"],
+        ),
         (DecisionFilters(kinds=("Amendement", "Motie")), ["s0", "s1", "s2", "s4"]),
         (DecisionFilters(passed=False), ["s0", "s4"]),
     ],
@@ -718,7 +722,7 @@ def test_the_words_of_a_subject(store: GraphStore, q: str, keys: list[str]) -> N
             for n, subject in enumerate(subjects, start=1)
         ],
     )  # fmt: skip
-    page = get_decisions(store, DecisionFilters(q=(q,)))
+    page = get_decisions(store, DecisionFilters(q=(tuple(q.split()),)))
     assert sorted(_keys(page)) == keys
     assert page["total"] == len(keys)
 
@@ -992,3 +996,110 @@ def test_without_facets_the_page_alone(
         votes, replace(EVERY, faction_votes=("all",)), limit=2, facets=False
     )
     assert without == {"total": None, "items": with_facets["items"], "facets": None}
+
+
+# Motions as the Kamer words them: of no confidence (``motion_kind``), of censure, and one
+# that only names the word.
+_MOTIONS = {
+    "faber": ("Motie van het lid Faber over het opzeggen van het vertrouwen in de minister",
+              "no_confidence"),
+    "wilders": ("Motie van het lid Wilders over het vertrouwen in het kabinet opzeggen",
+                "no_confidence"),
+    "afkeuring": ("Motie van het lid Dijk over afkeuring uitspreken over de minister",
+                  "censure"),
+    "herstel": ("Motie van het lid Bikker over het vertrouwen in de rechtspraak herstellen",
+                None),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("params", "keys"),
+    [
+        # every word, in any order, wherever in the subject
+        ({"q": "vertrouwen opzeggen"}, ["faber", "wilders"]),
+        ({"q": "opzeggen vertrouwen"}, ["faber", "wilders"]),
+        ({"q": "Faber vertrouwen"}, ["faber"]),
+        # the stop words left out, as the search does; a word by its stem
+        ({"q": "wat is het vertrouwen in de rechtspraak"}, ["herstel"]),
+        ({"q": "afkeuringen"}, ["afkeuring"]),
+        # the name of a kind of motion finds the motions of that kind
+        ({"q": "motie van wantrouwen"}, ["faber", "wilders"]),
+        # any of the queries
+        ({"q": ["Faber vertrouwen", "rechtspraak"]}, ["faber", "herstel"]),
+        ({"motion_kind": "no_confidence"}, ["faber", "wilders"]),
+        ({"motion_kind": "censure,no_confidence"}, ["afkeuring", "faber", "wilders"]),
+        ({"motion_kind": "no_confidence", "q": "Wilders"}, ["wilders"]),
+    ],
+)
+def test_the_words_of_q_in_any_order(
+    store: GraphStore, api: Api, params: dict[str, Any], keys: list[str]
+) -> None:
+    """``q`` finds the decisions whose subject or kind holds every word of it, in any order,
+    as ``/api/search`` does (F1: "vertrouwen opzeggen" missed "het opzeggen van het
+    vertrouwen"); ``total`` counts the same decisions."""
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(key, ["TK"], subject=subject, motion_kind=kind, kind="Motie",
+                  date=f"2026-09-{10 + n}", passed=False, dossier_numbers=[])
+            for n, (key, (subject, kind)) in enumerate(_MOTIONS.items())
+        ],
+    )  # fmt: skip
+    page = api.get_json("/api/decisions", **params)
+    assert sorted(item["key"] for item in page["items"]) == keys
+    assert page["total"] == len(keys)
+    kinds = {_MOTIONS[key][1] for key in keys}
+    if "motion_kind" in params:
+        assert kinds <= set(params["motion_kind"].split(","))
+
+
+@pytest.mark.parametrize("queries", [(("vertrouwen", "opzeggen"),), (("wantrouwen",),)])
+def test_the_words_of_q_are_found_by_their_index(
+    store: GraphStore,
+    monkeypatch: pytest.MonkeyPatch,
+    queries: tuple[tuple[str, ...], ...],
+) -> None:
+    """The decisions that hold the words of ``q`` (70 of 69,000) are found by the
+    trigram index on their words, a word of the name of a kind of motion by the index of
+    the kinds too, for the page and the counts alike: no statement walks the decisions,
+    whole or in the order of the list."""
+    count = 69_000  # as many as prod has: fewer, and the planner reads them all
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node(f"v{n:05d}", ["TK"], kind="Motie", passed=bool(n % 2), dossier_numbers=[],
+                  date=f"{2000 + n * 25 // count}-{1 + n % 12:02d}-{1 + n % 28:02d}",
+                  subject=f"Motie over de begroting {n}"
+                  + (" en het opzeggen van het vertrouwen" if n % 997 == 0 else ""),
+                  motion_kind="no_confidence" if n % 997 == 0 else None)
+            for n in range(count)
+        ],
+    )  # fmt: skip
+    with store.pool.connection() as conn:
+        conn.execute("ANALYZE decisions")
+    calls = recorded(store, monkeypatch)
+    assert get_decisions(store, DecisionFilters(q=queries))["total"] == len(
+        range(0, count, 997)
+    )
+    read = [
+        [
+            node
+            for node in plan_nodes(
+                explain(store, call.statement, call.params, disable=["seqscan"])
+            )
+            if node.get("Relation Name") == "decisions"
+        ]
+        for call in calls
+        if "FROM decisions d" in call.text
+    ]
+    assert len(read) == 2, show_items(calls)  # the page and the counts
+    walked = [
+        node
+        for nodes in read
+        for node in nodes
+        if node["Node Type"] == "Seq Scan"
+        or node.get("Index Name") in ("decisions_list_date", "decisions_passed")
+    ]
+    assert not walked, show_items(walked)
+    indexed = [{n.get("Index Name") for n in plan_nodes(nodes[0])} for nodes in read]
+    assert all("decisions_search_words" in names for names in indexed), indexed
