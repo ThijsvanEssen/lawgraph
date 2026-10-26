@@ -1706,7 +1706,7 @@ their `ministry` names; a member who held a post under it `SERVED_IN` it, those 
 |------|------|---------|
 | `name` | `str` | `Financiën`. |
 | `abbreviation` | `str` | The abbreviation TOOI gives: `FIN`. |
-| `tooi` | `str` | The TOOI code of the organisation: `mnre1090`. |
+| `tooi` | `str` | The TOOI code of the organisation: `mnre1090`; null for a name before about 2010, which TOOI does not list (a former one). |
 | `periods` | `list[object]` | Its periods under this name, oldest first. |
 | `periods[].from_date` | `str` | The first day; null where no source dates it. |
 | `periods[].to_date` | `str` | The last day; null while it has the name, or where no source says. |
