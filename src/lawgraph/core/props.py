@@ -1537,7 +1537,8 @@ class MinistryProps(_CommonProps):
     abbreviation: str | None = None
     """The abbreviation TOOI gives: `FIN`."""
     tooi: str | None = None
-    """The TOOI code of the organisation: `mnre1090`."""
+    """The TOOI code of the organisation: `mnre1090`; null for a name before about 2010,
+    which TOOI does not list (a former one)."""
     periods: list[MinistryPeriodProps] | None = None
     """Its periods under this name, oldest first."""
     successor: str | None = None

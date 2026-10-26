@@ -2152,7 +2152,9 @@ key, `ez`): the name, the TOOI code and abbreviation, and its periods, each with
   en Milieu on 14 October 2010).
 - `rijksoverheid` for a name before TOOI: from its first post on the cabinet pages, until the
   day before a post under its successor begins on the day its last post ends (Oorlog and
-  Marine until 18 May 1959); else the end stays null.
+  Marine until 18 May 1959); else the end stays null. Such a name has no TOOI code, and
+  TOOI lists every ministry since about 2010: it is a former one, its end undated
+  (Scheepvaart, Zaken Overzee).
 
 What no source gives is curated: our key of each name and the protocol order, the other ways
 the sources write a name (`OCenW`, `VenW`), and a succession before 2010
