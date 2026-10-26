@@ -200,8 +200,9 @@ class InstrumentProps(_CommonProps):
     kind: str | None = None
     """BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`,
     `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the
-    Staatsblad the BWB does not hold (yet) `wet`; lower-cased by `semantic
-    graph-list-stats`."""
+    Staatsblad the BWB does not hold (yet) `wet`; an EU act by its CELEX number (`richtlijn`,
+    `verordening`, `besluit`, `kaderbesluit`; a proposal, sector 5, `voorstel`); lower-cased
+    by `semantic graph-list-stats`."""
     lang: str | None = None
     """Of an EU act: the language its text was read in."""
     meta: dict[str, Any] | None = None

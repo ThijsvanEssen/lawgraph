@@ -48,6 +48,10 @@ EU_ACT_KINDS: dict[EUInstrumentKind, EuActKind] = {
     "decision": EuActKind("D", "Besluit", "het", "/EU|/EG|/GBVB", ("Beschikking",)),
     "framework_decision": EuActKind("F", "Kaderbesluit", "het", "/JBZ|/EU"),
 }
+# An act of CELEX sector 5 is a preparatory act: of it the graph holds the Commission
+# proposals an act adopts (``retrieve eurlex --mode com``). No regulation, never in force.
+CELEX_PREPARATORY_SECTOR = "5"
+KIND_PROPOSAL = "voorstel"
 _CELEX_LETTER_KINDS: dict[str, EUInstrumentKind] = {
     act.letter: kind for kind, act in EU_ACT_KINDS.items()
 }

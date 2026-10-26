@@ -888,6 +888,16 @@ def _seed_list(store: GraphStore) -> None:
                 publication_year=2019,
                 publication_number=1,
             ),
+            # a Commission proposal (CELEX sector 5): no citation title, never in force
+            _doc(
+                "51993pc0476",
+                "instrument",
+                celex="51993PC0476",
+                title="Voorstel voor een VERORDENING (EG) VAN DE RAAD",
+                kind="voorstel",
+                jurisdiction="eu",
+                article_count=24,
+            ),
         ],
     )
 
@@ -1008,6 +1018,11 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     got = instruments.get_instruments_list(store, kind="Publicatie")
     assert (got["total"], [i["key"] for i in got["items"]]) == (1, ["stb1"])
     assert got["items"][0]["publication_year"] == 2019
+    # a proposal is no regulation: only listed when its kind is asked for
+    got = instruments.get_instruments_list(store, kind="voorstel", validity="all")
+    assert (got["total"], [i["key"] for i in got["items"]]) == (1, ["51993pc0476"])
+    got = instruments.get_instruments_list(store, jurisdiction="eu", validity="all")
+    assert [i["key"] for i in got["items"]] == ["32016r0679"]
     got = instruments.get_instruments_list(store, article_count_min=11)
     assert (got["total"], [i["key"] for i in got["items"]]) == (
         2,
