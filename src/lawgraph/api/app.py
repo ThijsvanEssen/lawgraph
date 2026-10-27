@@ -26,6 +26,7 @@ from lawgraph.api.routes import (
     annexes,
     articles,
     cabinets,
+    chains,
     commitments,
     committees,
     decisions,
@@ -207,6 +208,7 @@ for _module in (
     parliament,
     feed,
     paths,
+    chains,
     lookup,
 ):
     _name = _module.__name__.rsplit(".", 1)[1]

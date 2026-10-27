@@ -38,7 +38,7 @@ PATHS_RESERVE = 3.0
 
 # The edges a path may follow: of ``relations`` (all when null), and the ``PART_OF`` of a
 # law only where the law is an end of the pair, unless ``through_laws``.
-_FOLLOWED = f"""
+FOLLOWED = f"""
   AND (%(relations)s::text[] IS NULL OR e.relation = ANY(%(relations)s))
   AND (%(through_laws)s OR e.relation <> '{RELATION_PART_OF}'
        OR NOT (e.from_collection = '{COLLECTION_INSTRUMENTS}' AND e.from_id <> ALL(%(ends)s))
@@ -61,12 +61,12 @@ SELECT r.node, r.neighbor, r.key, r.law
 FROM unnest(%(frontier)s::text[]) AS f(id)
 CROSS JOIN LATERAL (
     (SELECT e.from_id AS node, e.to_id AS neighbor, e.key, {_LAW} AS law
-     FROM edges e WHERE e.from_id = f.id {_FOLLOWED}
+     FROM edges e WHERE e.from_id = f.id {FOLLOWED}
      ORDER BY e.relation NULLS LAST, e.to_collection NULLS LAST, e.key NULLS LAST
      LIMIT %(share)s)
     UNION ALL
     (SELECT e.to_id, e.from_id, e.key, {_LAW}
-     FROM edges e WHERE e.to_id = f.id {_FOLLOWED}
+     FROM edges e WHERE e.to_id = f.id {FOLLOWED}
      ORDER BY e.relation NULLS LAST, e.from_collection NULLS LAST, e.key NULLS LAST
      LIMIT %(share)s)
 ) r
@@ -74,7 +74,7 @@ ORDER BY 2 NULLS LAST, 3 NULLS LAST
 LIMIT %(limit)s
 """
 
-_EDGES_SQL = """
+EDGES_SQL = """
 SELECT e.key, e.from_id, e.to_id, e.doc FROM edges e WHERE e.key = ANY(%(keys)s) ORDER BY e.key
 """
 
@@ -289,7 +289,7 @@ def get_paths(
     edges = (
         [
             light_edge_doc(row, passages)
-            for row in store.query(_EDGES_SQL, {"keys": edge_keys})
+            for row in store.query(EDGES_SQL, {"keys": edge_keys})
         ]
         if edge_keys
         else []
