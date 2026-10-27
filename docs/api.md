@@ -502,6 +502,11 @@ the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in.
 `stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
 touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
 
+A law, a publication or a version as a neighbour or a node of a neighbourhood (the focal one
+too) carries a `date` in its props, also with `props=canvas`, where the source gives one: of a publication the day it was published, of a law
+or a treaty the day its text in force came into force (the start of its BWB toestand, else
+`date_in_force`), of a version its `valid_from` (`db/_rows.py`, `node_date`).
+
 ### Shared neighbours
 
 `GET /api/nodes/shared?ids=a,b[,c...]` (2 to 5 node ids) answers the nodes that every node of
