@@ -97,6 +97,7 @@ ROUTES = [
     ("GET", "/api/feed/summary"),
     ("GET", "/api/feed/periods"),
     ("GET", "/api/paths"),
+    ("GET", "/api/chains"),
     ("GET", "/api/lookup"),
     ("GET", "/api/feed.atom"),
     ("GET", "/"),

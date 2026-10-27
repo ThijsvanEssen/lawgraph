@@ -513,6 +513,21 @@ judgments alone; `facets` count the neighbours per collection and, of the judgme
 per main area of law. It reads the edges of each node through their covering indexes, once, so its
 cost follows their number (6:162 BW has 10,500), not the size of the graph.
 
+### Chains between two sources
+
+`GET /api/chains?ids=a,b&max_steps=2&limit=12` answers the chains of 1 to `max_steps` (at most 3)
+steps from `a` to `b`. A step joins two sources by an edge between them or by a node with an edge to
+both (`via`: what they share, as above). The sources between the ends are laws and articles; what
+two sources share can be any node, and no node is twice in a chain. So "Waterschapswet, 35133 nr. 3,
+Woningwet, 36496 nr. 3, Boek 7" is two steps: each paper names the two laws beside it. One block per
+length, there when empty, with its `total` and its first `limit` chains, the heaviest first (the
+citations of the sources between the ends), then by id; a chain is one row of sources, each step
+names its strongest way and counts its `ways`. A source the ends share or a shorter chain passes
+starts no longer chain. As `/api/paths`, a chain does not pass through a law by its articles and no
+edge is derived. It reads three levels from both ends (about ten statements, 0.5 to 2 s for two
+books of the BW on the small graph); a level cut at its cap or the search past 10 s makes the
+blocks from it on `complete: false`.
+
 ### Surroundings of a source
 
 `GET /api/nodes/{collection}/{key}/surroundings` (`documents`, `cases`, `decisions`, `commitments` or
