@@ -6,7 +6,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
-from lawgraph.db.queries.chains import FRONTIER_CAP, LEVEL_CAP, TOP_STEPS
+from lawgraph.db.queries.chains import AROUND_CAP, FRONTIER_CAP, LEVEL_CAP, TOP_STEPS
 
 
 class ChainStepDTO(StrictModel):
@@ -78,7 +78,8 @@ class ChainsResponse(StrictModel):
     )
     capped: bool = Field(
         description="The search left a way out: more than "
-        f"{LEVEL_CAP:,} sources of an end, more than {FRONTIER_CAP} of a level of a longer "
+        f"{LEVEL_CAP:,} sources of an end (of an end that is no source more than "
+        f"{AROUND_CAP:,} neighbours), more than {FRONTIER_CAP} of a level of a longer "
         f"search, more than {TOP_STEPS} steps of one, or one of two ways to a source: a "
         "chain may have been missed."
     )

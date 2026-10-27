@@ -14854,7 +14854,7 @@
           "capped": {
             "type": "boolean",
             "title": "Capped",
-            "description": "The search left a way out: more than 5,000 sources of an end, more than 200 of a level of a longer search, more than 50 steps of one, or one of two ways to a source: a chain may have been missed."
+            "description": "The search left a way out: more than 5,000 sources of an end (of an end that is no source more than 1,000 neighbours), more than 200 of a level of a longer search, more than 50 steps of one, or one of two ways to a source: a chain may have been missed."
           },
           "partial": {
             "type": "boolean",

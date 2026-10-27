@@ -55,13 +55,13 @@ from lawgraph.db.store import read_budget
 
 MAX_STEPS = 6
 EXACT_STEPS = 3  # the longest chains counted whole
-LEVEL_CAP = (
-    5000  # the sources of an end a chain of three steps starts from (the strongest)
-)
-FRONTIER_CAP = (
-    200  # the sources of a level a longer search goes on from (the strongest)
-)
-TOP_STEPS = 50  # the steps of each of those it takes (the strongest)
+# The sources of an end a chain of three steps starts from (the strongest), the
+# neighbours of an end that is no source its steps are read from, the sources of a level
+# a longer search goes on from (the strongest) and the steps of each it takes.
+LEVEL_CAP = 5000
+AROUND_CAP = 1000
+FRONTIER_CAP = 200
+TOP_STEPS = 50
 # The edges of a node an end that is no source shares, read each way: at it the node
 # touches more than ``THROUGH_CAP`` sources.
 _PER_WAY = 4 * THROUGH_CAP
@@ -351,7 +351,7 @@ class _Search:
                 {
                     "end": end,
                     "ends": list(self.ends),
-                    "cap": LEVEL_CAP,
+                    "cap": AROUND_CAP,
                     "per": _PER_WAY,
                     "relations": None,
                     "through_laws": False,
@@ -363,7 +363,7 @@ class _Search:
             touched[row["x"]].update(
                 {end} if row["other"] is None else {end, row["other"]}
             )
-        if len(touched) == LEVEL_CAP:
+        if len(touched) == AROUND_CAP:
             self._cut(1)
         each_way = Counter((row["x"], row["outbound"]) for row in rows)
         over = {x for (x, _), n in each_way.items() if n >= _PER_WAY}
