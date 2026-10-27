@@ -163,6 +163,7 @@ from lawgraph.pipelines.semantic.graph_derive import GraphDeriveSemanticPipeline
 from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
 from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 from lawgraph.pipelines.semantic.graph_list_stats import GraphListStatsSemanticPipeline
+from lawgraph.pipelines.semantic.graph_steps import GraphStepsSemanticPipeline
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
@@ -1181,6 +1182,11 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         GraphHeatSemanticPipeline,
         "Keeps the heat of the whole graph, which the API reads instead of the edges.",
+    ),
+    _pipeline(
+        GraphStepsSemanticPipeline,
+        "Builds the steps between laws and articles again, which the chains are searched "
+        "on: an edge between two, or a node with an edge to both.",
     ),
     _pipeline(
         GraphListStatsSemanticPipeline,
