@@ -126,8 +126,9 @@ class FeedFilters:
     member key, *faction* a faction key (what its Kamerleden signed), *party* a faction key
     (the votes it voted on) with *vote* its choice (``Voor``, ``Tegen``), *cabinet* a
     cabinet key (the events in its period),
-    *q* words of the title or of the title of the event's dossier, in any case; of several,
-    any of them (``_words``). *instrument* a BWB id: the events of that law
+    *q* the queries, any of them, each the words of which the title, the title of the
+    event's dossier or the names of its laws hold every one, in any order and any case
+    (``_words``: each from the start of a word, a short one whole). *instrument* a BWB id: the events of that law
     (``feed_relations.followed_ctes``), with *article* (an article number) of that article.
     """
 
@@ -142,7 +143,7 @@ class FeedFilters:
     # the votes this faction voted on, with ``vote`` voted that way; keeps votes alone
     party: str | None = None
     vote: str | None = None
-    q: tuple[str, ...] = ()
+    q: tuple[tuple[str, ...], ...] = ()
     chamber: str | None = None  # TK, EK
     # what the coalition did on a vote (``FeedCoalition``); keeps votes alone
     coalition: str | None = None
@@ -630,21 +631,44 @@ def bind_party(filters: FeedFilters, bind: dict[str, Any]) -> None:
     bind["party_choice"] = filters.vote
 
 
-def _contains(text: str, count: int) -> str:
-    """SQL: the JSON *text* holds any of the *count* words of ``q`` (``_words``, the binds
-    ``q_word_0`` …)."""
-    return " OR ".join(_words.holds(as_text(text), f"q_word_{n}") for n in range(count))
+def _contains(text: str, n: int) -> str:
+    """SQL: the JSON *text* holds word *n* of ``q`` (``_words``, the bind ``q_word_{n}``)."""
+    return _words.holds(as_text(text), f"q_word_{n}")
 
 
 def words_of(filters: FeedFilters) -> list[str]:
-    """The words of ``q`` as they are matched, each once."""
-    return [w for w in dict.fromkeys(_words.words(q) for q in filters.q) if w]
+    """The words of the queries of ``q`` as they are matched, each once: word *n* is bound
+    as ``q_{n}``."""
+    return list(dict.fromkeys(_words.words(w) for query in filters.q for w in query))
 
 
-def _each_word(sql: Callable[[int], str], count: int) -> str:
-    """SQL: *sql* of the number of a word (of its binds ``q_{n}``, ``q_whole_{n}``), for
-    any of the *count* words."""
-    return " OR ".join(sql(n) for n in range(count))
+def queries_of(filters: FeedFilters) -> list[list[int]]:
+    """The queries of ``q``, each once, as the numbers of their words (``words_of``)."""
+    number = {word: n for n, word in enumerate(words_of(filters))}
+    queries = dict.fromkeys(
+        tuple(dict.fromkeys(number[_words.words(w)] for w in query))
+        for query in filters.q
+    )
+    return [list(query) for query in queries if query]
+
+
+def every_word(
+    sql: Callable[[int], str | None],
+    filters: FeedFilters,
+    both: str = " AND ",
+    either: str = " OR ",
+) -> str | None:
+    """SQL: a row holds every word of one of the queries of ``q``, each word *n* by *sql*
+    of it, joined by *both* and the queries by *either* (``&`` and ``|`` of a
+    ``tsquery``); a word *sql* gives None for is held by the others alone. None when a
+    query has no word *sql* gives SQL for."""
+    queries = []
+    for query in queries_of(filters):
+        held = [f"({sql_n})" for n in query if (sql_n := sql(n)) is not None]
+        if not held:
+            return None
+        queries.append(both.join(held))
+    return either.join(f"({query})" for query in queries) or None
 
 
 def shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
@@ -667,9 +691,8 @@ def shared_filters(filters: FeedFilters, bind: dict[str, Any]) -> list[str]:
         bind[f"q_word_{n}"] = _words.word_pattern(word)
         bind[f"q_whole_{n}"] = _words.whole(word)
     if words:
-        # what ``matched`` names per item: each word as it was asked, and its pattern
-        asked = {_words.words(q): q.strip() for q in reversed(filters.q)}
-        bind["q_terms"] = [asked.get(word, word) for word in words]
+        # what ``matched`` names per item: each word, and its pattern
+        bind["q_terms"] = words
         bind["q_patterns"] = [_words.word_pattern(word) for word in words]
     return clauses
 
@@ -866,49 +889,56 @@ class Kind:
         )
 
     def words(self) -> str:
-        """The filter on the words: in the title, in the title of the first dossier, or
-        in the names of its laws."""
-        count = len(words_of(self.plan.filters))
-        found = _contains("t.title", count)
-        if self.first_dossier:
-            found += f" OR {_contains('fd.title', count)}"
-        if self.laws:
-            found += f" OR {_contains(f'to_json({self.laws})', count)}"
-        return f"({found})"
+        """The filter on the words: each word of a query in the title, in the title of the
+        first dossier, or in the names of its laws."""
+
+        def held(n: int) -> str:
+            texts = ["t.title"]
+            if self.first_dossier:
+                texts.append("fd.title")
+            if self.laws:
+                texts.append(f"to_json({self.laws})")
+            return " OR ".join(_contains(text, n) for text in texts)
+
+        return f"({every_word(held, self.plan.filters)})"
 
     def candidates(self) -> str | None:
-        """The rows that may hold the words, found by index (``Source.found``); None when
-        the kind has no index for them or the words are too short for one."""
+        """The rows that may hold the words, found by index (``Source.found``): of each
+        query, every word of three letters or more; None when the kind has no index for
+        them or a query has no word long enough for one."""
         words = words_of(self.plan.filters)
         own = self.source.found
         if own is None or not words:
             return None
-        if any(len(word) < _words.TRIGRAM for word in words):
+        if self.first_dossier and self.source.dossier_found is None:
             return None
-        count = len(words)
-        found = _each_word(lambda n: own(f"q_{n}"), count)
+        found = every_word(
+            lambda n: self._found(own, n) if len(words[n]) >= _words.TRIGRAM else None,
+            self.plan.filters,
+        )
+        return f"({found})" if found else None
+
+    def _found(self, own: Callable[[str], str], n: int) -> str:
+        """SQL: by index, the rows that may hold word *n*: in their title (*own*), the title
+        ``lawgraph feed-events`` wrote with the names of their laws (``lg_feed_events``),
+        or the title of their first dossier."""
+        found = [own(f"q_{n}")]
         if self.laws:
-            # the events whose written title may hold the words (``lg_feed_events``)
-            found += " OR " + _each_word(
-                lambda n: (
-                    f"n.id IN (SELECT e.id FROM {FEED_EVENTS_TABLE} e"
-                    f" WHERE e.kind = {lit(self.source.kind)}"
-                    f" AND e.words @@ lg_word_query(%(q_{n})s, %(q_whole_{n})s))"
-                ),
-                count,
+            found.append(
+                f"n.id IN (SELECT e.id FROM {FEED_EVENTS_TABLE} e"
+                f" WHERE e.kind = {lit(self.source.kind)}"
+                f" AND e.words @@ lg_word_query(%(q_{n})s, %(q_whole_{n})s))"
             )
-        if self.first_dossier:
-            of_dossiers = self.source.dossier_found
-            if of_dossiers is None:
-                return None
-            titled = _each_word(
-                lambda n: f"d.s_title_g LIKE {_words.folded_like(f'q_{n}')}", count
+        of_dossiers = self.source.dossier_found
+        if self.first_dossier and of_dossiers is not None:
+            found.append(
+                of_dossiers(
+                    f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
+                    f" WHERE d.s_title_g LIKE {_words.folded_like(f'q_{n}')}"
+                    f" AND {_contains('d.pj_title', n)}"
+                )
             )
-            found += " OR " + of_dossiers(
-                f"SELECT d.label FROM {COLLECTION_DOSSIERS} d"
-                f" WHERE ({titled}) AND ({_contains('d.pj_title', count)})"
-            )
-        return f"({found})"
+        return " OR ".join(found)
 
     def of_dossier(self) -> str | None:
         """With ``dossier``, the rows of its dossiers, found by index; None without the

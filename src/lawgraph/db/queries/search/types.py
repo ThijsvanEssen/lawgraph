@@ -16,6 +16,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import member_role
 from lawgraph.db.queries._helpers import chamber_sql
 from lawgraph.db.queries._json_sql import array_or_empty, first_present, is_present
+from lawgraph.db.queries._words import STEM_MIN
 from lawgraph.db.queries.feed_sql import decided_persons
 from lawgraph.db.queries.search.clause import (
     Query,
@@ -716,11 +717,6 @@ def _motions_named(store: GraphStore, words: list[str]) -> list[list[str]] | Non
 
 
 # ── members, factions, cabinets, commitments, votes: every word in their names ─
-
-
-# A stem this long or longer finds the forms of its word (``_all_words``): shorter ones are
-# part of too many other words ("wet" of "wetten").
-STEM_MIN = 4
 
 
 def _all_words(

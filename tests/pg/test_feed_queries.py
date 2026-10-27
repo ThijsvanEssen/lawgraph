@@ -1599,7 +1599,9 @@ def test_the_kinds_of_the_feed_are_counted_once_for_all(
         feed.feed_counts(store, FeedFilters(kinds=(kind,)))
     assert readings == [FeedFilters()]
     # a filter on more than the kind is counted on its own
-    assert feed._shared_kinds(FeedFilters(kinds=(FEED_KINDS[0],), q=("wet",))) is None
+    assert (
+        feed._shared_kinds(FeedFilters(kinds=(FEED_KINDS[0],), q=(("wet",),))) is None
+    )
     assert feed._shared_kinds(FeedFilters(kinds=FEED_KINDS[:2])) is None
 
 
@@ -1687,13 +1689,15 @@ def test_words_without_a_first_day_are_searched_back_window_by_window(
     """``q`` without ``since``: the windows back from today find, page by page, what one
     reading of every day finds, the oldest too, and say no day was left unsearched."""
     _words_over_the_years(store)
-    every = FeedFilters(q=("stikstof",), since="1900-01-01")
+    every = FeedFilters(q=(("stikstof",),), since="1900-01-01")
     expected = _ids(get_feed(store, every, facets=False))
     assert expected == [f"documents/m{n}" for n in WORDS_AGO]
     seen: list[str] = []
     cursor = None
     for _ in range(10):
-        raw = get_feed(store, FeedFilters(q=("stikstof",)), cursor=cursor, limit=limit)
+        raw = get_feed(
+            store, FeedFilters(q=(("stikstof",),)), cursor=cursor, limit=limit
+        )
         assert "searched_from" not in raw and "partial" not in raw
         seen += _ids(raw)[:limit]
         if len(raw["items"]) <= limit:
@@ -1701,7 +1705,7 @@ def test_words_without_a_first_day_are_searched_back_window_by_window(
         last = raw["items"][limit - 1]
         cursor = FeedCursor(date=last["date"], kind=last["kind"], id=last["id"])
     assert seen == expected
-    assert _ids(get_feed(store, FeedFilters(q=("stikstof",), until=_ago(100)))) == [
+    assert _ids(get_feed(store, FeedFilters(q=(("stikstof",),), until=_ago(100)))) == [
         f"documents/m{n}" for n in WORDS_AGO[1:]
     ]
 
@@ -1728,21 +1732,21 @@ def test_words_searched_past_their_budget_answer_what_was_found(
         return rows(store, filters, *a)
 
     monkeypatch.setattr(feed_queries, "_rows", timed_out_in_the_second)
-    raw = get_feed(store, FeedFilters(q=("stikstof",)), facets=False)
+    raw = get_feed(store, FeedFilters(q=(("stikstof",),)), facets=False)
     assert _ids(raw) == ["documents/m10"]
     assert raw["partial"] is True and raw["searched_from"] == _ago(90)
     assert calls[1].until == _ago(91) and calls[1].since == _ago(365)
     monkeypatch.setattr(feed_queries, "_rows", rows)
 
-    on = get_feed(store, FeedFilters(q=("stikstof",), until=_ago(91)), facets=False)
+    on = get_feed(store, FeedFilters(q=(("stikstof",),), until=_ago(91)), facets=False)
     assert _ids(on) == [f"documents/m{n}" for n in WORDS_AGO[1:]]
 
     monkeypatch.setattr(feed_queries, "WORDS_BUDGET", 0.0)
-    none = get_feed(store, FeedFilters(q=("stikstof",)))
+    none = get_feed(store, FeedFilters(q=(("stikstof",),)))
     assert none["items"] == [] and none["partial"] is True
     assert none["searched_from"] == _ago(-1)
     # a first day, or no words, reads as before: one reading under the filters
-    assert _ids(get_feed(store, FeedFilters(q=("stikstof",), since=_ago(365)))) == [
+    assert _ids(get_feed(store, FeedFilters(q=(("stikstof",),), since=_ago(365)))) == [
         "documents/m10",
         "documents/m200",
     ]
@@ -1844,8 +1848,36 @@ def test_a_short_word_is_a_whole_word_on_the_page_the_counts_summary_and_atom(
     }
 
 
+@ON_THE_WORDS
+@pytest.mark.parametrize(
+    ("q", "expected"),
+    [
+        # every word, in any order, not side by side
+        ("motie verordening", ["documents/w1"]),
+        ("verordening motie", ["documents/w1"]),
+        # a word in the title, another in the title of its dossier
+        ("bakker toezichthouder", ["documents/w6"]),
+        ("motie ai", ["documents/w6", "documents/w1"]),
+        # its stop words left out, as the search leaves them out
+        ("de stemming over dairy", ["decisions/v2"]),
+        ("motie stikstof", []),
+    ],
+)
+def test_q_holds_every_word_of_it(
+    words_client: TestClient, q: str, expected: list[str]
+) -> None:
+    page = _feed(words_client, q=q, **WORDS_WINDOW)
+    assert _ids(page) == expected
+    assert page["total"] == len(expected)
+    terms = {m["term"] for item in page["items"] for m in item["matched"]}
+    assert terms == (
+        {w for w in q.split() if w not in {"de", "over"}} if expected else set()
+    )
+
+
 WORDS = ["AI", "ai-ver", "stikstof", "natuurstikstof", "grens", "wet voorbeeld",
-         "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b"]  # fmt: skip
+         "binnenlandse", "onderwijs", "toezicht", "x", "%", "a_b", "motie verordening",
+         "bakker toezichthouder", "motie ai", "ai x"]  # fmt: skip
 
 
 @ON_THE_WORDS
@@ -1861,7 +1893,7 @@ def test_the_candidates_by_index_keep_every_event_the_words_keep(
     counts, of every kind."""
     from lawgraph.db import version_cache
 
-    filters = FeedFilters(q=(q,), since="1900-01-01")
+    filters = FeedFilters(q=(tuple(q.lower().split()),), since="1900-01-01")
     by_index = get_feed(words, filters, facets=facets)
     version_cache.clear()
     monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)
@@ -1878,7 +1910,7 @@ def test_words_are_found_by_index_not_by_reading_every_day(crowded: GraphStore) 
     word), not every row in date order; no large table is read whole."""
     store = crowded
     sql, bind = feed_query(
-        FeedFilters(q=("toezichthouder",), kinds=("Motie", "stemming", "uitspraak")),
+        FeedFilters(q=(("toezichthouder",),), kinds=("Motie", "stemming", "uitspraak")),
         limit=50,
         facets=False,
     )
@@ -1933,7 +1965,7 @@ def test_words_are_found_before_the_index_is_built(store: GraphStore) -> None:
     from lawgraph.db import schema, version_cache
 
     _words(store)
-    filters = FeedFilters(q=("toezichthouder",), since="1900-01-01")
+    filters = FeedFilters(q=(("toezichthouder",),), since="1900-01-01")
     with_index = get_feed(store, filters)
     built = [
         statement
@@ -1984,7 +2016,13 @@ def test_several_words_find_the_events_that_hold_any_of_them(
     assert len(root.findall("a:entry", ns)) == len(both)
     assert "‘ai’ of ‘stikstof’" in (present(root.find("a:title", ns)).text or "")
 
-    filters = FeedFilters(q=("toezicht", "stikstof"), since="1900-01-01")
+    filters = FeedFilters(
+        q=(
+            ("toezicht",),
+            ("stikstof",),
+        ),
+        since="1900-01-01",
+    )
     by_index = get_feed(words, filters)
     version_cache.clear()
     monkeypatch.setattr(feed_sql.Kind, "candidates", lambda self: None)

@@ -79,10 +79,15 @@ def _period_kinds(
 
 FILTERS = [
     FeedFilters(),
-    FeedFilters(q=("ai",)),
-    FeedFilters(q=("AI-verordening",)),
-    FeedFilters(q=("grens", "gemeenten")),
-    FeedFilters(q=("voorbeeld",)),
+    FeedFilters(q=(("ai",),)),
+    FeedFilters(q=(("ai-verordening",),)),
+    FeedFilters(
+        q=(
+            ("grens",),
+            ("gemeenten",),
+        )
+    ),
+    FeedFilters(q=(("voorbeeld",),)),
     FeedFilters(chamber="TK"),
     FeedFilters(chamber="EK"),
     FeedFilters(faction="vvd"),
@@ -92,7 +97,7 @@ FILTERS = [
     FeedFilters(ministry="fin"),
     FeedFilters(dossier="37001"),
     FeedFilters(cabinet="jetten"),
-    FeedFilters(q=("ai",), chamber="TK", since="2026-01-01"),
+    FeedFilters(q=(("ai",),), chamber="TK", since="2026-01-01"),
     FeedFilters(since="2026-05-01", until="2026-06-30"),
 ]
 
@@ -108,13 +113,19 @@ def test_each_kind_counts_what_the_feed_counts(
 
 COUNTED = [
     *(f for f in FILTERS if f.q),
-    FeedFilters(q=("ai",), kinds=("Motie",)),
-    FeedFilters(q=("ai",), faction="vvd"),
-    FeedFilters(q=("motie",), chamber="TK", faction="d66"),
-    FeedFilters(q=("brief",), ministry="fin"),
-    FeedFilters(q=("brief", "motie"), cabinet="jetten"),
-    FeedFilters(q=("motie",), dossier="37000", until="2026-09-30"),
-    FeedFilters(q=("nergens",)),
+    FeedFilters(q=(("ai",),), kinds=("Motie",)),
+    FeedFilters(q=(("ai",),), faction="vvd"),
+    FeedFilters(q=(("motie",),), chamber="TK", faction="d66"),
+    FeedFilters(q=(("brief",),), ministry="fin"),
+    FeedFilters(
+        q=(
+            ("brief",),
+            ("motie",),
+        ),
+        cabinet="jetten",
+    ),
+    FeedFilters(q=(("motie",),), dossier="37000", until="2026-09-30"),
+    FeedFilters(q=(("nergens",),)),
     FeedFilters(faction="vvd"),
     FeedFilters(faction="d66", chamber="TK"),
     FeedFilters(faction="vvd", kinds=("Motie",)),
@@ -122,7 +133,7 @@ COUNTED = [
     FeedFilters(coalition="together", faction="vvd"),
     FeedFilters(party="vvd"),
     FeedFilters(party="vvd", vote="Voor"),
-    FeedFilters(party="d66", vote="Voor", q=("gemeenten",)),
+    FeedFilters(party="d66", vote="Voor", q=(("gemeenten",),)),
     FeedFilters(),
     *(FeedFilters(kinds=(kind,)) for kind in FEED_KINDS),
     FeedFilters(since="2026-05-01", until="2026-06-30"),
@@ -166,17 +177,17 @@ def test_the_feed_counts_its_own_rows_where_the_table_cannot_tell(
 ) -> None:
     seed_feed(store)
     _topics(store)
-    words = FeedFilters(q=("ai",))
+    words = FeedFilters(q=(("ai",),))
     assert get_counts(store, words, 60.0) is None  # never written
     write_all(store)
-    assert get_counts(store, FeedFilters(q=("ai",), member="m1"), 60.0) is None
+    assert get_counts(store, FeedFilters(q=(("ai",),), member="m1"), 60.0) is None
     assert get_feed(store, words, limit=1)["total"] == _counts(store, words)["total"]
 
 
 def test_a_short_word_is_a_whole_word_and_a_topic_goes_by_its_dossier(
     seeded: GraphStore,
 ) -> None:
-    periods = get_periods(seeded, FeedFilters(q=("ai",)), "month")["periods"]
+    periods = get_periods(seeded, FeedFilters(q=(("ai",),)), "month")["periods"]
     assert [(p["period"], p["counts"]) for p in periods] == [
         ("2025-12-01", {"Brief regering": 1}),
         # the motion by its own title, the letter by its dossier's; not "universitaire"
@@ -219,7 +230,12 @@ def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
     """A word with a letter or digit is looked up in ``words`` (GIN), not tested on
     every row of a table of many events: for the periods and for the feed's total and
     facets."""
-    filters = FeedFilters(q=("ai", "AI-verordening"))
+    filters = FeedFilters(
+        q=(
+            ("ai",),
+            ("ai-verordening",),
+        )
+    )
     queries = word_queries(seeded, filters)
     statement, bind = (
         periods_query(filters, "month", queries)
@@ -304,11 +320,16 @@ def _pages(store: GraphStore, filters: FeedFilters, limit: int) -> list[list[str
 @pytest.mark.parametrize(
     "filters",
     [
-        FeedFilters(q=("ai",)),
-        FeedFilters(q=("AI-verordening", "grens")),
-        FeedFilters(q=("motie",), chamber="TK"),
-        FeedFilters(q=("voorbeeld",), until="2026-06-30"),
-        FeedFilters(q=("nergens",)),
+        FeedFilters(q=(("ai",),)),
+        FeedFilters(
+            q=(
+                ("ai-verordening",),
+                ("grens",),
+            )
+        ),
+        FeedFilters(q=(("motie",),), chamber="TK"),
+        FeedFilters(q=(("voorbeeld",),), until="2026-06-30"),
+        FeedFilters(q=(("nergens",),)),
     ],
     ids=repr,
 )
@@ -339,7 +360,7 @@ def test_a_page_of_words_reads_once_from_its_first_day(
         return rows(store, filters, *a, **k)
 
     monkeypatch.setattr(feed, "_rows", recorded)
-    get_feed(seeded, FeedFilters(q=("ai",)), limit=1, facets=False)
+    get_feed(seeded, FeedFilters(q=(("ai",),)), limit=1, facets=False)
     assert len(read) == 1 and read[0] is not None
 
 

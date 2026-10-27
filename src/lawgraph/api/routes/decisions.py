@@ -42,7 +42,7 @@ from lawgraph.db.queries.decisions import (
 from lawgraph.db.queries.documents import document_xml_retrieval, get_document_links
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.not_found import require
-from lawgraph.db.queries.search.clause import query_words
+from lawgraph.db.queries.search.clause import queries_words
 from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
@@ -250,11 +250,7 @@ def list_decisions(
         dossier_number=dossier,
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
-        q=tuple(
-            words
-            for each in q or ()
-            if (words := tuple(query_words(store, each).words))
-        ),
+        q=queries_words(store, q or ()),
         faction_votes=tuple(
             key.strip() for key in (party_votes or "").split(",") if key.strip()
         ),

@@ -707,7 +707,7 @@ def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
     its stop words left out); ``party_votes``: the factions asked, or all."""
     asked = _asking(monkeypatch)
     monkeypatch.setattr(
-        "lawgraph.api.routes.decisions.query_words",
+        "lawgraph.db.queries.search.clause.query_words",
         lambda store, q: QueryWords(tokenize_search_query(q), []),
     )
     response = client.get(
