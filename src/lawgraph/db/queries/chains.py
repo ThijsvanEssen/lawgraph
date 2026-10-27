@@ -1,125 +1,232 @@
-"""The chains between two chosen nodes (``GET /api/chains``): rows of one, two or three steps
-from one to the other.
+"""The chains between two chosen nodes (``GET /api/chains``): rows of 1 to ``MAX_STEPS`` steps
+from one to the other, searched on the steps between the sources (``source_steps``, built by
+``semantic graph-steps``: ``queries/source_steps.py``).
 
-A *step* joins two sources: by an edge between them, or by a node with an edge to both (what
-they share, as ``/api/nodes/shared`` finds it: a paper that names both, a judgment that cites
-both). A *chain* is a row of steps from one end to the other; the sources between the ends
-are laws and articles (``STEP_COLLECTIONS``), what two sources share can be any node. A chain
-counts its steps, not its edges: two edges through a node both ends touch are one step. Each
-node is once in a chain.
+A *step* joins two sources (laws and articles, ``STEP_COLLECTIONS``): by an edge between them,
+or by a node with an edge to both and to at most ``THROUGH_CAP`` sources (a paper that names
+both, a judgment that cites both); its ``weight`` says how strong it is. An end that is no
+source (a judgment, a paper) has its steps read from its edges by the same rules, counted
+among the sources of what it shares. The ``PART_OF`` of a law that is an end and its articles
+is a step too; any other ``PART_OF`` of a law is none, so that two articles of one law are not
+one step apart.
 
-Of the chains of one length one per row of sources between the ends: each step names its
-strongest way (the edge between its sources, else the node they share that is cited most,
-then the lowest id) and how many ways it has. The shortest chains first: a source that a
-shorter chain passes, or that the ends share, starts no longer chain. In a length the
-heaviest first (the ``inbound_citation_count`` of its sources between the ends together),
-then by their ids.
+A *chain* is a row of steps from one end to the other through sources; each node is once in
+it. The shortest chains first: a source that a shorter chain passes, or that the ends share,
+starts no longer chain. In a length the strongest first: the highest weight of its weakest
+step, then the weight of its steps together, then the ids of its sources. The chains shown
+pass each source between the ends once: a chain through a source an earlier one passes is
+counted, not shown.
 
-Read from both ends, one level at a time, as ``/api/paths`` reads its levels (``LEVEL_CAP``;
-the ``PART_OF`` of an article and its law only where the law is an end, so that two articles
-of one law are not one step apart): the neighbours of the ends, the sources next to those
-(one step from an end), and the neighbours of those sources. No edge is derived.
+Up to ``EXACT_STEPS`` steps every chain is counted: the steps of each end, and for three the
+steps between those (one read of the table, of at most ``LEVEL_CAP`` sources of an end).
+Longer chains are searched best first from both ends, a level at a time: of each level the
+``FRONTIER_CAP`` strongest go on, each with its ``TOP_STEPS`` strongest steps, and each source
+keeps the strongest way to it; a chain is a source where both meet. Their ``total`` is then a
+lower bound, and the block not ``complete``, when the search left a way out.
+
+Of each step shown its way: the edge between its sources, else of the nodes they share (as
+the table counts them, none of the chain) the one with the fewest sources, then the lowest id;
+read for the steps shown alone, in one read of the edges of their sources. No edge is derived.
 """
 
 from __future__ import annotations
 
 import heapq
-from collections import Counter
-from collections.abc import Callable, Iterable
+import math
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from itertools import product
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.paths import EDGES_SQL, FOLLOWED
+from lawgraph.db.queries.source_steps import (
+    DIRECT_WEIGHT,
+    KEPT,
+    STEP_COLLECTIONS,
+    THROUGH_CAP,
+)
+from lawgraph.db.schema import SOURCE_STEP_NODES_TABLE, SOURCE_STEPS_TABLE
 from lawgraph.db.store import read_budget
 
-# The collections of the sources a chain passes between its ends.
-STEP_COLLECTIONS = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES)
-MAX_STEPS = 3
-LEVEL_CAP = 20_000  # the nodes one level keeps
-_ROWS_PER_LEVEL = 100_000  # the edges read for one level, at most
-PAIR_CAP = 50_000  # the chains of three steps found, at most
-# How long the search may read (seconds): past it, the chains found by then (``partial``);
-# what is left of the deadline of the request reads their nodes and edges.
-CHAINS_BUDGET = 10.0
-CHAINS_RESERVE = 3.0
+MAX_STEPS = 6
+EXACT_STEPS = 3  # the longest chains counted whole
+# The sources of an end a chain of three steps starts from (the strongest), the
+# neighbours of an end that is no source its steps are read from, the sources of a level
+# a longer search goes on from (the strongest) and the steps of each it takes.
+LEVEL_CAP = 5000
+AROUND_CAP = 1000
+FRONTIER_CAP = 200
+TOP_STEPS = 50
+# The edges of a node an end that is no source shares, read each way: at it the node
+# touches more than ``THROUGH_CAP`` sources.
+_PER_WAY = 4 * THROUGH_CAP
 # The ways of a step tried for a chain whose nodes must differ: more than the other nodes
 # of the longest chain, so that one of them is always free.
 _OPTIONS = 2 * MAX_STEPS + 1
-# The ways of a step weighed for the chains of a page, at most (the first by id).
-_WEIGHED = 1000
+# How long the search may read (seconds): past it, the chains found by then (``partial``);
+# what is left of the deadline of the request reads their ways, nodes and edges.
+CHAINS_BUDGET = 10.0
+CHAINS_RESERVE = 3.0
 
-# Per node of the frontier its share of the level in the order of the covering indexes
-# (``edges_from_cover``, ``edges_to_cover``), as ``/api/paths`` reads a level; ``far``
-# keeps to the neighbours of those collections.
-_NEIGHBORS_SQL = f"""
-SELECT r.node, r.outbound, r.neighbor, r.key
-FROM unnest(%(frontier)s::text[]) AS f(id)
+_SOURCES = sql_text_list(STEP_COLLECTIONS)
+
+# The steps of each source of ``ids``, both ways of the table.
+_STEPS_SQL = f"""
+SELECT s.a AS node, s.b AS other, s.weight, s.ways, s.direct
+FROM {SOURCE_STEPS_TABLE} s WHERE s.a = ANY(%(ids)s::text[])
+UNION ALL
+SELECT s.b, s.a, s.weight, s.ways, s.direct
+FROM {SOURCE_STEPS_TABLE} s WHERE s.b = ANY(%(ids)s::text[])
+"""
+
+# Of each source of ``ids`` its ``top`` strongest steps.
+_TOP_STEPS_SQL = f"""
+SELECT f.id AS node, t.other, t.weight, t.ways, t.direct
+FROM unnest(%(ids)s::text[]) AS f(id)
 CROSS JOIN LATERAL (
-    (SELECT e.from_id AS node, TRUE AS outbound, e.to_id AS neighbor, e.key
-     FROM edges e WHERE e.from_id = f.id {FOLLOWED}
-       AND (%(far)s::text[] IS NULL OR e.to_collection = ANY(%(far)s))
-     ORDER BY e.relation NULLS LAST, e.to_collection NULLS LAST, e.key NULLS LAST
-     LIMIT %(share)s)
+    SELECT u.other, u.weight, u.ways, u.direct FROM (
+        (SELECT s.b AS other, s.weight, s.ways, s.direct FROM {SOURCE_STEPS_TABLE} s
+         WHERE s.a = f.id ORDER BY s.weight DESC LIMIT %(top)s)
+        UNION ALL
+        (SELECT s.a, s.weight, s.ways, s.direct FROM {SOURCE_STEPS_TABLE} s
+         WHERE s.b = f.id ORDER BY s.weight DESC LIMIT %(top)s)
+    ) u
+    ORDER BY u.weight DESC, u.other
+    LIMIT %(top)s
+) t
+"""
+
+# The steps between a source of ``near`` and one of ``far``.
+_BETWEEN_SQL = f"""
+SELECT s.a AS node, s.b AS other, s.weight, s.ways, s.direct
+FROM {SOURCE_STEPS_TABLE} s WHERE s.a = ANY(%(near)s::text[]) AND s.b = ANY(%(far)s::text[])
+UNION ALL
+SELECT s.b, s.a, s.weight, s.ways, s.direct
+FROM {SOURCE_STEPS_TABLE} s WHERE s.b = ANY(%(near)s::text[]) AND s.a = ANY(%(far)s::text[])
+"""
+
+# The articles of a law that is an end (its ``PART_OF``).
+_PARTS_SQL = f"""
+SELECT e.from_id AS part FROM edges e
+WHERE e.to_id = %(law)s AND e.relation = '{RELATION_PART_OF}'
+  AND e.from_collection IN ({_SOURCES})
+"""
+
+# Of an end that is no source: its neighbours (at most ``cap``), and of each the sources and
+# ends it has an edge to (at most ``per`` each way).
+_AROUND_END_SQL = f"""
+WITH near AS MATERIALIZED (
+    SELECT DISTINCT n.x FROM (
+        (SELECT e.to_id AS x FROM edges e WHERE e.from_id = %(end)s {FOLLOWED})
+        UNION ALL
+        (SELECT e.from_id FROM edges e WHERE e.to_id = %(end)s {FOLLOWED})
+    ) n
+    WHERE n.x <> %(end)s
+    LIMIT %(cap)s
+)
+SELECT n.x, t.other, t.outbound FROM near n
+LEFT JOIN LATERAL (
+    (SELECT e.to_id AS other, true AS outbound FROM edges e
+     WHERE e.from_id = n.x AND (e.to_collection IN ({_SOURCES}) OR e.to_id = ANY(%(ends)s))
+       AND {KEPT}
+     LIMIT %(per)s)
     UNION ALL
-    (SELECT e.to_id, FALSE, e.from_id, e.key
-     FROM edges e WHERE e.to_id = f.id {FOLLOWED}
-       AND (%(far)s::text[] IS NULL OR e.from_collection = ANY(%(far)s))
-     ORDER BY e.relation NULLS LAST, e.from_collection NULLS LAST, e.key NULLS LAST
-     LIMIT %(share)s)
-) r
-WHERE r.neighbor <> r.node
-ORDER BY 3 NULLS LAST, 4 NULLS LAST
-LIMIT %(limit)s
+    (SELECT e.from_id, false FROM edges e
+     WHERE e.to_id = n.x AND (e.from_collection IN ({_SOURCES}) OR e.from_id = ANY(%(ends)s))
+       AND {KEPT}
+     LIMIT %(per)s)
+) t ON true
 """
 
-# How often each node is cited (0 for a node without a count), by key.
-_CITED_SQL = f"""
-SELECT x.id, coalesce(j.inbound_citation_count, a.inbound_citation_count,
-                      lg_num(i.props -> 'inbound_citation_count'), 0) AS cited
-FROM unnest(%(ids)s::text[]) AS x(id)
-LEFT JOIN judgments j ON starts_with(x.id, 'judgments/') AND j.id = x.id
-LEFT JOIN articles a ON starts_with(x.id, '{COLLECTION_ARTICLES}/') AND a.id = x.id
-LEFT JOIN instruments i ON starts_with(x.id, '{COLLECTION_INSTRUMENTS}/') AND i.id = x.id
+# The edge between the two sources of a step: as ``KEPT``, and the ``PART_OF`` of a law
+# that is an end.
+_FOLLOWED_WAY = f"""e.from_id <> e.to_id
+    AND (e.relation IS DISTINCT FROM '{RELATION_PART_OF}'
+         OR (e.from_collection <> '{COLLECTION_INSTRUMENTS}' OR e.from_id = ANY(%(ends)s))
+            AND (e.to_collection <> '{COLLECTION_INSTRUMENTS}' OR e.to_id = ANY(%(ends)s)))"""
+
+# Per step (``first`` to ``second``, its number ``i``) the edge between them (``x`` null) and
+# every node both have an edge to, with those edges and the sources of the node (1 where
+# ``source_step_nodes`` does not hold it): the edges of each source read once.
+_WAYS_SQL = f"""
+WITH pair AS (
+    SELECT p.first, p.second, p.i
+    FROM unnest(%(firsts)s::text[], %(seconds)s::text[]) WITH ORDINALITY AS p(first, second, i)
+), node AS (
+    SELECT DISTINCT n.id
+    FROM pair CROSS JOIN LATERAL unnest(ARRAY[pair.first, pair.second]) AS n(id)
+), at AS MATERIALIZED (
+    SELECT n.id, r.x, r.key, r.kept, r.followed FROM node n
+    CROSS JOIN LATERAL (
+        (SELECT e.to_id AS x, e.key, {KEPT} AS kept, {_FOLLOWED_WAY} AS followed
+         FROM edges e WHERE e.from_id = n.id)
+        UNION ALL
+        (SELECT e.from_id, e.key, {KEPT}, {_FOLLOWED_WAY}
+         FROM edges e WHERE e.to_id = n.id)
+    ) r
+)
+SELECT p.i, f.x, min(f.key) AS from_first, min(s.key) AS to_second,
+       coalesce(w.sources, 1) AS sources
+FROM pair p
+JOIN at f ON f.id = p.first AND f.kept
+JOIN at s ON s.id = p.second AND s.x = f.x AND s.kept
+LEFT JOIN {SOURCE_STEP_NODES_TABLE} w ON w.id = f.x
+GROUP BY p.i, f.x, w.sources
+UNION ALL
+SELECT p.i, NULL, min(f.key), NULL, 0
+FROM pair p JOIN at f ON f.id = p.first AND f.x = p.second AND f.followed
+GROUP BY p.i
 """
 
-# Per way of a step: the node its sources share (None: the edge between them) and its
-# edges, from the first source of the step.
-Ways = dict[str | None, tuple[str, ...]]
-# Per neighbour of a node the edge between them (the lowest key).
-Around = dict[str, dict[str, str]]
+
+@dataclass(frozen=True)
+class Link:
+    """A step as the table holds it: its weight, the nodes its sources share, and whether
+    an edge joins them."""
+
+    weight: float
+    ways: int
+    direct: bool
+
+
+# Per source the step to it.
+Links = dict[str, Link]
 
 
 @dataclass(frozen=True)
 class Step:
     """One step of a chain: from *source* to *target* by the edge between them (``via``
-    None) or through the node they share, its edges in that order, and how many ways the
-    step has (``ways``: that edge and each node they share)."""
+    None) or through the node they share, its edges in that order; ``ways`` the edge and
+    the nodes they share, ``weight`` how strong it is."""
 
     source: str
     target: str
     via: str | None
     edges: tuple[str, ...]
     ways: int
+    weight: float
 
 
 @dataclass(frozen=True)
 class Chain:
-    """The sources of a chain from one end to the other, its steps and its weight."""
+    """The sources of a chain from one end to the other, its steps, and its weight: that of
+    its weakest step."""
 
     sources: tuple[str, ...]
     steps: tuple[Step, ...]
-    weight: int
+    weight: float
 
 
 @dataclass
 class Block:
-    """The chains of one length: *total* of them, the first *limit* in ``chains``;
-    ``complete`` when the search read all it needed for them."""
+    """The chains of one length: *total* of them, the first in ``chains``; ``complete``
+    when the search left none out."""
 
     steps: int
     total: int = 0
@@ -136,266 +243,410 @@ class Chains:
     partial: bool
 
 
-def _is_source(node: str) -> bool:
+@dataclass(frozen=True)
+class Found:
+    """A chain found: the sources between the ends and its steps."""
+
+    between: tuple[str, ...]
+    links: tuple[Link, ...]
+
+    def rank(self) -> tuple[float, float, tuple[str, ...]]:
+        """The strongest first: the weakest step, the steps together, the ids."""
+        weights = [link.weight for link in self.links]
+        return -min(weights), -sum(weights), self.between
+
+
+@dataclass(frozen=True)
+class Label:
+    """The strongest way from an end to a source of a level: the sources from the end and
+    the steps to them."""
+
+    path: tuple[str, ...]
+    links: tuple[Link, ...]
+
+    @property
+    def strength(self) -> tuple[float, float]:
+        weights = [link.weight for link in self.links]
+        return min(weights), sum(weights)
+
+    def on(self, node: str, link: Link) -> Label:
+        return Label((*self.path, node), (*self.links, link))
+
+
+def is_source(node: str) -> bool:
     return node.split("/", 1)[0] in STEP_COLLECTIONS
 
 
+def add_link(links: Links, node: str, link: Link) -> None:
+    """*link* to *node*, together with the one there: a way more."""
+    old = links.get(node)
+    if old is not None:
+        link = Link(
+            old.weight + link.weight, old.ways + link.ways, old.direct or link.direct
+        )
+    links[node] = link
+
+
+def _links(rows: Iterable[dict[str, Any]]) -> dict[str, Links]:
+    found: dict[str, Links] = defaultdict(dict)
+    for row in rows:
+        found[row["node"]][row["other"]] = Link(
+            float(row["weight"]), int(row["ways"]), bool(row["direct"])
+        )
+    return found
+
+
+def strongest(links: Links, cap: int) -> list[str]:
+    """The *cap* sources of *links* with the strongest step, then by id."""
+    return sorted(links, key=lambda node: (-links[node].weight, node))[:cap]
+
+
+def meet(from_a: dict[str, Label], from_b: dict[str, Label]) -> tuple[list[Found], int]:
+    """The chains where the levels from both ends meet, by the source they meet at; and
+    how many met twice at a source (a chain left out)."""
+    found, twice = [], 0
+    for node in sorted(from_a.keys() & from_b.keys()):
+        there, back = from_a[node], from_b[node]
+        between = (*there.path, *back.path[-2::-1])
+        if len(set(between)) == len(between):
+            found.append(Found(between, (*there.links, *back.links[::-1])))
+        else:
+            twice += 1
+    return found, twice
+
+
 class _Search:
-    """The chains of two ends by their length, found so far: per length the ways of each
-    step per row of sources between the ends (those of the last step of a longer chain as
-    read from the far end: its edges in the other order)."""
+    """The chains of two ends, found per length."""
 
     def __init__(self, store: GraphStore, ends: tuple[str, str]) -> None:
         self.store = store
         self.ends = ends
-        self.found: list[dict[tuple[str, ...], list[Ways]]] = []
-        # the first length whose reads were cut (a level at its cap, the pairs at theirs)
+        self.top: dict[str, Links] = {}
+        # the first length the search left a way out of
         self.cut_at: int | None = None
+        self.found: list[list[Found]] = []
 
     def _cut(self, length: int) -> None:
         self.cut_at = length if self.cut_at is None else min(self.cut_at, length)
 
-    def around(
-        self, frontier: Iterable[str], length: int, far: Iterable[str] | None
-    ) -> Around:
-        """Per node of *frontier* its neighbours (of the collections *far* alone, when
-        given), each with the lowest key of the edges between them."""
-        nodes = sorted(set(frontier))
-        if not nodes:
-            return {}
-        share = -(-_ROWS_PER_LEVEL // len(nodes))
+    # ── reads ────────────────────────────────────────────────────────────────
+
+    def steps_of(self, end: str) -> Links:
+        """The steps of an end: from the table for a source (and the articles of a law),
+        else from its edges."""
+        if not is_source(end):
+            return self._steps_around(end)
+        links = dict(_links(self.store.query(_STEPS_SQL, {"ids": [end]})).get(end, {}))
+        if end.startswith(f"{COLLECTION_INSTRUMENTS}/"):
+            for part in self.store.query(_PARTS_SQL, {"law": end}):
+                if not (part in links and links[part].direct):
+                    add_link(links, part, Link(DIRECT_WEIGHT, 0, True))
+        return links
+
+    def _steps_around(self, end: str) -> Links:
+        """The steps of an end that is no source, by the rules of the table: the end is
+        one of the sources of each node it shares."""
         rows = list(
             self.store.query(
-                _NEIGHBORS_SQL,
+                _AROUND_END_SQL,
                 {
-                    "frontier": nodes,
-                    "far": list(far) if far is not None else None,
-                    "limit": _ROWS_PER_LEVEL,
-                    "share": share,
+                    "end": end,
+                    "ends": list(self.ends),
+                    "cap": AROUND_CAP,
+                    "per": _PER_WAY,
                     "relations": None,
                     "through_laws": False,
-                    "ends": list(self.ends),
                 },
-                index_order=True,
             )
         )
-        # the level, or the edges of a node one way, cut at their limit
-        if (
-            len(rows) == _ROWS_PER_LEVEL
-            or share in Counter((row["node"], row["outbound"]) for row in rows).values()
-        ):
-            self._cut(length)
-        found: Around = {}
-        level: set[str] = set()
+        touched: dict[str, set[str]] = defaultdict(set)
         for row in rows:
-            neighbor = row["neighbor"]
-            if neighbor not in level:
-                if len(level) == LEVEL_CAP:
-                    self._cut(length)
-                    break
-                level.add(neighbor)
-            found.setdefault(row["node"], {}).setdefault(neighbor, row["key"])
-        return found
-
-    def sources(self, near: dict[str, str], nexts: Around) -> dict[str, Ways]:
-        """The sources one step from the end whose neighbours are *near*, with the ways
-        from the end to each."""
-        found: dict[str, Ways] = {}
-        for node, edge in near.items():
-            if node in self.ends:
+            touched[row["x"]].update(
+                {end} if row["other"] is None else {end, row["other"]}
+            )
+        if len(touched) == AROUND_CAP:
+            self._cut(1)
+        each_way = Counter((row["x"], row["outbound"]) for row in rows)
+        over = {x for (x, _), n in each_way.items() if n >= _PER_WAY}
+        links: Links = {}
+        for x, sources in sorted(touched.items()):
+            if is_source(x) or x in self.ends:
+                add_link(links, x, Link(DIRECT_WEIGHT, 0, True))
+            if x in over or len(sources) > THROUGH_CAP:
                 continue
-            if _is_source(node):
-                found.setdefault(node, {})[None] = (edge,)
-            for source, onward in nexts.get(node, {}).items():
-                if source not in self.ends:
-                    found.setdefault(source, {}).setdefault(node, (edge, onward))
-        return found
+            for other in sorted(sources - {end, x}):
+                add_link(links, other, Link(1 / math.log(len(sources)), 1, False))
+        return links
+
+    def top_steps(self, nodes: list[str], length: int) -> dict[str, Links]:
+        """Of each of *nodes* its ``TOP_STEPS`` strongest steps, read once."""
+        missing = [n for n in nodes if n not in self.top]
+        if missing:
+            read = _links(
+                self.store.query(_TOP_STEPS_SQL, {"ids": missing, "top": TOP_STEPS})
+            )
+            for node in missing:
+                self.top[node] = read.get(node, {})
+        if any(len(self.top[n]) == TOP_STEPS for n in nodes):
+            self._cut(length)
+        return {n: self.top[n] for n in nodes}
+
+    # ── the lengths ──────────────────────────────────────────────────────────
 
     def run(self, max_steps: int) -> None:
         a, b = self.ends
-        near = self.around(self.ends, 1, None)
-        near_a, near_b = near.get(a, {}), near.get(b, {})
-        one: Ways = {k: (near_a[k], near_b[k]) for k in near_a.keys() & near_b.keys()}
-        if b in near_a:
-            one[None] = (near_a[b],)
-        self.found.append({(): [one]} if one else {})
-        if max_steps == 1:
-            return
-        used: set[str] = {k for k in one if k is not None}
-        nexts = self.around(
-            (near_a.keys() | near_b.keys()) - set(self.ends), 2, STEP_COLLECTIONS
-        )
-        left, right = self.sources(near_a, nexts), self.sources(near_b, nexts)
-        self.found.append(
-            {
-                (c,): [left[c], right[c]]
-                for c in left.keys() & right.keys()
-                if c not in used
-            }
-        )
-        if max_steps == 2:
-            return
-        used |= {c for (c,) in self.found[1]}
-        left = {c: ways for c, ways in left.items() if c not in used}
-        right = {d: ways for d, ways in right.items() if d not in used}
-        far = self.around(left.keys() | right.keys(), 3, None)
-        middle = self.middle(left, right, far)
-        self.found.append(
-            {(c, d): [left[c], ways, right[d]] for (c, d), ways in middle.items()}
-        )
-
-    def middle(
-        self, left: dict[str, Ways], right: dict[str, Ways], far: Around
-    ) -> dict[tuple[str, str], Ways]:
-        """Per source of *left* and of *right* one step apart: the ways between them."""
-        # the nodes next to a source of the right, with the edge from each to it
-        toward: Around = {}
-        for d in right:
-            for node, edge in far.get(d, {}).items():
-                toward.setdefault(node, {})[d] = edge
-        found: dict[tuple[str, str], Ways] = {}
-        for c in sorted(left):
-            for node, edge in sorted(far.get(c, {}).items()):
-                if node in self.ends:
-                    continue
-                ways: list[tuple[str, str | None, tuple[str, ...]]] = (
-                    [(node, None, (edge,))] if node in right else []
-                )
-                ways += [
-                    (d, node, (edge, onward))
-                    for d, onward in toward.get(node, {}).items()
-                    if d != c
+        left, right = self.steps_of(a), self.steps_of(b)
+        one = left.get(b) or right.get(a)
+        self.found.append([Found((), (one,))] if one else [])
+        # the ends, and the sources the ends share
+        used = {
+            c for c in left.keys() & right.keys() if left[c].direct and right[c].direct
+        } | set(self.ends)
+        for length in range(2, max_steps + 1):
+            if length == 2:
+                found = [
+                    Found((c,), (left[c], right[c]))
+                    for c in sorted(left.keys() & right.keys())
+                    if c not in used
                 ]
-                for d, via, edges in ways:
-                    if (c, d) not in found and len(found) == PAIR_CAP:
-                        self._cut(3)
-                        return found
-                    found.setdefault((c, d), {}).setdefault(via, edges)
+            elif length == EXACT_STEPS:
+                found = self._three(left, right, used)
+            else:
+                found = self._longer(left, right, used, length)
+            self.found.append(found)
+            used |= {s for chain in found for s in chain.between}
+
+    def _three(self, left: Links, right: Links, used: set[str]) -> list[Found]:
+        """Every chain of three steps: a step between a source of each end."""
+        near = {c: link for c, link in left.items() if c not in used}
+        far = {d: link for d, link in right.items() if d not in used}
+        if max(len(near), len(far)) > LEVEL_CAP:
+            self._cut(EXACT_STEPS)
+        rows = self.store.query(
+            _BETWEEN_SQL,
+            {"near": strongest(near, LEVEL_CAP), "far": strongest(far, LEVEL_CAP)},
+        )
+        found = [
+            Found((c, d), (near[c], link, far[d]))
+            for c, steps in _links(rows).items()
+            for d, link in steps.items()
+            if c != d
+        ]
+        return sorted(found, key=lambda f: f.between)
+
+    def _levels(
+        self, start: Links, depth: int, blocked: set[str], length: int
+    ) -> dict[str, Label]:
+        """The sources *depth* steps from an end, each with the strongest way to it; the
+        ``FRONTIER_CAP`` strongest of a level go on."""
+        level = {
+            c: Label((c,), (link,))
+            for c, link in sorted(start.items())
+            if c not in blocked
+        }
+        for _ in range(depth - 1):
+            if len(level) > FRONTIER_CAP:
+                self._cut(length)
+            frontier = sorted(
+                level, key=lambda n: (-level[n].strength[0], -level[n].strength[1], n)
+            )[:FRONTIER_CAP]
+            level = self._next(level, self.top_steps(frontier, length), blocked, length)
+        return level
+
+    def _next(
+        self,
+        level: dict[str, Label],
+        steps: dict[str, Links],
+        blocked: set[str],
+        length: int,
+    ) -> dict[str, Label]:
+        """The level after *level*: from each source that goes on (*steps*), the strongest
+        way to each source one step on."""
+        found: dict[str, Label] = {}
+        for node, onward in steps.items():
+            for other, link in sorted(onward.items()):
+                if other in blocked or other in level[node].path:
+                    continue
+                way = level[node].on(other, link)
+                there = found.get(other)
+                if there is not None:
+                    self._cut(length)  # of two ways to a source one is kept
+                    if there.strength >= way.strength:
+                        continue
+                found[other] = way
+        return found
+
+    def _longer(
+        self, left: Links, right: Links, used: set[str], length: int
+    ) -> list[Found]:
+        """The chains of *length* steps where the levels from both ends meet."""
+        near = (length + 1) // 2
+        found, twice = meet(
+            self._levels(left, near, used, length),
+            self._levels(right, length - near, used, length),
+        )
+        if twice:
+            self._cut(length)
         return found
 
 
-class _Options:
-    """The ways of a step tried for a chain, best by *rank* first, read once per step (a
-    source one step from an end is in many chains)."""
-
-    def __init__(self, rank: Callable[[str | None], Any]) -> None:
-        self.rank = rank
-        # by the id of the ways, kept with them so that the id is not another's
-        self.read: dict[int, tuple[Ways, list[str | None]]] = {}
-
-    def of(self, ways: Ways) -> list[str | None]:
-        if id(ways) not in self.read:
-            self.read[id(ways)] = ways, heapq.nsmallest(_OPTIONS, ways, key=self.rank)
-        return self.read[id(ways)][1]
-
-    def pick(
-        self, sources: tuple[str, ...], steps: list[Ways]
-    ) -> tuple[str | None, ...] | None:
-        """Per step the way to take, the best first, such that no node is twice in the
-        chain; None when there is none."""
-        for pick in product(*(self.of(ways) for ways in steps)):
-            vias = [via for via in pick if via is not None]
-            if len(set(vias)) == len(vias) and set(sources).isdisjoint(vias):
-                return pick
-        return None
+# ── the ways of the steps shown ─────────────────────────────────────────────
 
 
-def _by_id(via: str | None) -> tuple[bool, str]:
-    return via is not None, via or ""
+@dataclass
+class Ways:
+    """What joins the two sources of a step: the edge between them, and the nodes they
+    share (their sources, the node, its edge from the first and to the second)."""
+
+    edge: str | None = None
+    shared: list[tuple[int, str, str, str]] = field(default_factory=list)
 
 
-def _cited(store: GraphStore, ids: Iterable[str]) -> dict[str, int]:
-    wanted = sorted(set(ids))
-    if not wanted:
-        return {}
-    rows = store.query(_CITED_SQL, {"ids": wanted})
-    return {row["id"]: int(row["cited"]) for row in rows}
-
-
-def _chain(
-    sources: tuple[str, ...],
-    steps: list[Ways],
-    pick: tuple[str | None, ...],
-    weight: int,
-) -> Chain:
-    last = len(steps) - 1
-    return Chain(
-        sources=sources,
-        steps=tuple(
-            Step(
-                sources[i],
-                sources[i + 1],
-                via,
-                # the last step of a longer chain was read from the far end
-                steps[i][via][::-1] if 0 < i == last else steps[i][via],
-                len(steps[i]),
+def _read_ways(
+    store: GraphStore, ends: tuple[str, str], pairs: list[tuple[str, str]]
+) -> list[Ways]:
+    found = [Ways() for _ in pairs]
+    rows = store.query(
+        _WAYS_SQL,
+        {
+            "firsts": [p[0] for p in pairs],
+            "seconds": [p[1] for p in pairs],
+            "ends": list(ends),
+        },
+    )
+    for row in rows:
+        ways = found[int(row["i"]) - 1]
+        if row["x"] is None:
+            ways.edge = row["from_first"]
+        else:
+            ways.shared.append(
+                (int(row["sources"]), row["x"], row["from_first"], row["to_second"])
             )
-            for i, via in enumerate(pick)
-        ),
-        weight=weight,
-    )
+    return found
 
 
-def _block(
-    store: GraphStore,
-    ends: tuple[str, str],
-    found: dict[tuple[str, ...], list[Ways]],
-    limit: int,
-) -> tuple[int, list[Chain]]:
-    """The number of chains of *found* whose nodes can all differ, and the first *limit*
-    of them, the heaviest first."""
-    any_way = _Options(_by_id)
-    possible = [
-        between
-        for between, steps in found.items()
-        if any_way.pick((*ends, *between), steps) is not None
-    ]
-    weights = _cited(store, (s for between in possible for s in between))
-
-    def weight(between: tuple[str, ...]) -> int:
-        return sum(weights.get(s, 0) for s in between)
-
-    possible.sort(key=lambda between: (-weight(between), between))
-    kept = possible[:limit]
-    # of the ways of each step the most cited (of its first ``_WEIGHED`` by id)
-    vias = _cited(
-        store,
+def options_of(
+    ends: tuple[str, str], chain: tuple[str, ...], i: int, link: Link, ways: Ways
+) -> list[Step]:
+    """The ways step *i* of *chain* may take, the best first: the edge, else of the nodes
+    its sources share those with the fewest sources, then the lowest id, that are no
+    source of the chain (at most ``_OPTIONS``)."""
+    source, target = chain[i], chain[i + 1]
+    count = link.ways + link.direct
+    if ways.edge is not None:
+        return [Step(source, target, None, (ways.edge,), count, link.weight)]
+    # an end that is no source is one of the sources of what it shares
+    plus = sum(1 for node in (source, target) if node in ends and not is_source(node))
+    free = heapq.nsmallest(
+        _OPTIONS,
         (
-            via
-            for between in kept
-            for ways in found[between]
-            for via in heapq.nsmallest(_WEIGHED, ways, key=_by_id)
-            if via is not None
+            (sources + plus, x, first, second)
+            for sources, x, first, second in ways.shared
+            if x not in chain and sources + plus <= THROUGH_CAP
         ),
     )
-    best = _Options(lambda via: (via is not None, -vias.get(via or "", 0), via or ""))
-    chains = []
-    for between in kept:
-        sources = (ends[0], *between, ends[1])
-        pick = best.pick(sources, found[between])
-        if pick is not None:
-            chains.append(_chain(sources, found[between], pick, weight(between)))
-    return len(possible), chains
+    return [
+        Step(source, target, x, (first, second), count, link.weight)
+        for _, x, first, second in free
+    ]
+
+
+def chain_of(sources: tuple[str, ...], options: list[list[Step]]) -> Chain | None:
+    """The chain of *sources* whose steps take the best of their *options* such that no
+    node is twice in it; None when there is none."""
+    for steps in product(*options):
+        vias = [s.via for s in steps if s.via is not None]
+        if len(set(vias)) == len(vias):
+            return Chain(sources, steps, min(s.weight for s in steps))
+    return None
+
+
+def _with_ways(
+    store: GraphStore, ends: tuple[str, str], picked: list[Found]
+) -> list[Chain | None]:
+    """*picked* as chains, each step with its way; None for one with a step that has no
+    way but through a node of the chain."""
+    rows = [(ends[0], *f.between, ends[1]) for f in picked]
+    pairs = [(row[i], row[i + 1]) for row in rows for i in range(len(row) - 1)]
+    ways = iter(_read_ways(store, ends, pairs))
+    return [
+        chain_of(
+            row,
+            [
+                options_of(ends, row, i, link, next(ways))
+                for i, link in enumerate(found.links)
+            ],
+        )
+        for row, found in zip(rows, picked, strict=True)
+    ]
+
+
+def pick(found: Iterable[Found], limit: int, taken: set[str]) -> list[Found]:
+    """Of *found*, in their order, the first *limit* that pass no source another one of
+    them or *taken* passes: each source between the ends once. Adds theirs to *taken*."""
+    picked: list[Found] = []
+    if limit <= 0:
+        return picked
+    for chain in found:
+        if taken.isdisjoint(chain.between):
+            picked.append(chain)
+            taken.update(chain.between)
+            if len(picked) == limit:
+                break
+    return picked
+
+
+@dataclass
+class _Showing:
+    """The chains of a block shown so far, the rest in their order, and the sources they
+    pass."""
+
+    rest: Iterator[Found]
+    shown: list[Chain] = field(default_factory=list)
+    taken: set[str] = field(default_factory=set)
+
+
+def _shown(
+    store: GraphStore, ends: tuple[str, str], blocks: list[list[Found]], limit: int
+) -> list[list[Chain]]:
+    """Per block of *blocks* its first *limit* chains, the strongest first and each source
+    between the ends once, each step with its way (one without a way passed over): the
+    ways of every block read together."""
+    showing = [_Showing(iter(sorted(found, key=Found.rank))) for found in blocks]
+    while True:
+        picked = [pick(s.rest, limit - len(s.shown), s.taken) for s in showing]
+        flat = [chain for chains in picked for chain in chains]
+        if not flat:
+            return [s.shown for s in showing]
+        ways = iter(_with_ways(store, ends, flat))
+        for block, chains in zip(showing, picked, strict=True):
+            for chain in chains:
+                way = next(ways)
+                if way is None:
+                    block.taken.difference_update(chain.between)
+                else:
+                    block.shown.append(way)
 
 
 def get_chains(
     store: GraphStore, ends: tuple[str, str], max_steps: int, limit: int
 ) -> Chains:
     """The chains from one of *ends* to the other of 1 to *max_steps* steps: per length a
-    block with their number and the first *limit*, the heaviest first, and every node and
-    edge on those (a chain through a node that is not there left out). ``capped``: a
-    level or the pairs of three steps reached its cap; ``partial``: the search ran past
-    ``CHAINS_BUDGET``. A block is ``complete`` when neither touched it."""
+    block with their number and the first *limit*, the strongest first, and every node and
+    edge on those (a chain through a node that is not there left out). ``capped``: the
+    search left a way out (a level at its cap, a source with more steps than it took, one
+    of two ways to a source); ``partial``: it ran past ``CHAINS_BUDGET``. A block is
+    ``complete`` when neither touched it."""
     search = _Search(store, ends)
     with read_budget(CHAINS_BUDGET, "The chains", reserve=CHAINS_RESERVE) as budget:
         search.run(max_steps)
+    shown = _shown(store, ends, search.found, limit)
     blocks = []
     for steps in range(1, max_steps + 1):
         block = Block(steps)
         if steps <= len(search.found):
-            block.total, block.chains = _block(
-                store, ends, search.found[steps - 1], limit
-            )
+            block.total = len(search.found[steps - 1])
+            block.chains = shown[steps - 1]
             block.complete = search.cut_at is None or steps < search.cut_at
         blocks.append(block)
     return _answer(store, blocks, search.cut_at is not None, budget.ran_out)

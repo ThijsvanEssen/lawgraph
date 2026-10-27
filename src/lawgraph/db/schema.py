@@ -2408,6 +2408,49 @@ CREATE TABLE IF NOT EXISTS lg_ek_seats (
 """
 
 
+# The steps between two sources (``queries/source_steps.py``), built whole from the edges by
+# ``semantic graph-steps`` beside the tables (``_new``) and put in their place; ``/api/chains``
+# searches them. One row per pair of sources (``a < b``, by byte: ``"C"``) and a row per node
+# that two sources or more touch. Not tables of the graph: writing them raises no data version.
+SOURCE_STEPS_TABLE = "source_steps"
+SOURCE_STEP_NODES_TABLE = "source_step_nodes"
+SOURCE_STEPS_COLUMNS = {
+    SOURCE_STEPS_TABLE: """
+    a text COLLATE "C" NOT NULL,
+    b text COLLATE "C" NOT NULL,
+    ways integer NOT NULL,
+    direct boolean NOT NULL,
+    weight real NOT NULL
+""",
+    SOURCE_STEP_NODES_TABLE: """
+    id text COLLATE "C" PRIMARY KEY,
+    sources integer NOT NULL
+""",
+}
+# By either end, the strongest first, with the other end and the step included: a source's
+# steps from the index alone, and its strongest without reading the rest. Full pages: the
+# table is written once.
+SOURCE_STEPS_INDEXES = {
+    "source_steps_a": "CREATE INDEX IF NOT EXISTS {name} ON {table} (a, weight DESC)"
+    " INCLUDE (b, ways, direct) WITH (fillfactor = 100)",
+    "source_steps_b": "CREATE INDEX IF NOT EXISTS {name} ON {table} (b, weight DESC)"
+    " INCLUDE (a, ways, direct) WITH (fillfactor = 100)",
+}
+
+
+def source_steps() -> list[str]:
+    return [
+        *(
+            f"CREATE TABLE IF NOT EXISTS {table} ({columns})"
+            for table, columns in SOURCE_STEPS_COLUMNS.items()
+        ),
+        *(
+            definition.format(name=name, table=SOURCE_STEPS_TABLE)
+            for name, definition in SOURCE_STEPS_INDEXES.items()
+        ),
+    ]
+
+
 def feed_events() -> list[str]:
     statements = [
         f"CREATE TABLE IF NOT EXISTS {FEED_EVENTS_TABLE} ({FEED_EVENTS_COLUMNS})",
@@ -2554,6 +2597,7 @@ def statements() -> list[str]:
         INSTRUMENT_DEFINITIONS,
         UNLINKED_REFERENCES,
         *feed_events(),
+        *source_steps(),
         EK_SEATS,
         nodes_view(),
     ]

@@ -366,6 +366,8 @@
   "CREATE INDEX IF NOT EXISTS members_slug ON members (public.lg_str(props -> 'slug'))",
   "CREATE INDEX IF NOT EXISTS raw_sources_source_fetched_at ON raw_sources (source, fetched_at)",
   "CREATE INDEX IF NOT EXISTS raw_sources_source_kind ON raw_sources (source, kind, key)",
+  "CREATE INDEX IF NOT EXISTS source_steps_a ON source_steps (a, weight DESC) INCLUDE (b, ways, direct) WITH (fillfactor = 100)",
+  "CREATE INDEX IF NOT EXISTS source_steps_b ON source_steps (b, weight DESC) INCLUDE (a, ways, direct) WITH (fillfactor = 100)",
   "CREATE UNIQUE INDEX IF NOT EXISTS activities_key ON activities (key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS annexes_key ON annexes (key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS article_versions_key ON article_versions (key)",
