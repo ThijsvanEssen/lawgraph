@@ -31,7 +31,6 @@ from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
 from lawgraph.db.queries.documents import get_document
-from lawgraph.db.queries.search.types import STEM_MIN
 from lawgraph.db.schema import search_words
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting
@@ -45,7 +44,7 @@ class DecisionFilters:
     ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
     *dossier_number* is a dossier number, matched against the numbers on the decision; *q* the
     queries, any of them, each the words of which the subject or kind holds every one, in any
-    order (``_word``). *faction_votes* asks how factions voted on the decisions, without
+    order (``_words_filters``). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
@@ -126,56 +125,22 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
 
 
 def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    """The decisions that hold every word of one of the queries of *filters* (``_word``):
-    by the trigram index on the words of a decision when each query has a word of three
-    letters or more, then tested."""
-    found, holds = [], []
-    for n, query in enumerate(dict.fromkeys(q for q in filters.q if q)):
-        words = [_word(word, f"q_{n}_{m}", bind) for m, word in enumerate(query)]
-        found.append(" AND ".join(index for index, _ in words if index))
-        holds.append(" AND ".join(test for _, test in words))
-    if not holds:
-        return []
-    clauses = [f"(({') OR ('.join(holds)}))"]
-    if all(found):
-        clauses.insert(0, f"(({') OR ('.join(found)}))")
-    return clauses
+    """The decisions whose subject or kind holds every word of one of the queries of
+    *filters* (``_words.any_query``); a word of the name of a kind of motion
+    (``wantrouwen``) the votes on those motions too."""
+    return _words.any_query(filters.q, _WORDS, bind, also=_motion_kinds)
 
 
 # The words of a decision as ``/api/search`` finds it: its subject and kind, lower case.
 _WORDS = search_words(COLLECTION_DECISIONS, "d")
-# The stem of a word (the bind ``{word}``), as the search stems it (``lg_tokens``).
-_STEM = "(lg_tokens(%({word})s))[1]"
 
 
-def _word(word: str, name: str, bind: dict[str, Any]) -> tuple[str, str]:
-    """SQL: the condition of the trigram index (empty for a word of fewer than three
-    letters) and the test that the words of a decision hold *word* (bound as *name*), as
-    ``/api/search`` finds a vote by a word (``search.types._all_words``) but from the start
-    of a word (``_words``: a short one whole): the word, or the start of a word in its
-    stem of ``STEM_MIN`` characters or more (``afkeuringen``: afkeuring); a word of the name
-    of a kind of motion (``wantrouwen``) the votes on those motions too."""
-    word = _words.words(word)
-    bind[name] = word
-    bind[f"{name}_word"] = _words.word_pattern(word)
-    stem = _STEM.format(word=name)
-    stemmed = f"char_length({stem}) >= {STEM_MIN}"
-    index = [
-        f"{_WORDS} LIKE {_words.lower_like(name)}",
-        f"({stemmed} AND {_WORDS} LIKE '%%' || lg_like({stem}) || '%%')",
-    ]
-    test = [
-        _words.holds(_WORDS, f"{name}_word"),
-        f"({stemmed} AND lg_fold({_WORDS}) ~ ('\\m' || {stem}))",
-    ]
-    if kinds := kinds_named(word):
-        bind[f"{name}_kinds"] = kinds
-        named = f"lg_str(d.props -> 'motion_kind') = ANY(%({name}_kinds)s::text[])"
-        index.append(named)
-        test.append(named)
-    if len(word) < _words.TRIGRAM:
-        return "", f"({' OR '.join(test)})"
-    return f"({' OR '.join(index)})", f"({' OR '.join(test)})"
+def _motion_kinds(word: str, name: str, bind: dict[str, Any]) -> str | None:
+    """SQL: a vote on a motion of a kind whose name holds *word* (bound as *name*)."""
+    if not (kinds := kinds_named(word)):
+        return None
+    bind[f"{name}_kinds"] = kinds
+    return f"lg_str(d.props -> 'motion_kind') = ANY(%({name}_kinds)s::text[])"
 
 
 def _own_filters(filters: DecisionFilters, bind: dict[str, Any]) -> FacetFilters:

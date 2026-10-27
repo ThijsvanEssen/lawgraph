@@ -22,6 +22,7 @@ from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.queries.search.clause import queries_words
 
 router = APIRouter()
 
@@ -67,7 +68,15 @@ def list_commitments(
         dt.date | None,
         Query(alias="to", description="Made on or before this day, YYYY-MM-DD."),
     ] = None,
-    q: Annotated[str | None, Query(description="Words of the text.")] = None,
+    q: Annotated[
+        str | None,
+        Query(
+            description="Words of the text or number, every one, in any order and any "
+            "case, as ``/api/search`` finds a commitment: its stop words left out unless "
+            "they are all of it, a word also by its stem of four characters or more; each "
+            "from the start of a word, one of at most four characters as a whole word."
+        ),
+    ] = None,
     sort: Annotated[
         Literal["date", "expected_resolution"],
         Query(description="Newest made first, or soonest due first."),
@@ -87,7 +96,7 @@ def list_commitments(
         dossier=dossier,
         due_before=iso_day(due_before),
         overdue=overdue,
-        q=q,
+        q=queries_words(store, (q,) if q else ()),
         sort=sort,
         limit=limit,
         offset=offset,

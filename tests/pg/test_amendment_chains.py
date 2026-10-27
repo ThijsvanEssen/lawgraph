@@ -103,7 +103,7 @@ def test_a_chain_counts_for_a_topic_when_any_of_its_papers_holds_it(
     chains: GraphStore,
 ) -> None:
     # only A2 names AI; the chain counts, in A2's month, with B2's outcome
-    found = _chains(chains, FeedFilters(q=("ai",)))
+    found = _chains(chains, FeedFilters(q=(("ai",),)))
     assert [(period, c["count"], c["aangenomen"]) for period, c in found] == [
         ("2026-02-01", 1, 1)
     ]

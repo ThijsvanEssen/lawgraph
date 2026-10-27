@@ -65,6 +65,7 @@ from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
 from lawgraph.db.queries.feed_sql import FeedFilters
+from lawgraph.db.queries.search.clause import queries_words
 from lawgraph.db.queries.stats import cached_data_as_of
 from lawgraph.db.request_context import read_budget
 
@@ -93,17 +94,18 @@ MAX_WORDS = 10
 MAX_WORD_LENGTH = 200
 
 
-def _words(q: list[str] | None) -> tuple[str, ...]:
-    """The words of ``q``, trimmed, the empty ones left out; 422 for too many or too long."""
-    words = tuple(word.strip() for word in q or () if word.strip())
-    if len(words) > MAX_WORDS or any(len(word) > MAX_WORD_LENGTH for word in words):
+def _words(store: GraphStore, q: list[str] | None) -> tuple[tuple[str, ...], ...]:
+    """The words of each ``q`` (``queries_words``); 422 for too many or too long."""
+    asked = [each for each in q or () if each.strip()]
+    if len(asked) > MAX_WORDS or any(len(each) > MAX_WORD_LENGTH for each in asked):
         raise Invalid(
             "q", f"at most {MAX_WORDS} words of {MAX_WORD_LENGTH} characters."
         )
-    return words
+    return queries_words(store, asked)
 
 
 def scope_filters(
+    store: Annotated[GraphStore, Depends(get_store)],
     kind: Annotated[
         str | None,
         Query(description=f"Comma-separated: {', '.join(FEED_KINDS)}."),
@@ -143,10 +145,10 @@ def scope_filters(
     q: Annotated[
         list[str] | None,
         Query(
-            description="Words of the title, or of the title of the event's dossier, "
-            "or of a publication the names of the laws it enacts or changes, in any "
-            "case: each from the start of a word, one of at most four characters as a "
-            f"whole word. Repeat it (at most {MAX_WORDS} times, each "
+            description="Words of the title, of the title of the event's dossier, or "
+            "of a publication of the names of the laws it enacts or changes, every one, "
+            "in any order and any case: each from the start of a word, one of at most "
+            f"four characters as a whole word. Repeat it (at most {MAX_WORDS} times, each "
             f"{MAX_WORD_LENGTH} characters at most) for events that hold any of them; "
             "``matched`` says where each item holds them.",
         ),
@@ -212,7 +214,7 @@ def scope_filters(
         faction=faction or None,
         party=party or None,
         vote=VOTE_PARAMETER[vote] if vote else None,
-        q=_words(q),
+        q=_words(store, q),
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
         coalition=coalition,
@@ -306,14 +308,16 @@ _Cursor = Annotated[
         "voted on, how it voted rather than what it signed, each with "
         "`vote.party_choice`; keeps votes alone; without `since` its page is read as "
         "under `q`) with `vote` (`voor`, `tegen`: the votes it voted that way on; 422 "
-        "without `party`), `q` (words of the title or of "
-        "the title of the event's dossier, or of a publication the names of the laws "
-        "it changes or enacts and the official title of a law it enacts (from "
-        "`lg_feed_events`: a publication is found by them once `lawgraph feed-events` "
-        "wrote it), any case; each word from the start of a word, one of at most four "
-        "characters as a whole word (`ai`: the AI-verordening, not universitaire; "
-        "`stikstof`: Stikstofbank, not natuurstikstof; repeated, at most ten times, "
-        "any of them: `q=AI&q=kunstmatige intelligentie`, each event once); each kind "
+        "without `party`), `q` (the events that hold every word of it, in any order "
+        "and any case, in the title, the title of the event's dossier, or of a "
+        "publication the names of the laws it changes or enacts and the official title "
+        "of a law it enacts (from `lg_feed_events`: a publication is found by them once "
+        "`lawgraph feed-events` wrote it); its stop words left out unless they are all "
+        "of it, as `/api/search` leaves them out; each word from the start of a word, "
+        "one of at most four characters as a whole word (`ai`: the AI-verordening, not "
+        "universitaire; `stikstof`: Stikstofbank, not natuurstikstof; `motie "
+        "wantrouwen` a motie van wantrouwen; repeated, at most ten times, any of them: "
+        "`q=AI&q=kunstmatige intelligentie`, each event once); each kind "
         "finds them by index where it can (from three characters); without `since` the "
         "page is read once from the first day it reaches back to, the day of the "
         "(`limit` + 1)-th newest matching event in `lg_feed_events` "
@@ -358,7 +362,7 @@ _Cursor = Annotated[
         "the cursor; `facets=false` gives null for both and reads one page only, the "
         "choice for the pages after the first. Each item says what it is tied to, read "
         "for the items of the page alone: `matched` (with `q`, per word the event "
-        "holds `{term, field}`, `term` as it was asked and `field` the first of "
+        "holds `{term, field}`, `term` the word in lower case and `field` the first of "
         "`title` (its own title, of a bill not that of its dossier), `dossier_title` "
         "(the whole title of its first dossier) and `laws` (of a publication, the "
         "names of its laws) that holds it; empty without `q`), `via` (with "
@@ -505,14 +509,14 @@ _COALITION_WORDS = {
 
 def site_query(filters: FeedFilters) -> list[tuple[str, str]]:
     """The filters as the query of the page /actueel of Concordans: the kinds joined by
-    commas, each word of ``q`` a parameter of its own."""
+    commas, the words of each query of ``q`` a parameter of their own."""
     query: list[tuple[str, str]] = []
     for field, parameter in _SITE_PARAMETERS.items():
         value = getattr(filters, field)
         if not value:
             continue
         if field == "q":
-            query.extend((parameter, word) for word in value)
+            query.extend((parameter, " ".join(words)) for words in value)
         elif field == "coalition":
             query.append((parameter, _SITE_COALITION[value]))
         else:
@@ -564,7 +568,7 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         article = f"artikel {filters.article} " if filters.article else ""
         parts.append(f"{article}{filters.instrument}")
     if filters.q:
-        parts.append(" of ".join(f"‘{word}’" for word in filters.q))
+        parts.append(" of ".join(f"‘{' '.join(words)}’" for words in filters.q))
     if filters.since:
         parts.append(f"vanaf {filters.since}")
     if filters.until:

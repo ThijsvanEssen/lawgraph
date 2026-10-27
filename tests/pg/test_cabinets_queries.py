@@ -331,11 +331,15 @@ def test_each_facet_counts_without_its_own_filter(government: GraphStore) -> Non
         # expected before a day: one without an expected date passes, as null is lowest
         ({"due_before": "2024-01-01"}, ["k1", "k4"]),
         ({"overdue": True}, ["k1", "k4"]),
-        ({"q": "BOX"}, ["k1"]),
-        ({"q": "école"}, ["k3"]),
-        ({"q": "ECOLE"}, ["k3"]),  # without its accent, in capitals
-        # spaces alone find nothing
-        ({"q": "   "}, []),
+        ({"q": (("box",),)}, ["k1"]),
+        ({"q": (("école",),)}, ["k3"]),
+        ({"q": (("ecole",),)}, ["k3"]),  # without its accent: by its stem, folded
+        # every word, in any order, not side by side; from the start of a word
+        ({"q": (("box", "brief"),)}, ["k1"]),
+        ({"q": (("brief", "école"),)}, []),
+        ({"q": (("rief",),)}, []),
+        # any of the queries
+        ({"q": (("box",), ("école",))}, ["k1", "k3"]),
         # soonest due first; without a date (or the placeholder of none) last
         ({"sort": "expected_resolution"}, ["k1", "k3", "k4", "k2"]),
         ({"sort": "expected_resolution", "limit": 2, "offset": 1}, ["k3", "k4"]),

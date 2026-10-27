@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from lawgraph.config.constants import (
     COLLECTION_ACTIVITIES,
+    COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_ABOUT,
@@ -15,8 +16,10 @@ from lawgraph.config.constants import (
 from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, NO_DUE_DATE
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _words
 from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.queries.cabinets import person_object
+from lawgraph.db.schema import search_words
 
 # What a commitment item shows beside its own props: who made it, its dossiers (with the
 # basis of each: ``core/provenance.py``), the activity it was made in and the letters that fulfil it (``ANSWERS``, light).
@@ -70,6 +73,11 @@ _COMMITMENT_FACETS = {
     "ministry": "c.ministry",
 }
 
+# The words of a commitment: its text and number, folded as the search folds them
+# (``lg_fold``: lower case, no accents), so ``ecole`` finds the école. Tested row by row:
+# the index on its words (``search_words``) is not folded.
+_WORDS = f"lg_fold({search_words(COLLECTION_COMMITMENTS, 'c')})"
+
 # The day a commitment is expected to be resolved (a string), or the placeholder of none;
 # one without it is due before every day.
 _EXPECTED = "(c.props ->> 'expected_resolution')"
@@ -98,7 +106,7 @@ def _commitment_filters(
     dossier: str | None,
     due_before: str | None,
     overdue: bool,
-    q: str | None,
+    q: tuple[tuple[str, ...], ...],
     made_from: str | None = None,
     made_to: str | None = None,
 ) -> list[str]:
@@ -125,14 +133,7 @@ def _commitment_filters(
         bind["open"] = COMMITMENT_OPEN
         bind["no_date"] = NO_DUE_DATE
         bind["today"] = dutch_today().isoformat()
-    if q:
-        # nothing holds "" (*q* of spaces alone); a missing text is ""; both folded as the
-        # search folds them (lg_fold: lower case, no accents)
-        shared.append(
-            "%(q)s <> '' AND strpos(lg_fold(coalesce(c.props ->> 'text', '')),"
-            " lg_fold(%(q)s)) > 0"
-        )
-        bind["q"] = q.strip().lower()
+    shared += _words.any_query(q, _WORDS, bind, indexed=False)
     if dossier:
         shared.append(
             """EXISTS (
@@ -155,7 +156,7 @@ def get_commitments(
     dossier: str | None = None,
     due_before: str | None = None,
     overdue: bool = False,
-    q: str | None = None,
+    q: tuple[tuple[str, ...], ...] = (),
     sort: str = "date",
     limit: int = 100,
     offset: int = 0,
@@ -166,7 +167,8 @@ def get_commitments(
     """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
     ``ministry`` the number of commitments per value under the other filters, each
     dimension counted without its own filter (``facets=False``: the page and the total
-    alone, ``facets`` None). *dossier* is a number (``36600``) or the
+    alone, ``facets`` None). *q* the queries, any of them, each the words of which the
+    text or number holds every one, in any order (``_words.any_query``). *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
     has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
     first, those without one last)."""
