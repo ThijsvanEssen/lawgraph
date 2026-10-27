@@ -3,6 +3,7 @@ the steps ``semantic graph-steps`` builds."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -273,6 +274,45 @@ def test_a_step_names_the_shared_node_of_the_fewest_sources(store: GraphStore) -
         (f"{COLLECTION_DOCUMENTS}/p2", a),
         (f"{COLLECTION_DOCUMENTS}/p2", b),
     ]
+
+
+def test_the_table_names_the_way_the_edges_of_the_sources_give(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A step takes the node the table names, as the edges of its sources would choose it,
+    without reading those whole; a table without them reads the edges."""
+    whole: list[tuple[str, str]] = []
+    read_ways = chains_queries._read_ways
+
+    def spy(store: GraphStore, ends: Any, pairs: list[tuple[str, str]]) -> Any:
+        whole.extend(pairs)
+        return read_ways(store, ends, pairs)
+
+    monkeypatch.setattr(chains_queries, "_read_ways", spy)
+    asked = [(WATER, BOOK7, 2), (MUNI, HOUSING, 3), (MUNI, AWB, 1), (AWB, HOUSING, 3)]
+    quick = [get_chains(graph, (a, b), steps, 12) for a, b, steps in asked]
+    assert whole == []
+    vias = [s.via for c in quick[0].blocks[1].chains for s in c.steps]
+    assert vias == [MVT, OTHER]
+
+    graph.execute("UPDATE source_steps SET via = NULL")
+    assert [get_chains(graph, (a, b), steps, 12) for a, b, steps in asked] == quick
+    assert whole
+
+
+def test_the_way_of_a_step_is_one_row_of_the_index(graph: GraphStore) -> None:
+    """The table's row of a step is found by its first source and its weight, not by
+    reading every step of a source that has thousands."""
+    with graph.pool.connection() as conn:
+        conn.execute("SET LOCAL enable_seqscan = off")
+        plan = "\n".join(
+            row[0]
+            for row in conn.execute(
+                "EXPLAIN " + chains_queries._VIAS_SQL,
+                {"firsts": [WATER], "seconds": [HOUSING], "weights": [1.0]},
+            )
+        )
+    assert re.search(r"Index Cond: .*\(weight = p\.weight\)", plan), plan
 
 
 def test_four_to_six_steps_meet_between_the_ends(store: GraphStore) -> None:

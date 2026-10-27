@@ -12,9 +12,10 @@ a law would be one step apart.
 the nodes they share, ``direct`` whether an edge joins them, and ``weight`` how strong the
 step is: over the nodes they share the sum of 1 / ln k, k the sources of the node
 (Adamic-Adar: a node of two sources adds 1.44, one of fifty 0.26), plus ``DIRECT_WEIGHT`` for
-the edge, as much as a node that touches those two alone. ``source_step_nodes`` holds per
-node with an edge to two sources or more their number (``sources``), over the cap too: the
-search reads what a step goes through there.
+the edge, as much as a node that touches those two alone; ``via`` the node they share with
+the fewest sources, then the lowest id (null when they share none), the way ``/api/chains``
+shows. ``source_step_nodes`` holds per node with an edge to two sources or more their number
+(``sources``), over the cap too: the search reads what a step goes through there.
 
 Both are built beside the tables (``_new``), their indexes and visibility made, and then put
 in their place in one short transaction: a reader sees the old steps or the new, never half.
@@ -51,6 +52,9 @@ THROUGH_CAP = 50
 DIRECT_WEIGHT = 1 / math.log(2)
 # When the steps were built (``pipeline_state``): until then ``/api/chains`` has none.
 BUILT_STATE = "source_steps"
+# The digits of the sources of a node through which a step goes: ``via`` is the least of
+# them and its id together.
+_DIGITS = len(str(THROUGH_CAP))
 # How long one statement of the build may run, and the memory of its sorts and hashes.
 BUILD_TIMEOUT = "30min"
 BUILD_WORK_MEM = "256MB"
@@ -83,19 +87,22 @@ SELECT x, count(*) FROM lg_step_touch GROUP BY x HAVING count(*) >= 2 ORDER BY x
 # Every node a step goes through, with its source and what it adds to the weight.
 _THROUGH = f"""
 CREATE TEMP TABLE lg_step_through ON COMMIT DROP AS
-SELECT t.x, t.s, 1 / ln(n.sources) AS weight
+SELECT t.x, t.s, 1 / ln(n.sources) AS weight,
+       lpad(n.sources::text, {_DIGITS}, '0') || t.x COLLATE "C" AS rank
 FROM lg_step_touch t JOIN {SOURCE_STEP_NODES_TABLE}{_NEW} n ON n.id = t.x
 WHERE n.sources <= {THROUGH_CAP}
 """
 
 _STEPS = f"""
-INSERT INTO {SOURCE_STEPS_TABLE}{_NEW} (a, b, ways, direct, weight)
-SELECT c.a, c.b, sum(c.ways)::int, bool_or(c.direct), sum(c.weight)::real FROM (
-    SELECT p.s AS a, q.s AS b, 1 AS ways, false AS direct, p.weight
+INSERT INTO {SOURCE_STEPS_TABLE}{_NEW} (a, b, ways, direct, weight, via)
+SELECT c.a, c.b, sum(c.ways)::int, bool_or(c.direct), sum(c.weight)::real,
+       substr(min(c.rank), {_DIGITS + 1}) FROM (
+    SELECT p.s AS a, q.s AS b, 1 AS ways, false AS direct, p.weight, p.rank
     FROM lg_step_through p JOIN lg_step_through q ON q.x = p.x AND p.s < q.s
     UNION ALL
     SELECT DISTINCT least(e.from_id COLLATE "C", e.to_id COLLATE "C"),
-           greatest(e.from_id COLLATE "C", e.to_id COLLATE "C"), 0, true, {DIRECT_WEIGHT}
+           greatest(e.from_id COLLATE "C", e.to_id COLLATE "C"), 0, true, {DIRECT_WEIGHT},
+           NULL
     FROM edges e
     WHERE e.from_collection IN ({_SOURCES}) AND e.to_collection IN ({_SOURCES}) AND {KEPT}
 ) c

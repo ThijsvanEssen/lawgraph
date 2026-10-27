@@ -2420,7 +2420,8 @@ SOURCE_STEPS_COLUMNS = {
     b text COLLATE "C" NOT NULL,
     ways integer NOT NULL,
     direct boolean NOT NULL,
-    weight real NOT NULL
+    weight real NOT NULL,
+    via text COLLATE "C"
 """,
     SOURCE_STEP_NODES_TABLE: """
     id text COLLATE "C" PRIMARY KEY,
@@ -2448,6 +2449,7 @@ def source_steps() -> list[str]:
             definition.format(name=name, table=SOURCE_STEPS_TABLE)
             for name, definition in SOURCE_STEPS_INDEXES.items()
         ),
+        f'ALTER TABLE {SOURCE_STEPS_TABLE} ADD COLUMN IF NOT EXISTS via text COLLATE "C"',
     ]
 
 
