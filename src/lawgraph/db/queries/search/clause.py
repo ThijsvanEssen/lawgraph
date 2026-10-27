@@ -11,6 +11,7 @@ it by a term, ``termed_articles`` and ``legislated_dossiers``). Which fields hav
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,6 +66,16 @@ def query_words(store: GraphStore, q: str) -> QueryWords:
     if not words:
         return QueryWords(tokens, [])
     return QueryWords(words, [t for t in tokens if t in stop])
+
+
+def queries_words(
+    store: GraphStore, queries: Iterable[str]
+) -> tuple[tuple[str, ...], ...]:
+    """The words of each of *queries* (``query_words``), those without words left out: what
+    a list matches every word of (``_words.any_query``)."""
+    return tuple(
+        words for q in queries if (words := tuple(query_words(store, q).words))
+    )
 
 
 # ── a period ──────────────────────────────────────────────────────────────────

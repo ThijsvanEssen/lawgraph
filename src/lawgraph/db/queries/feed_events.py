@@ -42,6 +42,7 @@ from lawgraph.db.queries.feed_sql import (
     dimension_facet,
     dimension_filters,
     elements,
+    every_word,
     in_period,
     kinds_to_read,
     lit,
@@ -292,20 +293,21 @@ def word_queries(store: GraphStore, filters: FeedFilters) -> list[str | None]:
 def _words_filter(
     filters: FeedFilters, queries: list[str | None], bind: dict[str, Any]
 ) -> str | None:
-    """SQL: the rows that hold any word of ``q`` in their title or that of their first
-    dossier, as the feed matches it (``_words.holds``): found by ``words`` when every word
-    has a query (*queries*), else tested row by row."""
+    """SQL: the rows that hold every word of one of the queries of ``q`` in their title or
+    that of their first dossier, as the feed matches it (``_words.holds``): found by
+    ``words`` when every word has a query (*queries*), else tested row by row."""
     words = words_of(filters)
     if not words:
         return None
-    holds = []
     for n, word in enumerate(words):
         bind[f"q_word_{n}"] = _words.word_pattern(word)
-        holds.append(f"e.title ~ %(q_word_{n})s OR e.dossier_title ~ %(q_word_{n})s")
-    exact = " OR ".join(holds)
+    exact = every_word(
+        lambda n: f"e.title ~ %(q_word_{n})s OR e.dossier_title ~ %(q_word_{n})s",
+        filters,
+    )
     if len(queries) != len(words) or any(q is None for q in queries):
         return f"({exact})"
-    bind["words"] = " | ".join(f"({q})" for q in queries)
+    bind["words"] = every_word(lambda n: queries[n], filters, " & ", " | ")
     return f"e.words @@ %(words)s::tsquery AND ({exact})"
 
 

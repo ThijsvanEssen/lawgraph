@@ -722,8 +722,9 @@ def _reference_bucket(identity: str, own: str, other: str) -> str:
 
 def get_instrument_related_instruments(
     store: GraphStore, identifier: str, *, limit: int = 100
-) -> tuple[list[dict[str, Any]], int]:
-    """Other instruments related by cross-article REFERS_TO links, in force at both ends.
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Other instruments related by cross-article REFERS_TO links, in force at both ends:
+    the articles not repealed, the other instrument not expired (``props.date_expired``).
 
     Returns ``{instrument, outbound_count, outbound_cited_count, inbound_count,
     inbound_cited_count, basis}`` per related instrument, the most articles first:
@@ -731,20 +732,22 @@ def get_instrument_related_instruments(
     other, ``inbound_count`` articles of the other to ``inbound_cited_count`` of this one.
     ``basis`` (:func:`_pair_bases`) says whether one is issued under the other. The
     counterpart of a BWB regulation is a BWB regulation; the counterpart of an EU act is a
-    BWB regulation or another EU act. Kept per data version of what it reads (a law's
+    BWB regulation or another EU act. With the page: the total and how many of the total
+    have a ``basis``. Kept per data version of what it reads and per day (a law's
     Verbonden asks it on every visit).
     """
+    today = dutch_today().isoformat()
     return cached(
         store,
-        ("related-instruments", identifier, limit),
-        lambda: _related_instruments(store, identifier, limit),
+        ("related-instruments", identifier, limit, today),
+        lambda: _related_instruments(store, identifier, limit, today),
         tables=(COLLECTION_EDGES, COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS),
     )
 
 
 def _related_instruments(
-    store: GraphStore, identifier: str, limit: int
-) -> tuple[list[dict[str, Any]], int]:
+    store: GraphStore, identifier: str, limit: int, today: str
+) -> tuple[list[dict[str, Any]], int, int]:
     scope = scope_of(identifier)
     # The identity of the counterpart article of an edge, and how its instrument is found
     # again: by the indexed bwb_id / celex of the instruments, the first by key.
@@ -773,7 +776,7 @@ def _related_instruments(
             FROM counts c
             JOIN LATERAL (
                 SELECT i.id, i.key, i.type, i.labels, i.props FROM instruments i
-                WHERE {find}
+                WHERE ({find}) AND NOT {expired("i")}
                 ORDER BY i.key
                 LIMIT 1
             ) inst ON true
@@ -789,15 +792,28 @@ def _related_instruments(
         ORDER BY n
         LIMIT %(limit)s
     """
-    rows = store.query(
-        ctes + paged("resolved", page),
-        {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "limit": limit},
+    # The page, the total and every id: whether one is issued under the other is asked of
+    # them all, so the count of those (``based_on``) holds for every page.
+    rows = list(
+        store.query(
+            f"""{ctes}
+        SELECT t.total, t.ids, p.*
+        FROM (SELECT count(*)::int AS total, array_agg(id) AS ids FROM resolved) t
+        LEFT JOIN ({page}) p ON true
+        ORDER BY p.n
+        """,
+            {
+                "bwb": scope.value,
+                "refers_to": RELATION_REFERS_TO,
+                "limit": limit,
+                "today": today,
+            },
+        )
     )
     page_rows, total = split_page(rows)
+    ids = (rows[0]["ids"] if rows else None) or []
     bases = (
-        _pair_bases(store, scope.value, [row["id"] for row in page_rows])
-        if scope.prop == "bwb_id" and page_rows
-        else {}
+        _pair_bases(store, scope.value, ids) if scope.prop == "bwb_id" and ids else {}
     )
     items = [
         {
@@ -810,7 +826,7 @@ def _related_instruments(
         }
         for row in page_rows
     ]
-    return items, total
+    return items, total, len(bases)
 
 
 # Whether one of a pair of laws is issued under the other, for the law %(bwb)s and the

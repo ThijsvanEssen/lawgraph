@@ -5,6 +5,13 @@
     {"sort": "citation_count", "limit": 200},
     {"sort": "citation_count", "limit": 6}
   ],
+  "article_neighborhood": {
+    "depth": 2,
+    "cap": 150,
+    "node_types": ["instrument", "article", "annex", "judgment", "dossier", "document", "activity", "decision", "commitment", "member", "faction", "committee", "cabinet", "ministry"],
+    "props": "canvas",
+    "stop_at": ["members", "factions", "committees", "cabinets", "ministries"]
+  },
   "law_judgments": 100,
   "instrument_names": {"sort": "article_count", "limit": 200},
   "lists": {

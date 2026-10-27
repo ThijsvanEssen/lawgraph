@@ -525,7 +525,7 @@ def test_matched_says_where_each_word_is(client: TestClient) -> None:
     motion = _item(items, f"{COLLECTION_DOCUMENTS}/motion_31")
     assert motion["matched"] == [
         {"term": "meldplicht", "field": "title"},
-        {"term": "Cyberbeveiliging", "field": "dossier_title"},
+        {"term": "cyberbeveiliging", "field": "dossier_title"},
     ]
     assert _feed(client)[0]["matched"] == []
 
@@ -702,7 +702,7 @@ _PREAMBLE_TABLES = ("factions", "cabinets")
         FeedFilters(instrument=CBW, kinds=("uitspraak", "Amendement")),
         FeedFilters(instrument=TW, article="15.1"),
         FeedFilters(
-            q=("telecommunicatiewet",), kinds=("publicatie",), since="2000-01-01"
+            q=(("telecommunicatiewet",),), kinds=("publicatie",), since="2000-01-01"
         ),
     ],
 )

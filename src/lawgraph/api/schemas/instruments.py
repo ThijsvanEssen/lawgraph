@@ -771,6 +771,11 @@ class InstrumentRelatedResponse(StrictModel):
             "Absolute number of related instruments (independent of ``limit``)."
         ),
     )
+    based_on_total: int = Field(
+        0,
+        description="How many of ``total`` are one of a delegation with this law "
+        "(`based_on`), on any page: ``total`` minus this counts the others.",
+    )
     items: list[InstrumentRelatedItem]
 
 

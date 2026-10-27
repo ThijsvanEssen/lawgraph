@@ -94,7 +94,7 @@ def _feed_words(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(feed_queries, "_rows", _cancelled)
     return lambda: feed_queries._page_items(
         cast(GraphStore, object()),
-        FeedFilters(q=("woord",)),
+        FeedFilters(q=(("woord",),)),
         None,
         10,
     )

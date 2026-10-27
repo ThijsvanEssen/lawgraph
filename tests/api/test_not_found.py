@@ -115,7 +115,7 @@ _DETAIL_URLS = [
 
 @pytest.mark.parametrize("url", _DETAIL_URLS)
 def test_a_detail_route_answers_404_for_what_is_not_there(monkeypatch, url):
-    for query in _NONE_QUERIES:
+    for query in (*_NONE_QUERIES, "articles.citation_count"):
         monkeypatch.setattr(f"lawgraph.api.routes.{query}", lambda *a, **k: None)
     monkeypatch.setitem(app.dependency_overrides, get_store, _EmptyStore)
     assert_status(client.get(url), 404)

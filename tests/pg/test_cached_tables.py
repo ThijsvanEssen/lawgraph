@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from lawgraph.api import warm
+from lawgraph.api.routes.factions import faction_dossiers
 from lawgraph.db import GraphStore, version_cache
 
 # imported before ``kept`` patches the modules that hold ``cached``: run alone, this file
@@ -56,6 +57,9 @@ def _seed(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "cabinets",
         [_node("schoof", name="kabinet-Schoof", from_date="2024-07-02")],
+    )
+    store.bulk_insert_or_update_nodes(
+        "factions", [_node("d66", name="D66", abbreviation="D66", active=True)]
     )
 
 
@@ -158,7 +162,8 @@ def _exercise(store: GraphStore) -> None:
     lids an article's edges cite, the judgments that cite it on its page, the papers
     on the page of a member, what a publication changes, the passages that explain
     an article, the laws a law's articles refer to and are referred to by, the dossiers
-    and activities a committee leads, and the factions and members a query may name."""
+    and activities a committee leads, the dossiers of a faction, and the factions and
+    members a query may name."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -181,6 +186,7 @@ def _exercise(store: GraphStore) -> None:
     committees.get_committee_activities(store, "c")
     store.bulk_insert_or_update_nodes("factions", [_node("vvd", abbreviation="VVD")])
     signers.signed_for(store, ["motie", "vvd"])
+    faction_dossiers(store, "factions/vvd", 100, 0, "opened")
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(

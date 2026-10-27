@@ -350,7 +350,13 @@ def test_the_feed_links_the_page_with_the_parameters_it_reads() -> None:
     """/actueel reads ``wet`` and ``artikel``, one word per ``q``, no tier."""
     page = FeedResponse(items=[FeedItemDTO.from_row(VOTE_ROW)])
     filters = FeedFilters(
-        instrument="BWBR0005289", article="6:162", tiers=("hoge_raad",), q=("a", "b")
+        instrument="BWBR0005289",
+        article="6:162",
+        tiers=("hoge_raad",),
+        q=(
+            ("a",),
+            ("b",),
+        ),
     )
     assert feed_title(filters, page) == (
         "Concordans: hoge raad, artikel 6:162 BWBR0005289, ‘a’ of ‘b’"

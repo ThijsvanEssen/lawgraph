@@ -548,6 +548,11 @@ def test_related_laws_say_their_direction_and_basis(database: str, cli: Any) -> 
 
     body = _get(store, f"/api/instruments/{WET}/related-instruments")
     by_id = {i["bwb_id"]: i for i in body["items"]}
+    # how many are one of a delegation, the same on a page of one
+    based_on = sum(1 for i in body["items"] if i["based_on"])
+    assert body["based_on_total"] == based_on >= 2
+    page = _get(store, f"/api/instruments/{WET}/related-instruments?limit=1")
+    assert (len(page["items"]), page["based_on_total"]) == (1, based_on)
 
     # two articles of the AMvB refer to one article of the law (the repealed one not)
     besluit = by_id[BESLUIT]

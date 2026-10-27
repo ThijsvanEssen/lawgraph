@@ -1,8 +1,8 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
-statistics of the search, the pages of the newest cabinets and the first page of the
-judgments of the largest areas of law. Off with
+statistics of the search, the pages of the newest cabinets, the dossiers of the active
+factions and the first page of the judgments of the largest areas of law. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
@@ -16,11 +16,14 @@ from functools import partial
 from typing import Any
 
 from lawgraph.api.list_totals import list_totals
+from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
@@ -33,7 +36,11 @@ from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
-from lawgraph.db.queries.articles import get_article_cited_by, most_cited_articles
+from lawgraph.db.queries.articles import (
+    CITED_BY_INLINE_BELOW,
+    get_article_cited_by,
+    most_cited_articles,
+)
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.delegations import (
@@ -45,6 +52,7 @@ from lawgraph.db.queries.delegations import (
 )
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
+from lawgraph.db.queries.factions import get_factions
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.instruments import (
@@ -55,7 +63,11 @@ from lawgraph.db.queries.instruments import (
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.law_names import load_law_names
 from lawgraph.db.queries.members import load_member_slugs
-from lawgraph.db.queries.nodes import get_node_with_neighbors
+from lawgraph.db.queries.nodes import (
+    NeighborFilter,
+    get_node_neighborhood,
+    get_node_with_neighbors,
+)
 from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search.clause import tokenize_search_query
 from lawgraph.db.queries.search.dispatch import search_all
@@ -146,7 +158,7 @@ def _warm_law_judgments(store: GraphStore) -> None:
 # cited first, the homepage's network the most cited few. A page the front end does not
 # ask is never read from what was warmed (a page of 50 was warmed while Verbonden asked
 # 200: ~10 s cold for 6:162 BW on 10 Oct).
-WARM_ARTICLE_CITATIONS = 1500
+WARM_ARTICLE_CITATIONS = CITED_BY_INLINE_BELOW
 
 
 def _warm_articles(store: GraphStore) -> None:
@@ -160,6 +172,38 @@ def _warm_articles(store: GraphStore) -> None:
             get_article_cited_by(
                 store, article["id"], sort=page["sort"], limit=page["limit"]
             )
+
+
+# The neighbourhood the canvas of the explorer asks of an article (Netwerk tonen in
+# Verbonden, the werkplek; ``article_neighborhood``): not kept, but its walk reads the edges
+# of every judgment the article's citations reach, which this reads into the memory of the
+# database (6:162 BW 7.5 s cold on prod, 0.3 s warm, 27 Oct).
+ARTICLE_NEIGHBORHOOD: dict[str, Any] = FIRST_PAGES["article_neighborhood"]
+# How long the neighbourhoods of the most cited articles are walked at most (seconds), the
+# most cited first: what they read stays in memory only while the database has room.
+NEIGHBORHOODS_FOR = 300.0
+
+
+def _warm_neighborhoods(store: GraphStore) -> None:
+    page = ARTICLE_NEIGHBORHOOD
+    filters = NeighborFilter(node_types=tuple(page["node_types"]))
+    ends = time.monotonic() + NEIGHBORHOODS_FOR
+    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
+        if time.monotonic() >= ends:
+            logger.info(
+                "Warm-up of neighbourhoods stopped at %s: its time.", article["key"]
+            )
+            return
+        get_node_neighborhood(
+            store,
+            COLLECTION_ARTICLES,
+            article["key"],
+            depth=page["depth"],
+            cap=page["cap"],
+            filters=filters,
+            canvas=page["props"] == "canvas",
+            stop_at=tuple(page["stop_at"]),
+        )
 
 
 # The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last
@@ -180,6 +224,18 @@ def _warm_delegated(store: GraphStore) -> None:
     for bwb_id in most_cited_laws(store, WARM_LAWS):
         get_delegated_by_law(store, bwb_id, "in_force", True)
         count_expired_delegated(store, bwb_id)
+
+
+# The dossiers of the factions of the Tweede Kamer that sit or sat recently, as the explorer
+# asks them (Verbonden of a faction: the first 100, newest opened first): each reads every
+# paper every member of the faction signed (6 s for the VVD cold on prod, 26 Oct). The page
+# is the one Verbonden asks (``DOSSIERS_SHOWN``), in the order the route defaults to.
+FACTION_DOSSIERS_LIMIT = 100
+
+
+def _warm_faction_dossiers(store: GraphStore) -> None:
+    for faction in get_factions(store, active=True):
+        faction_dossiers(store, faction["id"], FACTION_DOSSIERS_LIMIT, 0, "opened")
 
 
 @dataclass(frozen=True)
@@ -274,6 +330,11 @@ PARTS: tuple[Part, ...] = (
     ),
     # the feed (its counts from ``lg_feed_events``)
     Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
+    Part(
+        "faction dossiers",
+        _warm_faction_dossiers,
+        (COLLECTION_FACTIONS, *FACTION_DOSSIER_TABLES),
+    ),
 )
 # The long tail, warmed after ``PARTS``: on prod (15 Oct) these took 2 to 5 of the 5 to 8
 # minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes
@@ -326,6 +387,7 @@ def warm_up(store: GraphStore) -> None:
     # is asked far less than the lists above
     if _due("most cited articles", store.name, ARTICLES_EVERY):
         _run("most cited articles", lambda: _warm_articles(store))
+        _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
     if _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 

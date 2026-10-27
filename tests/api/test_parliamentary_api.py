@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.db.queries.coalition import Coalition
 from lawgraph.db.queries.decisions import DecisionFilters
+from lawgraph.db.queries.search.clause import QueryWords, tokenize_search_query
 from tests.api.stubs import stub_route
 from tests.asserts import assert_status
 
@@ -479,7 +480,7 @@ def test_decisions_are_filtered_by_kind_date_subject_and_how_a_party_voted(
         choice="Tegen",
         from_date="2024-01-01",
         to_date="2024-12-31",
-        q=("Wachtlijsten",),
+        q=(("wachtlijsten",),),
     )
 
 
@@ -702,8 +703,13 @@ def test_the_seats_on_a_day_are_those_the_members_held(monkeypatch) -> None:
 def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
     monkeypatch,
 ) -> None:
-    """``q`` repeated: any of the words; ``party_votes``: the factions asked, or all."""
+    """``q`` repeated: any of them, each its words as the search has them (``query_words``:
+    its stop words left out); ``party_votes``: the factions asked, or all."""
     asked = _asking(monkeypatch)
+    monkeypatch.setattr(
+        "lawgraph.db.queries.search.clause.query_words",
+        lambda store, q: QueryWords(tokenize_search_query(q), []),
+    )
     response = client.get(
         "/api/decisions",
         params=[
@@ -714,7 +720,7 @@ def test_decisions_hold_any_of_the_words_and_say_how_factions_voted(
         ],
     )
     assert_status(response, 200)
-    assert asked[0].q == ("AI", "kunstmatige intelligentie")
+    assert asked[0].q == (("ai",), ("kunstmatige", "intelligentie"))
     assert asked[0].faction_votes == ("VVD", "PVV")
     client.get("/api/decisions", params={"party_votes": "all"})
     assert asked[1].faction_votes == ("all",) and asked[1].q == ()

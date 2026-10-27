@@ -18,6 +18,7 @@ from lawgraph.config.constants import (
     RELATION_VOTED,
 )
 from lawgraph.core.models import make_node_key, node_id, parse_node_id
+from lawgraph.core.motion_kinds import kinds_named
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.tk_records.kinds import DECIDED_KINDS, KIND_MOTION
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
@@ -42,8 +43,8 @@ class DecisionFilters:
     *faction* with *choice* keeps the decisions that faction voted that way on (``Voor``,
     ``Tegen``: ``meta.choice`` of its VOTED edge); *faction* alone the ones it voted on.
     *dossier_number* is a dossier number, matched against the numbers on the decision; *q* the
-    words of the subject, any of them (``_words``: each from the start of a word, a short
-    one whole, any case). *faction_votes* asks how factions voted on the decisions, without
+    queries, any of them, each the words of which the subject or kind holds every one, in any
+    order (``_words_filters``). *faction_votes* asks how factions voted on the decisions, without
     keeping any out: the keys of factions, or ``("all",)`` for every faction that voted.
     *coalition* keeps the votes on which the coalition did that (``COALITION_VALUES``,
     ``lg_decision_coalition``): voted ``together``, ``split`` (no wisselmeerderheid),
@@ -61,7 +62,7 @@ class DecisionFilters:
     dossier_number: str | None = None
     from_date: str | None = None
     to_date: str | None = None
-    q: tuple[str, ...] = ()
+    q: tuple[tuple[str, ...], ...] = ()
     faction_votes: tuple[str, ...] = ()
     coalition: str | None = None
     unvoted: bool = False
@@ -124,24 +125,22 @@ def _common_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]
 
 
 def _words_filters(filters: DecisionFilters, bind: dict[str, Any]) -> list[str]:
-    """The decisions whose subject holds any of the words of *filters*: by the trigram
-    index on the words of a decision when each has three letters or more, then tested."""
-    words = [w for w in dict.fromkeys(_words.words(q) for q in filters.q) if w]
-    if not words:
-        return []
-    found, holds = [], []
-    for n, word in enumerate(words):
-        bind[f"q_{n}"] = word
-        bind[f"q_word_{n}"] = _words.word_pattern(word)
-        found.append(
-            f"{search_words(COLLECTION_DECISIONS, 'd')} LIKE {_words.lower_like(f'q_{n}')}"
-        )
-        # a missing subject is "", a number its digits
-        holds.append(_words.holds("coalesce(d.props ->> 'subject', '')", f"q_word_{n}"))
-    clauses = [f"({' OR '.join(holds)})"]
-    if all(len(word) >= _words.TRIGRAM for word in words):
-        clauses.insert(0, f"({' OR '.join(found)})")
-    return clauses
+    """The decisions whose subject or kind holds every word of one of the queries of
+    *filters* (``_words.any_query``); a word of the name of a kind of motion
+    (``wantrouwen``) the votes on those motions too."""
+    return _words.any_query(filters.q, _WORDS, bind, also=_motion_kinds)
+
+
+# The words of a decision as ``/api/search`` finds it: its subject and kind, lower case.
+_WORDS = search_words(COLLECTION_DECISIONS, "d")
+
+
+def _motion_kinds(word: str, name: str, bind: dict[str, Any]) -> str | None:
+    """SQL: a vote on a motion of a kind whose name holds *word* (bound as *name*)."""
+    if not (kinds := kinds_named(word)):
+        return None
+    bind[f"{name}_kinds"] = kinds
+    return f"lg_str(d.props -> 'motion_kind') = ANY(%({name}_kinds)s::text[])"
 
 
 def _own_filters(filters: DecisionFilters, bind: dict[str, Any]) -> FacetFilters:
