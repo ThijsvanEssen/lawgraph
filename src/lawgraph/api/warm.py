@@ -19,6 +19,7 @@ from lawgraph.api.list_totals import list_totals
 from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
@@ -62,7 +63,11 @@ from lawgraph.db.queries.instruments import (
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.law_names import load_law_names
 from lawgraph.db.queries.members import load_member_slugs
-from lawgraph.db.queries.nodes import get_node_with_neighbors
+from lawgraph.db.queries.nodes import (
+    NeighborFilter,
+    get_node_neighborhood,
+    get_node_with_neighbors,
+)
 from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search.clause import tokenize_search_query
 from lawgraph.db.queries.search.dispatch import search_all
@@ -167,6 +172,38 @@ def _warm_articles(store: GraphStore) -> None:
             get_article_cited_by(
                 store, article["id"], sort=page["sort"], limit=page["limit"]
             )
+
+
+# The neighbourhood the canvas of the explorer asks of an article (Netwerk tonen in
+# Verbonden, the werkplek; ``article_neighborhood``): not kept, but its walk reads the edges
+# of every judgment the article's citations reach, which this reads into the memory of the
+# database (6:162 BW 7.5 s cold on prod, 0.3 s warm, 27 Oct).
+ARTICLE_NEIGHBORHOOD: dict[str, Any] = FIRST_PAGES["article_neighborhood"]
+# How long the neighbourhoods of the most cited articles are walked at most (seconds), the
+# most cited first: what they read stays in memory only while the database has room.
+NEIGHBORHOODS_FOR = 300.0
+
+
+def _warm_neighborhoods(store: GraphStore) -> None:
+    page = ARTICLE_NEIGHBORHOOD
+    filters = NeighborFilter(node_types=tuple(page["node_types"]))
+    ends = time.monotonic() + NEIGHBORHOODS_FOR
+    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
+        if time.monotonic() >= ends:
+            logger.info(
+                "Warm-up of neighbourhoods stopped at %s: its time.", article["key"]
+            )
+            return
+        get_node_neighborhood(
+            store,
+            COLLECTION_ARTICLES,
+            article["key"],
+            depth=page["depth"],
+            cap=page["cap"],
+            filters=filters,
+            canvas=page["props"] == "canvas",
+            stop_at=tuple(page["stop_at"]),
+        )
 
 
 # The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last
@@ -350,6 +387,7 @@ def warm_up(store: GraphStore) -> None:
     # is asked far less than the lists above
     if _due("most cited articles", store.name, ARTICLES_EVERY):
         _run("most cited articles", lambda: _warm_articles(store))
+        _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
     if _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 
