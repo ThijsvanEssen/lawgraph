@@ -105,7 +105,9 @@ def test_the_part_of_a_law_is_no_step_and_joins_none(store: GraphStore) -> None:
     build_source_steps(store)
 
     # the law shares nothing with its articles, nor are they a step apart through it
-    assert _steps(store) == {(ART_1, ART_2): (0, True, pytest.approx(DIRECT_WEIGHT))}
+    ((pair, (ways, direct, weight)),) = _steps(store).items()
+    assert (pair, ways, direct) == ((ART_1, ART_2), 0, True)
+    assert weight == pytest.approx(DIRECT_WEIGHT)
 
 
 def test_a_build_replaces_the_steps_whole(store: GraphStore) -> None:
