@@ -190,6 +190,9 @@ URLS = [
     "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
     f"/api/paths?ids=articles/{BWB.lower()}_1,documents/d1&relations=EXPLAINS,PART_OF",
+    # the chains of three steps: the levels of both ends, the weights of the sources
+    f"/api/chains?ids=articles/{BWB.lower()}_1,documents/d1&max_steps=3",
+    f"/api/chains?ids=instruments/{BWB.lower()},judgments/ecli_nl_hr_2020_1&max_steps=3",
     # what two nodes share, ranked, and the judgments narrowed by tier and area
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2",
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2"
