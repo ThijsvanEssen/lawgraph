@@ -35,6 +35,7 @@ from lawgraph.config.constants import (
     RELATION_PART_OF,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.schema import (
     SOURCE_STEP_NODES_TABLE,
     SOURCE_STEPS_COLUMNS,
@@ -55,7 +56,7 @@ BUILD_TIMEOUT = "30min"
 BUILD_WORK_MEM = "256MB"
 
 _NEW = "_new"
-_SOURCES = ", ".join(f"'{c}'" for c in STEP_COLLECTIONS)
+_SOURCES = sql_text_list(STEP_COLLECTIONS)
 # An edge a step reads: not to itself, and not the ``PART_OF`` of a law.
 KEPT = f"""e.from_id <> e.to_id
     AND (e.relation IS DISTINCT FROM '{RELATION_PART_OF}'

@@ -42,6 +42,7 @@ from typing import Any
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.paths import EDGES_SQL, FOLLOWED
 from lawgraph.db.queries.source_steps import (
@@ -73,7 +74,7 @@ _OPTIONS = 2 * MAX_STEPS + 1
 CHAINS_BUDGET = 10.0
 CHAINS_RESERVE = 3.0
 
-_SOURCES = ", ".join(f"'{c}'" for c in STEP_COLLECTIONS)
+_SOURCES = sql_text_list(STEP_COLLECTIONS)
 
 # The steps of each source of ``ids``, both ways of the table.
 _STEPS_SQL = f"""
