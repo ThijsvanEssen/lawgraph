@@ -13,6 +13,7 @@ from lawgraph.db.queries.chains import (
     meet,
     options_of,
     pick,
+    plan_of,
 )
 
 STRONG, WEAK = Link(2.0, 2, False), Link(0.5, 1, False)
@@ -118,3 +119,16 @@ def test_no_node_is_twice_in_a_chain() -> None:
     assert [s.via for s in found.steps] == ["documents/k", "documents/m"]
     assert chain_of(chain, [once, once]) is None
     assert chain_of(chain, [once, []]) is None
+
+
+def test_the_table_settles_a_chain_whose_ways_it_names_each_once() -> None:
+    chain = ("articles/a", "articles/c", "articles/b")
+    edge = Link(1.4, 0, True)
+    assert plan_of(chain, (edge, STRONG), [None, "documents/k"]) == [
+        None,
+        "documents/k",
+    ]
+    # a step the table names no node for, a node twice, a source of the chain
+    assert plan_of(chain, (STRONG, STRONG), [None, "documents/k"]) is None
+    assert plan_of(chain, (STRONG, STRONG), ["documents/k", "documents/k"]) is None
+    assert plan_of(chain, (STRONG, STRONG), ["articles/b", "documents/k"]) is None

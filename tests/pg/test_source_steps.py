@@ -40,6 +40,13 @@ def _steps(store: GraphStore) -> dict[tuple[str, str], tuple[int, bool, float]]:
     return {(r["a"], r["b"]): (r["ways"], r["direct"], r["weight"]) for r in rows}
 
 
+def _vias(store: GraphStore) -> dict[tuple[str, str], str | None]:
+    return {
+        (r["a"], r["b"]): r["via"]
+        for r in store.query("SELECT a, b, via FROM source_steps")
+    }
+
+
 def test_a_pair_is_one_row_in_byte_order_weighed_by_what_they_share(
     store: GraphStore,
 ) -> None:
@@ -68,6 +75,12 @@ def test_a_pair_is_one_row_in_byte_order_weighed_by_what_they_share(
     assert weight == pytest.approx(1 / math.log(2) + 1 / math.log(3) + DIRECT_WEIGHT)
     assert found[(ART_1, OTHER_LAW)][:2] == (1, False)
     assert found[(ART_1, LAW)][2] == pytest.approx(1 / math.log(3))
+    # the node they share with the fewest sources: the paper, of two
+    assert _vias(store) == {
+        (OTHER_LAW, LAW): PAPER,
+        (ART_1, OTHER_LAW): RULING,
+        (ART_1, LAW): RULING,
+    }
     nodes = {
         r["id"]: r["sources"]
         for r in store.query("SELECT id, sources FROM source_step_nodes")
@@ -87,6 +100,7 @@ def test_a_node_of_more_sources_than_the_cap_joins_none(store: GraphStore) -> No
     # the judgment touches 50: each two of them one step apart through it alone
     assert len(found) == THROUGH_CAP * (THROUGH_CAP - 1) // 2
     assert {ways for ways, _, _ in found.values()} == {1}
+    assert set(_vias(store).values()) == {RULING}
     nodes = {
         r["id"]: r["sources"]
         for r in store.query("SELECT id, sources FROM source_step_nodes")
@@ -108,6 +122,8 @@ def test_the_part_of_a_law_is_no_step_and_joins_none(store: GraphStore) -> None:
     ((pair, (ways, direct, weight)),) = _steps(store).items()
     assert (pair, ways, direct) == ((ART_1, ART_2), 0, True)
     assert weight == pytest.approx(DIRECT_WEIGHT)
+    # an edge between them, no node they share
+    assert _vias(store) == {(ART_1, ART_2): None}
 
 
 def test_a_build_replaces_the_steps_whole(store: GraphStore) -> None:

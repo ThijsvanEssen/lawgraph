@@ -26,7 +26,10 @@ lower bound, and the block not ``complete``, when the search left a way out.
 
 Of each step shown its way: the edge between its sources, else of the nodes they share (as
 the table counts them, none of the chain) the one with the fewest sources, then the lowest id;
-read for the steps shown alone, in one read of the edges of their sources. No edge is derived.
+read for the steps shown alone. The table names that node (``via``), so a chain whose steps
+take the edge or that node, each node once, reads only the keys of their edges; any other
+(an end that is no source, a node twice) reads the edges of its sources whole and chooses
+among all they share. No edge is derived.
 """
 
 from __future__ import annotations
@@ -181,6 +184,36 @@ GROUP BY p.i, f.x, w.sources
 UNION ALL
 SELECT p.i, NULL, min(f.key), NULL, 0
 FROM pair p JOIN at f ON f.id = p.first AND f.x = p.second AND f.followed
+GROUP BY p.i
+"""
+
+
+# Of each step (``first`` to ``second``, its weight, its number ``i``) the node its sources
+# share with the fewest sources, as the table holds it: found by the first of the pair and
+# the weight, one row of the index and its row of the table.
+_VIAS_SQL = f"""
+SELECT p.i, s.via
+FROM unnest(%(firsts)s::text[], %(seconds)s::text[], %(weights)s::real[])
+     WITH ORDINALITY AS p(first, second, weight, i)
+JOIN {SOURCE_STEPS_TABLE} s
+  ON s.a = least(p.first COLLATE "C", p.second COLLATE "C") AND s.weight = p.weight
+ AND s.b = greatest(p.first COLLATE "C", p.second COLLATE "C")
+"""
+
+# Of each pair (``u`` and ``v``, its number ``i``) the lowest key of an edge between them,
+# either way: a step's edge (``direct``) as ``_FOLLOWED_WAY``, one to the node a step goes
+# through as ``KEPT``.
+_KEYS_SQL = f"""
+SELECT p.i, min(k.key) AS key
+FROM unnest(%(us)s::text[], %(vs)s::text[], %(direct)s::bool[])
+     WITH ORDINALITY AS p(u, v, direct, i)
+CROSS JOIN LATERAL (
+    (SELECT e.key FROM edges e WHERE e.from_id = p.u AND e.to_id = p.v
+       AND CASE WHEN p.direct THEN {_FOLLOWED_WAY} ELSE {KEPT} END)
+    UNION ALL
+    (SELECT e.key FROM edges e WHERE e.from_id = p.v AND e.to_id = p.u
+       AND CASE WHEN p.direct THEN {_FOLLOWED_WAY} ELSE {KEPT} END)
+) k
 GROUP BY p.i
 """
 
@@ -561,24 +594,151 @@ def chain_of(sources: tuple[str, ...], options: list[list[Step]]) -> Chain | Non
     return None
 
 
+def _read_vias(
+    store: GraphStore, pairs: list[tuple[str, str, float]]
+) -> list[str | None]:
+    """Of each pair of sources (and the weight of its step) the node they share with the
+    fewest sources (the table's ``via``); None when the table names none: also for a step
+    not as the table holds it (with the articles of a law that is an end)."""
+    found: list[str | None] = [None] * len(pairs)
+    if pairs:
+        rows = store.query(
+            _VIAS_SQL,
+            {
+                "firsts": [p[0] for p in pairs],
+                "seconds": [p[1] for p in pairs],
+                "weights": [p[2] for p in pairs],
+            },
+        )
+        for row in rows:
+            found[int(row["i"]) - 1] = row["via"]
+    return found
+
+
+def _read_keys(
+    store: GraphStore, ends: tuple[str, str], pairs: list[tuple[str, str, bool]]
+) -> list[str | None]:
+    """Of each pair (two nodes, whether as a step's edge) the lowest key of an edge between
+    them; None for none."""
+    found: list[str | None] = [None] * len(pairs)
+    if pairs:
+        rows = store.query(
+            _KEYS_SQL,
+            {
+                "us": [p[0] for p in pairs],
+                "vs": [p[1] for p in pairs],
+                "direct": [p[2] for p in pairs],
+                "ends": list(ends),
+            },
+        )
+        for row in rows:
+            found[int(row["i"]) - 1] = row["key"]
+    return found
+
+
+def plan_of(
+    chain: tuple[str, ...], links: tuple[Link, ...], vias: list[str | None]
+) -> list[str | None] | None:
+    """The way of each step of *chain* from the table: None for its edge, else the node
+    *vias* names; None when a step has neither, or a node is twice in the chain."""
+    plan: list[str | None] = []
+    for link, via in zip(links, vias, strict=True):
+        if link.direct:
+            plan.append(None)
+        elif via is None or via in chain or via in plan:
+            return None
+        else:
+            plan.append(via)
+    return plan
+
+
+def _quick(
+    store: GraphStore,
+    ends: tuple[str, str],
+    rows: list[tuple[str, ...]],
+    picked: list[Found],
+) -> list[Chain | None]:
+    """Of *picked* (the sources of each in *rows*) the chains whose steps take the edge or
+    the node the table names (``plan_of``), each step with the keys of its edges; None for
+    the rest."""
+    asked = [
+        (k, i)
+        for k, found in enumerate(picked)
+        for i, link in enumerate(found.links)
+        if not link.direct and is_source(rows[k][i]) and is_source(rows[k][i + 1])
+    ]
+    read = _read_vias(
+        store,
+        [(rows[k][i], rows[k][i + 1], picked[k].links[i].weight) for k, i in asked],
+    )
+    vias: dict[tuple[int, int], str | None] = dict(zip(asked, read, strict=True))
+    plans = [
+        plan_of(row, found.links, [vias.get((k, i)) for i in range(len(found.links))])
+        for k, (row, found) in enumerate(zip(rows, picked, strict=True))
+    ]
+    keys = iter(_read_keys(store, ends, _key_pairs(rows, plans)))
+    return [
+        None if plan is None else _planned(row, found.links, plan, keys)
+        for row, found, plan in zip(rows, picked, plans, strict=True)
+    ]
+
+
+def _planned(
+    row: tuple[str, ...],
+    links: tuple[Link, ...],
+    plan: list[str | None],
+    keys: Iterator[str | None],
+) -> Chain | None:
+    """The chain of *row* whose steps take the ways of *plan*, the keys of their edges the
+    next of *keys*; None when an edge is not there."""
+    steps, missing = [], False
+    for i, (link, via) in enumerate(zip(links, plan, strict=True)):
+        found = [next(keys)] if via is None else [next(keys), next(keys)]
+        edges = tuple(key for key in found if key is not None)
+        missing |= len(edges) < len(found)
+        steps.append(
+            Step(row[i], row[i + 1], via, edges, link.ways + link.direct, link.weight)
+        )
+    return None if missing else Chain(row, tuple(steps), min(s.weight for s in steps))
+
+
+def _key_pairs(
+    rows: list[tuple[str, ...]], plans: list[list[str | None] | None]
+) -> list[tuple[str, str, bool]]:
+    """The pairs whose edge keys the steps of *plans* take, in their order: a step's edge,
+    else the edges from its first source to its node and from there to its second."""
+    pairs: list[tuple[str, str, bool]] = []
+    for row, plan in zip(rows, plans, strict=True):
+        for i, via in enumerate(plan or ()):
+            if via is None:
+                pairs.append((row[i], row[i + 1], True))
+            else:
+                pairs += [(row[i], via, False), (via, row[i + 1], False)]
+    return pairs
+
+
 def _with_ways(
     store: GraphStore, ends: tuple[str, str], picked: list[Found]
 ) -> list[Chain | None]:
     """*picked* as chains, each step with its way; None for one with a step that has no
-    way but through a node of the chain."""
+    way but through a node of the chain. Those the table settles first (``_quick``), the
+    rest from the edges of their sources."""
     rows = [(ends[0], *f.between, ends[1]) for f in picked]
-    pairs = [(row[i], row[i + 1]) for row in rows for i in range(len(row) - 1)]
-    ways = iter(_read_ways(store, ends, pairs))
-    return [
-        chain_of(
-            row,
+    chains = _quick(store, ends, rows, picked)
+    rest = [k for k, chain in enumerate(chains) if chain is None]
+    pairs = [
+        (rows[k][i], rows[k][i + 1]) for k in rest for i in range(len(rows[k]) - 1)
+    ]
+    ways = iter(_read_ways(store, ends, pairs) if pairs else [])
+    for k in rest:
+        chains[k] = chain_of(
+            rows[k],
             [
-                options_of(ends, row, i, link, next(ways))
-                for i, link in enumerate(found.links)
+                options_of(ends, rows[k], i, link, next(ways))
+                for i, link in enumerate(picked[k].links)
             ],
         )
-        for row, found in zip(rows, picked, strict=True)
-    ]
+    return chains
 
 
 def pick(found: Iterable[Found], limit: int, taken: set[str]) -> list[Found]:
