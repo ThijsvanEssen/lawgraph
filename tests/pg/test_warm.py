@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 from functools import partial
+from types import SimpleNamespace
 
 import pytest
 
@@ -461,6 +462,7 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     )
     monkeypatch.setattr(warm, "most_cited_laws", lambda s, n: ["BWBR0001"])
     monkeypatch.setattr(warm, "get_node_with_neighbors", lambda *args: None)
+    monkeypatch.setattr(warm, "get_node_neighborhood", lambda *a, **k: None)
     monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
 
@@ -482,3 +484,92 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
         },
         key=str,
     )  # fmt: skip
+
+
+def _seed_cited(store: GraphStore, counts: dict[str, int]) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"key": key, "type": "article", "labels": [],
+          "props": {"inbound_citation_count": n}} for key, n in counts.items()],
+    )  # fmt: skip
+
+
+def test_the_neighborhoods_of_the_articles_cited_most_are_walked_as_the_canvas_asks(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The neighbourhood of each article cited ``WARM_ARTICLE_CITATIONS`` times or more,
+    the most cited first, as the canvas of the explorer asks it (``article_neighborhood``
+    of ``first-pages.json``): 6:162 BW took 7.5 s cold on prod (27 Oct), 0.3 s warm. The
+    same request is one the route takes."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    at_least = warm.WARM_ARTICLE_CITATIONS
+    _seed_cited(store, {"low": at_least - 1, "top": at_least * 9, "next": at_least})
+    page = warm.FIRST_PAGES["article_neighborhood"]
+    walked: list[tuple[str, dict]] = []
+    from lawgraph.db.queries.nodes import get_node_neighborhood as real
+
+    def walk(store_: GraphStore, collection: str, key: str, **kwargs):
+        walked.append((key, kwargs))
+        return real(store_, collection, key, **kwargs)
+
+    monkeypatch.setattr(warm, "get_node_neighborhood", walk)
+    warm._warm_neighborhoods(store)
+    assert [key for key, _ in walked] == ["top", "next"]
+    asked = walked[0][1]
+    assert (asked["depth"], asked["cap"], asked["canvas"]) == (
+        page["depth"], page["cap"], page["props"] == "canvas"
+    )  # fmt: skip
+    assert asked["filters"].node_types == tuple(page["node_types"])
+    assert tuple(asked["stop_at"]) == tuple(page["stop_at"])
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        answer = TestClient(app).get(
+            "/api/nodes/articles/top/neighborhood",
+            params={**page, "node_types": ",".join(page["node_types"]),
+                    "stop_at": ",".join(page["stop_at"])},
+        )  # fmt: skip
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert answer.status_code == 200, answer.text
+
+
+def test_the_neighborhoods_are_walked_for_a_bounded_time(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The neighbourhoods stop once ``NEIGHBORHOODS_FOR`` has passed, the most cited
+    walked first: what they read stays in the memory of the database only while it has
+    room, and the hour is shared with the rest."""
+    at_least = warm.WARM_ARTICLE_CITATIONS
+    _seed_cited(store, {"top": at_least * 9, "next": at_least * 2, "last": at_least})
+    clock = ManualClock()
+    monkeypatch.setattr(warm, "time", SimpleNamespace(monotonic=clock.now))
+    walked: list[str] = []
+
+    def walk(store_: GraphStore, collection: str, key: str, **kwargs) -> None:
+        walked.append(key)
+        clock.advance(warm.NEIGHBORHOODS_FOR / 2 + 1)
+
+    monkeypatch.setattr(warm, "get_node_neighborhood", walk)
+    warm._warm_neighborhoods(store)
+    assert walked == ["top", "next"]
+
+
+def test_the_neighborhoods_are_warmed_after_the_articles_once_an_hour(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """After the passages of the most cited articles, at most once per
+    ``ARTICLES_EVERY``, as they are."""
+    ran: list[str] = []
+    monkeypatch.setattr(warm, "_warm_articles", lambda store_: ran.append("articles"))
+    monkeypatch.setattr(
+        warm, "_warm_neighborhoods", lambda store_: ran.append("neighborhoods")
+    )
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
+    warm.warm_up(store)
+    warm.warm_up(store)
+    assert ran == ["articles", "neighborhoods"]
