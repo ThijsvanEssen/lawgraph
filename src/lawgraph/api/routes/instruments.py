@@ -573,14 +573,16 @@ def get_instrument_amended_by_route(
     response_model=InstrumentRelatedResponse,
     summary="Instruments referring to this one, or referred to by it",
     description=(
-        "The other laws whose articles in force refer to articles in force of this law, or "
-        "the other way (`REFERS_TO` between articles), the most articles first. Each "
+        "The other laws in force whose articles in force refer to articles in force of "
+        "this law, or the other way (`REFERS_TO` between articles), the most articles "
+        "first; an expired law (`date_expired` passed) is left out. Each "
         "carries its `kind` and `date_in_force`, the `direction`, the articles at both "
         "ends (`outbound_count` articles of this law refer to `outbound_cited_count` of "
         "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law) "
         "and `basis`: whether one is issued under the other as well (`BASED_ON`), with "
         "the articles its preamble names. ``total`` is the absolute count, independent of "
-        "``limit``. The articles between the two: `.../references/{other}`."
+        "``limit``; ``based_on_total`` how many of those have a `basis`. The articles "
+        "between the two: `.../references/{other}`."
     ),
     tags=["instruments"],
 )
@@ -589,9 +591,13 @@ def get_instrument_related_route(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: ListLimit = 100,
 ) -> InstrumentRelatedResponse:
-    rows, total = get_instrument_related_instruments(store, bwb_id, limit=limit)
+    rows, total, based_on = get_instrument_related_instruments(
+        store, bwb_id, limit=limit
+    )
     items = [InstrumentRelatedItem.from_row(r) for r in rows]
-    return InstrumentRelatedResponse(bwb_id=bwb_id, total=total, items=items)
+    return InstrumentRelatedResponse(
+        bwb_id=bwb_id, total=total, based_on_total=based_on, items=items
+    )
 
 
 @router.get(
