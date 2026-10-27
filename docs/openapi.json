@@ -3621,7 +3621,7 @@
           "dossiers"
         ],
         "summary": "Dossier timeline",
-        "description": "Documents, activities, decisions and commitments in date order, newest first by default. Filter with ``?kind=motie,amendement``.",
+        "description": "Documents, activities, decisions and commitments in date order, newest first by default. Filter with ``?kind=motie,amendement``. ``limit`` and ``offset`` page them; ``total`` is the absolute count under the filters.",
         "operationId": "get_timeline_api_dossiers__number__timeline_get",
         "parameters": [
           {
@@ -3692,6 +3692,17 @@
               "minimum": 1,
               "default": 100,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           }
         ],
