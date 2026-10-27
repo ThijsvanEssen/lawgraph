@@ -46,8 +46,9 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # kept candidates of the most searched words with when they were read
     # (lg_search_candidates, lg_search_candidates_state), and the persons each judgment
     # names (lg_judgment_persons), and the references each record read could not link
-    # (lg_unlinked_references), and the judgments citing each article (lg_cited_by)
-    assert tables == len(NODE_COLLECTIONS) + 26
+    # (lg_unlinked_references), and the judgments citing each article (lg_cited_by), and
+    # the steps between the sources (source_steps, source_step_nodes)
+    assert tables == len(NODE_COLLECTIONS) + 28
 
 
 def test_strings_sort_by_the_icu_root_upper_case_first(

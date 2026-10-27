@@ -6,7 +6,7 @@ from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
 from lawgraph.api.schemas.nodes import BaseNodeDTO, NodeNeighborhoodEdge
-from lawgraph.db.queries.chains import LEVEL_CAP, PAIR_CAP
+from lawgraph.db.queries.chains import FRONTIER_CAP, LEVEL_CAP, TOP_STEPS
 
 
 class ChainStepDTO(StrictModel):
@@ -24,7 +24,11 @@ class ChainStepDTO(StrictModel):
     )
     ways: int = Field(
         description="The ways this step has: the edge between its sources, if any, and "
-        "each node they share; it names the strongest."
+        "each node they share; it names one."
+    )
+    weight: float = Field(
+        description="How strong the step is: over the nodes its sources share the sum of "
+        "1 / ln k, k the sources of the node, plus 1 / ln 2 for the edge between them."
     )
 
 
@@ -35,24 +39,25 @@ class ChainDTO(StrictModel):
         description="Its sources in order: the two ends and the sources between them."
     )
     steps: list[ChainStepDTO]
-    weight: int = Field(
-        description="How often the sources between the ends are cited together "
-        "(`inbound_citation_count`); 0 for one step."
-    )
+    weight: float = Field(description="The `weight` of its weakest step.")
 
 
 class ChainBlockDTO(StrictModel):
     """The chains of one length."""
 
     steps: int = Field(description="The steps of each chain of the block.")
-    total: int = Field(description="Its chains; 0 when none joins the ends.")
+    total: int = Field(
+        description="Its chains; 0 when none joins the ends. At least that many when "
+        "the block is not `complete`."
+    )
     chains: list[ChainDTO] = Field(
-        description="The first `limit`, the heaviest first, then by the ids of their "
-        "sources."
+        description="The first `limit`, the strongest first (the weakest step, then the "
+        "steps together, then the ids of their sources), each source between the ends "
+        "in one of them only."
     )
     complete: bool = Field(
         description="The search read all this length needs: false when it ran out of "
-        "time or a level reached its cap, and then 0 does not mean none."
+        "time or left a way out, and then `total` is a lower bound."
     )
 
 
@@ -72,9 +77,10 @@ class ChainsResponse(StrictModel):
         description="Every edge on the chains of the blocks, each once."
     )
     capped: bool = Field(
-        description=f"A level of the search reached its cap ({LEVEL_CAP:,} nodes, or the "
-        "edges of a hub its share of the level) or the chains of three steps theirs "
-        f"({PAIR_CAP:,}): a chain around a hub may have been missed."
+        description="The search left a way out: more than "
+        f"{LEVEL_CAP:,} sources of an end, more than {FRONTIER_CAP} of a level of a longer "
+        f"search, more than {TOP_STEPS} steps of one, or one of two ways to a source: a "
+        "chain may have been missed."
     )
     partial: bool = Field(
         description="The search ran past its time: the chains found by then."

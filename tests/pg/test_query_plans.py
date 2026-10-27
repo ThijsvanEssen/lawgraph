@@ -28,6 +28,7 @@ from psycopg import sql
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.overlay import HEAT_MAX_LIMIT, store_heat
+from lawgraph.db.queries.source_steps import build_source_steps
 from lawgraph.db.store import _query, statement_text
 from tests.asserts import show_items
 from tests.databases import module_database, opened_store, serving
@@ -190,9 +191,12 @@ URLS = [
     "/api/nodes/documents/d1/neighborhood?depth=3&stop_at=members,factions,committees,cabinets",
     f"/api/paths?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}",
     f"/api/paths?ids=articles/{BWB.lower()}_1,documents/d1&relations=EXPLAINS,PART_OF",
-    # the chains of three steps: the levels of both ends, the weights of the sources
+    # the chains: the steps of an end that is no source from its edges, of a source from
+    # ``source_steps``, the steps between them, the levels of a longer search and the ways
+    # of the steps shown
     f"/api/chains?ids=articles/{BWB.lower()}_1,documents/d1&max_steps=3",
     f"/api/chains?ids=instruments/{BWB.lower()},judgments/ecli_nl_hr_2020_1&max_steps=3",
+    f"/api/chains?ids=articles/{BWB.lower()}_1,instruments/{BWB.lower()}&max_steps=6",
     # what two nodes share, ranked, and the judgments narrowed by tier and area
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2",
     f"/api/nodes/shared?ids=articles/{BWB.lower()}_1,articles/{BWB.lower()}_2"
@@ -308,6 +312,8 @@ def statements(planned: GraphStore) -> list[tuple[str, Any, Any]]:
     store = planned
     # the heat of the whole graph as ``semantic graph-heat`` keeps it: the routes read it
     store_heat(store, HEAT_MAX_LIMIT)
+    # the steps between the sources as ``semantic graph-steps`` builds them
+    build_source_steps(store)
     captured: list[tuple[str, Any, Any]] = []
     with serving(store) as client, pytest.MonkeyPatch.context() as monkeypatch:
         calls = recorded(store, monkeypatch)

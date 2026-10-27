@@ -79,6 +79,12 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/feed_sql.py", "u.fid"): "filtered on IS NOT NULL",
     ("db/queries/feed_sql.py", "from_date"): "filtered on IS NOT NULL",
     ("db/queries/feed.py", "nums.number ASC"): "filtered on IS NOT NULL",
+    ("db/queries/chains.py", "s.weight DESC"): "a NOT NULL column (source_steps)",
+    ("db/queries/chains.py", "u.weight DESC"): "a NOT NULL column (source_steps)",
+    ("db/queries/chains.py", "u.other"): "an end of an edge (source_steps)",
+    ("db/queries/source_steps.py", "x"): "an end of an edge",
+    ("db/queries/source_steps.py", "c.a"): "an end of an edge",
+    ("db/queries/source_steps.py", "c.b"): "an end of an edge",
 }
 
 # file -> why a jsonb object built there is never served.
