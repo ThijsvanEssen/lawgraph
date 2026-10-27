@@ -3,9 +3,10 @@
 -- same shape. The statement is lawgraph.db.queries.chains._NEIGHBORS_SQL with the values of that request (the
 -- frontier: every neighbour of both ends; far: instruments and articles; share 8), under EXPLAIN (ANALYZE, BUFFERS),
 -- then the size and visibility of edges (heap fetches of the index-only scans).
-BEGIN READ ONLY;
-SET LOCAL statement_timeout = '60s';
-SET LOCAL enable_bitmapscan = off;
+SET default_transaction_read_only = on;
+SET statement_timeout = '60s';
+SET enable_bitmapscan = off;
+\pset pager off
 EXPLAIN (ANALYZE, BUFFERS, SETTINGS)
 WITH fr AS (
   SELECT array_agg(DISTINCT n ORDER BY n) AS ids FROM (
@@ -39,4 +40,3 @@ LIMIT 100000;
 SELECT relname, n_live_tup, n_dead_tup, last_autovacuum, last_vacuum
 FROM pg_stat_user_tables WHERE relname = 'edges';
 SELECT relpages, relallvisible FROM pg_class WHERE relname = 'edges';
-ROLLBACK;
