@@ -510,7 +510,7 @@ def test_the_neighborhoods_of_the_articles_cited_most_are_walked_as_the_canvas_a
     _seed_cited(store, {"low": at_least - 1, "top": at_least * 9, "next": at_least})
     page = warm.FIRST_PAGES["article_neighborhood"]
     walked: list[tuple[str, dict]] = []
-    real = warm.get_node_neighborhood
+    from lawgraph.db.queries.nodes import get_node_neighborhood as real
 
     def walk(store_: GraphStore, collection: str, key: str, **kwargs):
         walked.append((key, kwargs))
