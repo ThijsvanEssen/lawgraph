@@ -12,7 +12,8 @@ import pytest
 from lawgraph.api import warm
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import _bm25
+from lawgraph.db.queries import _bm25, warm_nodes
+from lawgraph.db.queries.articles import get_article_cited_by
 from tests.fakes import ManualClock, until
 from tests.pg.plans import recorded
 
@@ -278,7 +279,7 @@ def test_the_articles_cited_most_are_warmed_to_the_last(
     """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first,
     and all of them also when a pipeline writes meanwhile: the part takes up to half an
     hour, and stopped at every poll it was never done (16 Oct)."""
-    at_least = warm.WARM_ARTICLE_CITATIONS
+    at_least = warm_nodes.WARM_ARTICLE_CITATIONS
     store.bulk_insert_or_update_nodes(
         "articles",
         [{"key": key, "type": "article", "labels": [],
@@ -296,8 +297,8 @@ def test_the_articles_cited_most_are_warmed_to_the_last(
                 [{"key": "z", "type": "instrument", "labels": [], "props": {}}],
             )
 
-    monkeypatch.setattr(warm, "get_node_with_neighbors", node)
-    monkeypatch.setattr(warm, "get_article_cited_by", lambda *a, **k: None)
+    monkeypatch.setattr(warm_nodes, "get_node_with_neighbors", node)
+    monkeypatch.setattr(warm_nodes, "get_article_cited_by", lambda *a, **k: None)
     warm._warm_articles(store)
     assert opened == ["top", "next", "last"]
 
@@ -439,15 +440,15 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     first = json.loads((DATA_DIR / "first-pages.json").read_text("utf-8"))
     asked: list[tuple[str, str | None, int]] = []
 
-    def spy(name: str, real):
+    def spy(name: str, real, module=warm):
         def asking(*args, **kwargs):
             asked.append((name, kwargs.get("sort"), kwargs["limit"]))
             return real(*args, **kwargs)
 
-        monkeypatch.setattr(warm, name, asking)
+        monkeypatch.setattr(module, name, asking)
 
+    spy("get_article_cited_by", get_article_cited_by, warm_nodes)
     for name in (
-        "get_article_cited_by",
         "get_citing_judgments",
         "get_instruments_list",
         "list_documents",
@@ -457,11 +458,14 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     ):
         spy(name, getattr(warm, name))
     # one article and one law that are cited most, whose pages are warmed too
-    monkeypatch.setattr(
-        warm, "most_cited_articles", lambda s, n: [{"key": "a", "id": "articles/a"}]
-    )
+    for module in (warm, warm_nodes):
+        monkeypatch.setattr(
+            module,
+            "most_cited_articles",
+            lambda s, n: [{"key": "a", "id": "articles/a"}],
+        )
     monkeypatch.setattr(warm, "most_cited_laws", lambda s, n: ["BWBR0001"])
-    monkeypatch.setattr(warm, "get_node_with_neighbors", lambda *args: None)
+    monkeypatch.setattr(warm_nodes, "get_node_with_neighbors", lambda *args: None)
     monkeypatch.setattr(warm, "get_node_neighborhood", lambda *a, **k: None)
     monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
@@ -506,9 +510,9 @@ def test_the_neighborhoods_of_the_articles_cited_most_are_walked_as_the_canvas_a
     from lawgraph.api.app import app
     from lawgraph.api.dependencies import get_store
 
-    at_least = warm.WARM_ARTICLE_CITATIONS
+    at_least = warm_nodes.WARM_ARTICLE_CITATIONS
     _seed_cited(store, {"low": at_least - 1, "top": at_least * 9, "next": at_least})
-    page = warm.FIRST_PAGES["article_neighborhood"]
+    page = warm_nodes.FIRST_PAGES["article_neighborhood"]
     walked: list[tuple[str, dict]] = []
     from lawgraph.db.queries.nodes import get_node_neighborhood as real
 
@@ -544,7 +548,7 @@ def test_the_neighborhoods_are_walked_for_a_bounded_time(
     """The neighbourhoods stop once ``NEIGHBORHOODS_FOR`` has passed, the most cited
     walked first: what they read stays in the memory of the database only while it has
     room, and the hour is shared with the rest."""
-    at_least = warm.WARM_ARTICLE_CITATIONS
+    at_least = warm_nodes.WARM_ARTICLE_CITATIONS
     _seed_cited(store, {"top": at_least * 9, "next": at_least * 2, "last": at_least})
     clock = ManualClock()
     monkeypatch.setattr(warm, "time", SimpleNamespace(monotonic=clock.now))
