@@ -62,6 +62,7 @@ def test_coverage_counts_per_court_and_per_tier(monkeypatch) -> None:
     stub_route(
         monkeypatch,
         "stats",
+        cached_data_as_of={},
         get_judgment_coverage={
             "courts": [
                 _court("raad_van_state", "RVS", 40, "1984-02-24", "2026-09-23"),
@@ -89,6 +90,33 @@ def test_coverage_counts_per_court_and_per_tier(monkeypatch) -> None:
     assert [c["court_code"] for c in body["courts"]] == ["RVS", "HR", "GHARL", "GHAMS"]
 
 
+def test_coverage_says_how_current_the_papers_of_the_kamers_are(monkeypatch) -> None:
+    def source(newest):
+        return {
+            "retrieved_at": f"{newest}T20:51:42Z",
+            "newest": newest,
+            "completeness": {
+                "source": {"state": "done", "as_of": f"{newest}T20:00:00Z"}
+            },
+        }
+
+    stub_route(
+        monkeypatch,
+        "stats",
+        get_judgment_coverage={"courts": [], "stubs": 0},
+        cached_data_as_of={
+            "tk": source("2026-10-27"),
+            "eerstekamer": source("2026-10-20"),
+            "bwb": source("2026-10-01"),
+        },
+    )
+    body = client.get("/api/stats/coverage").json()
+
+    assert sorted(body["chambers"]) == ["eerstekamer", "tk"]
+    assert body["chambers"]["tk"]["newest"] == "2026-10-27"
+    assert body["chambers"]["eerstekamer"]["newest"] == "2026-10-20"
+
+
 def _replaced(tier, code, count):
     return {"source": "rechtspraak", "tier": tier, "court_code": code, "count": count}
 
@@ -98,6 +126,7 @@ def test_coverage_counts_a_decision_published_twice_once(monkeypatch) -> None:
     stub_route(
         monkeypatch,
         "stats",
+        cached_data_as_of={},
         get_judgment_coverage={
             "courts": [
                 _court("hoge_raad", "HR", 30, "1916-02-14", "2026-09-22"),

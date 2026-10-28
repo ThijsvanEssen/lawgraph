@@ -42,11 +42,13 @@ from lawgraph.api.schemas.common import (
     WithCite,
     WithKindGroup,
     WithPath,
+    WithSeries,
     address_of,
     in_regulation_order,
     judgment_cite_dto,
     judgment_outcome_fields,
     regulation_kind,
+    series_fields,
 )
 from lawgraph.api.schemas.completeness import (
     COMPLETENESS,
@@ -1253,7 +1255,7 @@ class TreatyRegisterDTO(StrictModel):
         )
 
 
-class InstrumentDetailDTO(WithMinistry, WithPath):
+class InstrumentDetailDTO(WithMinistry, WithSeries, WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
     path_source = PathSource("instruments")
@@ -1400,6 +1402,7 @@ class InstrumentDetailDTO(WithMinistry, WithPath):
             citation_title=props.get("citation_title"),
             short_title=props.get("short_title"),
             abbreviation=props.get("abbreviation"),
+            **series_fields(props),
             aliases=list(props.get("aliases") or []),
             legal_areas=[LegalAreaDTO(**a) for a in props.get("legal_areas") or []],
             policy_domains=[

@@ -135,3 +135,9 @@ class JudgmentCoverageResponse(StrictModel):
         "Caribbean part, then the courts outside the Netherlands, the EHRM last.",
     )
     courts: list[CoverageCourtDTO] = Field(..., description="Per court, most first.")
+    chambers: dict[str, DataAsOfDTO] = Field(
+        default_factory=dict,
+        description="How current the papers of the Kamers are: `tk` and `eerstekamer`, as "
+        "`data_as_of` of `/api/stats` gives them (`newest`: the date of the newest paper, "
+        "`retrieved_at`: when it was fetched); a source with no row is left out.",
+    )

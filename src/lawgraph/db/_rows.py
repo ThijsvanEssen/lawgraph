@@ -222,6 +222,9 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "stam_id",
         "instrument_citation_title",
         "instrument_abbreviation",
+        "instrument_series_id",
+        "instrument_series_position",
+        "instrument_series_size",
     ),
     # ``official_id`` and a ``slug``, ``suffix`` or ``number``: the readable address of a
     # node selected on the canvas before its own answer comes; ``kind`` names a law by its
@@ -235,6 +238,9 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         "official_id",
         "kind",
         "jurisdiction",
+        "series_id",
+        "series_position",
+        "series_size",
     ),
     "judgments": (
         "ecli",

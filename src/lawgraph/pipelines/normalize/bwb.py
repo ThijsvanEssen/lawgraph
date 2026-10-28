@@ -47,6 +47,7 @@ from lawgraph.core.bwb_xml import (
     instrument_props,
     parse_toestand,
 )
+from lawgraph.core.instrument_series import series_of
 from lawgraph.core.logging import get_logger
 from lawgraph.core.ministries import MINISTRIES, ministry_of
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
@@ -202,7 +203,43 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             state_queries.set_state(self.store, WTI_PASS_STATE, {"inputs": digest})
         else:
             logger.info("BWB short titles: no new WTI record, node or list; kept.")
+        self._write_series()
         return written
+
+    def _write_series(self) -> None:
+        """``series_*`` on the regulations that follow one another under one name, and
+        ``instrument_series_*`` on their articles (``core.instrument_series``); taken away
+        from one that is no longer in a series."""
+        inputs = normalize_bwb.series_inputs(self.store)
+        found = series_of(
+            (r["key"], r["citation_title"], r["kind"], r["date_in_force"])
+            for r in inputs
+        )
+        rows: list[dict[str, Any]] = [
+            {
+                "key": key,
+                "id": s.id,
+                "position": s.position,
+                "size": s.size,
+                "basis": s.basis,
+            }
+            for key, s in found.items()
+        ]
+        rows += [
+            {"key": r["key"], "id": None}
+            for r in inputs
+            if r["in_series"] and r["key"] not in found
+        ]
+        changed = sum(
+            normalize_bwb.update_instrument_series(self.store, batch)
+            for batch in chunked(rows, SHORT_TITLE_BATCH_SIZE)
+        )
+        logger.info(
+            "BWB series: %d regulations in %d series; %d nodes changed.",
+            len(found),
+            len({s.id for s in found.values()}),
+            changed,
+        )
 
     def _wti_pass_needed(self, digest: str) -> bool:
         """Whether the WTI pass can change anything: always in a run in full; in a run

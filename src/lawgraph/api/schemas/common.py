@@ -246,7 +246,38 @@ class QualifierFields(StrictModel):
     aanhef: bool = Field(default=False, description="Whether the aanhef is named.")
 
 
-class InstrumentSummaryDTO(WithPath):
+class WithSeries(StrictModel):
+    """A regulation that is renewed under one name (`Mandaatbesluit DT&V 2020`, `2022`, …):
+    each year has a regulation of its own, and these fields bundle them."""
+
+    series_id: str | None = Field(
+        None,
+        description="The same for every regulation of the series; null for one with no "
+        "sibling. A heuristic, not a relation of the BWB (it names no predecessor): "
+        "regulations of one kind whose citation titles are equal once their years are "
+        "taken out (`series_basis`).",
+    )
+    series_position: int | None = Field(
+        None,
+        description="Its place in the series, from 1, by the day it came into force.",
+    )
+    series_size: int | None = Field(
+        None, description="How many regulations the series holds."
+    )
+    series_basis: str | None = Field(
+        None, description="How the series was found: `title_year`."
+    )
+
+
+def series_fields(props: dict[str, Any]) -> dict[str, Any]:
+    """The ``WithSeries`` fields of the props of an instrument."""
+    return {
+        name: props.get(name)
+        for name in ("series_id", "series_position", "series_size", "series_basis")
+    }
+
+
+class InstrumentSummaryDTO(WithSeries, WithPath):
     """Short representation of an instrument."""
 
     path_source = PathSource("instruments")
@@ -303,6 +334,7 @@ class InstrumentSummaryDTO(WithPath):
             inbound_citation_count=int(props.get("inbound_citation_count") or 0),
             judgment_count=None,
             outbound_citation_count=None,
+            **series_fields(props),
         )
 
 

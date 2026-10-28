@@ -256,3 +256,72 @@ def toestand_starts(store: Store, bwb_ids: list[str]) -> dict[str, list[str]]:
         {"ids": bwb_ids},
     )
     return {row["bwb_id"]: [s for s in row["starts"] if s] for row in rows}
+
+
+# The BWB regulations a series is made of (``core.instrument_series``): key, citation title,
+# kind and the day in force; and the ones that hold a series now, which may have lost it.
+_SERIES_INPUT_SQL = """
+SELECT key, citation_title, kind, props ->> 'date_in_force' AS date_in_force,
+       props ->> 'series_id' IS NOT NULL AS in_series
+FROM instruments
+WHERE left(bwb_id, 4) = 'BWBR' AND NOT coalesce(stub, false)
+ORDER BY key
+"""
+
+
+def series_inputs(store: Store) -> list[dict[str, Any]]:
+    """``{key, citation_title, kind, date_in_force, in_series}`` of the BWB regulations."""
+    return list(store.query(_SERIES_INPUT_SQL))
+
+
+_SERIES_PROPS = (
+    ("series_id", "series_position", "series_size", "series_basis"),
+    ("instrument_series_id", "instrument_series_position", "instrument_series_size"),
+)
+
+# *rows* are ``{key, id, position, size, basis}``; a null ``id`` takes the series away. The
+# same on the articles of the regulation as ``instrument_series_*`` (not the basis).
+_SERIES_SQL = f"""
+WITH r AS (
+    SELECT u.value ->> 'key' AS key, u.value -> 'id' AS id, u.value -> 'position' AS pos,
+           u.value -> 'size' AS size, u.value -> 'basis' AS basis
+    FROM json_array_elements(%(rows)s::json) AS u(value)
+),
+instruments_set AS (
+    UPDATE instruments t
+    SET props = CASE WHEN {is_absent("r.id")}
+                     THEN lg_unset(t.props, ARRAY{list(_SERIES_PROPS[0])})
+                     ELSE lg_update(t.props, json_build_object(
+                         'series_id', r.id, 'series_position', r.pos,
+                         'series_size', r.size, 'series_basis', r.basis))
+                END
+    FROM r
+    WHERE t.key = r.key
+      AND ({differs("t.props -> 'series_id'", "r.id")}
+           OR {differs("t.props -> 'series_position'", "r.pos")}
+           OR {differs("t.props -> 'series_size'", "r.size")})
+    RETURNING 1
+),
+articles_set AS (
+    UPDATE articles a
+    SET props = CASE WHEN {is_absent("r.id")}
+                     THEN lg_unset(a.props, ARRAY{list(_SERIES_PROPS[1])})
+                     ELSE lg_update(a.props, json_build_object(
+                         'instrument_series_id', r.id, 'instrument_series_position', r.pos,
+                         'instrument_series_size', r.size))
+                END
+    FROM r JOIN instruments i ON i.key = r.key
+    WHERE a.bwb_id = i.bwb_id
+      AND ({differs("a.props -> 'instrument_series_id'", "r.id")}
+           OR {differs("a.props -> 'instrument_series_position'", "r.pos")}
+           OR {differs("a.props -> 'instrument_series_size'", "r.size")})
+    RETURNING 1
+)
+SELECT (SELECT count(*) FROM instruments_set)::int + (SELECT count(*) FROM articles_set)::int
+"""
+
+
+def update_instrument_series(store: Store, rows: list[dict[str, Any]]) -> int:
+    """Set the series on the instruments of *rows* and on their articles, or take it away
+    (null ``id``), where it differs; how many nodes changed."""
+    return int(next(store.query(_SERIES_SQL, {"rows": Json(rows)}), 0))
