@@ -185,3 +185,188 @@ def test_the_outcome_of_real_decisions(
     assert label == expected[0]
     if expected[1]:
         assert text == expected[1]
+
+
+def _decision_of(*lines: str, heading: str = "Beslissing") -> list[dict[str, str]]:
+    return _paragraphs(
+        ("body", "Een overweging."),
+        ("heading", heading),
+        *[("body", line) for line in lines],
+        (
+            "body",
+            "Aldus vastgesteld door mr. A, voorzitter, in tegenwoordigheid van mr. B.",
+        ),
+    )
+
+
+# Real decisions of the Raad van State: the court under "Beslissing" is a heading itself.
+_RVS_COURT_HEADING = [
+    # ECLI:NL:RVS:2008:BG5315
+    (
+        "De Afdeling bestuursrechtspraak van de Raad van State",
+        "bevestigt de aangevallen uitspraak.",
+    ),
+    # ECLI:NL:RVS:2009:BJ4585
+    (
+        "De voorzitter van de Afdeling bestuursrechtspraak van de Raad van State",
+        "I. bevestigt de aangevallen uitspraak, voor zover aangevallen;",
+    ),
+]
+
+
+@pytest.mark.parametrize(("court", "clause"), _RVS_COURT_HEADING)
+def test_a_heading_naming_the_court_under_the_decision_is_not_its_end(
+    court: str, clause: str
+) -> None:
+    paragraphs = _paragraphs(
+        ("body", "Beslissing"),
+        ("heading", court),
+        ("body", "Recht doende in naam der Koningin:"),
+        ("body", clause),
+        ("body", "II. wijst het verzoek af."),
+        (
+            "body",
+            "Aldus vastgesteld door mr. A, voorzitter, in tegenwoordigheid van mr. B.",
+        ),
+    )
+    outcome = judgment_outcome(paragraphs)
+    assert outcome is not None
+    assert outcome.label == "bevestigd"
+    assert outcome.paragraph_id == "p-4"
+
+
+def test_another_heading_under_the_decision_still_ends_it() -> None:
+    paragraphs = _paragraphs(
+        ("heading", "Beslissing"),
+        ("heading", "Lijst van gebruikte afkortingen"),
+        ("body", "verwerpt het beroep"),
+    )
+    assert judgment_outcome(paragraphs) is None
+
+
+def test_an_order_to_repair_a_defect_is_a_tussenuitspraak() -> None:
+    # ECLI:NL:RVS:2010:BN4277 (bestuurlijke lus)
+    paragraphs = _paragraphs(
+        ("body", "Beslissing"),
+        ("heading", "De Afdeling bestuursrechtspraak van de Raad van State"),
+        ("body", "Recht doende in naam der Koningin:"),
+        (
+            "body",
+            "draagt de raad van de gemeente Hoorn op om binnen drie maanden na de "
+            "verzending van deze tussenuitspraak:",
+        ),
+        ("body", "bepaalt dat de vaststelling van een nieuw besluit niet behoeft;"),
+    )
+    outcome = judgment_outcome(paragraphs)
+    assert outcome is not None
+    assert outcome.label == "tussenuitspraak"
+    assert outcome.paragraph_id == "p-4"
+    # ECLI:NL:RBZWB:2024:3583
+    outcome = judgment_outcome(
+        _decision_of(
+            "De rechtbank:",
+            "draagt het college op binnen twee weken de rechtbank mee te delen of "
+            "hij gebruik maakt van de gelegenheid de gebreken te herstellen;",
+        )
+    )
+    assert outcome is not None and outcome.label == "tussenuitspraak"
+
+
+def test_an_order_to_the_registry_is_no_tussenuitspraak() -> None:
+    # ECLI:NL:GHAMS:2026:2678 starts with "splitst de zaak en draagt de griffie op"
+    assert (
+        judgment_outcome(
+            _decision_of(
+                "splitst de zaak en draagt de griffie van het hof op om partijen te "
+                "informeren;",
+                "houdt iedere verdere beslissing aan.",
+            )
+        )
+        is None
+    )
+
+
+# Real decisions that had an outcome before the heading and the interim rules: they keep it.
+@pytest.mark.parametrize(
+    ("lines", "expected"),
+    [
+        # ECLI:NL:CRVB:1997:ZB7330
+        (
+            [
+                "De Centrale Raad van Beroep,",
+                "Recht doende:",
+                "Bevestigt de aangevallen uitspraak voor zover aangevochten.",
+            ],
+            "bevestigd",
+        ),
+        # ECLI:NL:CRVB:1998:AA3445
+        (
+            [
+                "De Centrale Raad van Beroep,",
+                "Recht doende:",
+                "Vernietigt de aangevallen uitspraak alsmede het bestreden besluit en "
+                "verklaart het inleidend beroep alsnog gegrond;",
+                "Bepaalt dat gedaagde een nader besluit neemt;",
+            ],
+            "vernietigd",
+        ),
+        # ECLI:NL:CRVB:1999:3
+        (
+            [
+                "De Centrale Raad van Beroep,",
+                "Recht doende:",
+                "Verklaart het beroep ongegrond.",
+            ],
+            "ongegrond",
+        ),
+        # ECLI:NL:CRVB:2002:AF1317
+        (
+            [
+                "De Centrale Raad van Beroep,",
+                "Recht doende:",
+                "Verklaart het beroep gegrond;",
+                "Vernietigt het bestreden besluit;",
+            ],
+            "gegrond",
+        ),
+        # ECLI:NL:CRVB:2003:AH9040
+        (
+            [
+                "De Centrale Raad van Beroep,",
+                "Recht doende:",
+                "Verklaart het hoger beroep niet-ontvankelijk voorzover betrekking hebbende "
+                "op het besluit van 20 mei 1999;",
+                "Bevestigt de aangevallen uitspraak voorzover betrekking hebbende op de "
+                "besluiten van 25 juni 1999.",
+            ],
+            "niet-ontvankelijk",
+        ),
+        # ECLI:NL:CRVB:2016:3978
+        (
+            [
+                "De Centrale Raad van Beroep:",
+                "- vernietigt de aangevallen uitspraak;",
+                "- wijst de zaak terug naar de rechtbank Amsterdam.",
+            ],
+            "vernietigd en verwezen",
+        ),
+        # ECLI:NL:CRVB:2020:782
+        (
+            ["De Centrale Raad van Beroep wijst het verzoek om herziening af."],
+            "afgewezen",
+        ),
+        # ECLI:NL:RBMNE:2020:5604
+        (
+            [
+                "De voorzieningenrechter:",
+                "- wijst het verzoek om een voorlopige voorziening te treffen toe;",
+                "- draagt verweerder op het betaalde griffierecht van € 178,- aan "
+                "verzoekster te vergoeden;",
+            ],
+            "toegewezen",
+        ),
+    ],
+)
+def test_existing_outcomes_stay_the_same(lines: list[str], expected: str) -> None:
+    outcome = judgment_outcome(_decision_of(*lines))
+    assert outcome is not None and outcome.label == expected
