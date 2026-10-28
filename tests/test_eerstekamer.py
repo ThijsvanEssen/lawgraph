@@ -178,7 +178,7 @@ def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
 
 
 def test_a_kamerstuk_in_the_index_twice_is_one_document() -> None:
-    stuk = {
+    stuk: dict[str, Any] = {
         "kind": "Gewijzigd voorstel van wet",
         "number": "A",
         "dossier_number": "36702",
@@ -186,7 +186,7 @@ def test_a_kamerstuk_in_the_index_twice_is_one_document() -> None:
         "title": "Gewijzigd voorstel van wet",
     }
     other = {**stuk, "number": "B"}
-    stukken = [
+    stukken: list[dict[str, Any]] = [
         {**stuk, "identifier": "kst-1274193"},
         {**stuk, "identifier": "kst-36702-A"},
         {**other, "identifier": "kst-36702-B"},
