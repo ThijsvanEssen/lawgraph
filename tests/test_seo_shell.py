@@ -181,10 +181,34 @@ def test_concordans_is_an_organization_on_the_start_page_and_over_only(
 
     expected = {
         "@type": "Organization",
+        "@id": f"{settings.SITE_URL}/#organization",
         "name": "Concordans",
         "url": f"{settings.SITE_URL}/",
         "logo": f"{settings.SITE_URL}/icon-512.png",
+        "email": "concordans@tmve.nl",
     }
     assert organizations("/") == [expected]
     assert organizations("/over") == [expected]
     assert organizations("/privacy") == []
+
+
+def test_the_website_names_its_publisher_by_reference_not_a_second_organization(
+    index: Path,
+) -> None:
+    import json
+    import re
+
+    from lawgraph.api.routes.render import _app_page
+
+    (index.parent / "spa-routes.json").write_text('[{"path": "/"}]')
+    shell.forget()
+    page = _app_page("/")
+    assert page is not None
+    (found,) = re.findall(
+        r'<script type="application/ld\+json" data-seo>(.*?)</script>',
+        shell.render(page),
+    )
+    graph = json.loads(found)["@graph"]
+    (site,) = [n for n in graph if n["@type"] == "WebSite"]
+    (org,) = [n for n in graph if n["@type"] == "Organization"]
+    assert site["publisher"] == {"@id": org["@id"]}

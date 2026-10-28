@@ -2285,7 +2285,8 @@ def test_the_start_page_is_its_core_without_a_read(
         },
         "query-input": "required name=search_term_string",
     }
-    assert site["publisher"]["@type"] == "Organization"
+    (org,) = [g for g in page["data"]["@graph"] if g["@type"] == "Organization"]
+    assert site["publisher"] == {"@id": org["@id"]}
     # no breadcrumbs on the home of the site
     assert "Kruimelpad" not in main
 

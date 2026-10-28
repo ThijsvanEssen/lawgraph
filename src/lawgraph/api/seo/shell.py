@@ -23,7 +23,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title
+from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title, organization
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
 
@@ -205,16 +205,6 @@ def _json_ld(page: Page, base: str) -> str:
     )
     # no "</script>" inside the script
     return text.replace("</", "<\\/")
-
-
-def organization(base: str) -> dict[str, Any]:
-    """Concordans as the publisher of the site: what is certain, no more."""
-    return {
-        "@type": "Organization",
-        "name": "Concordans",
-        "url": f"{base}/",
-        "logo": f"{base}/icon-512.png",
-    }
 
 
 def _head(page: Page, base: str) -> str:

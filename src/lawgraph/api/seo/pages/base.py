@@ -80,6 +80,19 @@ class Page:
     organization: bool = False
 
 
+def organization(base: str) -> dict[str, Any]:
+    """Concordans as the publisher of the site, the one node of it in the JSON-LD (the
+    ``WebSite`` of ``/`` points at it by ``@id``): what is certain, no more."""
+    return {
+        "@type": "Organization",
+        "@id": f"{base}/#organization",
+        "name": "Concordans",
+        "url": f"{base}/",
+        "logo": f"{base}/icon-512.png",
+        "email": "concordans@tmve.nl",
+    }
+
+
 def present(**fields: Any) -> dict[str, Any]:
     """The fields that have a value, in their order."""
     return {name: value for name, value in fields.items() if value}

@@ -13,12 +13,6 @@ from typing import Any
 from lawgraph.api.seo.pages.base import Page, link
 from lawgraph.config import settings
 
-PUBLISHER = {
-    "@type": "Organization",
-    "name": "Concordans",
-    "email": "concordans@tmve.nl",
-}
-
 START: dict[str, Any] = {
     "heading": "Zie hoe wetten, rechtspraak en parlement samenhangen.",
     "lede": "Zoek een wet, uitspraak, Kamerstuk of dossier en zie wat ermee verbonden is.",
@@ -106,7 +100,7 @@ def _website() -> dict[str, Any]:
             },
             "query-input": "required name=search_term_string",
         },
-        "publisher": PUBLISHER,
+        "publisher": {"@id": f"{settings.SITE_URL}/#organization"},
     }
 
 
