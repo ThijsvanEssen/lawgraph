@@ -15,7 +15,9 @@ from fastapi import APIRouter, Depends, Query
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
+    After,
     PageLimit,
+    not_both,
     parse_choices,
 )
 from lawgraph.api.schemas.documents import (
@@ -117,7 +119,9 @@ def list_chamber_documents(
             "showed).",
         ),
     ] = 0,
+    after: After = None,
 ) -> DocumentListResponse:
+    not_both(after, offset)
     raw = list_documents(
         store,
         chambers=(chamber,) if chamber else ("TK", "EK"),
@@ -129,10 +133,12 @@ def list_chamber_documents(
         letter_kind=letter_kind,
         limit=limit,
         offset=offset,
+        after=after,
         facets=facets,
     )
     names = load_dossier_names(store)
     return DocumentListResponse(
+        next_cursor=raw.get("next_cursor"),
         total=raw.get("total"),
         partial=bool(raw.get("partial")),
         items=[

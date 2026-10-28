@@ -33,6 +33,7 @@ from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
 from lawgraph.db.queries._helpers import page_with_counts, run_together, with_counts
 from lawgraph.db.queries._json_sql import array_or_empty
+from lawgraph.db.queries._keyset import Keyset, SortKey, page_of, with_condition
 from lawgraph.db.queries._lists import (
     FacetFilters,
     facet_rows,
@@ -1108,6 +1109,7 @@ def get_instruments_list(
     sort: str = "title",
     limit: int = 50,
     offset: int = 0,
+    after: str | None = None,
     in_force_from: str | None = None,
     in_force_to: str | None = None,
     published_from: str | None = None,
@@ -1155,10 +1157,6 @@ def get_instruments_list(
 
     # The key settles ties. Each sort is one index in its order (``db/schema.py``), so a
     # page of the whole list is read from it without sorting the list.
-    order = {
-        "title": "citation_title NULLS FIRST, key",
-        "article_count": "article_count DESC NULLS LAST, key DESC",
-    }[sort]
     # Without a kind, every instrument but the publications (one without a kind too): the
     # condition of the list's indexes, written out so that every plan can use them; and no
     # proposal of the EU, which is no regulation.
@@ -1209,12 +1207,6 @@ def get_instruments_list(
         own["validity"] = _EXPIRED if valid == "expired" else f"NOT {_EXPIRED}"
     filters = FacetFilters(conditions, own)
     matched = f"instruments {filters.where()}"
-    page = f"""
-        SELECT key, props, row_number() OVER (ORDER BY {order}) AS n
-        FROM {matched}
-        ORDER BY {order}
-        LIMIT %(limit)s OFFSET %(offset)s
-    """
     params = {
         "limit": limit,
         "offset": offset,
@@ -1236,32 +1228,77 @@ def get_instruments_list(
     # under the filters alone.
     counted = without_page(params)
 
-    def listed_page() -> list[dict[str, Any]]:
-        return _listed(store, page, params)
+    def listed_page() -> tuple[list[dict[str, Any]], str | None]:
+        return _listed(store, filters, INSTRUMENT_ORDERS[sort], params, limit, after)
 
     if not facets:
-        listed, count = run_together(
+        answers: list[Any] = run_together(
             listed_page, lambda: _instrument_total(store, matched, counted)
         )
-        return {"total": count, "items": listed, "facets": None}
-    on_page, counts = page_with_counts(
+        (listed, next_cursor), count = answers
+        return {
+            "total": count,
+            "items": listed,
+            "facets": None,
+            "next_cursor": next_cursor,
+        }
+    (on_page, next_cursor), counts = page_with_counts(
         listed_page,
         lambda: _instrument_counts(store, filters, matched, regulations, counted),
         "The counts of the instruments",
     )
-    return with_counts(on_page, counts)
+    return {**with_counts(on_page, counts), "next_cursor": next_cursor}
+
+
+# The order of the list, one index each (``db/schema.py``); the key settles ties and makes
+# the place of a row unique, for ``after``.
+INSTRUMENT_ORDERS = {
+    "title": Keyset(
+        "instruments:title",
+        (SortKey("citation_title", nulls_first=True), SortKey("key", not_null=True)),
+    ),
+    "article_count": Keyset(
+        "instruments:article_count",
+        (
+            SortKey("article_count", desc=True),
+            SortKey("key", desc=True, not_null=True),
+        ),
+    ),
+}
 
 
 def _listed(
-    store: GraphStore, page: str, params: dict[str, Any]
-) -> list[dict[str, Any]]:
-    """The items of one page of the list (*page*, its SQL) with the date of the next
-    version of each law."""
-    listed = [_list_item(row) for row in store.query(page, params)]
+    store: GraphStore,
+    filters: FacetFilters,
+    order: Keyset,
+    params: dict[str, Any],
+    limit: int,
+    after: str | None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """One page of the list and the token of the next (``after``: the page behind the one
+    that ended at that token, instead of ``offset``), the items with the date of the next
+    version of each law. The page reads one row more, to know whether there is a next."""
+    bind = {**params, "limit": limit + 1}
+    where_ = filters.where()
+    if after:
+        where_ = with_condition(where_, order.after(order.values(after), bind))
+    page = f"""
+        SELECT key, props, {order.columns}, row_number() OVER (ORDER BY {order.order}) AS n
+        FROM instruments {where_}
+        ORDER BY {order.order}
+        LIMIT %(limit)s OFFSET %(offset)s
+    """
+    rows, token = page_of(
+        list(store.query(page, bind)),
+        limit,
+        order,
+        lambda row: [row[f"ks{n}"] for n in range(len(order.keys))],
+    )
+    listed = [_list_item(row) for row in rows]
     coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
     for item in listed:
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
-    return listed
+    return listed, token
 
 
 def _kept(store: GraphStore, sql: Any, counted: dict[str, Any]) -> list[Any]:

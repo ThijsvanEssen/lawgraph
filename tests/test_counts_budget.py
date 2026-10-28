@@ -141,7 +141,7 @@ def test_judgments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(instruments, "_listed", lambda *a: [])
+    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
     count = Counting()
 
     def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:

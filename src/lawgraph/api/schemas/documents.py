@@ -645,3 +645,6 @@ class DocumentListResponse(StrictModel):
     items: list[DocumentListItemDTO] = []
     facets: DocumentFacetsDTO | None = None
     partial: bool = Field(False, description=PARTIAL_COUNTS)
+    next_cursor: str | None = Field(
+        None, description="Pass as ``after`` for the next page; null on the last page."
+    )

@@ -930,6 +930,9 @@ class InstrumentListResponse(StrictModel):
     # null when asked for without them (``facets=false``)
     facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)
     partial: bool = Field(False, description=PARTIAL_COUNTS)
+    next_cursor: str | None = Field(
+        None, description="Pass as ``after`` for the next page; null on the last page."
+    )
 
 
 class InstrumentVersionDTO(StrictModel):

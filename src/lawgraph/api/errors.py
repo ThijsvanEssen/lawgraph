@@ -23,6 +23,7 @@ from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
 from lawgraph.core.logging import get_logger
+from lawgraph.db.queries._keyset import InvalidCursor
 from lawgraph.db.queries.not_found import NotFound
 from lawgraph.db.request_context import ReadTimedOut, RequestCancelled
 from lawgraph.db.schema import CollationMismatch, SchemaOutdated
@@ -125,6 +126,15 @@ async def _read_timed_out(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def _invalid_cursor(request: Request, exc: Exception) -> JSONResponse:
+    """An ``after`` that is not the ``next_cursor`` of this list: 422 like any parameter
+    that cannot be answered."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "`after`: not the `next_cursor` of this list."},
+    )
+
+
 async def _unexpected(request: Request, exc: Exception) -> JSONResponse:
     """An error outside the request log (in a middleware around it): the same 500, logged
     here with its traceback. An error of a route is answered by the request log."""
@@ -144,6 +154,7 @@ def install(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _invalid_request)
     app.add_exception_handler(NotFound, _not_found)
     app.add_exception_handler(ReadTimedOut, _read_timed_out)
+    app.add_exception_handler(InvalidCursor, _invalid_cursor)
     for error in _DATABASE_ERRORS:
         app.add_exception_handler(error, _database_unavailable)
     # Starlette raises a bare 404 for a path no route serves; every 404 of a route is

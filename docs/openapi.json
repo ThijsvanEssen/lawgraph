@@ -992,6 +992,24 @@
             }
           },
           {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
+          },
+          {
             "name": "facets",
             "in": "query",
             "required": false,
@@ -6100,6 +6118,24 @@
               "title": "Offset"
             },
             "description": "Papers to skip, at most 10,000: further back, `to` the date of the last paper of a page (and `offset` the papers of that date it showed)."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
           }
         ],
         "responses": {
@@ -19314,7 +19350,7 @@
               }
             ],
             "title": "Total",
-            "description": "Every match, whatever the page; null with ``facets=false``."
+            "description": "Every match, whatever the page; null with ``facets=false`` and while ``partial``."
           },
           "items": {
             "items": {
@@ -19333,6 +19369,24 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ``after`` for the next page; null on the last page."
           }
         },
         "additionalProperties": false,
@@ -19340,7 +19394,9 @@
         "required": [
           "total",
           "items",
-          "facets"
+          "facets",
+          "partial",
+          "next_cursor"
         ],
         "title": "DocumentListResponse",
         "description": "A page of the papers of the chambers, newest first."
@@ -29497,8 +29553,16 @@
             "title": "Items"
           },
           "total": {
-            "type": "integer",
-            "title": "Total"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Matching instruments; null while ``partial``."
           },
           "facets": {
             "anyOf": [
@@ -29509,6 +29573,24 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ``after`` for the next page; null on the last page."
           }
         },
         "additionalProperties": false,
@@ -29516,7 +29598,9 @@
         "required": [
           "items",
           "total",
-          "facets"
+          "facets",
+          "partial",
+          "next_cursor"
         ],
         "title": "InstrumentListResponse",
         "description": "Paginated list envelope for instruments."
@@ -32074,8 +32158,16 @@
             "title": "Items"
           },
           "total": {
-            "type": "integer",
-            "title": "Total"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Matching judgments; null while ``partial``."
           },
           "facets": {
             "anyOf": [
@@ -32086,6 +32178,12 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -32093,7 +32191,8 @@
         "required": [
           "items",
           "total",
-          "facets"
+          "facets",
+          "partial"
         ],
         "title": "JudgmentListResponse",
         "description": "Paginated list envelope for judgments."

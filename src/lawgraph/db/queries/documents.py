@@ -34,6 +34,7 @@ from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore, raw_key
 from lawgraph.db.queries._helpers import chamber_sql, page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
+from lawgraph.db.queries._keyset import Keyset, SortKey, page_of, with_condition
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
 from lawgraph.db.queries.members import with_member_slugs
@@ -189,6 +190,14 @@ _LETTER_KIND_SQL: dict[LetterKind, Callable[[str], str]] = {
 }
 
 
+# The order of the list, newest first: every paper listed has a date (the list is a range of
+# it), and its key settles ties. ``after`` of a page is the date and key of its last paper.
+DOCUMENT_ORDER = Keyset(
+    "documents",
+    (SortKey("d.date", desc=True, not_null=True), SortKey("d.key", not_null=True)),
+)
+
+
 def list_documents(
     store: GraphStore,
     *,
@@ -201,9 +210,12 @@ def list_documents(
     letter_kind: LetterKind | None = None,
     limit: int = 50,
     offset: int = 0,
+    after: str | None = None,
     facets: bool = True,
 ) -> dict[str, Any]:
-    """The documents of the chambers, newest first: ``{total, items, facets}``.
+    """The documents of the chambers, newest first: ``{total, items, facets, next_cursor}``
+    (*after*: the ``next_cursor`` of the page before, instead of *offset*; None on the last
+    page).
 
     *dossier* is a dossier label (``36791``, ``37020-XV``): the documents ``PART_OF`` it
     (its own and those of its cases); *motion_kinds* keeps the motions of those kinds
@@ -246,6 +258,10 @@ def list_documents(
         own["kind"] = "d.kind = ANY(%(kinds)s::text[])"
         bind["kinds"] = list(kinds)
     filters = FacetFilters(shared, own)
+    page_bind = {**bind, "limit": limit + 1}
+    after_page = (
+        DOCUMENT_ORDER.after(DOCUMENT_ORDER.values(after), page_bind) if after else ""
+    )
     # The page is chosen by id first: an item is built (and the props read) only for the
     # documents on it, not for every document a deep offset skips. Each is read by its id
     # (OFFSET 0 keeps the read apart): a join let the planner read the table whole for a
@@ -256,8 +272,8 @@ def list_documents(
         FROM (
             SELECT d.id
             FROM {COLLECTION_DOCUMENTS} d
-            {filters.where()}
-            ORDER BY d.date DESC NULLS LAST, d.key
+            {with_condition(filters.where(), after_page) if after else filters.where()}
+            ORDER BY {DOCUMENT_ORDER.order}
             LIMIT %(limit)s OFFSET %(offset)s
         ) page
         CROSS JOIN LATERAL (
@@ -267,17 +283,27 @@ def list_documents(
     )"""
 
     def read_page() -> Any:
-        return list(store.query(f"SELECT {items} AS items", bind))[0]
+        rows = list(store.query(f"SELECT {items} AS items", page_bind))[0]
+        return page_of(rows, limit, DOCUMENT_ORDER, lambda r: [r["date"], r["key"]])
 
     if not facets:
-        return {"items": read_page(), "total": None, "facets": None}
+        page, next_cursor = read_page()
+        return {
+            "items": page,
+            "total": None,
+            "facets": None,
+            "next_cursor": next_cursor,
+        }
 
-    page, counted = page_with_counts(
+    (page, next_cursor), counted = page_with_counts(
         read_page,
         lambda: _document_counts(store, shared, own, bind),
         "The counts of the documents",
     )
-    return with_counts(page, counted, {"kind": [], "chamber": []})
+    return {
+        **with_counts(page, counted, {"kind": [], "chamber": []}),
+        "next_cursor": next_cursor,
+    }
 
 
 def _document_counts(

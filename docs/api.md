@@ -24,6 +24,15 @@ end asks for when it shows it; and a slow part of an answer has a budget: past i
 comes without that part, which it names in `partial` (the full search per type, the counts of
 the feed), rather than keeping the whole answer waiting.
 
+**Lists with counts and pages.** `/api/decisions`, `/api/documents`, `/api/instruments`,
+`/api/judgments` and `/api/feed` read the page first and alone, and count `total` and `facets`
+(kept per filter) beside it: past 3 s from the start of the answer (the page counts in it) the
+page comes whole with `total` null, empty facets and `partial` true, and a request after the
+count has them. `facets=false` counts nothing. A page of `/api/documents` and
+`/api/instruments` has `next_cursor` (null on the last page): pass it as `after` instead of
+`offset` for the next page, which costs what the first does at any depth; not both
+(422), and a cursor of another list or sort is 422 too. `offset` stays on every list.
+
 ## Paths, parameters and periods
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the
