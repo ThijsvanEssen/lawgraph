@@ -120,7 +120,9 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
     "/in-flux",
     summary="Bulk in-flux count per node",
     description=(
-        "A map of node id → number of open proposed changes. Only nodes with "
+        "A map of node id → number of open proposed changes: proposed by a paper of a "
+        "dossier that has not ended (not published, adopted, rejected or withdrawn). "
+        "Only nodes with "
         "at least one open change are included. Use it to render the in-flux "
         "ring on graph nodes."
         "\n\n"
@@ -143,8 +145,8 @@ _COUNT_PER_NODE: dict[int | str, dict[str, Any]] = {
 def bulk_in_flux(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> JSONResponse:
-    """Return all nodes that have at least one VOORGESTELD edge, with counts (kept while
-    the edges stand still, ``get_in_flux_counts``). After a poll that wrote edges, the
+    """Return all nodes that have at least one open change, with counts (kept while the
+    edges and dossiers stand still, ``get_in_flux_counts``). After a poll that wrote edges, the
     count of the edges before is answered at once while the new one computes: a signal
     that hardly moves is not worth a wait."""
     with version_cache.stale_wait(0.0):

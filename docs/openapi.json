@@ -2318,7 +2318,7 @@
           "nodes"
         ],
         "summary": "Bulk in-flux count per node",
-        "description": "A map of node id → number of open proposed changes. Only nodes with at least one open change are included. Use it to render the in-flux ring on graph nodes.\n\nnode id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6) plus the citations of an article, `min_count`; `ids` (comma-separated, at most 500) counts those nodes alone, the ones a view draws (one index read per node); without it the `limit` nodes with the highest counts (default 10,000, at most 50,000; the whole graph has 1.85 million) of the window of 3, 6, 12 or 24 months that holds `months` (5 counts as 6), as `semantic graph-heat` last counted them (`lg_heat`, the 50,000 highest of each window; the API never counts them itself, which reads every edge): 503 until that step has run (with `ids` it still answers). Both answer a plain map (`{\"articles/bwbr0001854_287\": 3}`), not validated through a response model",
+        "description": "A map of node id → number of open proposed changes: proposed by a paper of a dossier that has not ended (not published, adopted, rejected or withdrawn). Only nodes with at least one open change are included. Use it to render the in-flux ring on graph nodes.\n\nnode id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6) plus the citations of an article, `min_count`; `ids` (comma-separated, at most 500) counts those nodes alone, the ones a view draws (one index read per node); without it the `limit` nodes with the highest counts (default 10,000, at most 50,000; the whole graph has 1.85 million) of the window of 3, 6, 12 or 24 months that holds `months` (5 counts as 6), as `semantic graph-heat` last counted them (`lg_heat`, the 50,000 highest of each window; the API never counts them itself, which reads every edge): 503 until that step has run (with `ids` it still answers). Both answer a plain map (`{\"articles/bwbr0001854_287\": 3}`), not validated through a response model",
         "operationId": "bulk_in_flux_api_nodes_in_flux_get",
         "responses": {
           "200": {
@@ -27071,6 +27071,11 @@
             "title": "Bill Id",
             "description": "Its bill: the first document of the dossier of kind `Voorstel van wet` (also of an initiative), by date (`documents/…`); null when the dossier holds none."
           },
+          "closed_known": {
+            "type": "boolean",
+            "title": "Closed Known",
+            "description": "Whether its end is derived (`semantic tk-dossier-outcomes`); false: not yet, and it counts as open."
+          },
           "count": {
             "type": "integer",
             "title": "Count",
@@ -27084,10 +27089,11 @@
           "dossier_number",
           "title",
           "bill_id",
+          "closed_known",
           "count"
         ],
         "title": "InFluxDossierDTO",
-        "description": "A dossier with an open change of a node: a document of it proposes the change."
+        "description": "A dossier that has not ended (not ``closed``) with an open change of a node: a\ndocument of it proposes the change."
       },
       "InFluxDossiersResponse": {
         "properties": {
@@ -27117,7 +27123,7 @@
           "count": {
             "type": "integer",
             "title": "Count",
-            "description": "Its open changes, as `/api/nodes/in-flux` counts them; a change of a document in no dossier counts here alone."
+            "description": "Its open changes, as `/api/nodes/in-flux` counts them: proposed changes of documents of a dossier that has not ended."
           },
           "dossiers": {
             "items": {

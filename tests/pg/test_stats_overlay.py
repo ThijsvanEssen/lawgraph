@@ -154,7 +154,15 @@ def test_data_as_of_takes_the_newest_fetch_of_each_source(store: GraphStore) -> 
     ]
 
 
+def _open_dossier(store: GraphStore, key: str = "1", **props: Any) -> None:
+    """The dossier *key*, not ended unless *props* say so."""
+    store.bulk_insert_or_update_nodes(
+        "dossiers", [_node(key, "dossier", number=key, **{"closed": False, **props})]
+    )
+
+
 def test_overlays_by_node_in_order(store: GraphStore) -> None:
+    _open_dossier(store)  # of documents/d (``ABOUT``)
     store.bulk_insert_or_update_edges(
         [
             _edge("1", "articles/b", "AMENDS", status="voorgesteld"),
@@ -192,15 +200,16 @@ def test_the_dossiers_in_flux_are_the_dossiers_of_the_open_changes(
             _node("m1", "document", kind="Memorie van toelichting", date="2024-12-01"),
             _node("x1", "document", kind="Brief regering"),
             _node("y1", "document", kind="Amendement"),
+            _node("z1", "document", kind="Amendement"),
         ],
     )
+    _open_dossier(store, "36000", title="Wet x")
+    # its end not derived yet: open, and said so
     store.bulk_insert_or_update_nodes(
-        "dossiers",
-        [
-            _node("36000", "dossier", number="36000", title="Wet x"),
-            _node("35000", "dossier", number="35000"),
-        ],
+        "dossiers", [_node("35000", "dossier", number="35000")]
     )
+    # its law published: ended
+    _open_dossier(store, "34000", closed=True, outcome="aangenomen")
 
     def proposed(key: str, paper: str, to: str) -> dict[str, Any]:
         return _edge(
@@ -214,41 +223,49 @@ def test_the_dossiers_in_flux_are_the_dossiers_of_the_open_changes(
         [
             *(member(f"m{p}", p, "36000") for p in ("a1", "b1", "b2", "m1")),
             member("my1", "y1", "35000", "ABOUT"),
+            member("mz1", "z1", "34000"),
+            member("ma1", "a1", "34000"),  # also in an ended dossier
             proposed("1", "a1", "articles/a"),
             proposed("2", "m1", "articles/a"),
             proposed("3", "x1", "articles/a"),  # a paper in no dossier
             proposed("4", "y1", "articles/a"),
             proposed("5", "a1", "articles/b"),
             _edge("6", "articles/c", "AMENDS", from_id="documents/a1"),  # enacted
+            proposed("7", "z1", "articles/d"),  # of an ended dossier alone
         ]
     )
-    named = ["articles/a", "articles/b", "articles/c"]
+    named = ["articles/a", "articles/b", "articles/c", "articles/d"]
     found = overlay.get_in_flux_dossiers(store, named)
     counts = overlay.get_in_flux_counts(store)
+    assert counts == {"articles/a": 3, "articles/b": 1}
     assert {node: entry["count"] for node, entry in found.items()} == counts
     x = {"id": "dossiers/36000", "number": "36000", "title": "Wet x"}
+    x |= {"bill_id": "documents/b1", "closed_known": True}
     assert found["articles/a"]["dossiers"] == [
-        {**x, "bill_id": "documents/b1", "count": 2},
+        {**x, "count": 2},
         {
             "id": "dossiers/35000",
             "number": "35000",
             "title": None,
             "bill_id": None,
+            "closed_known": False,
             "count": 1,
         },
     ]
-    assert found["articles/b"]["dossiers"] == [
-        {**x, "bill_id": "documents/b1", "count": 1}
-    ]
+    assert found["articles/b"]["dossiers"] == [{**x, "count": 1}]
 
 
 def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Every proposed edge is read (5.9 s on prod): kept until the edges change, then
-    counted again, whatever is written to other tables."""
+    """Every proposed edge is read (5.9 s on prod): kept until the edges or the dossiers
+    change, then counted again, whatever is written to other tables."""
+    _open_dossier(store)
     store.bulk_insert_or_update_edges(
-        [_edge("1", "articles/a", "AMENDS", status="voorgesteld")]
+        [
+            _edge("m", "dossiers/1", "PART_OF"),
+            _edge("1", "articles/a", "AMENDS", status="voorgesteld"),
+        ]
     )
     assert overlay.get_in_flux_counts(store) == {"articles/a": 1}
     seen = recorded(store, monkeypatch)
@@ -264,6 +281,8 @@ def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
         [_edge("2", "articles/b", "AMENDS", status="voorgesteld")]
     )
     assert overlay.get_in_flux_counts(store) == {"articles/a": 1, "articles/b": 1}
+    _open_dossier(store, closed=True)
+    assert overlay.get_in_flux_counts(store) == {}
 
 
 def test_heat_of_named_nodes_and_of_the_whole_map(store: GraphStore) -> None:

@@ -350,6 +350,7 @@ def test_in_flux_dossiers_answer_each_node_with_its_dossiers(monkeypatch) -> Non
             "number": "36000",
             "title": "Wet x",
             "bill_id": None,
+            "closed_known": True,
             "count": 2,
         }
         return {"articles/b": {"count": 3, "dossiers": [dossier]}}
@@ -372,6 +373,7 @@ def test_in_flux_dossiers_answer_each_node_with_its_dossiers(monkeypatch) -> Non
                         "dossier_number": "36000",
                         "title": "Wet x",
                         "bill_id": None,
+                        "closed_known": True,
                         "count": 2,
                     }
                 ],

@@ -19,58 +19,73 @@ from lawgraph.config.constants import (
 from lawgraph.core.tk_records.kinds import KIND_BILL
 from lawgraph.db import GraphStore, version_cache
 
-# The open changes: every proposed edge (``status`` ``voorgesteld``), at the node it points
-# at (``to_id``). What ``get_in_flux_counts`` counts and ``get_in_flux_dossiers`` lists.
-_OPEN_CHANGES = (
-    f"SELECT key, from_id, to_id FROM {COLLECTION_EDGES} WHERE status = %(proposed)s"
-)
+# The open changes: a proposed edge (``status`` ``voorgesteld``) out of a document of a
+# dossier (``PART_OF`` or ``ABOUT``) that has not ended, at the node it points at
+# (``to_id``), one row per such dossier. A dossier has ended when ``semantic
+# tk-dossier-outcomes`` found it ``closed``: its law published in the Staatsblad
+# (``LEGISLATED_IN``), the bill adopted or rejected by a vote, or withdrawn by letter. One
+# whose end is not derived yet (``closed`` null) counts as open, and says so
+# (``closed_known``). A change of a document in no dossier is not open. What
+# ``get_in_flux_counts`` counts and ``get_in_flux_dossiers`` lists; its parameters are
+# ``_OPEN_PARAMS``.
+_OPEN_CHANGES = f"""
+SELECT o.key, o.to_id, d.id AS dossier_id, d.closed IS NOT NULL AS closed_known
+FROM {COLLECTION_EDGES} o
+JOIN {COLLECTION_EDGES} m ON m.from_id = o.from_id
+ AND m.relation = ANY(%(members)s) AND m.to_collection = '{COLLECTION_DOSSIERS}'
+JOIN {COLLECTION_DOSSIERS} d ON d.id = m.to_id AND d.closed IS NOT TRUE
+WHERE o.status = %(proposed)s
+"""
+# The tables the open changes are read from.
+IN_FLUX_TABLES = (COLLECTION_EDGES, COLLECTION_DOSSIERS)
+_OPEN_PARAMS: dict[str, object] = {
+    "proposed": EDGE_STATUS_VOORGESTELD,
+    "members": [RELATION_PART_OF, RELATION_ABOUT],
+}
 
 
 def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
-    """Return a map of node_id → count of proposed edges pointing at it, by node id.
+    """Return a map of node_id → count of its open changes (``_OPEN_CHANGES``), by node id.
 
     The map is empty when the graph holds no proposed edges yet (e.g. before the
     amendment scanner has run) — that is the truth, not a bug.
 
-    It reads every proposed edge (5.9 s on prod, 10 Oct): kept while the edges stand still
-    and warmed after a change of them, so a request finds it computed.
+    It reads every proposed edge (5.9 s on prod, 10 Oct): kept while the edges and the
+    dossiers stand still and warmed after a change of them, so a request finds it computed.
     """
 
     def count() -> dict[str, int]:
         rows = store.query(
             f"""
-            SELECT to_id AS id, count(*)::int AS count FROM ({_OPEN_CHANGES}) o
+            SELECT to_id AS id, count(DISTINCT key)::int AS count FROM ({_OPEN_CHANGES}) o
             GROUP BY to_id
             ORDER BY to_id
             """,
-            {"proposed": EDGE_STATUS_VOORGESTELD},
+            _OPEN_PARAMS,
         )
         return {row["id"]: row["count"] for row in rows}
 
-    return version_cache.cached(store, ("in flux",), count, tables=(COLLECTION_EDGES,))
+    return version_cache.cached(store, ("in flux",), count, tables=IN_FLUX_TABLES)
 
 
-# Per node of ``%(ids)s`` its open changes (``total``) and the dossiers of the documents
-# that propose them (``PART_OF`` or ``ABOUT``), each with the open changes of its documents
-# and its bill: the first document of the dossier of kind ``Voorstel van wet`` (also an
-# initiative), by date. A change of a document in no dossier is counted, under no dossier.
+# Per node of ``%(ids)s`` its open changes (``total``) and the dossiers that propose them,
+# each with its open changes and its bill: the first document of the dossier of kind
+# ``Voorstel van wet`` (also an initiative), by date.
 _IN_FLUX_DOSSIERS_SQL = f"""
 WITH open AS (
-    SELECT o.key, o.from_id, o.to_id FROM ({_OPEN_CHANGES}) o
-    WHERE o.to_id = ANY(%(ids)s::text[])
+    SELECT * FROM ({_OPEN_CHANGES}) o WHERE o.to_id = ANY(%(ids)s::text[])
 ),
 per_dossier AS (
-    SELECT open.to_id, m.to_id AS dossier_id, count(DISTINCT open.key)::int AS count
+    SELECT to_id, dossier_id, bool_and(closed_known) AS closed_known,
+           count(DISTINCT key)::int AS count
     FROM open
-    LEFT JOIN {COLLECTION_EDGES} m ON m.from_id = open.from_id
-     AND m.relation = ANY(%(members)s) AND m.to_collection = '{COLLECTION_DOSSIERS}'
-    GROUP BY open.to_id, m.to_id
+    GROUP BY to_id, dossier_id
 )
-SELECT p.to_id AS id, p.dossier_id, p.count, d.number,
+SELECT p.to_id AS id, p.dossier_id, p.count, p.closed_known, d.number,
        lg_str(d.props -> 'title') AS title, bill.id AS bill_id,
-       (SELECT count(*)::int FROM open t WHERE t.to_id = p.to_id) AS total
+       (SELECT count(DISTINCT t.key)::int FROM open t WHERE t.to_id = p.to_id) AS total
 FROM per_dossier p
-LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = p.dossier_id
+JOIN {COLLECTION_DOSSIERS} d ON d.id = p.dossier_id
 LEFT JOIN LATERAL (
     SELECT b.from_id AS id FROM {COLLECTION_EDGES} b
     JOIN {COLLECTION_DOCUMENTS} x ON x.id = b.from_id
@@ -88,14 +103,13 @@ def get_in_flux_dossiers(
 ) -> dict[str, dict[str, Any]]:
     """The open changes of the nodes *ids* (``_OPEN_CHANGES``, as ``get_in_flux_counts``
     counts them), by node id: ``{count, dossiers}``, each dossier ``{id, number, title,
-    bill_id, count}``, most open changes first. A node without an open change is left out;
-    a change of a document in no dossier is in ``count`` alone."""
+    bill_id, closed_known, count}``, most open changes first. A node without an open
+    change is left out."""
     rows = store.query(
         _IN_FLUX_DOSSIERS_SQL,
         {
+            **_OPEN_PARAMS,
             "ids": ids,
-            "proposed": EDGE_STATUS_VOORGESTELD,
-            "members": [RELATION_PART_OF, RELATION_ABOUT],
             "part_of": RELATION_PART_OF,
             "bill": f"{KIND_BILL}%",
         },
@@ -103,16 +117,16 @@ def get_in_flux_dossiers(
     nodes: dict[str, dict[str, Any]] = {}
     for row in rows:
         node = nodes.setdefault(row["id"], {"count": row["total"], "dossiers": []})
-        if row["dossier_id"] is not None:
-            node["dossiers"].append(
-                {
-                    "id": row["dossier_id"],
-                    "number": row["number"],
-                    "title": row["title"],
-                    "bill_id": row["bill_id"],
-                    "count": row["count"],
-                }
-            )
+        node["dossiers"].append(
+            {
+                "id": row["dossier_id"],
+                "number": row["number"],
+                "title": row["title"],
+                "bill_id": row["bill_id"],
+                "closed_known": row["closed_known"],
+                "count": row["count"],
+            }
+        )
     return nodes
 
 
