@@ -133,16 +133,17 @@ def test_the_server_config_is_there() -> None:
 )
 def test_a_timer_starts_a_unit_here_that_runs_a_script_in_scripts(timer: Path) -> None:
     """Each timer names a service kept here (``Unit=`` or its own name), and that service runs a
-    script of ``scripts/`` from the checkout on the server."""
+    script of ``scripts/`` from the checkout on the server (or of ``deploy/server/bin/``)."""
     text = timer.read_text(encoding="utf-8")
-    if re.search(r"^OnUnitActiveSec=", text, re.M):
-        # an interval watch (the API watch) runs a script of deploy/server/bin/, not of scripts/
-        service = (
-            SERVER / "systemd" / timer.name.replace(".timer", ".service")
-        ).read_text(encoding="utf-8")
-        run = re.search(r"^ExecStart=/bin/sh /srv/lawgraph/bin/(\S+)$", service, re.M)
-        assert run, f"{timer.name} runs no script of bin/"
-        assert (SERVER / "bin" / run.group(1)).is_file(), run.group(1)
+    watch = SERVER / "systemd" / timer.name.replace(".timer", ".service")
+    bin_run = watch.is_file() and re.search(
+        r"^ExecStart=/bin/sh /srv/lawgraph/bin/(\S+)$",
+        watch.read_text(encoding="utf-8"),
+        re.M,
+    )
+    if bin_run:
+        # a watch (the API, the freshness) runs a script of deploy/server/bin/
+        assert (SERVER / "bin" / bin_run.group(1)).is_file(), bin_run.group(1)
         return
     assert re.search(r"^OnCalendar=.+ Europe/Amsterdam$", text, re.M), "no OnCalendar"
     unit = re.search(r"^Unit=(\S+)$", text, re.M)

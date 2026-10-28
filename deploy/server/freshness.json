@@ -1,0 +1,139 @@
+{
+ "repeat_hours": 24,
+ "rules": [
+  {
+   "kind": "stats",
+   "source": "tk",
+   "measure": "newest",
+   "unit": "workdays",
+   "warn": 4,
+   "alert": 7
+  },
+  {
+   "kind": "stats",
+   "source": "eerstekamer",
+   "measure": "newest",
+   "unit": "days",
+   "warn": 10,
+   "alert": 21
+  },
+  {
+   "kind": "tier",
+   "tier": "hoge_raad",
+   "unit": "workdays",
+   "warn": 4,
+   "alert": 7
+  },
+  {
+   "kind": "tier",
+   "tier": "raad_van_state",
+   "unit": "workdays",
+   "warn": 4,
+   "alert": 7
+  },
+  {
+   "kind": "tier",
+   "tier": "college_van_beroep_bedrijfsleven",
+   "unit": "workdays",
+   "warn": 4,
+   "alert": 7
+  },
+  {
+   "kind": "tier",
+   "tier": "centrale_raad_van_beroep",
+   "unit": "days",
+   "warn": 10,
+   "alert": 21
+  },
+  {
+   "kind": "tier",
+   "tier": "parket",
+   "unit": "days",
+   "warn": 14,
+   "alert": 30
+  },
+  {
+   "kind": "courts",
+   "id": "gerechten",
+   "tiers": [
+    "gerechtshof",
+    "rechtbank"
+   ],
+   "min_count": 1000,
+   "stale_days": 14,
+   "warn": 1,
+   "alert": 3,
+   "active_days": 365
+  },
+  {
+   "kind": "stats",
+   "source": "staatsblad",
+   "measure": "newest",
+   "unit": "workdays",
+   "warn": 5,
+   "alert": 10
+  },
+  {
+   "kind": "stats",
+   "source": "staatscourant",
+   "measure": "newest",
+   "unit": "workdays",
+   "warn": 4,
+   "alert": 10
+  },
+  {
+   "kind": "stats",
+   "source": "bwb",
+   "measure": "retrieved_at",
+   "unit": "days",
+   "warn": 2,
+   "alert": 4
+  },
+  {
+   "kind": "stats",
+   "source": "eurlex",
+   "measure": "as_of",
+   "unit": "hours",
+   "warn": 36,
+   "alert": 72
+  },
+  {
+   "kind": "stats",
+   "source": "rijksoverheid",
+   "measure": "as_of",
+   "unit": "hours",
+   "warn": 36,
+   "alert": 72
+  },
+  {
+   "kind": "stats",
+   "source": "tooi",
+   "measure": "as_of",
+   "unit": "hours",
+   "warn": 36,
+   "alert": 72
+  },
+  {
+   "kind": "stats",
+   "source": "verdragenbank",
+   "measure": "as_of",
+   "unit": "hours",
+   "warn": 36,
+   "alert": 72
+  },
+  {
+   "kind": "stats",
+   "source": "kiesraad",
+   "measure": "as_of",
+   "unit": "hours",
+   "warn": 36,
+   "alert": 72
+  }
+ ],
+ "states": {
+  "paused_ok": [
+   "echr"
+  ],
+  "alert_after_hours": 48
+ }
+}
