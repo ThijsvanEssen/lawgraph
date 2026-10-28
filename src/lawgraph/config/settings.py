@@ -126,6 +126,10 @@ DB_POOL_SIZE = _int("LAWGRAPH_DB_POOL_SIZE", 8)
 # never keeps a request waiting for a connection. Opened when first needed. One for each
 # computation of ``version_cache`` (its ``WORKERS``, 3) and one for the warm-up.
 DB_BACKGROUND_POOL_SIZE = _int("LAWGRAPH_DB_BACKGROUND_POOL_SIZE", 4)
+# How many (law, judgment) rows the API keeps of the judgments that cite a law, over all laws
+# (``db/queries/law_citations.py``, about 120 bytes a row in memory): the Awb is 300,000. A
+# law past it is dropped, the one used longest ago first, and read again when asked.
+LAW_CITATIONS_ROWS = _int("LAWGRAPH_LAW_CITATIONS_ROWS", 2_000_000)
 # A database whose strings sort by another collation than the schema's ICU collation is
 # refused; this names the one let through anyway, for the dump and restore that replaces it
 # (``libc en_US.utf8``, as the refusal names it).

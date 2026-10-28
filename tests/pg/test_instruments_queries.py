@@ -1661,10 +1661,10 @@ def test_the_route_takes_int_as_a_jurisdiction(store: GraphStore) -> None:
 def test_the_judgments_citing_a_law_are_read_from_the_index_of_its_citations(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Every judgment that cites a law is counted, sorted and filtered from the ranges of
-    its articles in the index of ``lg_cited_by``: no edge is read, and of the judgments
-    only the rows of the page (a row holds the text, and the Awb is 275,000 judgments: 63 s
-    of single-row reads cold, 2026-10-10)."""
+    """Every judgment that cites a law is read once from the ranges of its articles in the
+    index of ``lg_cited_by``: no edge is read, and of the judgments only the rows of the
+    page (a row holds the text, and the Awb is 275,000 judgments: 63 s of single-row reads
+    cold, 2026-10-10)."""
     store.bulk_insert_or_update_nodes(
         "articles",
         [{"key": f"a{n}", "type": "article", "labels": ["BWB"],
@@ -1688,19 +1688,56 @@ def test_the_judgments_citing_a_law_are_read_from_the_index_of_its_citations(
         store, BWB, sort="citation_count", tiers=("hoge_raad",), limit=5
     )
     assert (found.total, len(found.items)) == (10, 5)
-    ((statement, params, *_),) = seen
+    (index, page) = [(c.statement, c.params) for c in seen]
+    scans = _scans(store, *index)
+    assert "edges" not in {relation for relation, *_ in scans}
+    assert "judgments" not in {relation for relation, *_ in scans}
+    assert ("lg_cited_by", "Index Only Scan", "lg_cited_by_article_areas") in scans
+    # the judgments of the page alone, by key
+    plan = explain(store, *page, disable=("seqscan",), analyze=True)
+    judgments = [n for n in plan_nodes(plan) if n.get("Relation Name") == "judgments"]
+    assert [n["Index Name"] for n in judgments] == ["judgments_pkey"]
+    assert [n["Actual Loops"] * n["Actual Rows"] for n in judgments] == [5]
+
+
+def _scans(
+    store: GraphStore, statement: Any, params: Any
+) -> list[tuple[str, str, str | None]]:
     plan = explain(store, statement, params, disable=("seqscan",), analyze=True)
-    scans = [
+    return [
         (node["Relation Name"], node["Node Type"], node.get("Index Name"))
         for node in plan_nodes(plan)
         if "Relation Name" in node
     ]
-    assert "edges" not in {relation for relation, *_ in scans}
-    assert ("lg_cited_by", "Index Only Scan", "lg_cited_by_article_areas") in scans
-    # the judgments of the page alone, by key
-    judgments = [n for n in plan_nodes(plan) if n.get("Relation Name") == "judgments"]
-    assert [n["Index Name"] for n in judgments] == ["judgments_pkey"]
-    assert [n["Actual Loops"] * n["Actual Rows"] for n in judgments] == [5]
+
+
+def test_another_page_or_filter_of_a_law_counts_its_judgments_no_more(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The citations of a law are grouped per judgment once: the next page, sort, year,
+    tier and area read the judgments of their page alone."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [{"key": "a1", "type": "article", "labels": ["BWB"],
+          "props": {"bwb_id": BWB, "article_number": "1"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [{"key": f"j{n}", "type": "judgment", "labels": ["Rechtspraak"],
+          "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "date_eff": f"202{n % 3}-01-01",
+                    "tier": "hoge_raad"}} for n in range(1, 7)],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [{"key": f"e{n}", "from_id": f"judgments/j{n}", "to_id": "articles/a1",
+          "relation": "REFERS_TO", "source": "t"} for n in range(1, 7)]
+    )  # fmt: skip
+    instruments.get_citing_judgments(store, BWB, limit=2)
+    seen = recorded(store, monkeypatch, "_stream")
+    instruments.get_citing_judgments(store, BWB, limit=2, offset=2)
+    instruments.get_citing_judgments(store, BWB, sort="citation_count", year="2020")
+    instruments.get_citing_judgments(store, BWB, tiers=("hoge_raad",))
+    assert all("AS cited_count" not in str(c.statement) for c in seen)
+    assert len(seen) == 3  # one page each
 
 
 def test_the_judgments_citing_a_law_by_tier_year_and_citations(

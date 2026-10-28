@@ -30,7 +30,7 @@ from lawgraph.core.models import node_id
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.queries import proposals
+from lawgraph.db.queries import law_citations, proposals
 from lawgraph.db.queries._helpers import page_with_counts, run_together, with_counts
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries._keyset import Keyset, SortKey, page_of, with_condition
@@ -210,15 +210,6 @@ def get_division_articles(
     )
 
 
-# The orders of the judgments that cite a law: the newest first, the most cited articles of
-# the law first, or the most cited judgment first (a standard judgment), each then the
-# newest; the id settles ties.
-INSTRUMENT_JUDGMENT_SORTS = {
-    "date": "k.date_eff DESC NULLS LAST, k.judgment_id",
-    "cited": "k.cited_count DESC, k.date_eff DESC NULLS LAST, k.judgment_id",
-    "citation_count": "k.cited DESC NULLS LAST, k.date_eff DESC NULLS LAST, k.judgment_id",
-}
-
 # How long the judgments citing a law are kept under one request (seconds), whatever the
 # data does: the citations of the Awb are 600,000, a poll adds a few. A newer answer is
 # computed in the background after that, while the kept one is served (``lasting``).
@@ -249,41 +240,46 @@ def get_citing_judgments(
     area: str | None = None,
 ) -> CitingJudgments:
     """The judgments that cite any article of the law *identifier* (BWB id or CELEX), in
-    the order of *sort* (``INSTRUMENT_JUDGMENT_SORTS``): a page (``{judgment,
-    cited_articles}``), ``total`` (every citing judgment under *year* and of any of
-    *tiers* and in the main area of law *area* (the part of a subject of the source before
-    its first ';'), ``years`` (``[{value, count}]``: per year of ``date_eff`` under *tiers*
-    and *area*, whatever *year*; the oldest first, those without a date first of all),
-    ``tiers`` (per tier under *year* and *area*, whatever *tiers*; the most first) and
-    ``areas`` (per main area under *year* and *tiers*, whatever *area*; the most first; a
-    judgment counts for each of its areas). One reading, kept per request
-    ``CITING_MAX_AGE`` (``lasting``)."""
+    the order of *sort* (``date``: the newest first; ``cited``: the most cited articles of
+    the law first; ``citation_count``: the most cited judgment first; each then the newest;
+    the id settles ties): a page (``{judgment, cited_articles}``), ``total`` (every citing
+    judgment under *year* and of any of *tiers* and in the main area of law *area* (the part
+    of a subject of the source before its first ';'), ``years`` (``[{value, count}]``: per
+    year of ``date_eff`` under *tiers* and *area*, whatever *year*; the oldest first, those
+    without a date first of all), ``tiers`` (per tier under *year* and *area*, whatever
+    *tiers*; the most first) and ``areas`` (per main area under *year* and *tiers*, whatever
+    *area*; the most first; a judgment counts for each of its areas).
+
+    The judgments of the law are counted once, whatever the page and the filters
+    (``_law_citations``, kept ``CITING_MAX_AGE``); the page is read by the ids of its
+    judgments."""
     scope = scope_of(identifier)
     chosen = tuple(dict.fromkeys(tiers))
-    found = lasting(
-        store,
-        (
-            "law judgments",
-            scope.prop,
-            scope.value,
-            sort,
-            limit,
-            offset,
-            year,
-            chosen,
-            area,
-        ),
-        lambda: _citing_judgments(
-            store, scope.prop, scope.value, sort, limit, offset, year, chosen, area
-        ),
-        CITING_MAX_AGE,
+    law = (store.name, scope.prop, scope.value)
+    reading = None
+    while reading is None:
+        index = lasting(
+            store,
+            ("law citations", *law, law_citations.generation(law)),
+            lambda: _law_citations(store, scope.prop, scope.value, law),
+            CITING_MAX_AGE,
+        )
+        law_citations.used(law)
+        reading = index.read(sort, limit, offset, year, chosen, area)
+    ids = reading.ids
+    items = (
+        lasting(
+            store,
+            ("law judgments", scope.prop, scope.value, tuple(ids)),
+            lambda: _citing_items(store, scope.prop, scope.value, ids),
+            CITING_MAX_AGE,
+        )
+        if ids
+        else []
     )
+    counts = reading.counts
     return CitingJudgments(
-        found["items"],
-        found["total"],
-        found["years"],
-        found.get("tiers") or [],
-        found.get("areas") or [],
+        items, counts.total, counts.years, counts.tiers, counts.areas
     )
 
 
@@ -317,121 +313,74 @@ _LISTED_JUDGMENT = listed_judgment(
 )
 
 
-_YEAR_KEPT = "(%(year)s::text IS NULL OR substr(k.date_eff, 1, 4) = %(year)s::text)"
-_TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR k.tier = ANY(%(tiers)s::text[]))"
-_AREA_KEPT = "(%(area)s::text IS NULL OR k.areas @> ARRAY[%(area)s::text])"
-
-
-def _citing_judgments(
-    store: GraphStore,
-    prop: str,
-    value: str,
-    sort: str,
-    limit: int,
-    offset: int,
-    year: str | None,
-    tiers: tuple[str, ...],
-    area: str | None,
-) -> dict[str, Any]:
-    """``get_citing_judgments`` from the database, in one statement. Every citing judgment
-    is read from the ranges of the law's articles in the index of ``lg_cited_by`` (their
-    ids first, and ``citations`` apart: grouped in the order of the judgments, or joined
-    to the articles, the planner would read the whole index), with its date, tier and
-    citations (no row of the judgments, nor of the edges: on the Awb that was 275,000 reads
-    of a 17 GB table, a minute cold); the cited articles are gathered for the page alone."""
-    order = INSTRUMENT_JUDGMENT_SORTS[sort]
-    articles = f"ARRAY({_articles_of(prop)})"
+def _law_citations(
+    store: GraphStore, prop: str, value: str, law: tuple[str, str, str]
+) -> law_citations.LawCitations:
+    """Every judgment that cites the law, with its date, tier, citations and areas, in
+    the order of its id. Read from the ranges of the law's articles in the index of
+    ``lg_cited_by`` (their ids first, and ``citations`` apart: grouped in the order of the
+    judgments, or joined to the articles, the planner would read the whole index), with no
+    row of the judgments, nor of the edges: on the Awb that was 275,000 reads of a 17 GB
+    table, a minute cold."""
     statement = f"""
         WITH citations AS MATERIALIZED (
             SELECT c.judgment_id, c.date_eff, c.tier, c.cited, c.areas
             FROM {CITED_BY_TABLE} c
-            WHERE c.article_id = ANY({articles})
-        ),
-        cites AS MATERIALIZED (
-            SELECT c.judgment_id, count(*)::int AS cited_count, min(c.date_eff) AS date_eff,
-                   min(c.tier) AS tier, max(c.cited) AS cited,
-                   max(c.areas) AS areas
-            FROM citations c
-            GROUP BY c.judgment_id
-        ),
-        kept AS (
-            SELECT * FROM cites k WHERE {_YEAR_KEPT} AND {_TIERS_KEPT} AND {_AREA_KEPT}
-        ),
-        top AS (
-            SELECT k.judgment_id, row_number() OVER (ORDER BY {order}) AS n
-            FROM kept k
-            ORDER BY n
-            LIMIT %(limit)s OFFSET %(offset)s
+            WHERE c.article_id = ANY(ARRAY({_articles_of(prop)}))
         )
-        SELECT json_build_object(
-            'total', (SELECT count(*)::int FROM kept),
-            'years', (
-                SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
-                                         ORDER BY value NULLS FIRST), '[]')
-                FROM (SELECT substr(k.date_eff, 1, 4) AS value, count(*)::int AS count
-                      FROM cites k WHERE {_TIERS_KEPT} AND {_AREA_KEPT} GROUP BY 1) per_year
-            ),
-            'tiers', (
-                SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
-                                         ORDER BY count DESC, value ASC NULLS LAST), '[]')
-                FROM (SELECT k.tier AS value, count(*)::int AS count
-                      FROM cites k WHERE {_YEAR_KEPT} AND {_AREA_KEPT} GROUP BY 1) per_tier
-            ),
-            'areas', (
-                SELECT coalesce(json_agg(json_build_object('value', value, 'count', count)
-                                         ORDER BY count DESC, value ASC NULLS LAST), '[]')
-                FROM (SELECT a.value, count(*)::int AS count
-                      FROM cites k CROSS JOIN LATERAL unnest(k.areas) AS a(value)
-                      WHERE {_YEAR_KEPT} AND {_TIERS_KEPT} GROUP BY 1) per_area
-            ),
-            'items', (
-                SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
-                FROM (
-                    SELECT json_build_object(
-                        'judgment', {_LISTED_JUDGMENT},
-                        'cited_articles', coalesce(cited.articles, '[]')
-                    ) AS item, top.n
-                    FROM top
-                    JOIN judgments j ON j.id = top.judgment_id
-                    LEFT JOIN lg_judgment_light l ON l.id = j.id
-                    LEFT JOIN (
-                        SELECT c.judgment_id, json_agg(json_build_object(
-                            'id', a.id,
-                            'key', a.key,
-                            'article_number', a.props -> 'article_number',
-                            'display_name', a.props -> 'display_name'
-                        ) ORDER BY {_document_order("a")}) AS articles
-                        FROM {CITED_BY_TABLE} c JOIN articles a ON a.id = c.article_id
-                        WHERE c.judgment_id IN (SELECT judgment_id FROM top)
-                          AND c.article_id = ANY({articles})
-                        GROUP BY c.judgment_id
-                    ) cited ON cited.judgment_id = top.judgment_id
-                ) page
-            )
-        )
+        SELECT c.judgment_id, count(*)::int AS cited_count, min(c.date_eff) AS date_eff,
+               min(c.tier) AS tier, max(c.cited) AS cited, max(c.areas) AS areas
+        FROM citations c
+        GROUP BY c.judgment_id
+        ORDER BY c.judgment_id
+    """
+    return law_citations.keep(
+        law, law_citations.LawCitations(store.query(statement, {"bwb": value}))
+    )
+
+
+def _citing_items(
+    store: GraphStore, prop: str, value: str, ids: list[str]
+) -> list[dict[str, Any]]:
+    """The page of ``get_citing_judgments`` for the judgments *ids*, in that order: the
+    judgment as listed and the articles of the law it cites (read for the page alone)."""
+    articles = f"ARRAY({_articles_of(prop)})"
+    statement = f"""
+        SELECT coalesce(json_agg(page.item ORDER BY page.n), '[]')
+        FROM (
+            SELECT json_build_object(
+                'judgment', {_LISTED_JUDGMENT},
+                'cited_articles', coalesce(cited.articles, '[]')
+            ) AS item, top.n
+            FROM unnest(%(ids)s::text[]) WITH ORDINALITY AS top(judgment_id, n)
+            -- by key, one by one: a join would read the judgments in the order of the index
+            CROSS JOIN LATERAL (
+                SELECT x.* FROM judgments x WHERE x.id = top.judgment_id LIMIT 1
+            ) j
+            LEFT JOIN lg_judgment_light l ON l.id = j.id
+            LEFT JOIN (
+                SELECT c.judgment_id, json_agg(json_build_object(
+                    'id', a.id,
+                    'key', a.key,
+                    'article_number', a.props -> 'article_number',
+                    'display_name', a.props -> 'display_name'
+                ) ORDER BY {_document_order("a")}) AS articles
+                FROM {CITED_BY_TABLE} c JOIN articles a ON a.id = c.article_id
+                WHERE c.judgment_id = ANY(%(ids)s::text[])
+                  AND c.article_id = ANY({articles})
+                GROUP BY c.judgment_id
+            ) cited ON cited.judgment_id = top.judgment_id
+        ) page
     """
     row = next(
         iter(
             store.query(
-                statement,
-                {
-                    "bwb": value,
-                    "conclusion": KIND_CONCLUSIE,
-                    "limit": limit,
-                    "offset": offset,
-                    "year": year,
-                    "tiers": list(tiers) or None,
-                    "area": area,
-                },
+                statement, {"bwb": value, "conclusion": KIND_CONCLUSIE, "ids": ids}
             )
         ),
         None,
     )
-    return (
-        cast(dict[str, Any], row)
-        if row
-        else {"items": [], "total": 0, "years": [], "tiers": [], "areas": []}
-    )
+    return cast(list[dict[str, Any]], row or [])
 
 
 # The orders of the dossiers of a law: newest opened, or the dossier that made the law first,
