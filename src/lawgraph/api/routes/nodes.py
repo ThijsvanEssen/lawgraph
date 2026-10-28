@@ -11,6 +11,7 @@ from lawgraph.api.params import EdgeMeta, Tier, is_node_id, parse_choices
 from lawgraph.api.schemas.common import FacetCountDTO
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
+    InFluxDossiersResponse,
     NeighborBucketDTO,
     NeighborDTO,
     NeighborhoodCollectionDTO,
@@ -72,6 +73,7 @@ from lawgraph.db.queries.overlay import (
     HEAT_MAX_LIMIT,
     get_heat_counts,
     get_in_flux_counts,
+    get_in_flux_dossiers,
     stored_heat,
 )
 from lawgraph.db.queries.shared_neighbors import (
@@ -151,6 +153,38 @@ def bulk_in_flux(
 
 # The nodes a request may name, and how many the map of the whole graph keeps.
 HEAT_MAX_IDS = 500
+
+
+@router.get(
+    "/in-flux/dossiers",
+    summary="The dossiers of the open changes of nodes",
+    description=(
+        "Per node of `ids` (comma-separated, at most "
+        f"{HEAT_MAX_IDS}) its open proposed changes, as `/in-flux` counts them, and the "
+        "dossiers whose documents propose them, each with its bill (`bill_id`). A node "
+        "without an open change is left out."
+    ),
+    tags=["nodes"],
+    response_model=InFluxDossiersResponse,
+)
+def in_flux_dossiers(
+    store: Annotated[GraphStore, Depends(get_store)],
+    ids: Annotated[
+        str,
+        Query(description=f"Comma-separated node ids, at most {HEAT_MAX_IDS}."),
+    ],
+) -> InFluxDossiersResponse:
+    """The dossiers of the open changes of the nodes *ids*; 422 for more than
+    ``HEAT_MAX_IDS`` or one that is no node id."""
+    wanted = sorted({i.strip() for i in ids.split(",") if i.strip()})
+    if not 1 <= len(wanted) <= HEAT_MAX_IDS:
+        raise Invalid("ids", f"1 to {HEAT_MAX_IDS} node ids, comma-separated.")
+    wrong = [i for i in wanted if not is_node_id(i)]
+    if wrong:
+        raise Invalid("ids", f"not a node id: {', '.join(wrong)}.")
+    return InFluxDossiersResponse.from_nodes(get_in_flux_dossiers(store, wanted))
+
+
 HEAT_LIMIT = 10_000
 
 

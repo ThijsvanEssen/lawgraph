@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Any
 
 from lawgraph.config.constants import (
     CHANGE_RELATIONS,
     COLLECTION_ARTICLES,
+    COLLECTION_DOCUMENTS,
+    COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
     EDGE_STATUS_VOORGESTELD,
+    RELATION_ABOUT,
+    RELATION_PART_OF,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.tk_records.kinds import KIND_BILL
 from lawgraph.db import GraphStore, version_cache
+
+# The open changes: every proposed edge (``status`` ``voorgesteld``), at the node it points
+# at (``to_id``). What ``get_in_flux_counts`` counts and ``get_in_flux_dossiers`` lists.
+_OPEN_CHANGES = (
+    f"SELECT key, from_id, to_id FROM {COLLECTION_EDGES} WHERE status = %(proposed)s"
+)
 
 
 def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
@@ -26,9 +38,8 @@ def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
 
     def count() -> dict[str, int]:
         rows = store.query(
-            """
-            SELECT to_id AS id, count(*)::int AS count FROM edges
-            WHERE status = %(proposed)s
+            f"""
+            SELECT to_id AS id, count(*)::int AS count FROM ({_OPEN_CHANGES}) o
             GROUP BY to_id
             ORDER BY to_id
             """,
@@ -37,6 +48,72 @@ def get_in_flux_counts(store: GraphStore) -> dict[str, int]:
         return {row["id"]: row["count"] for row in rows}
 
     return version_cache.cached(store, ("in flux",), count, tables=(COLLECTION_EDGES,))
+
+
+# Per node of ``%(ids)s`` its open changes (``total``) and the dossiers of the documents
+# that propose them (``PART_OF`` or ``ABOUT``), each with the open changes of its documents
+# and its bill: the first document of the dossier of kind ``Voorstel van wet`` (also an
+# initiative), by date. A change of a document in no dossier is counted, under no dossier.
+_IN_FLUX_DOSSIERS_SQL = f"""
+WITH open AS (
+    SELECT o.key, o.from_id, o.to_id FROM ({_OPEN_CHANGES}) o
+    WHERE o.to_id = ANY(%(ids)s::text[])
+),
+per_dossier AS (
+    SELECT open.to_id, m.to_id AS dossier_id, count(DISTINCT open.key)::int AS count
+    FROM open
+    LEFT JOIN {COLLECTION_EDGES} m ON m.from_id = open.from_id
+     AND m.relation = ANY(%(members)s) AND m.to_collection = '{COLLECTION_DOSSIERS}'
+    GROUP BY open.to_id, m.to_id
+)
+SELECT p.to_id AS id, p.dossier_id, p.count, d.number,
+       lg_str(d.props -> 'title') AS title, bill.id AS bill_id,
+       (SELECT count(*)::int FROM open t WHERE t.to_id = p.to_id) AS total
+FROM per_dossier p
+LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = p.dossier_id
+LEFT JOIN LATERAL (
+    SELECT b.from_id AS id FROM {COLLECTION_EDGES} b
+    JOIN {COLLECTION_DOCUMENTS} x ON x.id = b.from_id
+    WHERE b.to_id = p.dossier_id AND b.relation = %(part_of)s
+      AND b.from_collection = '{COLLECTION_DOCUMENTS}' AND x.kind LIKE %(bill)s
+    ORDER BY x.date NULLS LAST, x.id
+    LIMIT 1
+) bill ON true
+ORDER BY p.to_id, p.count DESC, d.number DESC NULLS LAST
+"""
+
+
+def get_in_flux_dossiers(
+    store: GraphStore, ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """The open changes of the nodes *ids* (``_OPEN_CHANGES``, as ``get_in_flux_counts``
+    counts them), by node id: ``{count, dossiers}``, each dossier ``{id, number, title,
+    bill_id, count}``, most open changes first. A node without an open change is left out;
+    a change of a document in no dossier is in ``count`` alone."""
+    rows = store.query(
+        _IN_FLUX_DOSSIERS_SQL,
+        {
+            "ids": ids,
+            "proposed": EDGE_STATUS_VOORGESTELD,
+            "members": [RELATION_PART_OF, RELATION_ABOUT],
+            "part_of": RELATION_PART_OF,
+            "bill": f"{KIND_BILL}%",
+        },
+    )
+    nodes: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        node = nodes.setdefault(row["id"], {"count": row["total"], "dossiers": []})
+        if row["dossier_id"] is not None:
+            node["dossiers"].append(
+                {
+                    "id": row["dossier_id"],
+                    "number": row["number"],
+                    "title": row["title"],
+                    "bill_id": row["bill_id"],
+                    "count": row["count"],
+                }
+            )
+    return nodes
 
 
 # Every article-level signal, whatever its timestamp: references and amendments. Those

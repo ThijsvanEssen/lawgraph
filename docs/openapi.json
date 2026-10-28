@@ -2340,6 +2340,52 @@
         }
       }
     },
+    "/api/nodes/in-flux/dossiers": {
+      "get": {
+        "tags": [
+          "nodes",
+          "nodes"
+        ],
+        "summary": "The dossiers of the open changes of nodes",
+        "description": "Per node of `ids` (comma-separated, at most 500) its open proposed changes, as `/in-flux` counts them, and the dossiers whose documents propose them, each with its bill (`bill_id`). A node without an open change is left out.",
+        "operationId": "in_flux_dossiers_api_nodes_in_flux_dossiers_get",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated node ids, at most 500.",
+              "title": "Ids"
+            },
+            "description": "Comma-separated node ids, at most 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InFluxDossiersResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/nodes/heat": {
       "get": {
         "tags": [
@@ -26982,6 +27028,115 @@
         ],
         "title": "ImplementingMeasureDTO",
         "description": "A national implementing measure as EUR-Lex lists it for the EU act: the publication\nthrough which the instrument implements it (the law that changed the Awb to implement a\ndirective)."
+      },
+      "InFluxDossierDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The dossier (`dossiers/36000`)."
+          },
+          "dossier_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Number",
+            "description": "Its Kamerstuk number (`36000`)."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "bill_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Id",
+            "description": "Its bill: the first document of the dossier of kind `Voorstel van wet` (also of an initiative), by date (`documents/…`); null when the dossier holds none."
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "The open changes of the node its documents propose."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "dossier_number",
+          "title",
+          "bill_id",
+          "count"
+        ],
+        "title": "InFluxDossierDTO",
+        "description": "A dossier with an open change of a node: a document of it proposes the change."
+      },
+      "InFluxDossiersResponse": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/InFluxNodeDTO"
+            },
+            "type": "array",
+            "title": "Nodes",
+            "description": "The nodes asked that have an open change, by id; one without is left out, as in `/api/nodes/in-flux`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nodes"
+        ],
+        "title": "InFluxDossiersResponse",
+        "description": "The open changes of the nodes asked, with their dossiers (`GET /api/nodes/in-flux/\ndossiers`)."
+      },
+      "InFluxNodeDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Its open changes, as `/api/nodes/in-flux` counts them; a change of a document in no dossier counts here alone."
+          },
+          "dossiers": {
+            "items": {
+              "$ref": "#/components/schemas/InFluxDossierDTO"
+            },
+            "type": "array",
+            "title": "Dossiers",
+            "description": "Most open changes first, then the newest number."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "count",
+          "dossiers"
+        ],
+        "title": "InFluxNodeDTO",
+        "description": "A node with open changes, and the dossiers that propose them."
       },
       "InstrumentAnnexDTO": {
         "properties": {

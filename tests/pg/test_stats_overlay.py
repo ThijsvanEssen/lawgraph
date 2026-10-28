@@ -173,6 +173,75 @@ def test_overlays_by_node_in_order(store: GraphStore) -> None:
     assert overlay.get_heat_counts(store, min_count=2, ids=named) == {"articles/a": 2}
 
 
+def test_the_dossiers_in_flux_are_the_dossiers_of_the_open_changes(
+    store: GraphStore,
+) -> None:
+    """Each node its count as ``get_in_flux_counts`` has it, and the dossiers of the papers
+    that propose its changes, with the first bill of each by date."""
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("a1", "document", kind="Amendement", date="2025-03-01"),
+            _node(
+                "b2",
+                "document",
+                kind="Voorstel van wet (initiatiefvoorstel)",
+                date="2025-02-01",
+            ),
+            _node("b1", "document", kind="Voorstel van wet", date="2025-01-01"),
+            _node("m1", "document", kind="Memorie van toelichting", date="2024-12-01"),
+            _node("x1", "document", kind="Brief regering"),
+            _node("y1", "document", kind="Amendement"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _node("36000", "dossier", number="36000", title="Wet x"),
+            _node("35000", "dossier", number="35000"),
+        ],
+    )
+
+    def proposed(key: str, paper: str, to: str) -> dict[str, Any]:
+        return _edge(
+            key, to, "AMENDS", status="voorgesteld", from_id=f"documents/{paper}"
+        )
+
+    def member(key: str, paper: str, dossier: str, relation: str = "PART_OF") -> dict:
+        return _edge(key, f"dossiers/{dossier}", relation, from_id=f"documents/{paper}")
+
+    store.bulk_insert_or_update_edges(
+        [
+            *(member(f"m{p}", p, "36000") for p in ("a1", "b1", "b2", "m1")),
+            member("my1", "y1", "35000", "ABOUT"),
+            proposed("1", "a1", "articles/a"),
+            proposed("2", "m1", "articles/a"),
+            proposed("3", "x1", "articles/a"),  # a paper in no dossier
+            proposed("4", "y1", "articles/a"),
+            proposed("5", "a1", "articles/b"),
+            _edge("6", "articles/c", "AMENDS", from_id="documents/a1"),  # enacted
+        ]
+    )
+    named = ["articles/a", "articles/b", "articles/c"]
+    found = overlay.get_in_flux_dossiers(store, named)
+    counts = overlay.get_in_flux_counts(store)
+    assert {node: entry["count"] for node, entry in found.items()} == counts
+    x = {"id": "dossiers/36000", "number": "36000", "title": "Wet x"}
+    assert found["articles/a"]["dossiers"] == [
+        {**x, "bill_id": "documents/b1", "count": 2},
+        {
+            "id": "dossiers/35000",
+            "number": "35000",
+            "title": None,
+            "bill_id": None,
+            "count": 1,
+        },
+    ]
+    assert found["articles/b"]["dossiers"] == [
+        {**x, "bill_id": "documents/b1", "count": 1}
+    ]
+
+
 def test_the_changes_in_flux_are_kept_while_the_edges_stand_still(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
