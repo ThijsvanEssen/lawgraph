@@ -287,7 +287,8 @@ def list_judgments(
         "(docs/data-model.md#judgment)): `judgment.outcome` (`verworpen`, "
         "`vernietigd`, `gedeeltelijk vernietigd`, `vernietigd en verwezen`, "
         "`bekrachtigd`, `bevestigd`, `gegrond`, `ongegrond`, `niet-ontvankelijk`, "
-        "`afgewezen`, `toegewezen`; of the ECHR `schending` or `geen schending`) with "
+        "`afgewezen`, `toegewezen`, `tussenuitspraak`; of the ECHR `schending` or `geen "
+        "schending`) with "
         '`outcome_text`, the clause of the decision that says it ("verwerpt het '
         'beroep"), and `outcome_paragraph_id`; of a conclusion `conclusion_outcome` '
         "(`verwerping`, `vernietiging`, `vernietiging en verwijzing`, "
