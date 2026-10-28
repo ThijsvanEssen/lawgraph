@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITTEES,
@@ -29,26 +30,54 @@ from lawgraph.db.version_cache import cached
 _GUID_NAME = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
 
+def _sitting(t: str) -> str:
+    """SQL: committee *t* sits on ``%(today)s``: it has not ended and, of the Eerste Kamer,
+    its last snapshot shows it; of the Tweede Kamer, a member is seated on it that day. The
+    Kamer closes few committees it stopped (``DatumInactief`` is mostly empty): a committee
+    whose every seat ended, or that never had one in the source, sits no longer."""
+    return f"""(
+        NOT coalesce(lg_str({t}.props -> 'ended_on') <= %(today)s, false)
+        AND {is_absent(f"{t}.props -> 'observed_until'")}
+        AND ({of_chamber(t, CHAMBER_EK)} OR EXISTS (
+            SELECT 1 FROM {COLLECTION_EDGES} s
+            WHERE s.to_id = {t}.id AND s.relation = %(member_of)s
+              AND s.from_collection = '{COLLECTION_MEMBERS}'
+              AND lg_seated(s.doc -> 'meta', %(today)s)
+        ))
+    )"""
+
+
+def _committee_doc(row: dict[str, Any]) -> dict[str, Any]:
+    return {**node_doc(row), "sitting": bool(row["sitting"])}
+
+
 def get_committees(
     store: GraphStore,
     *,
     chamber: str = CHAMBER_TK,
+    include_ended: bool = False,
     active_from: str | None = None,
     active_to: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Every committee of *chamber* with a name, by name; of the Eerste Kamer only those
-    the last snapshot shows. ``props.active_dossier_count`` is what ``semantic
-    graph-list-stats`` counted. With a period (*active_from*, *active_to*) those that
-    existed in it (``started_on`` to ``ended_on``), also the ones that ended since."""
-    bind: dict[str, Any] = {"guid": _GUID_NAME}
-    existing = (
-        period_overlaps("c.props -> 'started_on'", "c.props -> 'ended_on'", *ASKED)
-        if asked_period(bind, active_from, active_to)
-        else is_absent("c.props -> 'observed_until'")
-    )
+    """The committees of *chamber* with a name, by name, each with whether it sits
+    (``_sitting``): those sitting, or with *include_ended* every one. With a period
+    (*active_from*, *active_to*) those that existed in it (``started_on`` to
+    ``ended_on``), also the ones that ended since. ``props.active_dossier_count`` is what
+    ``semantic graph-list-stats`` counted."""
+    bind: dict[str, Any] = {
+        "guid": _GUID_NAME,
+        "member_of": RELATION_MEMBER_OF,
+        "today": dutch_today().isoformat(),
+    }
+    if asked_period(bind, active_from, active_to):
+        existing = period_overlaps(
+            "c.props -> 'started_on'", "c.props -> 'ended_on'", *ASKED
+        )
+    else:
+        existing = "true" if include_ended else _sitting("c")
     rows = store.query(
         f"""
-        SELECT {NODE.format(t="c")}
+        SELECT {NODE.format(t="c")}, {_sitting("c")} AS sitting
         FROM {COLLECTION_COMMITTEES} c
         WHERE {of_chamber("c", chamber)}
           AND {existing}
@@ -58,24 +87,28 @@ def get_committees(
         """,
         bind,
     )
-    return [node_doc(row) for row in rows]
+    return [_committee_doc(row) for row in rows]
 
 
 def find_committee(store: GraphStore, slug: str) -> dict[str, Any] | None:
-    """The committee of the slug or the key *slug*. A slug that is also another
-    committee's key: the key picks one every time."""
+    """The committee of the slug or the key *slug*, with whether it sits (``_sitting``). A
+    slug that is also another committee's key: the key picks one every time."""
     rows = store.query(
         f"""
-        SELECT {NODE.format(t="c")}
+        SELECT {NODE.format(t="c")}, {_sitting("c")} AS sitting
         FROM {COLLECTION_COMMITTEES} c
         WHERE lg_str(c.props -> 'slug') = %(slug)s OR lower(c.key) = %(slug)s
         ORDER BY c.key ASC
         LIMIT 1
         """,
-        {"slug": slug.lower()},
+        {
+            "slug": slug.lower(),
+            "member_of": RELATION_MEMBER_OF,
+            "today": dutch_today().isoformat(),
+        },
     )
     row = next(rows, None)
-    return node_doc(row) if row else None
+    return _committee_doc(row) if row else None
 
 
 # What a seat on a committee adds to its member.

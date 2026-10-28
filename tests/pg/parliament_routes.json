@@ -16,6 +16,29 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": true,
+     "active_dossier_count": 0,
+     "path": "/commissies/b"
+    }
+   ]
+  },
+  "/api/committees?include_ended=true": {
+   "status": 200,
+   "body": [
+    {
+     "id": "committees/c_b",
+     "key": "c_b",
+     "chamber": "TK",
+     "name": "Commissie B",
+     "abbreviation": null,
+     "observed_from": null,
+     "observed_until": null,
+     "source": null,
+     "slug": "b",
+     "kind": null,
+     "started_on": null,
+     "ended_on": null,
+     "sitting": true,
      "active_dossier_count": 0,
      "path": "/commissies/b"
     },
@@ -32,6 +55,7 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": false,
      "active_dossier_count": 0,
      "path": "/commissies/ix"
     },
@@ -48,6 +72,7 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": false,
      "active_dossier_count": 0,
      "path": "/commissies/x"
     }
@@ -73,6 +98,7 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": true,
      "active_dossier_count": 0,
      "path": "/commissies/b"
     },
@@ -89,6 +115,7 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": false,
      "active_dossier_count": 0,
      "path": "/commissies/ix"
     },
@@ -105,6 +132,7 @@
      "kind": null,
      "started_on": null,
      "ended_on": null,
+     "sitting": false,
      "active_dossier_count": 0,
      "path": "/commissies/x"
     }
@@ -125,6 +153,7 @@
     "kind": null,
     "started_on": null,
     "ended_on": null,
+    "sitting": true,
     "active_dossier_count": 0,
     "members": [
      {
@@ -423,6 +452,7 @@
     "kind": null,
     "started_on": null,
     "ended_on": null,
+    "sitting": true,
     "active_dossier_count": 0,
     "members": [
      {
@@ -632,6 +662,7 @@
     "kind": null,
     "started_on": null,
     "ended_on": null,
+    "sitting": true,
     "active_dossier_count": 0,
     "members": [
      {
