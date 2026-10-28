@@ -130,7 +130,15 @@ class BaseNodeDTO(WithPath):
     type: str
     display_name: str | None
     labels: list[str]
-    props: dict[str, Any] | None
+    props: dict[str, Any] | None = Field(
+        description="Its props. In a graph view (a neighbour, a node of a neighbourhood, "
+        "the focal one too, or of a path) a law, a publication or a version also has "
+        "`date`, an ISO day where the source gives one: of a publication (`Stb. 1991, "
+        "600`) the day it was published; of a law or a treaty the day its text in force "
+        "came into force (its last change in force, else the day it came into force); of "
+        "a version of a law or an article its `valid_from`. Absent where the source gives "
+        "none.",
+    )
     kind_group: KindGroup | None = Field(
         None,
         exclude_if=lambda value: value is None,

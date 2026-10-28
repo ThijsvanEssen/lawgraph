@@ -907,6 +907,8 @@ def test_the_canvas_names_an_annex_and_a_version_of_a_law(store: GraphStore) -> 
         "valid_from": "2025-01-01",
         "current": True,
         "instrument_citation_title": "Opiumwet",
+        # its ``valid_from`` as its date (``node_date``)
+        "date": "2025-01-01",
     }
     items = {
         item["key"]: item["props"]

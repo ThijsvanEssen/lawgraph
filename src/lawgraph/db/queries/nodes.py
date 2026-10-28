@@ -29,12 +29,15 @@ from lawgraph.core.models import (
 from lawgraph.core.tk_records.actors import FIRST_SIGNATORY
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import (
+    DATED_COLLECTIONS,
     canvas_edge_doc,
     canvas_props,
     light_edge_doc,
     light_node_doc,
     light_props,
+    node_date,
 )
+from lawgraph.db._sql import sql_text_array
 from lawgraph.db.queries._helpers import _extract_confidence
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.not_found import require_node
@@ -730,12 +733,18 @@ def get_node_neighborhood(
                  FROM walked w, edges e
                  WHERE e.from_id = ANY(w.ids || %(focal)s::text)
                    AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
-                    AS edges
+                    AS edges,
+                (SELECT {node_date("n")} FROM nodes n
+                 WHERE n.id = %(focal)s
+                   AND n.collection = ANY({sql_text_array(DATED_COLLECTIONS)})) AS day
             FROM walked
             """,
             _walk_params(focal["id"], depth, cap, filters, stop_at),
         )
     )
+    if found["day"] is not None:
+        # the focal node has its date as a neighbour has it (``light_props``)
+        focal = {**focal, "props": {**focal["props"], "date": found["day"]}}
     nodes = [dict(zip(_NODE_FIELDS, row, strict=True)) for row in found["nodes"]]
     edges = [dict(zip(_EDGE_FIELDS, row, strict=True)) for row in found["edges"]]
     return {
