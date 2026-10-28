@@ -1,0 +1,384 @@
+{
+ "about": "By hand: the EU core legislation the graph holds whether or not a Dutch regulation names it, a choice of scope: no source lists the core of EU law. EUR-Lex and the Publications Office name an act by CELEX number; the text is retrieved from CELLAR (`retrieve eurlex --mode gaps` fetches every act here that the graph does not hold), never entered by hand. `title` is the Dutch title CELLAR gave on the day the number was checked against `source`. An act CELLAR does not hold stays a gap in `lawgraph gaps`. `lawgraph curated set eu-core`.",
+ "checked": "2026-10-28",
+ "acts": [
+  {
+   "celex": "32024R1689",
+   "name": "AI-verordening (AI Act)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2024/1689 van het Europees Parlement en de Raad van 13 juni 2024 tot vaststelling van geharmoniseerde regels betreffende artificiële intelligentie en tot wijziging van de Verordeningen (EG) nr. 300/2008, (EU) nr. 167/2013, (EU) nr. 168/2013, (EU) 2018/858, (EU) 2018/1139 en (EU) 2019/2144, en de Richtlijnen 2014/90/EU, (EU) 2016/797 en (EU) 2020/1828 (verordening artificiële intelligentie) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R1689"
+  },
+  {
+   "celex": "32016R0679",
+   "name": "Algemene verordening gegevensbescherming (AVG/GDPR)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2016/679 van het Europees Parlement en de Raad van 27 april 2016 betreffende de bescherming van natuurlijke personen in verband met de verwerking van persoonsgegevens en betreffende het vrije verkeer van die gegevens en tot intrekking van Richtlijn 95/46/EG (algemene verordening gegevensbescherming) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32016R0679"
+  },
+  {
+   "celex": "32022R2065",
+   "name": "Digitaledienstenverordening (DSA)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2022/2065 van het Europees Parlement en de Raad van 19 oktober 2022 betreffende een eengemaakte markt voor digitale diensten en tot wijziging van Richtlijn 2000/31/EG (digitaledienstenverordening) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022R2065"
+  },
+  {
+   "celex": "32022R1925",
+   "name": "Digitalemarktenverordening (DMA)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2022/1925 van het Europees Parlement en de Raad van 14 september 2022 over betwistbare en eerlijke markten in de digitale sector, en tot wijziging van Richtlijnen (EU) 2019/1937 en (EU) 2020/1828 (digitalemarktenverordening) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022R1925"
+  },
+  {
+   "celex": "32023R2854",
+   "name": "Dataverordening (Data Act)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2023/2854 van het Europees Parlement en de Raad van 13 december 2023 betreffende geharmoniseerde regels inzake eerlijke toegang tot en eerlijk gebruik van data en tot wijziging van Verordening (EU) 2017/2394 en Richtlijn (EU) 2020/1828 (Dataverordening) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32023R2854"
+  },
+  {
+   "celex": "32022R0868",
+   "name": "Datagovernanceverordening (DGA)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2022/868 van het Europees Parlement en de Raad van 30 mei 2022 betreffende Europese datagovernance en tot wijziging van Verordening (EU) 2018/1724 (Datagovernanceverordening) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022R0868"
+  },
+  {
+   "celex": "32022R2554",
+   "name": "DORA, digitale operationele weerbaarheid financiële sector",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) 2022/2554 van het Europees Parlement en de Raad van 14 december 2022 betreffende digitale operationele weerbaarheid voor de financiële sector en tot wijziging van Verordeningen (EG) nr. 1060/2009, (EU) nr. 648/2012, (EU) nr. 600/2014, (EU) nr. 909/2014 en (EU) 2016/1011 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022R2554"
+  },
+  {
+   "celex": "32022L2555",
+   "name": "NIS2, cyberbeveiliging",
+   "theme": "digitaal en data",
+   "title": "Richtlijn (EU) 2022/2555 van het Europees Parlement en de Raad van 14 december 2022 betreffende maatregelen voor een hoog gezamenlijk niveau van cyberbeveiliging in de Unie, tot wijziging van Verordening (EU) nr. 910/2014 en Richtlijn (EU) 2018/1972 en tot intrekking van Richtlijn (EU) 2016/1148 (NIS 2-richtlijn) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022L2555"
+  },
+  {
+   "celex": "32024R2847",
+   "name": "Cyberweerbaarheidsverordening (CRA)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2024/2847 van het Europees Parlement en de Raad van 23 oktober 2024 betreffende horizontale cyberbeveiligingsvereisten voor producten met digitale elementen en tot wijziging van Verordeningen (EU) nr. 168/2013 en (EU) 2019/1020 en Richtlijn (EU) 2020/1828 (Verordening cyberweerbaarheid) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R2847"
+  },
+  {
+   "celex": "32023R1114",
+   "name": "MiCA, cryptoactiva",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) 2023/1114 van het Europees Parlement en de Raad van 31 mei 2023 betreffende cryptoactivamarkten en tot wijziging van Verordeningen (EU) nr. 1093/2010 en (EU) nr. 1095/2010 en Richtlijnen 2013/36/EU en (EU) 2019/1937 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32023R1114"
+  },
+  {
+   "celex": "32016L0680",
+   "name": "Richtlijn gegevensbescherming opsporing en vervolging",
+   "theme": "digitaal en data",
+   "title": "Richtlijn (EU) 2016/680 van het Europees Parlement en de Raad van 27 april 2016 betreffende de bescherming van natuurlijke personen in verband met de verwerking van persoonsgegevens door bevoegde autoriteiten met het oog op de voorkoming, het onderzoek, de opsporing en de vervolging van strafbare feiten of de tenuitvoerlegging van straffen, en betreffende het vrije verkeer van die gegevens en tot intrekking van Kaderbesluit 2008/977/JBZ van de Raad",
+   "source": "https://publications.europa.eu/resource/celex/32016L0680"
+  },
+  {
+   "celex": "32002L0058",
+   "name": "ePrivacyrichtlijn",
+   "theme": "digitaal en data",
+   "title": "Richtlĳn 2002/58/EG van het Europees Parlement en de Raad van 12 juli 2002 betreffende de verwerking van persoonsgegevens en de bescherming van de persoonlĳke levenssfeer in de sector elektronische communicatie (richtlĳn betreffende privacy en elektronische communicatie)",
+   "source": "https://publications.europa.eu/resource/celex/32002L0058"
+  },
+  {
+   "celex": "32018R1725",
+   "name": "Gegevensbescherming door EU-instellingen (EUDPR)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2018/1725 van het Europees Parlement en de Raad van 23 oktober 2018 betreffende de bescherming van natuurlijke personen in verband met de verwerking van persoonsgegevens door de instellingen, organen en instanties van de Unie en betreffende het vrije verkeer van die gegevens, en tot intrekking van Verordening (EG) nr. 45/2001 en Besluit nr. 1247/2002/EG (Voor de EER relevante tekst.)",
+   "source": "https://publications.europa.eu/resource/celex/32018R1725"
+  },
+  {
+   "celex": "32019L0790",
+   "name": "Auteursrechtrichtlijn digitale eengemaakte markt",
+   "theme": "digitaal en data",
+   "title": "Richtlijn (EU) 2019/790 van het Europees Parlement en de Raad van 17 april 2019 inzake auteursrechten en naburige rechten in de digitale eengemaakte markt en tot wijziging van Richtlijnen 96/9/EG en 2001/29/EG (Voor de EER relevante tekst.)",
+   "source": "https://publications.europa.eu/resource/celex/32019L0790"
+  },
+  {
+   "celex": "32024R1735",
+   "name": "Net-zero-industrieverordening",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EU) 2024/1735 van het Europees Parlement en de Raad van 13 juni 2024 tot vaststelling van een kader van maatregelen ter versterking van het Europese ecosysteem voor de productie van nettonultechnologie en tot wijziging van Verordening (EU) 2018/1724 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R1735"
+  },
+  {
+   "celex": "32021R0782",
+   "name": "Rechten en plichten van treinreizigers",
+   "theme": "vervoer",
+   "title": "Verordening (EU) 2021/782 van het Europees Parlement en de Raad van 29 april 2021 betreffende de rechten en verplichtingen van treinreizigers (herschikking) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32021R0782"
+  },
+  {
+   "celex": "32014R0910",
+   "name": "eIDAS, elektronische identificatie",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) nr. 910/2014 van het Europees Parlement en de Raad van 23 juli 2014 betreffende elektronische identificatie en vertrouwensdiensten voor elektronische transacties in de interne markt en tot intrekking van Richtlijn 1999/93/EG",
+   "source": "https://publications.europa.eu/resource/celex/32014R0910"
+  },
+  {
+   "celex": "32024R1183",
+   "name": "eIDAS 2, Europese digitale identiteit",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2024/1183 van het Europees Parlement en de Raad van 11 april 2024 tot wijziging van Verordening (EU) nr. 910/2014, wat betreft de vaststelling van het Europees kader voor digitale identiteit",
+   "source": "https://publications.europa.eu/resource/celex/32024R1183"
+  },
+  {
+   "celex": "32019R0881",
+   "name": "Cyberbeveiligingsverordening (ENISA)",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2019/881 van het Europees Parlement en de Raad van 17 april 2019 inzake Enisa (het Agentschap van de Europese Unie voor cyberbeveiliging), en inzake de certificering van de cyberbeveiliging van informatie- en communicatietechnologie en tot intrekking van Verordening (EU) nr. 526/2013 (de cyberbeveiligingsverordening) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32019R0881"
+  },
+  {
+   "celex": "32021R0784",
+   "name": "Terroristische online-inhoud",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2021/784 van het Europees Parlement en de Raad van 29 april 2021 inzake het tegengaan van de verspreiding van terroristische online-inhoud (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32021R0784"
+  },
+  {
+   "celex": "32024R0900",
+   "name": "Politieke advertenties",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2024/900 van het Europees Parlement en de Raad van 13 maart 2024 betreffende transparantie en gerichte politieke reclame (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R0900"
+  },
+  {
+   "celex": "32024R1083",
+   "name": "Europese mediavrijheidsverordening",
+   "theme": "digitaal en data",
+   "title": "Verordening (EU) 2024/1083 van het Europees Parlement en de Raad van 11 april 2024 tot vaststelling van een gemeenschappelijk kader voor mediadiensten op de interne markt en tot wijziging van Richtlijn 2010/13/EU (Europese verordening mediavrijheid) (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R1083"
+  },
+  {
+   "celex": "32024R1781",
+   "name": "Ecodesignverordening (ESPR)",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EU) 2024/1781 van het Europees Parlement en de Raad van 13 juni 2024 betreffende de totstandbrenging van een kader voor het vaststellen van vereisten inzake ecologisch ontwerp voor duurzame producten, tot wijziging van Richtlijn (EU) 2020/1828 en Verordening (EU) 2023/1542, en tot intrekking van Richtlijn 2009/125/EG (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R1781"
+  },
+  {
+   "celex": "32000L0031",
+   "name": "Richtlijn elektronische handel",
+   "theme": "digitaal en data",
+   "title": "Richtlijn 2000/31/EG van het Europees Parlement en de Raad van 8 juni 2000 betreffende bepaalde juridische aspecten van de diensten van de informatiemaatschappij, met name de elektronische handel, in de interne markt (\"Richtlijn inzake elektronische handel\")",
+   "source": "https://publications.europa.eu/resource/celex/32000L0031"
+  },
+  {
+   "celex": "32019L0770",
+   "name": "Richtlijn digitale inhoud en diensten",
+   "theme": "consumentenrecht",
+   "title": "Richtlijn (EU) 2019/770 van het Europees Parlement en de Raad van 20 mei 2019 betreffende bepaalde aspecten van overeenkomsten voor de levering van digitale inhoud en digitale diensten (Voor de EER relevante tekst.)",
+   "source": "https://publications.europa.eu/resource/celex/32019L0770"
+  },
+  {
+   "celex": "32019L0771",
+   "name": "Richtlijn verkoop van goederen",
+   "theme": "consumentenrecht",
+   "title": "Richtlijn (EU) 2019/771 van het Europees Parlement en de Raad van 20 mei 2019 betreffende bepaalde aspecten van overeenkomsten voor de verkoop van goederen, tot wijziging van Verordening (EU) 2017/2394 en Richtlijn 2009/22/EG, en tot intrekking van Richtlijn 1999/44/EG (Voor de EER relevante tekst.)",
+   "source": "https://publications.europa.eu/resource/celex/32019L0771"
+  },
+  {
+   "celex": "32011L0083",
+   "name": "Richtlijn consumentenrechten",
+   "theme": "consumentenrecht",
+   "title": "Richtlijn 2011/83/EU van het Europees Parlement en de Raad van 25 oktober 2011 betreffende consumentenrechten, tot wijziging van Richtlijn 93/13/EEG van de Raad en van Richtlijn 1999/44/EG van het Europees Parlement en de Raad en tot intrekking van Richtlijn 85/577/EEG en van Richtlijn 97/7/EG van het Europees Parlement en de Raad Voor de EER relevante tekst",
+   "source": "https://publications.europa.eu/resource/celex/32011L0083"
+  },
+  {
+   "celex": "32005L0029",
+   "name": "Richtlijn oneerlijke handelspraktijken",
+   "theme": "consumentenrecht",
+   "title": "Richtlijn 2005/29/EG van het Europees Parlement en de Raad van 11 mei 2005 betreffende oneerlijke handelspraktijken van ondernemingen jegens consumenten op de interne markt en tot wijziging van Richtlijn 84/450/EEG van de Raad, Richtlijnen 97/7/EG, 98/27/EG en 2002/65/EG van het Europees Parlement en de Raad en van Verordening (EG) nr. 2006/2004 van het Europees Parlement en de Raad („Richtlijn oneerlijke handelspraktijken”)   (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32005L0029"
+  },
+  {
+   "celex": "32013R0575",
+   "name": "CRR, kapitaalvereisten banken",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) Nr. 575/2013 van het Europees Parlement en de Raad van 26 juni 2013 betreffende prudentiële vereisten voor kredietinstellingen en beleggingsondernemingen en tot wijziging van Verordening (EU) nr. 648/2012  Voor de EER relevante tekst",
+   "source": "https://publications.europa.eu/resource/celex/32013R0575"
+  },
+  {
+   "celex": "32014L0065",
+   "name": "MiFID II",
+   "theme": "financiële markten",
+   "title": "Richtlijn 2014/65/EU van het Europees Parlement en de Raad van 15 mei 2014 betreffende markten voor financiële instrumenten en tot wijziging van Richtlijn 2002/92/EG en Richtlijn 2011/61/EU (herschikking)  Voor de EER relevante tekst",
+   "source": "https://publications.europa.eu/resource/celex/32014L0065"
+  },
+  {
+   "celex": "32014R0600",
+   "name": "MiFIR",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) nr. 600/2014 van het Europees Parlement en de Raad van 15 mei 2014 betreffende markten in financiële instrumenten en tot wijziging van Verordening (EU) nr. 648/2012  Voor de EER relevante tekst",
+   "source": "https://publications.europa.eu/resource/celex/32014R0600"
+  },
+  {
+   "celex": "32015L2366",
+   "name": "PSD2, betaaldiensten",
+   "theme": "financiële markten",
+   "title": "Richtlijn (EU) 2015/2366 van het Europees Parlement en de Raad van 25 november 2015 betreffende betalingsdiensten in de interne markt, houdende wijziging van de Richtlijnen 2002/65/EG, 2009/110/EG en 2013/36/EU en Verordening (EU) nr. 1093/2010 en houdende intrekking van Richtlijn 2007/64/EG (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32015L2366"
+  },
+  {
+   "celex": "32014R0596",
+   "name": "Marktmisbruikverordening (MAR)",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) nr. 596/2014 van het Europees Parlement en de Raad van 16 april 2014 betreffende marktmisbruik (Verordening marktmisbruik) en houdende intrekking van Richtlijn 2003/6/EG van het Europees Parlement en de Raad en Richtlijnen 2003/124, 2003/125/EG en 2004/72/EG van de Commissie  Voor de EER relevante tekst",
+   "source": "https://publications.europa.eu/resource/celex/32014R0596"
+  },
+  {
+   "celex": "32024R1624",
+   "name": "Witwasverordening (AMLR)",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) 2024/1624 van het Europees Parlement en de Raad van 31 mei 2024 tot voorkoming van het gebruik van het financiële stelsel voor witwassen of terrorismefinanciering (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024R1624"
+  },
+  {
+   "celex": "32024L1640",
+   "name": "Zesde witwasrichtlijn (AMLD6)",
+   "theme": "financiële markten",
+   "title": "Richtlijn (EU) 2024/1640 van het Europees Parlement en de Raad van 31 mei 2024 betreffende de mechanismen die de lidstaten moeten invoeren om het gebruik van het financiële stelsel voor witwassen of terrorismefinanciering te voorkomen, tot wijziging van Richtlijn (EU) 2019/1937, en tot wijziging en intrekking van Richtlijn (EU) 2015/849 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024L1640"
+  },
+  {
+   "celex": "32023R1113",
+   "name": "Geldovermakingen en cryptoactiva (traceerbaarheid)",
+   "theme": "financiële markten",
+   "title": "Verordening (EU) 2023/1113 van het Europees Parlement en de Raad van 31 mei 2023 betreffende bij geldovermakingen en overdrachten van bepaalde cryptoactiva te voegen informatie en tot wijziging van Richtlijn (EU) 2015/849 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32023R1113"
+  },
+  {
+   "celex": "32019R2088",
+   "name": "SFDR, duurzaamheidsinformatie financiële sector",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EU) 2019/2088 van het Europees Parlement en de Raad van 27 november 2019 betreffende informatieverschaffing over duurzaamheid in de financiëledienstensector (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32019R2088"
+  },
+  {
+   "celex": "32020R0852",
+   "name": "Taxonomieverordening",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EU) 2020/852 van het Europees Parlement en de Raad van 18 juni 2020 betreffende de totstandbrenging van een kader ter bevordering van duurzame beleggingen en tot wijziging van Verordening (EU) 2019/2088 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32020R0852"
+  },
+  {
+   "celex": "32022L2464",
+   "name": "CSRD, duurzaamheidsverslaglegging",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Richtlijn (EU) 2022/2464 van het Europees Parlement en de Raad van 14 december 2022 tot wijziging van Verordening (EU) nr. 537/2014, Richtlijn 2004/109/EG, Richtlijn 2006/43/EG en Richtlijn 2013/34/EU, met betrekking tot duurzaamheidsrapportering door ondernemingen (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32022L2464"
+  },
+  {
+   "celex": "32024L1760",
+   "name": "CSDDD, due diligence duurzaamheid",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Richtlijn (EU) 2024/1760 van het Europees Parlement en de Raad van 13 juni 2024 inzake passende zorgvuldigheid in het bedrijfsleven op het gebied van duurzaamheid en tot wijziging van Richtlijn (EU) 2019/1937 en Verordening (EU) 2023/2859 (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32024L1760"
+  },
+  {
+   "celex": "32021R1119",
+   "name": "Europese klimaatwet",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EU) 2021/1119 van het Europees Parlement en de Raad van 30 juni 2021 tot vaststelling van een kader voor de verwezenlijking van klimaatneutraliteit, en tot wijziging van Verordening (EG) nr. 401/2009 en Verordening (EU) 2018/1999 (“Europese klimaatwet”)",
+   "source": "https://publications.europa.eu/resource/celex/32021R1119"
+  },
+  {
+   "celex": "32018L2001",
+   "name": "Hernieuwbare energie (RED II)",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Richtlijn (EU) 2018/2001 van het Europees Parlement en de Raad van 11 december 2018 ter bevordering van het gebruik van energie uit hernieuwbare bronnen (herschikking) (Voor de EER relevante tekst.)",
+   "source": "https://publications.europa.eu/resource/celex/32018L2001"
+  },
+  {
+   "celex": "32023L2413",
+   "name": "Hernieuwbare energie (RED III)",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Richtlijn (EU) 2023/2413 van het Europees Parlement en de Raad van 18 oktober 2023 tot wijziging van Richtlijn (EU) 2018/2001, Verordening (EU) 2018/1999 en Richtlijn 98/70/EG wat de bevordering van energie uit hernieuwbare bronnen betreft, en tot intrekking van Richtlijn (EU) 2015/652 van de Raad",
+   "source": "https://publications.europa.eu/resource/celex/32023L2413"
+  },
+  {
+   "celex": "32006R1907",
+   "name": "REACH, chemische stoffen",
+   "theme": "klimaat, energie en duurzaamheid",
+   "title": "Verordening (EG) nr. 1907/2006 van het Europees Parlement en de Raad van 18 december 2006 inzake de registratie en beoordeling van en de autorisatie en beperkingen ten aanzien van chemische stoffen (REACH), tot oprichting van een Europees Agentschap voor chemische stoffen, houdende wijziging van Richtlijn 1999/45/EG en houdende intrekking van Verordening (EEG) nr. 793/93 van de Raad en Verordening (EG) nr. 1488/94 van de Commissie alsmede Richtlijn 76/769/EEG van de Raad en de Richtlijnen 91/155/EEG, 93/67/EEG, 93/105/EG en 2000/21/EG van de Commissie",
+   "source": "https://publications.europa.eu/resource/celex/32006R1907"
+  },
+  {
+   "celex": "32001R1049",
+   "name": "Toegang tot documenten van EU-instellingen",
+   "theme": "grondrechten en transparantie",
+   "title": "Verordening (EG) nr. 1049/2001 van het Europees Parlement en de Raad van 30 mei 2001 inzake de toegang van het publiek tot documenten van het Europees Parlement, de Raad en de Commissie",
+   "source": "https://publications.europa.eu/resource/celex/32001R1049"
+  },
+  {
+   "celex": "32003R0001",
+   "name": "Mededingingsregels (artt. 101-102 VWEU)",
+   "theme": "mededinging",
+   "title": "Verordening (EG) nr. 1/2003 van de Raad van 16 december 2002 betreffende de uitvoering van de mededingingsregels van de artikelen 81 en 82 van het Verdrag (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32003R0001"
+  },
+  {
+   "celex": "32012R1215",
+   "name": "Brussel I-bis, bevoegdheid en tenuitvoerlegging",
+   "theme": "internationaal privaatrecht",
+   "title": "Verordening (EU) nr. 1215/2012 van het Europees Parlement en de Raad van 12 december 2012 betreffende de rechterlijke bevoegdheid, de erkenning en de tenuitvoerlegging van beslissingen in burgerlijke en handelszaken (herschikking)",
+   "source": "https://publications.europa.eu/resource/celex/32012R1215"
+  },
+  {
+   "celex": "32008R0593",
+   "name": "Rome I, recht op overeenkomsten",
+   "theme": "internationaal privaatrecht",
+   "title": "Verordening (EG) nr. 593/2008 van het Europees Parlement en de Raad van 17 juni 2008 inzake het recht dat van toepassing is op verbintenissen uit overeenkomst (Rome I)",
+   "source": "https://publications.europa.eu/resource/celex/32008R0593"
+  },
+  {
+   "celex": "32004L0038",
+   "name": "Richtlijn vrij verkeer van burgers",
+   "theme": "grondrechten en transparantie",
+   "title": "Richtlijn 2004/38/EG van het Europees Parlement en de Raad van 29 april 2004 betreffende het recht van vrij verkeer en verblijf op het grondgebied van de lidstaten voor de burgers van de Unie en hun familieleden, tot wijziging van Verordening (EEG) nr. 1612/68 en tot intrekking van Richtlijnen 64/221/EEG, 68/360/EEG, 72/194/EEG, 73/148/EEG, 75/34/EEG, 75/35/EEG, 90/364/EEG, 90/365/EEG en 93/96/EEG (Voor de EER relevante tekst)",
+   "source": "https://publications.europa.eu/resource/celex/32004L0038"
+  },
+  {
+   "celex": "32013R0604",
+   "name": "Dublinverordening",
+   "theme": "migratie en grenzen",
+   "title": "Verordening (EU) nr. 604/2013 van het Europees Parlement en de Raad van 26 juni 2013 tot vaststelling van de criteria en instrumenten om te bepalen welke lidstaat verantwoordelijk is voor de behandeling van een verzoek om internationale bescherming dat door een onderdaan van een derde land of een staatloze bij een van de lidstaten wordt ingediend (herschikking)",
+   "source": "https://publications.europa.eu/resource/celex/32013R0604"
+  },
+  {
+   "celex": "32024R1351",
+   "name": "Verordening asiel- en migratiebeheer",
+   "theme": "migratie en grenzen",
+   "title": "Verordening (EU) 2024/1351 van het Europees Parlement en de Raad van 14 mei 2024 betreffende asiel- en migratiebeheer, tot wijziging van de Verordeningen (EU) 2021/1147 en (EU) 2021/1060 en tot intrekking van Verordening (EU) nr. 604/2013",
+   "source": "https://publications.europa.eu/resource/celex/32024R1351"
+  },
+  {
+   "celex": "32024R1348",
+   "name": "Asielprocedureverordening",
+   "theme": "migratie en grenzen",
+   "title": "Verordening (EU) 2024/1348 van het Europees Parlement en de Raad van 14 mei 2024 tot vaststelling van een gemeenschappelijke procedure voor internationale bescherming in de Unie en tot intrekking van Richtlijn 2013/32/EU",
+   "source": "https://publications.europa.eu/resource/celex/32024R1348"
+  },
+  {
+   "celex": "32016R0399",
+   "name": "Schengengrenscode",
+   "theme": "migratie en grenzen",
+   "title": "Verordening (EU) 2016/399 van het Europees Parlement en de Raad van 9 maart 2016 betreffende een Uniecode voor de overschrijding van de grenzen door personen (Schengengrenscode) (codificatie)",
+   "source": "https://publications.europa.eu/resource/celex/32016R0399"
+  },
+  {
+   "celex": "32019L1937",
+   "name": "Klokkenluidersrichtlijn",
+   "theme": "grondrechten en transparantie",
+   "title": "Richtlijn (EU) 2019/1937 van het Europees Parlement en de Raad van 23 oktober 2019 inzake de bescherming van personen die inbreuken op het Unierecht melden",
+   "source": "https://publications.europa.eu/resource/celex/32019L1937"
+  }
+ ]
+}
