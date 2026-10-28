@@ -3,6 +3,9 @@ levels from both ends meet, and which way a step takes."""
 
 from __future__ import annotations
 
+import pytest
+
+from lawgraph.db.queries import chains
 from lawgraph.db.queries.chains import (
     Found,
     Label,
@@ -132,3 +135,20 @@ def test_the_table_settles_a_chain_whose_ways_it_names_each_once() -> None:
     assert plan_of(chain, (STRONG, STRONG), [None, "documents/k"]) is None
     assert plan_of(chain, (STRONG, STRONG), ["documents/k", "documents/k"]) is None
     assert plan_of(chain, (STRONG, STRONG), ["articles/b", "documents/k"]) is None
+
+
+def test_the_warm_up_searches_every_two_of_the_most_cited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        chains, "get_chains", lambda store, ends, steps, limit: asked.append(ends)
+    )
+    chains.warm_chains(None, [f"articles/{c}" for c in "abcdefgh"])  # type: ignore[arg-type]
+    n = chains.WARM_CHAIN_ENDS
+    assert len(asked) == n * (n - 1) // 2
+    assert all("g" not in a + b for a, b in asked), "only the first ends are warmed"
+    # past its time it stops at once
+    asked.clear()
+    chains.warm_chains(None, ["articles/a", "articles/b"], seconds=0.0)  # type: ignore[arg-type]
+    assert asked == []
