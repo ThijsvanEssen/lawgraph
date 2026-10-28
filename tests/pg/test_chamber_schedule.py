@@ -171,9 +171,12 @@ def test_the_schedule_is_kept_per_day_and_version(
     first = get_chamber_schedule(recess, TODAY)
     reads: list[Any] = []
     original = recess.query
-    monkeypatch.setattr(
-        recess, "query", lambda *a, **k: reads.append(a) or original(*a, **k)
-    )
+
+    def counting(*args: Any, **kwargs: Any) -> Any:
+        reads.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(recess, "query", counting)
     assert get_chamber_schedule(recess, TODAY) == first
     assert not [r for r in reads if "last_sitting" in str(r[0])]
     get_chamber_schedule(recess, "2026-10-28")
