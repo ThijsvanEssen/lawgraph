@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
-from lawgraph.core.member_role import has_role
+from lawgraph.core.member_role import has_role, is_minister
 from lawgraph.core.models import node_id
 from lawgraph.core.names import (
     activity_title,
@@ -52,6 +52,7 @@ from lawgraph.core.names import (
     years,
 )
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.actors import submitters
 from lawgraph.core.tk_records.kinds import is_motion_or_amendment
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR, vote_outcome
@@ -497,6 +498,16 @@ def _posts(props: dict[str, Any]) -> list[dict[str, Any]]:
     """The posts of a member in a cabinet, newest first."""
     posts = [f for f in props.get("government_functions") or [] if isinstance(f, dict)]
     return sorted(posts, key=lambda f: text_of(f.get("from_date")), reverse=True)
+
+
+def member_image(row: dict[str, Any]) -> str:
+    """The image of a member's page when it is shared: that of the current role."""
+    today = dutch_today().isoformat()
+    return (
+        "/og/bewindspersoon.png"
+        if is_minister(row["props"] or {}, today)
+        else "/og/lid.png"
+    )
 
 
 def _post_line(post: dict[str, Any]) -> str:

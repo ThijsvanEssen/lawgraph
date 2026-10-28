@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.core.member_role import has_role
+from lawgraph.core.member_role import has_role, is_minister
 from lawgraph.core.tk_records.members import member
 from lawgraph.db.queries.search.ranking import rank_hits
 from tests.member_role_cases import CASES
@@ -16,6 +16,43 @@ from tests.member_role_cases import CASES
 @pytest.mark.parametrize(("props", "expected"), CASES)
 def test_a_role_is_a_seat_or_a_post(props: dict[str, Any], expected: bool) -> None:
     assert has_role(props) is expected
+
+
+_TODAY = "2026-10-28"
+_POST_NOW = {"from_date": "2026-02-23", "to_date": None}
+_POST_OLD = {"from_date": "2022-01-10", "to_date": "2023-07-07"}
+_SEAT_NOW = {"from_date": "2023-12-06", "to_date": None}
+_SEAT_OLD = {"from_date": "2017-03-23", "to_date": "2021-03-30"}
+
+
+@pytest.mark.parametrize(
+    ("props", "expected"),
+    [
+        ({}, False),
+        ({"faction_memberships": [_SEAT_NOW]}, False),
+        ({"government_functions": [_POST_NOW]}, True),
+        # a post that lasts outweighs a seat that lasts
+        (
+            {"government_functions": [_POST_NOW], "faction_memberships": [_SEAT_NOW]},
+            True,
+        ),
+        # a past post and a seat that lasts: a Kamerlid again
+        (
+            {"government_functions": [_POST_OLD], "faction_memberships": [_SEAT_NOW]},
+            False,
+        ),
+        # both ended: the role that ended last
+        (
+            {"government_functions": [_POST_OLD], "faction_memberships": [_SEAT_OLD]},
+            True,
+        ),
+        ({"government_functions": [_POST_OLD]}, True),
+    ],
+)
+def test_the_current_role_is_minister_or_kamerlid(
+    props: dict[str, Any], expected: bool
+) -> None:
+    assert is_minister(props, _TODAY) is expected
 
 
 def test_search_lists_a_member_without_a_role_after_those_with_one() -> None:

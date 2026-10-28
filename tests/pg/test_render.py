@@ -1739,8 +1739,10 @@ def test_the_image_of_a_page_is_that_of_its_kind(
         "/wetten/BWBR0001941/bijlage/II": "wet",
         "/zaken/2025Z15468": "dossier",
         "/activiteiten/2026A01323": "dossier",
-        "/leden/rob-jetten": "concordans",
-        "/stemmingen/s_1": "concordans",
+        "/leden/rob-jetten": "bewindspersoon",
+        "/leden/jan-paternotte": "lid",
+        "/stemmingen/s_1": "stemming",
+        "/kabinetten/jetten": "kabinet",
     }
     for path, image in images.items():
         page = _head(_get(client, path).text)
