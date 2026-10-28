@@ -62,9 +62,9 @@ EVENT_COMMENCEMENT: Final[FeedKind] = "inwerkingtreding"
 EVENT_GOVERNMENT_LETTER: Final[FeedKind] = KIND_GOVERNMENT_LETTER
 EVENT_JUDGMENT: Final[FeedKind] = "uitspraak"
 
-# The kinds of a feed that asks for none: parliament and legislation. A judgment is in the
-# feed only when ``uitspraak`` or a ``tier`` is asked for.
-DEFAULT_KINDS: Final = tuple(kind for kind in FEED_KINDS if kind != EVENT_JUDGMENT)
+# The kinds of a feed that asks for none: every kind (a judgment of the highest courts and the
+# Parket too, ``FEED_TIERS``).
+DEFAULT_KINDS: Final = FEED_KINDS
 
 # The order of the kinds within one day: what changes the law first, what is said about it
 # last. A kind's rank is its place here.

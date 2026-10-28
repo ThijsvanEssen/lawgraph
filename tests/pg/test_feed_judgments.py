@@ -100,16 +100,38 @@ DEFAULT = [
 
 
 @pytest.mark.parametrize("facets", [True, False])
-def test_a_feed_that_asks_for_no_kind_has_no_judgments(
+def test_a_feed_that_asks_for_no_kind_has_the_judgments_of_the_highest_courts(
     client: TestClient, facets: bool
 ) -> None:
     answer = _feed(client, facets=str(facets).lower())
-    assert _ids(answer) == []
-    if facets:  # the kind facet counts them, for a choice "Uitspraken"
-        assert answer["total"] == 0
+    assert _ids(answer) == DEFAULT
+    if facets:  # the total and the kind facet count what the page holds
+        assert answer["total"] == 3
         assert {f["value"]: f["count"] for f in answer["facets"]["kind"]} == {
             "uitspraak": 3
         }
+
+
+def test_a_kind_without_judgments_leaves_them_out(client: TestClient) -> None:
+    answer = _feed(client, kind="Motie")
+    assert _ids(answer) == []
+    assert answer["total"] == 0
+
+
+def test_the_atom_feed_has_the_judgments(client: TestClient) -> None:
+    response = client.get("/api/feed.atom")
+    assert response.status_code == 200, response.text
+    assert "Uitspraak ecli_nl_hr_2026_1" in response.text
+
+
+def test_a_summary_without_a_kind_counts_the_judgments(client: TestClient) -> None:
+    summary = client.get(
+        "/api/feed/summary", params={"until": "2026-09-03", "days": 3}
+    ).json()
+    days = {day["date"]: day for day in summary["days"]}
+    assert {k["value"]: k["count"] for k in days["2026-09-03"]["kinds"]} == {
+        "uitspraak": 1
+    }
 
 
 @pytest.mark.parametrize("facets", [True, False])
