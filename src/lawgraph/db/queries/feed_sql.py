@@ -541,8 +541,8 @@ def cabinet_on(date: str) -> str:
 
 
 def kinds_of(filters: FeedFilters) -> tuple[str, ...] | None:
-    """The kinds the feed keeps: those asked for; without, ``DEFAULT_KINDS``, unless a
-    ``tier`` asks for judgments (None: every kind the other filters let through)."""
+    """The kinds the feed keeps: those asked for; without, ``DEFAULT_KINDS`` (every kind),
+    unless a ``tier`` asks for judgments (None: every kind the other filters let through)."""
     if filters.kinds:
         return filters.kinds
     return None if filters.tiers else DEFAULT_KINDS

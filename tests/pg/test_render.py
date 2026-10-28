@@ -25,7 +25,7 @@ from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import seo
-from tests.asserts import assert_status, show_items
+from tests.asserts import assert_status
 from tests.fakes import PATIENCE, until
 from tests.paths import fixture_text
 from tests.pg.plans import explain, plan_nodes, recorded
@@ -2241,8 +2241,8 @@ def test_a_law_of_the_staatsblad_the_bwb_holds_now_leads_to_the_bwb(
 def test_the_start_page_is_its_core_without_a_read(
     client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``/``: the heading, what Concordans is, a search form that works without scripts
-    (the SearchAction) and the three ways in with their examples, read of nothing."""
+    """``/``: the heading, what Concordans does, a search form that works without scripts
+    (the SearchAction), three features and three questions, read of nothing."""
 
     def no_read(*_: Any, **__: Any) -> None:
         raise AssertionError("the start page reads nothing")
@@ -2257,8 +2257,8 @@ def test_the_start_page_is_its_core_without_a_read(
     assert page["canonical"] == "https://concordans.nl/"
     main = page["main"]
     assert (
-        '<h1 class="blad__titel">Het artikel, en de uitspraken en Kamerstukken die '
-        "ernaar verwijzen.</h1>" in main
+        '<h1 class="blad__titel">Zie hoe wetten, rechtspraak en parlement '
+        "samenhangen.</h1>" in main
     )
     # One self-description, and no name of the maker (A171).
     assert "onderzoeksinstrument" not in response.text and "TMvE" not in response.text
@@ -2266,24 +2266,15 @@ def test_the_start_page_is_its_core_without_a_read(
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
-    assert "/wetten/BWBR0005289/artikel/6:162?bronnen=uitspraken" in hrefs
-    assert "/kamerstukken/27926/413" in hrefs
-    assert any(h.startswith("/bundels#m=") for h in hrefs), show_items(hrefs)
-    assert "/uitspraken/ECLI:NL:HR:2005:AU3313" in hrefs
-    assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == [
-        "Artikel",
-        "Stemming",
-        "Bundel",
+    assert "/stemmingen" in hrefs and "/bundels" in hrefs
+    assert "Probeer" not in main and "stappen" not in main
+    assert "onderschrift" not in main and "kenmerken" not in main
+    assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Begin met een vraag"]
+    assert re.findall(r"<h3[^>]*>(.*?)</h3>", main) == [
+        "Wie haalt dit artikel aan?",
+        "Hoe stemde de Kamer?",
+        "Hoe houd ik bij wat ik vind?",
     ]
-    # word for word as the app draws them (Entrances.svelte), so it takes them over
-    assert (
-        '<p class="outcome"><span class="uitkomst">Verworpen</span> '
-        "<span>54 voor, 96 tegen</span></p>" in main
-    )
-    assert (
-        '<li class="note"><span class="note-label">Aantekening</span> '
-        "Zorgplicht, ook thuis?</li>" in main
-    )
     (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
     assert site["url"] == "https://concordans.nl/"
     assert site["potentialAction"] == {
@@ -2306,17 +2297,17 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     whole, the text the server holds."""
     start = json.loads(json.dumps(home.START))
     start["heading"] = "Een andere kop"
-    start["bundle"]["note"] = "Een andere aantekening"
+    start["lede"] = "Een andere lede"
     (tmp_path / "start.json").write_text(json.dumps(start))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
     assert '<h1 class="blad__titel">Een andere kop</h1>' in main
-    assert "</span> Een andere aantekening</li>" in main
+    assert '<p class="lede">Een andere lede</p>' in main
 
     (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
-    assert "Het artikel, en de uitspraken en Kamerstukken die ernaar" in main
+    assert "Zie hoe wetten, rechtspraak en parlement samenhangen." in main
     assert "Half" not in main
 
 
