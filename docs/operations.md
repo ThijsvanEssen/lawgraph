@@ -661,6 +661,21 @@ Nothing that keeps the site up needs a Claude session or a personal key:
 - By hand, when both fail: `gh workflow run ops -f action=status`, then
   `gh workflow run ops -f action=run -f name=restart-api`, then `status` again.
 
+## Memory of the API
+
+`lawgraph-api.service` has `MemoryHigh=3G`, `MemoryMax=4G`, `MemorySwapMax=0`, `OOMPolicy=stop` and
+`OOMScoreAdjust=300`: past the ceiling the kernel kills the API alone (not the database or the host), systemd
+restarts it, and the OOM killer takes the API before PostgreSQL. The values are a proposal: read what a normal day
+needs first (`gh workflow run ops -f action=status`, or `systemctl show lawgraph-api -p MemoryCurrent -p MemoryPeak`)
+and keep `MemoryHigh` above the peak of the warm-up. After `config-apply` (with Thijs's go), `systemctl show
+lawgraph-api -p MemoryMax -p OOMPolicy` shows them. An OOM kill is in `journalctl -u lawgraph-api` as
+`result 'oom-kill'`; the cause is a request: find it in the request log by the minute before the kill.
+
+`/api/dossiers/{number}/mutations` is a page of at most `limit` edges (default 1000, at most 2000) with `has_more`
+and `next_cursor`; a read that outlasts its request (`LAWGRAPH_API_REQUEST_TIMEOUT_MS`, 30 s) ends between two
+batches and the request answers 503 with `Retry-After`. `/changed-articles` holds at most 5000 changes
+(`truncated`).
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
