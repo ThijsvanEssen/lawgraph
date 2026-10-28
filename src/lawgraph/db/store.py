@@ -49,6 +49,7 @@ from lawgraph.config.settings import (
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import TYPE_OF_COLLECTION, Node
 from lawgraph.core.relations import META_KEYS
+from lawgraph.db import request_timing
 from lawgraph.db._rows import node_doc, split_edge, split_node
 from lawgraph.db.payloads import (
     PayloadMissing,
@@ -825,9 +826,11 @@ class GraphStore:
         text = re.sub(r"\s+", " ", statement_text(statement)).strip()
         cursor = read.open_cursor(text[:300])
         try:
+            began = time.perf_counter()
             cursor.execute(_query(statement), params)
             while True:
                 rows = cursor.fetchmany(batch_size)
+                request_timing.add_db(time.perf_counter() - began)
                 if len(rows) < batch_size:
                     # every row is here: the connection goes back before the reader sees
                     # one, so a reader that holds the read and reads again (the one row of
@@ -838,6 +841,7 @@ class GraphStore:
                     yield from rows
                     return
                 yield from rows
+                began = time.perf_counter()
         except psycopg.errors.QueryCanceled as exc:
             if read.cancellation is not None and read.cancellation.cancelled:
                 raise RequestCancelled(
