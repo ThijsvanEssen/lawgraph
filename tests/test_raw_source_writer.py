@@ -246,7 +246,7 @@ def test_tk_dossiers_stops_fetching_when_the_database_takes_no_writes() -> None:
     asked: list[str] = []
 
     class Client:
-        def fetch_dossiers(self, since=None):
+        def fetch_dossiers(self, since=None, until=None):
             asked.append("dossiers")
             return iter([{"Id": "d1"}])
 

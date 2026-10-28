@@ -174,7 +174,7 @@ def _document(
     sequence: int | str,
     suffix: str | None = None,
     key: str = "",
-    date: str = "2020-01-02",
+    date: str | None = "2020-01-02",
 ) -> dict:
     return {
         "key": key or f"doc-{number}-{sequence}",
@@ -251,6 +251,32 @@ def test_a_paper_that_answered_404_lately_waits_and_one_whose_wait_is_over_is_as
     (xml_keys, xml_retry), (missing_keys, missing_retry) = store.lookups
     assert _xml_key("kst-1-1") in xml_keys and xml_retry is None
     assert missing in missing_keys and missing_retry is not None
+
+
+def test_until_leaves_out_the_papers_of_that_day_on_and_those_without_a_date() -> None:
+    papers = [
+        _document("1", 1, date="2015-12-31"),
+        _document("2", 2, date="2016-01-01"),
+        _document("3", 3, date="2020-05-05T10:00:00"),
+        _document("4", 4, date=None),
+    ]
+    _, _, client = _run(papers, until=dt.date(2016, 1, 1))
+    assert client.fetched == ["kst-1-1"]
+
+
+def test_minutes_stops_after_the_record_that_ran_out_the_time() -> None:
+    clock = iter([0.0, 10.0, 70.0, 80.0])
+    taken = list(tk_content.within_budget(iter("abc"), 1, clock=lambda: next(clock)))
+    assert taken == ["a", "b"]
+
+
+def test_minutes_is_passed_on_by_the_pipeline() -> None:
+    result, _, client = _run([_document("1", 1), _document("2", 2)], minutes=60)
+    assert client.fetched == ["kst-1-1", "kst-2-2"] and result.errors == []
+
+
+def test_without_minutes_every_paper_is_fetched() -> None:
+    assert list(tk_content.within_budget(iter(range(3)), None)) == [0, 1, 2]
 
 
 def test_a_paper_the_repository_does_not_have_becomes_a_missing_record() -> None:

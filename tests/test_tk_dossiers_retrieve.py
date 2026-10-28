@@ -85,13 +85,16 @@ class _Decisions:
 
     def __init__(self) -> None:
         self.decisions: list[tuple[tuple[str, ...], bool]] = []
+        self.untils: list[Any] = []
 
     def fetch_bill_decisions(
         self,
         case_kinds: tuple[str, ...],
         since: Any = None,
         without_votes: bool = False,
+        until: Any = None,
     ) -> Any:
+        self.untils.append(until)
         self.decisions.append((tuple(case_kinds), without_votes))
         return iter([{"Id": f"besluit-{len(self.decisions)}"}])
 
@@ -119,11 +122,20 @@ def test_the_backfill_of_the_decisions_without_a_vote_fetches_those_alone() -> N
     assert _stored(store) == [("tk-besluit", "besluit-1")]
 
 
+def test_until_closes_the_window_of_every_decision_fetch() -> None:
+    until = dt.datetime(2016, 1, 1, tzinfo=dt.UTC)
+    client = _Decisions()
+    TKDossiersRetrievePipeline(
+        store=InMemoryStore(), client=cast(TKClient, client)
+    ).run(since=dt.datetime(2015, 1, 1, tzinfo=dt.UTC), until=until, skip_members=True)
+    assert client.untils == [until, until]
+
+
 class _DossierClient:
-    def fetch_dossiers(self, since=None):
+    def fetch_dossiers(self, since=None, until=None):
         return iter([{"Id": "d1"}, {"Id": "d2"}])
 
-    def fetch_activiteiten(self, since=None):
+    def fetch_activiteiten(self, since=None, until=None):
         yield {"Id": "a1"}
         raise requests.ConnectionError("dropped")
 
