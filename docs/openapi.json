@@ -992,24 +992,6 @@
             }
           },
           {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
-              "title": "After"
-            },
-            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
-          },
-          {
             "name": "facets",
             "in": "query",
             "required": false,
@@ -1286,6 +1268,24 @@
               "title": "Ministry"
             },
             "description": "The ministry first responsible (``GET /api/ministries``)."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
           }
         ],
         "responses": {

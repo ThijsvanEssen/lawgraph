@@ -300,10 +300,8 @@ def list_documents(
         lambda: _document_counts(store, shared, own, bind),
         "The counts of the documents",
     )
-    return {
-        **with_counts(page, counted, {"kind": [], "chamber": []}),
-        "next_cursor": next_cursor,
-    }
+    answer = with_counts(page, counted, {"kind": [], "chamber": []})
+    return {"items": answer.pop("items"), **answer, "next_cursor": next_cursor}
 
 
 def _document_counts(

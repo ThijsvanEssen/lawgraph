@@ -713,7 +713,8 @@ def get_feed(
             lambda: _counts_of_events(store, filters) or feed_counts(store, filters),
             "The counts of the feed",
         )
-    answer = with_counts(items, counted)
+    counted_page = with_counts(items, counted)
+    answer = {"items": counted_page.pop("items"), **counted_page}
     if searched_from:
         answer.update(partial=True, searched_from=searched_from)
     return answer

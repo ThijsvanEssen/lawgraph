@@ -136,7 +136,6 @@ def list_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    after: After = None,
     facets: Annotated[
         bool, Query(description="Count per legal area, theme and kind.")
     ] = True,
@@ -201,6 +200,7 @@ def list_instruments(
         MinistryKey | None,
         Query(description="The ministry first responsible (``GET /api/ministries``)."),
     ] = None,
+    after: After = None,
 ) -> InstrumentListResponse:
     not_both(after, offset)
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
