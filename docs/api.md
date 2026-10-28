@@ -54,6 +54,8 @@ The periods of articles and versions are half-open: `valid_until` is the first d
 
 The periods of members and factions follow the Tweede Kamer and are inclusive: `to_date` (of a faction membership, a committee seat, a faction's `active_until`) is the last day, the Kamer's `TotEnMet`. Two successive periods touch: one ends the day before the next begins. An open period has `to_date` null.
 
+A committee `sitting` sits today: it has not ended and, of the Eerste Kamer, its last snapshot shows it; of the Tweede Kamer, a member is seated on it today. The Tweede Kamer closes few committees it stopped (`ended_on`, its `DatumInactief`, is mostly null), so a committee whose every seat ended, or that never had one in the source, no longer sits. `/api/committees` lists those sitting; `include_ended=true` every one, a period those of the period.
+
 Articles, their versions, instruments, their versions and publications carry `official_url`,
 the official text (`core/official_urls.py`): an article on wetten.overheid.nl by its JCI
 (`jci1.3:c:{BWB}&artikel={nr}`, with `&g={valid_from}` for a version; the regulation for an
@@ -501,6 +503,11 @@ the walk reaches but does not go through: from such a node (but the focal one) i
 the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in. With
 `stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
 touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
+
+A law, a publication or a version as a neighbour or a node of a neighbourhood (the focal one
+too) carries a `date` in its props, also with `props=canvas`, where the source gives one: of a publication the day it was published, of a law
+or a treaty the day its text in force came into force (the start of its BWB toestand, else
+`date_in_force`), of a version its `valid_from` (`db/_rows.py`, `node_date`).
 
 ### Shared neighbours
 

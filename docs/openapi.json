@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.10",
+    "version": "0.80.14",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -2318,7 +2318,7 @@
           "nodes"
         ],
         "summary": "Bulk in-flux count per node",
-        "description": "A map of node id → number of open proposed changes. Only nodes with at least one open change are included. Use it to render the in-flux ring on graph nodes.\n\nnode id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6) plus the citations of an article, `min_count`; `ids` (comma-separated, at most 500) counts those nodes alone, the ones a view draws (one index read per node); without it the `limit` nodes with the highest counts (default 10,000, at most 50,000; the whole graph has 1.85 million) of the window of 3, 6, 12 or 24 months that holds `months` (5 counts as 6), as `semantic graph-heat` last counted them (`lg_heat`, the 50,000 highest of each window; the API never counts them itself, which reads every edge): 503 until that step has run (with `ids` it still answers). Both answer a plain map (`{\"articles/bwbr0001854_287\": 3}`), not validated through a response model",
+        "description": "A map of node id → number of open proposed changes: proposed by a paper of a dossier that has not ended (not published, adopted, rejected or withdrawn). Only nodes with at least one open change are included. Use it to render the in-flux ring on graph nodes.\n\nnode id to count of open proposed mutations; node id to incoming edges created in the last `months` (default 6) plus the citations of an article, `min_count`; `ids` (comma-separated, at most 500) counts those nodes alone, the ones a view draws (one index read per node); without it the `limit` nodes with the highest counts (default 10,000, at most 50,000; the whole graph has 1.85 million) of the window of 3, 6, 12 or 24 months that holds `months` (5 counts as 6), as `semantic graph-heat` last counted them (`lg_heat`, the 50,000 highest of each window; the API never counts them itself, which reads every edge): 503 until that step has run (with `ids` it still answers). Both answer a plain map (`{\"articles/bwbr0001854_287\": 3}`), not validated through a response model",
         "operationId": "bulk_in_flux_api_nodes_in_flux_get",
         "responses": {
           "200": {
@@ -2333,6 +2333,52 @@
                   "example": {
                     "articles/bwbr0001854_287": 3
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/nodes/in-flux/dossiers": {
+      "get": {
+        "tags": [
+          "nodes",
+          "nodes"
+        ],
+        "summary": "The dossiers of the open changes of nodes",
+        "description": "Per node of `ids` (comma-separated, at most 500) its open proposed changes, as `/in-flux` counts them, and the dossiers whose documents propose them, each with its bill (`bill_id`). A node without an open change is left out.",
+        "operationId": "in_flux_dossiers_api_nodes_in_flux_dossiers_get",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated node ids, at most 500.",
+              "title": "Ids"
+            },
+            "description": "Comma-separated node ids, at most 500."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InFluxDossiersResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3821,7 +3867,7 @@
           "committees"
         ],
         "summary": "All committees",
-        "description": "Every parliamentary committee with its number of open dossiers.\n\ncommittees, each with `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (null while it sits) and `active_dossier_count` (the open dossiers it leads: its activities are about them, its cases part of them; the same in list and detail and as `dossier_total` under `status=open`; 0 once it ended); detail lists current members (`current_only=true`, the default; null when the data has no seat on it at all, not known rather than none) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
+        "description": "The parliamentary committees that sit today, with their number of open dossiers; `include_ended=true` also those that no longer sit.\n\ncommittees, each with `sitting` (it sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today), `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (`DatumInactief`, given for few that stopped) and `active_dossier_count` (the open dossiers it leads: its activities are about them, its cases part of them; the same in list and detail and as `dossier_total` under `status=open`; 0 once it ended); detail lists current members (`current_only=true`, the default; null when the data has no seat on it at all, not known rather than none) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
         "operationId": "list_committees_api_committees_get",
         "parameters": [
           {
@@ -3839,6 +3885,18 @@
               "title": "Chamber"
             },
             "description": "``EK``: the Eerste Kamer, as eerstekamer.nl shows it today (periods as observed: ``observed_from``, ``observed_until``)."
+          },
+          {
+            "name": "include_ended",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also the committees that no longer sit (`sitting` false); a period (`active_from`, `active_to`) lists those of the period instead.",
+              "default": false,
+              "title": "Include Ended"
+            },
+            "description": "Also the committees that no longer sit (`sitting` false); a period (`active_from`, `active_to`) lists those of the period instead."
           },
           {
             "name": "active_from",
@@ -13552,7 +13610,8 @@
                 "type": "null"
               }
             ],
-            "title": "Props"
+            "title": "Props",
+            "description": "Its props. In a graph view (a neighbour, a node of a neighbourhood, the focal one too, or of a path) a law, a publication or a version also has `date`, an ISO day where the source gives one: of a publication (`Stb. 1991, 600`) the day it was published; of a law or a treaty the day its text in force came into force (its last change in force, else the day it came into force); of a version of a law or an article its `valid_from`. Absent where the source gives none."
           },
           "kind_group": {
             "anyOf": [
@@ -16591,7 +16650,13 @@
               }
             ],
             "title": "Ended On",
-            "description": "Null while it sits."
+            "description": "`DatumInactief`: the source gives it for few that stopped."
+          },
+          "sitting": {
+            "type": "boolean",
+            "title": "Sitting",
+            "description": "It sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today.",
+            "default": false
           },
           "active_dossier_count": {
             "type": "integer",
@@ -16628,6 +16693,7 @@
           "kind",
           "started_on",
           "ended_on",
+          "sitting",
           "active_dossier_count",
           "path"
         ],
@@ -16763,7 +16829,13 @@
               }
             ],
             "title": "Ended On",
-            "description": "Null while it sits."
+            "description": "`DatumInactief`: the source gives it for few that stopped."
+          },
+          "sitting": {
+            "type": "boolean",
+            "title": "Sitting",
+            "description": "It sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today.",
+            "default": false
           },
           "active_dossier_count": {
             "type": "integer",
@@ -16829,6 +16901,7 @@
           "kind",
           "started_on",
           "ended_on",
+          "sitting",
           "active_dossier_count",
           "members",
           "dossiers",
@@ -26983,6 +27056,121 @@
         "title": "ImplementingMeasureDTO",
         "description": "A national implementing measure as EUR-Lex lists it for the EU act: the publication\nthrough which the instrument implements it (the law that changed the Awb to implement a\ndirective)."
       },
+      "InFluxDossierDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "The dossier (`dossiers/36000`)."
+          },
+          "dossier_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dossier Number",
+            "description": "Its Kamerstuk number (`36000`)."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "bill_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Id",
+            "description": "Its bill: the first document of the dossier of kind `Voorstel van wet` (also of an initiative), by date (`documents/…`); null when the dossier holds none."
+          },
+          "closed_known": {
+            "type": "boolean",
+            "title": "Closed Known",
+            "description": "Whether its end is derived (`semantic tk-dossier-outcomes`); false: not yet, and it counts as open."
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "The open changes of the node its documents propose."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "dossier_number",
+          "title",
+          "bill_id",
+          "closed_known",
+          "count"
+        ],
+        "title": "InFluxDossierDTO",
+        "description": "A dossier that has not ended (not ``closed``) with an open change of a node: a\ndocument of it proposes the change."
+      },
+      "InFluxDossiersResponse": {
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/InFluxNodeDTO"
+            },
+            "type": "array",
+            "title": "Nodes",
+            "description": "The nodes asked that have an open change, by id; one without is left out, as in `/api/nodes/in-flux`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nodes"
+        ],
+        "title": "InFluxDossiersResponse",
+        "description": "The open changes of the nodes asked, with their dossiers (`GET /api/nodes/in-flux/\ndossiers`)."
+      },
+      "InFluxNodeDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Its open changes, as `/api/nodes/in-flux` counts them: proposed changes of documents of a dossier that has not ended."
+          },
+          "dossiers": {
+            "items": {
+              "$ref": "#/components/schemas/InFluxDossierDTO"
+            },
+            "type": "array",
+            "title": "Dossiers",
+            "description": "Most open changes first, then the newest number."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "count",
+          "dossiers"
+        ],
+        "title": "InFluxNodeDTO",
+        "description": "A node with open changes, and the dossiers that propose them."
+      },
       "InstrumentAnnexDTO": {
         "properties": {
           "id": {
@@ -31035,7 +31223,8 @@
                 "type": "null"
               }
             ],
-            "title": "Props"
+            "title": "Props",
+            "description": "Its props. In a graph view (a neighbour, a node of a neighbourhood, the focal one too, or of a path) a law, a publication or a version also has `date`, an ISO day where the source gives one: of a publication (`Stb. 1991, 600`) the day it was published; of a law or a treaty the day its text in force came into force (its last change in force, else the day it came into force); of a version of a law or an article its `valid_from`. Absent where the source gives none."
           },
           "kind_group": {
             "anyOf": [
@@ -34551,7 +34740,8 @@
                 "type": "null"
               }
             ],
-            "title": "Props"
+            "title": "Props",
+            "description": "Its props. In a graph view (a neighbour, a node of a neighbourhood, the focal one too, or of a path) a law, a publication or a version also has `date`, an ISO day where the source gives one: of a publication (`Stb. 1991, 600`) the day it was published; of a law or a treaty the day its text in force came into force (its last change in force, else the day it came into force); of a version of a law or an article its `valid_from`. Absent where the source gives none."
           },
           "kind_group": {
             "anyOf": [
@@ -38259,7 +38449,8 @@
                 "type": "null"
               }
             ],
-            "title": "Props"
+            "title": "Props",
+            "description": "Its props. In a graph view (a neighbour, a node of a neighbourhood, the focal one too, or of a path) a law, a publication or a version also has `date`, an ISO day where the source gives one: of a publication (`Stb. 1991, 600`) the day it was published; of a law or a treaty the day its text in force came into force (its last change in force, else the day it came into force); of a version of a law or an article its `valid_from`. Absent where the source gives none."
           },
           "kind_group": {
             "anyOf": [

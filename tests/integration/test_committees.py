@@ -135,14 +135,20 @@ def test_committees_that_share_an_abbreviation_are_each_reachable(
     app.dependency_overrides[get_store] = lambda: store
     try:
         client = TestClient(app)
-        listed = {c["slug"]: c for c in _get(client, "/api/committees")}
+        listed = {
+            c["slug"]: c for c in _get(client, "/api/committees?include_ended=true")
+        }
         sitting = _get(client, "/api/committees/buhaos")
         ended = _get(client, "/api/committees/buhaos-2017")
         open_led = _get(client, "/api/committees/buhaos?status=open")
     finally:
         app.dependency_overrides.pop(get_store, None)
 
-    assert set(listed) == {"buhaos", "buhaos-2017"}
+    # no seat on either in the data: neither sits (`sitting`)
+    assert {slug: c["sitting"] for slug, c in listed.items()} == {
+        "buhaos": False,
+        "buhaos-2017": False,
+    }
     assert (
         sitting["name"],
         sitting["kind"],

@@ -134,7 +134,12 @@ def test_members_factions_and_committees_active_in_a_period(store: GraphStore) -
     assert factions(active_from="2012-01-02") == ["f2"]
     assert factions(active_from="2011-01-01", active_to="2011-12-31") == ["f1", "f2"]
 
-    assert _keys(committees.get_committees(store)) == ["k2"]
+    # neither sits (no member seated on k2), so without a period only with include_ended
+    assert _keys(committees.get_committees(store)) == []
+    assert sorted(_keys(committees.get_committees(store, include_ended=True))) == [
+        "k1",
+        "k2",
+    ]
     assert _keys(committees.get_committees(store, active_to="2005-01-01")) == ["k1"]
     assert _keys(committees.get_committees(store, active_from="2009-01-01")) == [
         "k1",

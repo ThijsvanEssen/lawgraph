@@ -848,3 +848,90 @@ def test_a_small_bucket_is_ranked_by_what_its_neighbours_are_cited_and_signed(
     ]
     monkeypatch.setattr(nodes, "RANKED_BUCKET_MAX", 3)
     assert _ranked_keys(store, law, RELATION_REFERS_TO, "judgments") == plain
+
+
+# ── the date of a law, a publication and a version ─────────────────────────────────────
+
+# What ``node_date`` gives each node of the neighbourhood of ``instruments/law``; none for
+# a publication without its day of publication, nor for an act without a date in force, nor
+# for an article.
+LAW = f"{COLLECTION_INSTRUMENTS}/law"
+VERSION = f"{COLLECTION_ARTICLE_VERSIONS}/av"
+DATED = {
+    LAW: "2026-07-01",
+    f"{COLLECTION_INSTRUMENTS}/treaty": "1995-03-01",
+    f"{COLLECTION_INSTRUMENTS}/stb_1991_600": "1991-12-18",
+    f"{COLLECTION_INSTRUMENTS}/stb_1991_601": None,
+    f"{COLLECTION_INSTRUMENTS}/act": None,
+    f"{COLLECTION_INSTRUMENT_VERSIONS}/iv": "2026-07-01",
+    f"{COLLECTION_ARTICLES}/a": None,
+    VERSION: "2017-11-17",
+}
+
+
+def _seed_dated(store: GraphStore) -> None:
+    """A law (its toestand in force from 2026, in force since 1992) published in two
+    publications (one without its day of publication), referred to by a treaty and an EU
+    act without dates, with a version of its own and an article with a version."""
+    publication = {"kind": "publicatie", "date_signed": "1991-11-22"}
+    _write(
+        store,
+        COLLECTION_INSTRUMENTS,
+        [
+            _node(
+                NodeType.INSTRUMENT,
+                "law",
+                kind="wet",
+                date_in_force="1992-01-01",
+                version_date_in_force="2026-07-01",
+            ),
+            _node(NodeType.INSTRUMENT, "treaty", date_in_force="1995-03-01"),
+            _node(
+                NodeType.INSTRUMENT,
+                "stb_1991_600",
+                date_published="1991-12-18",
+                **publication,
+            ),
+            _node(NodeType.INSTRUMENT, "stb_1991_601", **publication),
+            _node(NodeType.INSTRUMENT, "act", date_signed="1987-03-17"),
+        ],
+    )
+    _write(store, COLLECTION_ARTICLES, [_node(NodeType.ARTICLE, "a")])
+    _write(
+        store,
+        COLLECTION_ARTICLE_VERSIONS,
+        [_node(NodeType.ARTICLE_VERSION, "av", valid_from="2017-11-17")],
+    )
+    _write(
+        store,
+        COLLECTION_INSTRUMENT_VERSIONS,
+        [_node(NodeType.INSTRUMENT_VERSION, "iv", valid_from="2026-07-01")],
+    )
+    article = f"{COLLECTION_ARTICLES}/a"
+    edges = [
+        _edge(LAW, f"{COLLECTION_INSTRUMENTS}/{key}", RELATION_PUBLISHED_IN)
+        for key in ("stb_1991_600", "stb_1991_601")
+    ]
+    edges += [
+        _edge(f"{COLLECTION_INSTRUMENTS}/{key}", LAW, RELATION_REFERS_TO)
+        for key in ("treaty", "act")
+    ]
+    edges += [
+        _edge(f"{COLLECTION_INSTRUMENT_VERSIONS}/iv", LAW, RELATION_VERSION_OF),
+        _edge(article, LAW, RELATION_PART_OF),
+        _edge(VERSION, article, RELATION_VERSION_OF),
+    ]
+    _write(store, "edges", edges)
+
+
+@pytest.mark.parametrize("canvas", ["", "&props=canvas"])
+def test_a_law_a_publication_and_a_version_carry_the_date_their_source_gives(
+    client: TestClient, store: GraphStore, canvas: str
+) -> None:
+    _seed_dated(store)
+    body = client.get(f"/api/nodes/instruments/law/neighborhood?depth=2{canvas}").json()
+    dates = {n["id"]: (n["props"] or {}).get("date") for n in body["nodes"]}
+    assert dates == DATED
+    page = client.get("/api/nodes/instruments/law").json()["neighbors"]["buckets"]
+    paged = {i["id"]: (i["props"] or {}).get("date") for b in page for i in b["items"]}
+    assert paged == {k: v for k, v in DATED.items() if k not in (LAW, VERSION)}

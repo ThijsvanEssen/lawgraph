@@ -208,6 +208,8 @@ URLS = [
     "/api/nodes/activities/act1/surroundings",
     "/api/nodes/heat",
     "/api/nodes/in-flux",
+    # the dossiers of the open changes of a node: by its edges and those of its papers
+    f"/api/nodes/in-flux/dossiers?ids=articles/{BWB.lower()}_2",
     "/api/annexes/a1",
     # a paper: its dossiers by its PART_OF edges, each by its id; the same for the paper
     # of a vote

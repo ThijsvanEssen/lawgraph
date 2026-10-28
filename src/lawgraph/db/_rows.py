@@ -7,7 +7,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_EDGES, COLLECTION_RAW_SOURCES
+from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
+    COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_RAW_SOURCES,
+)
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, require_named_props
 from lawgraph.db._sql import sql_text_array, sql_text_list
@@ -53,12 +60,42 @@ ACTIVITY_PROPS_LEFT_OUT = ("case_ids", "case_kinds_by_dossier")
 COMMITMENT_PROPS_KEPT = ("text",)
 
 
+# The collections whose neighbour gets a ``date`` its props do not hold (``node_date``),
+# which places it on the explorer's tijdstrook as a judgment or a paper by its own.
+DATED_COLLECTIONS = (
+    COLLECTION_INSTRUMENTS,
+    COLLECTION_INSTRUMENT_VERSIONS,
+    COLLECTION_ARTICLE_VERSIONS,
+)
+
+
+def node_date(alias: str) -> str:
+    """SQL: the ``date`` of the row *alias* of the view ``nodes`` (one of
+    ``DATED_COLLECTIONS``) from its props: of a publication (``Stb. 1991, 600``) the day it
+    was published; of a law or a treaty the day its text in force came into force (the
+    start of its BWB toestand, else the day it came into force); of a version its
+    ``valid_from``. Its own ``date`` first; null where the source gives none."""
+    props = f"{alias}.props"
+    instrument = (
+        f"CASE WHEN lg_str({props} -> 'kind') = '{KIND_PUBLICATION}'"
+        f" THEN lg_str({props} -> 'date_published')"
+        f" ELSE coalesce(lg_str({props} -> 'version_date_in_force'),"
+        f" lg_str({props} -> 'date_in_force')) END"
+    )
+    derived = (
+        f"CASE WHEN {alias}.collection = '{COLLECTION_INSTRUMENTS}' THEN {instrument}"
+        f" ELSE lg_str({props} -> 'valid_from') END"
+    )
+    return f"coalesce(lg_str({props} -> 'date'), {derived})"
+
+
 def light_props(alias: str) -> str:
     """SQL: the props of the row *alias* of the view ``nodes`` without
     ``NEIGHBOR_PROPS_LEFT_OUT`` (of an activity also ``ACTIVITY_PROPS_LEFT_OUT``, of a
-    commitment but ``COMMITMENT_PROPS_KEPT``), the others in their order; of a judgment
-    those kept in ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read
-    its props and their text."""
+    commitment but ``COMMITMENT_PROPS_KEPT``, of a law, a publication or a version with
+    its ``node_date``), the others in their order; of a judgment those kept in
+    ``lg_judgment_light`` (``schema.JUDGMENT_LIGHT_PROPS``), which do not read its props
+    and their text."""
     keys = sql_text_list(NEIGHBOR_PROPS_LEFT_OUT)
     rollups = sql_text_list(ACTIVITY_PROPS_LEFT_OUT)
     unset = f"lg_unset({alias}.props, ARRAY[{keys}])"
@@ -68,9 +105,13 @@ def light_props(alias: str) -> str:
     )
     commitment = f"lg_unset({alias}.props, ARRAY[{commitment_keys}])"
     kept = f"(SELECT l.props FROM lg_judgment_light l WHERE l.id = {alias}.id)"
+    day = f"json_strip_nulls(json_build_object('date', {node_date(alias)}))"
+    dated = f"lg_update({unset}, {day})"
     return (
         f"(CASE WHEN {alias}.collection = 'judgments'"
         f" THEN {kept}"
+        f" WHEN {alias}.collection = ANY({sql_text_array(DATED_COLLECTIONS)})"
+        f" THEN {dated}"
         f" WHEN {alias}.collection = 'activities' THEN {activity}"
         f" WHEN {alias}.collection = 'commitments' THEN {commitment} ELSE {unset} END)"
     )
