@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from lawgraph.api.seo.pages.base import SITE_IMAGE, source_link
+from lawgraph.api.seo.pages.base import source_link
+from lawgraph.api.seo.pages.parliament import member_image
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.publications import own_title, publication_indexed
 from lawgraph.core.readable_paths import parse_path
@@ -27,19 +28,6 @@ def test_every_kind_of_address_has_a_read_and_a_page() -> None:
     assert kinds == set(SOURCE_PAGES)
 
 
-# The kinds whose page is shared with the image of the site.
-_WITH_SITE_IMAGE = (
-    "lid",
-    "fractie",
-    "kabinet",
-    "ministerie",
-    "commissie",
-    "publicatie",
-    "toezegging",
-    "stemming",
-)
-
-
 def test_the_image_of_each_kind() -> None:
     images = {kind: page.image for kind, page in SOURCE_PAGES.items()}
     assert images == {
@@ -48,11 +36,26 @@ def test_the_image_of_each_kind() -> None:
         "uitspraak": "/og/uitspraak.png",
         "kamerstuk": "/og/kamerstuk.png",
         "dossier": "/og/dossier.png",
+        "lid": member_image,
+        "fractie": "/og/fractie.png",
+        "kabinet": "/og/kabinet.png",
+        "ministerie": "/og/ministerie.png",
+        "commissie": "/og/commissie.png",
+        "publicatie": "/og/publicatie.png",
+        "toezegging": "/og/toezegging.png",
+        "stemming": "/og/stemming.png",
         "bijlage": "/og/wet.png",
         "zaak": "/og/dossier.png",
         "activiteit": "/og/dossier.png",
-        **dict.fromkeys(_WITH_SITE_IMAGE, SITE_IMAGE),
     }
+
+
+def test_a_member_is_shared_with_the_image_of_the_current_role() -> None:
+    kamerlid = {"props": {"faction_memberships": [{"from_date": "2023-12-06"}]}}
+    minister = {"props": {"government_functions": [{"from_date": "2023-12-06"}]}}
+    assert member_image(kamerlid) == "/og/lid.png"
+    assert member_image(minister) == "/og/bewindspersoon.png"
+    assert member_image({"props": None}) == "/og/lid.png"
 
 
 @pytest.mark.parametrize(

@@ -36,12 +36,14 @@ from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
+from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.articles import (
     CITED_BY_INLINE_BELOW,
     get_article_cited_by,
     most_cited_articles,
 )
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
+from lawgraph.db.queries.chains import warm_most_cited_chains
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.delegations import (
     TABLES as DELEGATED_TABLES,
@@ -206,6 +208,13 @@ def _warm_neighborhoods(store: GraphStore) -> None:
         )
 
 
+def _warm_chains(store: GraphStore) -> None:
+    """The chains between the most cited articles (``warm_chains``): the edges around
+    them are read into the memory of the database, where the nightly's work pushed them
+    out."""
+    warm_most_cited_chains(store)
+
+
 # The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last
 # ``days`` up to today, ``limit`` events one by one, the margin and few of the route.
 HOME_SUMMARY = FIRST_PAGES["home_summary"]
@@ -216,6 +225,7 @@ def _warm_home_summary(store: GraphStore) -> None:
     first = last - dt.timedelta(days=HOME_SUMMARY["days"] - 1)
     filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
     get_feed_summary(store, filters, limit=HOME_SUMMARY["limit"])
+    get_chamber_schedule(store, last.isoformat())
 
 
 def _warm_delegated(store: GraphStore) -> None:
@@ -388,6 +398,7 @@ def warm_up(store: GraphStore) -> None:
     if _due("most cited articles", store.name, ARTICLES_EVERY):
         _run("most cited articles", lambda: _warm_articles(store))
         _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
+        _run("chains between the most cited", lambda: _warm_chains(store))
     if _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 

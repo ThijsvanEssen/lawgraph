@@ -168,7 +168,7 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
     row = source.read(store, node_id) if source is not None else None
     if source is not None and row is not None:
         page = source.build(row)
-        page.image = source.image
+        page.image = source.image(row) if callable(source.image) else source.image
         page.focus = node_id
         # read only for a front end that paints it (its first-paint.js beside the shell)
         if source.paint is not None and shell.shell().first_paint:

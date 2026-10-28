@@ -635,7 +635,7 @@ def test_a_listed_paper_has_the_fields_of_the_aql_object_in_its_order(
     )
 
     result = list_documents(store)
-    assert list(result) == ["items", "total", "facets"]
+    assert list(result) == ["items", "total", "facets", "next_cursor"]
     full, bare, none = result["items"]
     assert list(full) == _ITEM_KEYS
     assert full == {
@@ -705,6 +705,7 @@ def test_papers_of_one_day_are_settled_by_key_and_paging_reaches_past_the_end(
         "items": [],
         "total": None,
         "facets": None,
+        "next_cursor": None,
     }
     # the date bounds are inclusive
     day = list_documents(store, from_date="2026-01-01", to_date="2026-01-01")

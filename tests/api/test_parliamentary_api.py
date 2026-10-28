@@ -303,12 +303,34 @@ _TIMELINE_ROWS: list[dict[str, Any]] = [
 ]
 
 
+def test_the_timeline_pages_by_offset_and_answers_the_absolute_total(
+    monkeypatch,
+) -> None:
+    asked: dict[str, Any] = {}
+
+    def timeline(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        asked.update(kwargs)
+        return {"total": 812, "items": _TIMELINE_ROWS[:1]}
+
+    stub_route(
+        monkeypatch,
+        "dossiers",
+        get_dossier_by_number=_DOSSIER,
+        get_dossier_timeline=timeline,
+    )
+    body = client.get("/api/dossiers/36000/timeline?limit=1&offset=500").json()
+
+    assert (asked["limit"], asked["offset"]) == (1, 500)
+    assert body["total"] == 812 and len(body["entries"]) == 1
+    assert_status(client.get("/api/dossiers/36000/timeline?offset=-1"), 422)
+
+
 def test_the_timeline_entries_are_typed_by_their_node(monkeypatch) -> None:
     stub_route(
         monkeypatch,
         "dossiers",
         get_dossier_by_number=_DOSSIER,
-        get_dossier_timeline=_TIMELINE_ROWS,
+        get_dossier_timeline={"total": len(_TIMELINE_ROWS), "items": _TIMELINE_ROWS},
     )
     body = client.get("/api/dossiers/36000/timeline").json()
     document, activity, decision, commitment = body["entries"]

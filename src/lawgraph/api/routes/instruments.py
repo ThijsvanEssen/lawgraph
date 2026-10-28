@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
+    After,
     DateSort,
     ListLimit,
     LongListLimit,
@@ -17,6 +18,7 @@ from lawgraph.api.params import (
     OpenedSort,
     PageLimit,
     Tier,
+    not_both,
 )
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
@@ -198,7 +200,9 @@ def list_instruments(
         MinistryKey | None,
         Query(description="The ministry first responsible (``GET /api/ministries``)."),
     ] = None,
+    after: After = None,
 ) -> InstrumentListResponse:
+    not_both(after, offset)
     if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
         sort = "title"
     data = get_instruments_list(
@@ -213,6 +217,7 @@ def list_instruments(
         sort=sort,
         limit=limit,
         offset=offset,
+        after=after,
         in_force_from=iso_day(date_from),
         in_force_to=iso_day(date_to),
         published_from=iso_day(published_from),
@@ -224,8 +229,10 @@ def list_instruments(
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(
         items=items,
-        total=int(data.get("total", 0)),
+        total=data.get("total"),
         facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
+        partial=bool(data.get("partial")),
+        next_cursor=data.get("next_cursor"),
     )
 
 

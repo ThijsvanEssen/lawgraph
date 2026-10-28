@@ -296,8 +296,10 @@ def get_dossier_timeline(
     kind_filter: list[str] | None = None,
     include_planned: bool = True,
     limit: int = 200,
-) -> list[dict[str, Any]]:
-    """Everything that happened in a dossier, in date order.
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Everything that happened in a dossier, in date order: ``{"total", "items"}``,
+    ``total`` the entries under the filters, ``items`` the page *offset*, *limit*.
 
     Documents are PART_OF the dossier; activities, decisions and commitments
     are ABOUT it. A row carries the props its entry shows (``body``, see
@@ -311,6 +313,7 @@ def get_dossier_timeline(
     bind: dict[str, Any] = {
         "dossier_id": dossier_id,
         "limit": limit,
+        "offset": offset,
         "relations": [RELATION_PART_OF, RELATION_ABOUT],
         "planned_status": ACTIVITY_PLANNED,
         "include_planned": include_planned,
@@ -337,7 +340,7 @@ def get_dossier_timeline(
     WITH members AS MATERIALIZED (
 {_TIMELINE_MEMBERS}
     ),
-    entries AS (
+    entries AS NOT MATERIALIZED (
         SELECT m.id, m.type, {date} AS date, {kind} AS kind,
                m.props -> 'display_name' AS title, {_TIMELINE_BODY} AS body,
                to_json(m.labels) AS labels,
@@ -346,17 +349,22 @@ def get_dossier_timeline(
                    AS planned
         FROM members m
     ),
-    page AS (
+    kept AS NOT MATERIALIZED (
         SELECT x.*
         FROM entries x
         WHERE x.date IS NOT NULL AND {is_present("x.date")}
           AND (%(include_planned)s OR NOT x.planned)
           {kind_clause}
+    ),
+    page AS (
+        SELECT x.* FROM kept x
         ORDER BY x.date #>> '{{}}' {direction}, x.id {direction}
-        LIMIT %(limit)s
+        OFFSET %(offset)s LIMIT %(limit)s
     ),
     closing AS (SELECT {closed_on} AS closed_on)
     SELECT json_build_object(
+        'total', (SELECT count(*)::int FROM kept),
+        'items', coalesce(json_agg(json_build_object(
         'date', p.date,
         'kind', p.kind,
         'title', p.title,
@@ -374,6 +382,7 @@ def get_dossier_timeline(
         'coalition', {coalition_object("co")},
         'coalition_factions', {coalition_factions("co")},
         'committee', CASE WHEN p.type = 'activity' THEN {lead_committee("p")} END
+    ) ORDER BY p.date #>> '{{}}' {direction}, p.id {direction}), '[]'::json)
     )
     FROM page p CROSS JOIN closing
     -- of a decision: what the coalition did on it (``tk-coalition-votes``), looked up by
@@ -383,11 +392,11 @@ def get_dossier_timeline(
         WHERE p.type = 'decision' AND c.id = p.id
         OFFSET 0
     ) co ON true
-    ORDER BY p.date #>> '{{}}' {direction}, p.id {direction}
     """
     rows = list(store.query(sql, bind))
-    _attach_decision_documents(store, rows)
-    return rows
+    timeline: dict[str, Any] = rows[0] if rows else {"total": 0, "items": []}
+    _attach_decision_documents(store, timeline["items"])
+    return timeline
 
 
 def _attach_decision_documents(store: GraphStore, rows: list[dict[str, Any]]) -> None:

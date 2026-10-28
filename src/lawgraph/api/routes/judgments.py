@@ -204,8 +204,9 @@ def list_judgments(
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
     return JudgmentListResponse(
         items=items,
-        total=int(data.get("total", 0)),
+        total=data.get("total"),
         facets=JudgmentFacets(**(data.get("facets") or {})) if facets else None,
+        partial=bool(data.get("partial")),
     )
 
 

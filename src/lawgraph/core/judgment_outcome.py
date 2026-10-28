@@ -225,7 +225,7 @@ def _text(paragraph: Mapping[str, Any]) -> str:
     return str(paragraph.get("text") or "").strip()
 
 
-def _decision(
+def decision_paragraphs(
     paragraphs: Sequence[Mapping[str, Any]],
 ) -> list[Mapping[str, Any]]:
     """The paragraphs of the decision: after the last decision heading, up to the signature
@@ -252,7 +252,7 @@ def _decision(
     return found
 
 
-def _clauses(
+def dispositive_clauses(
     paragraphs: Sequence[Mapping[str, Any]],
 ) -> list[tuple[str, Mapping[str, Any]]]:
     """Every dispositive clause of the decision with its paragraph, in order."""
@@ -269,11 +269,25 @@ def _clauses(
     return clauses
 
 
+def dispositive_segments(paragraphs: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The decision cut at each verb of a clause (``veroordeelt``, ``bepaalt``, …) and nowhere
+    else but at a semicolon: a clause that runs on to the next line ("veroordeelt de
+    verdachte tot:" and then the sentence) stays whole."""
+    text = "\n".join(_text(paragraph) for paragraph in paragraphs)
+    verbs = list(_VERB.finditer(text))
+    segments = []
+    for n, verb in enumerate(verbs):
+        end = verbs[n + 1].start() if n + 1 < len(verbs) else len(text)
+        segment = text[verb.start() : end].split(";")[0]
+        segments.append(collapse_ws(segment))
+    return segments
+
+
 def judgment_outcome(paragraphs: Sequence[Mapping[str, Any]] | None) -> Outcome | None:
     """The outcome of a judgment with these *paragraphs* (``{id, kind, text}``, as
     ``core.judgment_paragraphs.judgment_text`` reads them); None when its decision does not say one
     of them in its first clause (see the module)."""
-    clauses = _clauses(_decision(paragraphs or []))
+    clauses = dispositive_clauses(decision_paragraphs(paragraphs or []))
     if not clauses:
         return None
     clause, paragraph = clauses[0]

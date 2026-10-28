@@ -351,7 +351,8 @@ class FeedHeadlineDTO(StrictModel):
     subject: str | None = Field(
         None,
         description="What the title says it is about: the part after the first "
-        "`` over ``; null when it has none.",
+        "`` over ``; null when it has none. Of a commitment from its whole text "
+        "(``summary``), not from its title, which is only the first words.",
     )
     short_title: str | None = Field(
         None,
@@ -598,7 +599,7 @@ class FeedItemDTO(WithPath):
                 surname=next(
                     (p.surname for p in persons if p.role == SUBMITTER_FIRST), None
                 ),
-                subject=_subject(title),
+                subject=_subject(_headline_text(kind, title, row)),
                 short_title=short,
             ),
             ministry=row.get("ministry"),
@@ -686,6 +687,12 @@ def _subkind(kind: str, props: dict[str, Any]) -> str | None:
 _ABOUT = re.compile(r"\sover\s+(.+)$", re.DOTALL)
 # An initial as a paper writes it before the surname: "D.J.", "Th.", "A.C.".
 _INITIAL = re.compile(r"^(?:[A-Z][a-z]?\.)+$")
+
+
+def _headline_text(kind: str, title: str | None, row: dict[str, Any]) -> str | None:
+    """What the subject of a headline is taken from: of a commitment its whole text (its
+    title is the first words and ends mid-sentence), else the title."""
+    return (row.get("text") if kind == EVENT_COMMITMENT else None) or title
 
 
 def _subject(title: str | None) -> str | None:

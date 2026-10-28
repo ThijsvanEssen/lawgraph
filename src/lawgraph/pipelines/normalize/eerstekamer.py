@@ -15,7 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -92,6 +92,38 @@ def _dossier(key: str, documents: list[tuple[str, str, str | None, str]]) -> Nod
     )
 
 
+def unique_documents(nodes: Iterable[Node]) -> list[Node]:
+    """*nodes* with one document for each Kamerstuk. The SRU index holds a Kamerstuk twice when it
+    has two identifiers (``kst-36702-A`` and ``kst-1274193``); the Kamerstuk is told by its dossier
+    (number and suffix), its letter and its date. Of the copies the one with the identifier
+    ``kst-<dossier>-<letter>`` stays, else the first by key. A document without a dossier or
+    letter is never taken for a copy."""
+    kept: dict[tuple[str, ...], Node] = {}
+    loose: list[Node] = []
+    for node in nodes:
+        props = node.props
+        same = tuple(
+            str(props.get(name) or "")
+            for name in ("dossier_number", "dossier_suffix", "number", "date")
+        )
+        if not (same[0] and same[2] and same[3]):
+            loose.append(node)
+            continue
+        current = kept.get(same)
+        if current is None or _document_rank(node) < _document_rank(current):
+            kept[same] = node
+    return [*kept.values(), *loose]
+
+
+def _document_rank(node: Node) -> tuple[bool, str | None]:
+    return (
+        not str(node.props.get("external_id")).startswith(
+            "kst-" + str(node.props.get("dossier_number")) + "-"
+        ),
+        node.key,
+    )
+
+
 class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
     """Normalize the SRU records of Eerste Kamer Kamerstukken into documents."""
 
@@ -112,16 +144,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store)
         dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
 
-        for record in raw:
-            payload = payload_json(record)
-            if not payload:
-                self.progress.skip("no payload", record.get("external_id"))
-                continue
-            identifier = payload.get("identifier") or record.get("external_id")
-            if not identifier:
-                self.progress.skip("no identifier", record.get("key"))
-                continue
-            node = self._document(str(identifier), payload)
+        for node in unique_documents(self._documents(raw)):
             writer.add(node)
             count += 1
             number = node.props.get("dossier_number")
@@ -144,6 +167,18 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
             count,
             made,
         )
+
+    def _documents(self, raw: Records) -> Iterator[Node]:
+        for record in raw:
+            payload = payload_json(record)
+            if not payload:
+                self.progress.skip("no payload", record.get("external_id"))
+                continue
+            identifier = payload.get("identifier") or record.get("external_id")
+            if not identifier:
+                self.progress.skip("no identifier", record.get("key"))
+                continue
+            yield self._document(str(identifier), payload)
 
     def _write_dossiers(
         self, dossiers: dict[str, list[tuple[str, str, str | None, str]]]

@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
+    PARTIAL_COUNTS,
     ArticleCitationSpan,
     ArticleRelationDTO,
     FacetCountDTO,
@@ -857,6 +858,9 @@ class JudgmentListResponse(StrictModel):
     """Paginated list envelope for judgments."""
 
     items: list[JudgmentListItemDTO]
-    total: int
+    total: int | None = Field(
+        ..., description="Matching judgments; null while ``partial``."
+    )
     # null when asked for without them (``facets=false``)
     facets: JudgmentFacets | None = Field(default_factory=JudgmentFacets)
+    partial: bool = Field(False, description=PARTIAL_COUNTS)

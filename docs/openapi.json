@@ -1268,6 +1268,24 @@
               "title": "Ministry"
             },
             "description": "The ministry first responsible (``GET /api/ministries``)."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
           }
         ],
         "responses": {
@@ -3621,7 +3639,7 @@
           "dossiers"
         ],
         "summary": "Dossier timeline",
-        "description": "Documents, activities, decisions and commitments in date order, newest first by default. Filter with ``?kind=motie,amendement``.",
+        "description": "Documents, activities, decisions and commitments in date order, newest first by default. Filter with ``?kind=motie,amendement``. ``limit`` and ``offset`` page them; ``total`` is the absolute count under the filters.",
         "operationId": "get_timeline_api_dossiers__number__timeline_get",
         "parameters": [
           {
@@ -3692,6 +3710,17 @@
               "minimum": 1,
               "default": 100,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
             }
           }
         ],
@@ -6158,6 +6187,24 @@
               "title": "Offset"
             },
             "description": "Papers to skip, at most 10,000: further back, `to` the date of the last paper of a page (and `offset` the papers of that date it showed)."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
           }
         ],
         "responses": {
@@ -15501,6 +15548,14 @@
             "title": "Inbound Citation Count",
             "description": "The judgments that cite it, or another publication of the same decision, each once (as in `/api/judgments`): a standard judgment has many."
           },
+          "subject_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Areas",
+            "description": "The main areas of law of the judgment (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), each once, as `subject_areas` of `/api/judgments/{ecli}`; empty when the source gives none."
+          },
           "path": {
             "anyOf": [
               {
@@ -15533,6 +15588,7 @@
           "date",
           "display_name",
           "inbound_citation_count",
+          "subject_areas",
           "path"
         ],
         "title": "CitedByJudgment",
@@ -19387,7 +19443,7 @@
               }
             ],
             "title": "Total",
-            "description": "Every match, whatever the page; null with ``facets=false``."
+            "description": "Every match, whatever the page; null with ``facets=false`` and while ``partial``."
           },
           "items": {
             "items": {
@@ -19406,6 +19462,24 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ``after`` for the next page; null on the last page."
           }
         },
         "additionalProperties": false,
@@ -19413,7 +19487,9 @@
         "required": [
           "total",
           "items",
-          "facets"
+          "facets",
+          "partial",
+          "next_cursor"
         ],
         "title": "DocumentListResponse",
         "description": "A page of the papers of the chambers, newest first."
@@ -24771,7 +24847,7 @@
               }
             ],
             "title": "Subject",
-            "description": "What the title says it is about: the part after the first `` over ``; null when it has none."
+            "description": "What the title says it is about: the part after the first `` over ``; null when it has none. Of a commitment from its whole text (``summary``), not from its title, which is only the first words."
           },
           "short_title": {
             "anyOf": [
@@ -28207,6 +28283,54 @@
       },
       "InstrumentDetailDTO": {
         "properties": {
+          "series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Id",
+            "description": "The same for every regulation of the series; null for one with no sibling. A heuristic, not a relation of the BWB (it names no predecessor): regulations of one kind whose citation titles are equal once their years are taken out (`series_basis`)."
+          },
+          "series_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Position",
+            "description": "Its place in the series, from 1, by the day it came into force."
+          },
+          "series_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Size",
+            "description": "How many regulations the series holds."
+          },
+          "series_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Basis",
+            "description": "How the series was found: `title_year`."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -28644,6 +28768,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "series_id",
+          "series_position",
+          "series_size",
+          "series_basis",
           "id",
           "key",
           "collection",
@@ -29687,8 +29815,16 @@
             "title": "Items"
           },
           "total": {
-            "type": "integer",
-            "title": "Total"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Matching instruments; null while ``partial``."
           },
           "facets": {
             "anyOf": [
@@ -29699,6 +29835,24 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as ``after`` for the next page; null on the last page."
           }
         },
         "additionalProperties": false,
@@ -29706,7 +29860,9 @@
         "required": [
           "items",
           "total",
-          "facets"
+          "facets",
+          "partial",
+          "next_cursor"
         ],
         "title": "InstrumentListResponse",
         "description": "Paginated list envelope for instruments."
@@ -30151,6 +30307,54 @@
       },
       "InstrumentSummaryDTO": {
         "properties": {
+          "series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Id",
+            "description": "The same for every regulation of the series; null for one with no sibling. A heuristic, not a relation of the BWB (it names no predecessor): regulations of one kind whose citation titles are equal once their years are taken out (`series_basis`)."
+          },
+          "series_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Position",
+            "description": "Its place in the series, from 1, by the day it came into force."
+          },
+          "series_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Size",
+            "description": "How many regulations the series holds."
+          },
+          "series_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Basis",
+            "description": "How the series was found: `title_year`."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -30315,6 +30519,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "series_id",
+          "series_position",
+          "series_size",
+          "series_basis",
           "id",
           "key",
           "bwb_id",
@@ -31145,6 +31353,14 @@
             "type": "array",
             "title": "Courts",
             "description": "Per court, most first."
+          },
+          "chambers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DataAsOfDTO"
+            },
+            "type": "object",
+            "title": "Chambers",
+            "description": "How current the papers of the Kamers are: `tk` and `eerstekamer`, as `data_as_of` of `/api/stats` gives them (`newest`: the date of the newest paper, `retrieved_at`: when it was fetched); a source with no row is left out."
           }
         },
         "additionalProperties": false,
@@ -31156,7 +31372,8 @@
           "stubs",
           "replaced",
           "tiers",
-          "courts"
+          "courts",
+          "chambers"
         ],
         "title": "JudgmentCoverageResponse",
         "description": "Which judgments the graph holds: a count of case law is a count of this selection.\n\n``total`` counts the judgments whose text is loaded, a decision published twice once\n(the ``total`` of ``/api/judgments``); ``stubs`` the judgments known only because a\nloaded text cites them (they cite nothing themselves)."
@@ -32265,8 +32482,16 @@
             "title": "Items"
           },
           "total": {
-            "type": "integer",
-            "title": "Total"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "Matching judgments; null while ``partial``."
           },
           "facets": {
             "anyOf": [
@@ -32277,6 +32502,12 @@
                 "type": "null"
               }
             ]
+          },
+          "partial": {
+            "type": "boolean",
+            "title": "Partial",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): ``total`` null and empty facets now, ask again for them; they are counted on. The next page does not depend on them.",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -32284,7 +32515,8 @@
         "required": [
           "items",
           "total",
-          "facets"
+          "facets",
+          "partial"
         ],
         "title": "JudgmentListResponse",
         "description": "Paginated list envelope for judgments."

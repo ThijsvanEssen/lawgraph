@@ -26,7 +26,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries import _words
-from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._helpers import page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, is_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where
 from lawgraph.db.queries.coalition_sql import coalition_object
@@ -405,17 +405,20 @@ def get_decisions(
     ``filters.faction_votes``) are added to the page (``_add_party_votes``).
     """
     filters = filters or DecisionFilters()
-    items = _page(store, filters, limit, offset)
-    _add_motions(store, items)
+
+    def read_page() -> list[dict[str, Any]]:
+        items = _page(store, filters, limit, offset)
+        _add_motions(store, items)
+        return items
+
     if not facets:
-        return {"total": None, "items": items, "facets": None}
-    page: dict[str, Any] = {"total": None, "items": items, "facets": dict(EMPTY_FACETS)}
-    with read_budget(COUNTS_BUDGET, "The counts of the decisions") as budget:
-        counts = decision_counts(store, filters)
-        page.update(total=counts["total"], facets=counts["facets"])
-    if budget.ran_out:
-        # counted on for the next request (``lasting``); this one shows the page now
-        page["partial"] = True
+        return {"total": None, "items": read_page(), "facets": None}
+    items, counted = page_with_counts(
+        read_page,
+        lambda: decision_counts(store, filters),
+        "The counts of the decisions",
+    )
+    page = with_counts(items, counted, dict(EMPTY_FACETS))
     if filters.faction_votes:
         _add_faction_votes(store, filters, page)
     return page

@@ -1010,3 +1010,34 @@ def test_the_abbreviation_goes_to_the_instrument_and_its_articles(
     assert normalize_bwb.update_instrument_abbreviations(store, gone) == 2
     assert "abbreviation" not in _props(store, "instruments", "bwbv0001000")
     assert "instrument_abbreviation" not in _props(store, "articles", "bwbv0001000_8")
+
+
+def test_the_series_goes_to_the_instruments_and_their_articles(
+    store: GraphStore,
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("bwbr1", "instrument", bwb_id="BWBR1", citation_title="Besluit 2020"),
+            _node("bwbr2", "instrument", bwb_id="BWBR2", citation_title="Besluit 2022"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [_node("bwbr2_1", "article", bwb_id="BWBR2", article_number="1")],
+    )
+    rows = [
+        {"key": "bwbr1", "id": "x", "position": 1, "size": 2, "basis": "title_year"},
+        {"key": "bwbr2", "id": "x", "position": 2, "size": 2, "basis": "title_year"},
+    ]
+    assert normalize_bwb.update_instrument_series(store, rows) == 3
+    assert _props(store, "instruments", "bwbr2")["series_position"] == 2
+    assert _props(store, "articles", "bwbr2_1")["instrument_series_id"] == "x"
+    assert normalize_bwb.update_instrument_series(store, rows) == 0
+    held = {r["key"]: r["in_series"] for r in normalize_bwb.series_inputs(store)}
+    assert held == {"bwbr1": True, "bwbr2": True}
+    # a regulation that left its series loses it, on its articles too
+    gone = [{"key": "bwbr2", "id": None}]
+    assert normalize_bwb.update_instrument_series(store, gone) == 2
+    assert "series_id" not in _props(store, "instruments", "bwbr2")
+    assert "instrument_series_id" not in _props(store, "articles", "bwbr2_1")

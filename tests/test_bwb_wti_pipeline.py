@@ -292,6 +292,7 @@ def _wti_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
         _update_instrument_abbreviations,
     )
     monkeypatch.setattr(normalize_bwb, "update_subjects", _update_subjects)
+    monkeypatch.setattr(normalize_bwb, "series_inputs", lambda store: [])
 
 
 def _normalize(store: _WtiStore) -> PipelineResult:

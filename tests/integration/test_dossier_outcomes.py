@@ -433,3 +433,20 @@ def test_the_timeline_marks_what_came_after_the_closing(api: Api) -> None:
 
     pending = api.get_json(f"/api/dossiers/{PENDING}/timeline")["entries"]
     assert pending and not any(e["after_closure"] for e in pending)
+
+
+def test_the_timeline_pages_to_its_oldest_entry_with_the_absolute_total(
+    api: Api,
+) -> None:
+    url = f"/api/dossiers/{ENACTED}/timeline"
+    pages = [api.get_json(url, limit="1", offset=str(n)) for n in range(4)]
+
+    assert [page["total"] for page in pages] == [3, 3, 3, 3]
+    assert [[e["kind"] for e in page["entries"]] for page in pages] == [
+        ["Procedurevergadering"],
+        ["Voorstel van wet"],
+        ["Eindtekst"],
+        [],
+    ]
+    held = api.get_json(url, include_planned="false", limit="1")
+    assert (held["total"], len(held["entries"])) == (2, 1)

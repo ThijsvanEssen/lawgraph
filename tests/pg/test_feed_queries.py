@@ -35,6 +35,7 @@ from lawgraph.core.models import Node, NodeType
 from lawgraph.core.readable_paths import path_of
 from lawgraph.core.time import DUTCH_TIME
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, version_cache
+from lawgraph.db.queries import _helpers as helpers
 from lawgraph.db.queries import feed as feed_queries
 from lawgraph.db.queries import feed_sql
 from lawgraph.db.queries.feed import (
@@ -1628,7 +1629,7 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
         return counts(store, filters)
 
     monkeypatch.setattr(feed_queries, "_counts_per_kind", slow)
-    monkeypatch.setattr(feed_queries, "COUNTS_BUDGET", 0.3)
+    monkeypatch.setattr(helpers, "COUNTS_BUDGET", 0.3)
     try:
         first = _feed(own_client, until="2026-12-31")
         assert not release.is_set()  # answered while they are counted

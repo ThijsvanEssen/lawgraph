@@ -73,7 +73,7 @@ def test_every_route_gives_the_sender_of_a_letter(store: GraphStore) -> None:
 
     (listed,) = list_documents(store, facets=False)["items"]
     (row,) = get_dossier_documents(store, _DOSSIER)["items"]
-    (entry,) = get_dossier_timeline(store, _DOSSIER, order="asc", limit=10)
+    (entry,) = get_dossier_timeline(store, _DOSSIER, order="asc", limit=10)["items"]
     doc = get_document(store, "d")
     assert doc is not None
 
