@@ -61,6 +61,7 @@ from lawgraph.core.delegations import (
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
+from lawgraph.core.judgment_metadata import subject_areas
 from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
@@ -837,6 +838,12 @@ class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
         description="The judgments that cite it, or another publication of the same "
         "decision, each once (as in `/api/judgments`): a standard judgment has many.",
     )
+    subject_areas: list[str] = Field(
+        default_factory=list,
+        description="The main areas of law of the judgment (`Strafrecht`, `Civiel recht`, "
+        "`Bestuursrecht`), each once, as `subject_areas` of `/api/judgments/{ecli}`; "
+        "empty when the source gives none.",
+    )
 
 
 def _count(value: Any) -> int | None:
@@ -884,6 +891,7 @@ class ArticleCitedByItem(QualifierFields):
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
                 inbound_citation_count=_count(props.get("inbound_citation_count")),
+                subject_areas=subject_areas(props.get("subjects")),
                 cite=judgment_cite_dto(props),
                 **judgment_outcome_fields(props),
             ),

@@ -949,7 +949,10 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
             SELECT coalesce(json_agg(json_build_object(
                 'judgment', {
         listed_judgment(
-            "j", "l", "'inbound_citation_count', j.pj_inbound_citation_count"
+            "j",
+            "l",
+            "'inbound_citation_count', j.pj_inbound_citation_count",
+            "'subjects', j.subjects",
         )
     },
                 'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
