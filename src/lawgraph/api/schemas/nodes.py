@@ -613,3 +613,70 @@ class SurroundingsResponse(StrictModel):
     gaps: list[SurroundingGapDTO] = Field(
         description="Per section that is empty or incomplete, why: the source lacks it."
     )
+
+
+class InFluxDossierDTO(StrictModel):
+    """A dossier that has not ended (not ``closed``) with an open change of a node: a
+    document of it proposes the change."""
+
+    id: str = Field(description="The dossier (`dossiers/36000`).")
+    dossier_number: str | None = Field(description="Its Kamerstuk number (`36000`).")
+    title: str | None
+    bill_id: str | None = Field(
+        description="Its bill: the first document of the dossier of kind `Voorstel van "
+        "wet` (also of an initiative), by date (`documents/…`); null when the dossier "
+        "holds none."
+    )
+    closed_known: bool = Field(
+        description="Whether its end is derived (`semantic tk-dossier-outcomes`); false: "
+        "not yet, and it counts as open."
+    )
+    count: int = Field(
+        description="The open changes of the node its documents propose."
+    )
+
+
+class InFluxNodeDTO(StrictModel):
+    """A node with open changes, and the dossiers that propose them."""
+
+    id: str
+    count: int = Field(
+        description="Its open changes, as `/api/nodes/in-flux` counts them: proposed "
+        "changes of documents of a dossier that has not ended."
+    )
+    dossiers: list[InFluxDossierDTO] = Field(
+        description="Most open changes first, then the newest number."
+    )
+
+
+class InFluxDossiersResponse(StrictModel):
+    """The open changes of the nodes asked, with their dossiers (`GET /api/nodes/in-flux/
+    dossiers`)."""
+
+    nodes: list[InFluxNodeDTO] = Field(
+        description="The nodes asked that have an open change, by id; one without is "
+        "left out, as in `/api/nodes/in-flux`."
+    )
+
+    @classmethod
+    def from_nodes(cls, nodes: dict[str, dict[str, Any]]) -> InFluxDossiersResponse:
+        return cls(
+            nodes=[
+                InFluxNodeDTO(
+                    id=node_id,
+                    count=node["count"],
+                    dossiers=[
+                        InFluxDossierDTO(
+                            id=d["id"],
+                            dossier_number=d["number"],
+                            title=d["title"],
+                            bill_id=d["bill_id"],
+                            closed_known=d["closed_known"],
+                            count=d["count"],
+                        )
+                        for d in node["dossiers"]
+                    ],
+                )
+                for node_id, node in sorted(nodes.items())
+            ]
+        )

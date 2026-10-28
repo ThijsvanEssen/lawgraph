@@ -324,3 +324,59 @@ def test_a_node_of_the_canvas_has_its_title(monkeypatch):
     response = client.get("/api/nodes/instruments/x?props=canvas")
     (bucket,) = response.json()["neighbors"]["buckets"]
     assert bucket["items"][0]["title"] == "Art. 287 Sr, Doodslag"
+
+
+@pytest.mark.parametrize("ids", ["", "dossiers", "raw_sources/x"])
+def test_in_flux_dossiers_name_node_ids(ids: str) -> None:
+    response = client.get("/api/nodes/in-flux/dossiers", params={"ids": ids})
+    assert_status(response, 422)
+
+
+def test_in_flux_dossiers_name_at_most_500_nodes() -> None:
+    from lawgraph.api.routes.nodes import HEAT_MAX_IDS
+
+    ids = ",".join(f"articles/a{n}" for n in range(HEAT_MAX_IDS + 1))
+    response = client.get("/api/nodes/in-flux/dossiers", params={"ids": ids})
+    assert_status(response, 422)
+
+
+def test_in_flux_dossiers_answer_each_node_with_its_dossiers(monkeypatch) -> None:
+    seen: list[list[str]] = []
+
+    def fake(store, ids):
+        seen.append(ids)
+        dossier = {
+            "id": "dossiers/36000",
+            "number": "36000",
+            "title": "Wet x",
+            "bill_id": None,
+            "closed_known": True,
+            "count": 2,
+        }
+        return {"articles/b": {"count": 3, "dossiers": [dossier]}}
+
+    stub_route(monkeypatch, "nodes", get_in_flux_dossiers=fake)
+    response = client.get(
+        "/api/nodes/in-flux/dossiers",
+        params={"ids": "articles/b, articles/a,articles/b"},
+    )
+    assert_status(response, 200)
+    assert seen == [["articles/a", "articles/b"]]
+    assert response.json() == {
+        "nodes": [
+            {
+                "id": "articles/b",
+                "count": 3,
+                "dossiers": [
+                    {
+                        "id": "dossiers/36000",
+                        "dossier_number": "36000",
+                        "title": "Wet x",
+                        "bill_id": None,
+                        "closed_known": True,
+                        "count": 2,
+                    }
+                ],
+            }
+        ]
+    }
