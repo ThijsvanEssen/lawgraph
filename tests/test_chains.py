@@ -147,7 +147,7 @@ def test_the_warm_up_searches_every_two_of_the_most_cited(
     chains.warm_chains(None, [f"articles/{c}" for c in "abcdefgh"])  # type: ignore[arg-type]
     n = chains.WARM_CHAIN_ENDS
     assert len(asked) == n * (n - 1) // 2
-    assert all("g" not in a + b for a, b in asked)
+    assert all("g" not in a + b for a, b in asked), "only the first ends are warmed"
     # past its time it stops at once
     asked.clear()
     chains.warm_chains(None, ["articles/a", "articles/b"], seconds=0.0)  # type: ignore[arg-type]

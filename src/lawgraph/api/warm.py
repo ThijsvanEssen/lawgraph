@@ -42,7 +42,7 @@ from lawgraph.db.queries.articles import (
     most_cited_articles,
 )
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
-from lawgraph.db.queries.chains import warm_chains
+from lawgraph.db.queries.chains import warm_most_cited_chains
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
 from lawgraph.db.queries.delegations import (
     TABLES as DELEGATED_TABLES,
@@ -211,8 +211,7 @@ def _warm_chains(store: GraphStore) -> None:
     """The chains between the most cited articles (``warm_chains``): the edges around
     them are read into the memory of the database, where the nightly's work pushed them
     out."""
-    articles = most_cited_articles(store, WARM_ARTICLE_CITATIONS)
-    warm_chains(store, [article["id"] for article in articles])
+    warm_most_cited_chains(store)
 
 
 # The summary the homepage asks first (its Actueel, ``GET /api/feed/summary``): the last

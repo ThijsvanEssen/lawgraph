@@ -43,11 +43,14 @@ from dataclasses import dataclass, field
 from itertools import product
 from typing import Any
 
+import psycopg
+
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
 from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc
 from lawgraph.db._sql import sql_text_list
+from lawgraph.db.queries.articles import CITED_BY_INLINE_BELOW, most_cited_articles
 from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.paths import EDGES_SQL, FOLLOWED
 from lawgraph.db.queries.source_steps import (
@@ -871,3 +874,12 @@ def warm_chains(
                 logger.info("Warm-up of the chains stopped at %s: its time.", first)
                 return
             get_chains(store, (first, second), EXACT_STEPS, 12)
+
+
+def warm_most_cited_chains(store: GraphStore) -> None:
+    """``warm_chains`` of the most cited articles; a failure costs only the warmth."""
+    try:
+        articles = most_cited_articles(store, CITED_BY_INLINE_BELOW)
+        warm_chains(store, [a["id"] for a in articles])
+    except psycopg.Error:
+        logger.warning("Searching the chains to warm them failed.", exc_info=True)
