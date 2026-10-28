@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import heapq
 import math
+import time
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
@@ -43,6 +44,7 @@ from itertools import product
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_INSTRUMENTS, RELATION_PART_OF
+from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import light_edge_doc
 from lawgraph.db._sql import sql_text_list
@@ -76,6 +78,8 @@ _OPTIONS = 2 * MAX_STEPS + 1
 # what is left of the deadline of the request reads their ways, nodes and edges.
 CHAINS_BUDGET = 10.0
 CHAINS_RESERVE = 3.0
+
+logger = get_logger(__name__)
 
 _SOURCES = sql_text_list(STEP_COLLECTIONS)
 
@@ -843,3 +847,27 @@ def _answer(
 def _nodes(chain: Chain) -> tuple[str, ...]:
     """The sources of *chain* and the nodes its steps go through."""
     return (*chain.sources, *(s.via for s in chain.steps if s.via is not None))
+
+
+# The chains between the most cited sources, searched once after the steps are built (and
+# when the API warms up), so that the pages they read (the steps and the edges around the
+# hubs the visitors choose) are in memory when the first visitor asks: cold, 6:162 BW to
+# 6:74 BW took 3.5 s and 11 s with three steps, warm 1.2 s and 0.7 s (28 Oct). Nothing is
+# kept: only what the database keeps in memory.
+WARM_CHAIN_ENDS = 6
+WARM_CHAINS_FOR = 120.0
+
+
+def warm_chains(
+    store: GraphStore, sources: list[str], seconds: float = WARM_CHAINS_FOR
+) -> None:
+    """Search the chains of up to ``MAX_STEPS`` between every two of the first
+    ``WARM_CHAIN_ENDS`` of *sources* (the most cited first), at most *seconds*."""
+    stop = time.monotonic() + seconds
+    ends = sources[:WARM_CHAIN_ENDS]
+    for i, first in enumerate(ends):
+        for second in ends[i + 1 :]:
+            if time.monotonic() >= stop:
+                logger.info("Warm-up of the chains stopped at %s: its time.", first)
+                return
+            get_chains(store, (first, second), EXACT_STEPS, 12)
