@@ -616,6 +616,39 @@ Caddy, and `alert.sh`. The ops actions `config-check` (read only: the diff again
 `systemd-analyze verify`, `caddy validate`) and `config-apply` (the same, then only what changed, installed and
 reloaded) keep the server and the repo the same; `deploy/server/README.md` has the details.
 
+## Freshness watch
+
+`lawgraph-freshness-watch.timer` (daily 09:30, after the nightly) runs `deploy/server/bin/freshness-watch.sh`: it
+reads `/api/stats` (`data_as_of`) and, once the API has warmed up, `/api/stats/coverage`, and
+`python -m lawgraph.freshness` compares them with the limits of `deploy/server/freshness.json` (installed as
+`/srv/lawgraph/freshness.json` by `config-apply`). Nothing is read from the database or a source, nothing is written
+but `tmp/freshness/`. It says how far a source is behind what is expected, not that the source is empty.
+
+A limit is a `warn` and an `alert` in `days`, `workdays` (Monday to Friday only: no lag at a weekend for a source that
+publishes on workdays) or `hours`; the lag has to be past it. Past `warn` is `waarschuwing`, past `alert`
+`achterstand`:
+
+| subject | measure | unit | warn | alert | why |
+|---|---|---|---|---|---|
+| `tk` | `newest` | workdays | 4 | 7 | stukken keep coming in recess; the poll runs every half hour |
+| `eerstekamer` | `newest` | days | 10 | 21 | recess; votes on Tuesdays |
+| `hoge_raad`, `raad_van_state`, `college_van_beroep_bedrijfsleven` | last judgment of the tier | workdays | 4 | 7 | judgments on workdays |
+| `centrale_raad_van_beroep` | last judgment | days | 10 | 21 | publishes in batches |
+| `parket` | last conclusion | days | 14 | 30 | the source thins out in recess; 43 days (since 15 September 2026) is past that |
+| `gerechten` | courts of `gerechtshof`/`rechtbank` with ≥ 1,000 judgments, a last judgment 14–365 days old | count | 1 | 3 | small courts lag; older than a year is a court that ended in 2013 |
+| `staatsblad` | `newest` | workdays | 5 | 10 | |
+| `staatscourant` | `newest` | workdays | 4 | 10 | published on workdays; 5 workdays (21 October 2026) is a warning: check that we keep every kind of notice before it is called a gap |
+| `bwb` | `retrieved_at` | days | 2 | 4 | `newest` (`valid_from`) is no measure of the fetch |
+| `eurlex`, `rijksoverheid`, `tooi`, `verdragenbank`, `kiesraad` | `completeness.as_of` | hours | 36 | 72 | no date of their own: only that the run ended well |
+| `<bron> status` | `completeness.state` | | not `done` | not `done` for 48 hours | `echr` may be `paused` (`LAWGRAPH_SOURCES_OFF`) |
+
+A source without a date is an `achterstand`. The Parket and the Staatscourant above would alert the day this was
+written. The lines are `Versheid <subject>: <waarschuwing|achterstand>, <lag> > <limit> [actie]` (`Versheid parket:
+achterstand, 43 d > 30 d [actie]`) and `Versheid <subject>: hersteld`; a subject says it when it gets worse, again after
+24 hours while it stays so, and when it is back (`tmp/freshness/state.json`). A watch that itself fails alerts
+`Versheid watch: mislukt, onverwacht [actie]` once per 24 hours. The limits change through a pull request on
+`freshness.json`; a new source needs a rule there, and a test holds each rule to its form.
+
 ## Uptime
 
 Nothing that keeps the site up needs a Claude session or a personal key:

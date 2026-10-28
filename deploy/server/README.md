@@ -16,6 +16,10 @@ The config of the production server as it is live, so it changes through a pull 
   name=show-evidence`), restarts the API, waits until it answers and alerts (`API health: herstart, geen-antwoord
   [actie]`). Not while a deploy runs (`tmp/deploying`) or in the 10 minutes after the API started, one at a time,
   and at most one restart per 30 minutes; past that it alerts `mislukt` and leaves the API as it is.
+- `bin/freshness-watch.sh` with `lawgraph-freshness-watch.timer` (daily 09:30) and `freshness.json`, the limits per
+  source (installed as `/srv/lawgraph/freshness.json`): reads `/api/stats` and `/api/stats/coverage`, lets
+  `python -m lawgraph.freshness` compare them with the limits and alerts `Versheid <bron>: …` (`docs/operations.md`,
+  "Freshness watch"). Not while a deploy runs or in the 10 minutes after the API started.
 - `scheduler.env.example`: the names in `/srv/lawgraph/scheduler.env`.
 
 `apply.sh` compares and applies, on the server, from the copy the ops workflow sends:

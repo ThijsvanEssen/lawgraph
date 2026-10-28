@@ -6,7 +6,7 @@
 #                    block from here, against the live one (the same JSON: nothing changes for the site)
 #   apply.sh apply   check, and only when every check passed: the changed files installed, daemon-reload,
 #                    the changed timers restarted, a new timer enabled, the scripts of bin/ in /srv/lawgraph/bin,
-#                    and caddy reloaded when its block changed
+#                    freshness.json in /srv/lawgraph, and caddy reloaded when its block changed
 # Stops at the first error. Files on the server that are not here (a drop-in by hand) are named, not touched.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -14,12 +14,14 @@ UNITS=/etc/systemd/system
 CADDYFILE=/etc/caddy/Caddyfile
 SNIPPET=/etc/caddy/concordans.caddy
 BIN=/srv/lawgraph/bin
+FRESHNESS=/srv/lawgraph/freshness.json
 TMP=$(mktemp -d)
 trap 'rm -r "$TMP"' EXIT
 mode=${1:-check}
 changed_units=""
 changed_caddy=0
 changed_bin=""
+changed_freshness=0
 failed=0
 
 note() { echo "== $*"; }
@@ -109,10 +111,19 @@ check_bin() {
   done
 }
 
+check_freshness() {
+  if [ ! -e "$FRESHNESS" ]; then
+    note "new: freshness.json"; changed_freshness=1
+  elif ! diff -u "$FRESHNESS" "$HERE/freshness.json"; then
+    changed_freshness=1
+  fi
+}
+
 check_units
 check_caddy
 check_bin
-[ -n "$changed_units" ] || [ "$changed_caddy" -eq 1 ] || [ -n "$changed_bin" ] || note "no changes: the server is as here"
+check_freshness
+[ -n "$changed_units" ] || [ "$changed_caddy" -eq 1 ] || [ -n "$changed_bin" ] || [ "$changed_freshness" -eq 1 ] || note "no changes: the server is as here"
 [ "$failed" -eq 0 ] || { echo "!! a check failed; nothing applied"; exit 1; }
 [ "$mode" = apply ] || { note "check done${changed_units:+, units to change:$changed_units}"; exit 0; }
 
@@ -126,6 +137,10 @@ for name in $changed_bin; do
   install -m 755 "$HERE/bin/$name" "$BIN/$name"
   note "installed bin/$name"
 done
+if [ "$changed_freshness" -eq 1 ]; then
+  install -m 644 "$HERE/freshness.json" "$FRESHNESS"
+  note "installed freshness.json"
+fi
 for name in $changed_units; do
   sudo -n install -m 644 "$HERE/systemd/$name" "$UNITS/$name"
   note "installed $name"
