@@ -16,8 +16,9 @@ import threading
 
 @dataclasses.dataclass
 class RequestTiming:
-    """Seconds in statements the request ran itself, seconds it waited for a computation
-    of the cache, and how many answers of the cache were kept (hits) or not (misses)."""
+    """Seconds in statements the request ran itself, the longest it waited for a
+    computation of the cache (those side by side wait together), and how many answers of
+    the cache were kept (hits) or not (misses)."""
 
     db: float = 0.0
     waited: float = 0.0
@@ -66,4 +67,4 @@ def miss(waited: float) -> None:
     if (timing := _current.get()) is not None:
         with timing._lock:
             timing.misses += 1
-            timing.waited += waited
+            timing.waited = max(timing.waited, waited)

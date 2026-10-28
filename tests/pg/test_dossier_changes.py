@@ -9,7 +9,10 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.dossier_changes import get_dossier_changed_articles
+from lawgraph.db.queries.dossier_changes import (
+    dossiers_changing_articles,
+    get_dossier_changed_articles,
+)
 from tests.asserts import assert_status
 
 DOSSIER = "dossiers/36264"
@@ -243,3 +246,19 @@ def test_the_route(store: GraphStore) -> None:
         (None, 1),
     ]
     assert_status(missing, 404)
+
+
+def test_which_dossiers_change_an_article(store: GraphStore) -> None:
+    _seed(store)
+    store.bulk_insert_or_update_nodes("documents", [_node("paper", "document")])
+    store.bulk_insert_or_update_edges(
+        [
+            # a dossier whose paper only explains an article and amends one not proposed
+            _edge("q1", "documents/paper", "dossiers/36265", "PART_OF"),
+            _edge("q2", "documents/paper", "articles/bwbr0001_2", "EXPLAINS"),
+            _edge("q3", "documents/paper", "articles/bwbr0001_1", "AMENDS"),
+        ]
+    )
+    ids = [DOSSIER, "dossiers/36265", "dossiers/00001"]
+    assert dossiers_changing_articles(store, ids) == {DOSSIER}
+    assert dossiers_changing_articles(store, []) == set()

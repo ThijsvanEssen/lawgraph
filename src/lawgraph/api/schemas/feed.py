@@ -90,6 +90,13 @@ class FeedNodeDTO(WithPath):
         return node_id(self.collection, self.key)
 
 
+CHANGES_ARTICLES = (
+    "Whether the dossier changes an article, enacted or proposed (then "
+    "``/api/dossiers/{number}/changed-articles`` has something; a dossier that does not "
+    "answers ``total: 0``); null where this answer did not look."
+)
+
+
 class FeedDossierDTO(WithPath):
     path_source = PathSource("dossiers")
 
@@ -108,6 +115,7 @@ class FeedDossierDTO(WithPath):
         description="Where ``short_title`` comes from: ``title``, ``citation``, ``case`` "
         "or ``amended_law`` (then it names the law changed, not the bill).",
     )
+    changes_articles: bool | None = Field(None, description=CHANGES_ARTICLES)
 
 
 class FeedFactionDTO(WithPath):
@@ -992,6 +1000,7 @@ class FeedDossierCountDTO(StrictModel):
     title: str | None = None
     short_title: str | None = None
     short_title_basis: ShortTitleBasis | None = None
+    changes_articles: bool | None = Field(None, description=CHANGES_ARTICLES)
     count: int
 
 
