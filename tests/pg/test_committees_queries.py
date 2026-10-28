@@ -107,11 +107,54 @@ def test_the_committees_of_a_chamber_with_a_name_by_name_then_key(
     g.node("committees", "ek_old", name="Oud", chamber="EK", observed_until="2024")
     g.write()
 
-    tk = get_committees(store)
-    assert _keys(tk) == ["c_a", "c_a2", "c_b", "c_tk"]
-    assert list(tk[0]) == ["key", "id", "type", "labels", "props"]
+    tk = get_committees(store, include_ended=True)
+    assert _keys(tk) == ["c_a", "c_a2", "c_b", "c_tk", "c_old"]
+    assert list(tk[0]) == ["key", "id", "type", "labels", "props", "sitting"]
     assert tk[0]["id"] == "committees/c_a"
     assert _keys(get_committees(store, chamber="EK")) == ["ek_fin"]
+
+
+def test_the_committees_that_sit_today_with_a_member_seated_or_on_the_last_snapshot(
+    store: GraphStore,
+) -> None:
+    """One of the Tweede Kamer sits while it has not ended and a member is seated on it
+    today; one of the Eerste Kamer while its last snapshot shows it. A list holds those
+    sitting, every one with *include_ended*, those of a period with a period."""
+    g = Graph(store)
+    seated = g.node("committees", "c_seated", name="A zittend")
+    past = g.node("committees", "c_past", name="B leden weg")
+    g.node("committees", "c_none", name="C zonder zetels")
+    ended = g.node("committees", "c_ended", name="D opgeheven", ended_on="2020-01-01")
+    g.node("committees", "ek_fin", name="Financiën", chamber="EK")
+    g.node(
+        "committees", "ek_old", name="Oud", chamber="EK", observed_until="2024-01-01"
+    )
+    member = g.node("members", "m1", name="Anna")
+    g.edge(member, RELATION_MEMBER_OF, seated, from_date="2020-01-01")
+    g.edge(member, RELATION_MEMBER_OF, past, to_date="2021-01-01")
+    g.edge(member, RELATION_MEMBER_OF, ended)
+    g.write()
+
+    def sitting(docs: list[dict[str, Any]]) -> list[tuple[str, bool]]:
+        return [(doc["key"], doc["sitting"]) for doc in docs]
+
+    assert sitting(get_committees(store)) == [("c_seated", True)]
+    assert sitting(get_committees(store, include_ended=True)) == [
+        ("c_seated", True),
+        ("c_past", False),
+        ("c_none", False),
+        ("c_ended", False),
+    ]
+    assert sitting(get_committees(store, chamber="EK", include_ended=True)) == [
+        ("ek_fin", True),
+        ("ek_old", False),
+    ]
+    assert _keys(get_committees(store, chamber="EK")) == ["ek_fin"]
+    in_2019 = get_committees(store, active_from="2019-01-01", active_to="2019-12-31")
+    assert _keys(in_2019) == ["c_seated", "c_past", "c_none", "c_ended"]
+    for slug, sits in (("c_seated", True), ("c_past", False), ("ek_fin", True)):
+        detail = get_committee_detail(store, slug)
+        assert detail is not None and detail["sitting"] is sits
 
 
 def test_a_committee_by_slug_or_key_the_key_settling_a_slug_that_is_a_key(
@@ -1137,7 +1180,8 @@ def test_the_routes_answer_from_the_real_graph(
     activities = client.get("/api/committees/a/activities?limit=1").json()
     assert activities["total"] == 2 and activities["items"][0]["key"] == "act5"
     assert client.get("/api/committees/a?status=open").json()["dossier_total"] == 1
-    assert [c["slug"] for c in client.get("/api/committees").json()] == ["a"]
+    listed = client.get("/api/committees?include_ended=true").json()
+    assert [(c["slug"], c["sitting"]) for c in listed] == [("a", False)]
 
     member = client.get("/api/members/m1/dossiers").json()
     assert member["actor_id"] == "members/m1" and member["total"] == 2

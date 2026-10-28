@@ -79,6 +79,7 @@ SCENARIOS: dict[str, tuple[Callable[[GraphStore], None], list[str]]] = {
         committee_routes_graph,
         [
             "/api/committees",
+            "/api/committees?include_ended=true",
             "/api/committees?chamber=EK",
             "/api/committees?active_from=2000-01-01&active_to=2030-01-01",
             "/api/committees/b",

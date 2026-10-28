@@ -3867,7 +3867,7 @@
           "committees"
         ],
         "summary": "All committees",
-        "description": "Every parliamentary committee with its number of open dossiers.\n\ncommittees, each with `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (null while it sits) and `active_dossier_count` (the open dossiers it leads: its activities are about them, its cases part of them; the same in list and detail and as `dossier_total` under `status=open`; 0 once it ended); detail lists current members (`current_only=true`, the default; null when the data has no seat on it at all, not known rather than none) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
+        "description": "The parliamentary committees that sit today, with their number of open dossiers; `include_ended=true` also those that no longer sit.\n\ncommittees, each with `sitting` (it sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today), `slug` (its own: of committees that share an abbreviation the one sitting now, else the one that ended last, has it bare, the others with the year they started, `ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, `ended_on` (`DatumInactief`, given for few that stopped) and `active_dossier_count` (the open dossiers it leads: its activities are about them, its cases part of them; the same in list and detail and as `dossier_total` under `status=open`; 0 once it ended); detail lists current members (`current_only=true`, the default; null when the data has no seat on it at all, not known rather than none) and a page of the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, `offset`; `dossier_total` counts the matches). `?chamber=EK` lists the committees of the Eerste Kamer instead (key `ek_<slug>`, `slug` `ek-<slug>`, `chamber` `EK`), whose detail lists its members with `role` (`voorzitter`, `ondervoorzitter`, as its page gives it; a member of a committee of the Tweede Kamer has the `Functie` of their seat in one spelling, `Lid`, `Voorzitter`, `OnderVz`, `PlvLid`) and `observed_from`/`observed_until`",
         "operationId": "list_committees_api_committees_get",
         "parameters": [
           {
@@ -3885,6 +3885,18 @@
               "title": "Chamber"
             },
             "description": "``EK``: the Eerste Kamer, as eerstekamer.nl shows it today (periods as observed: ``observed_from``, ``observed_until``)."
+          },
+          {
+            "name": "include_ended",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Also the committees that no longer sit (`sitting` false); a period (`active_from`, `active_to`) lists those of the period instead.",
+              "default": false,
+              "title": "Include Ended"
+            },
+            "description": "Also the committees that no longer sit (`sitting` false); a period (`active_from`, `active_to`) lists those of the period instead."
           },
           {
             "name": "active_from",
@@ -16638,7 +16650,13 @@
               }
             ],
             "title": "Ended On",
-            "description": "Null while it sits."
+            "description": "`DatumInactief`: the source gives it for few that stopped."
+          },
+          "sitting": {
+            "type": "boolean",
+            "title": "Sitting",
+            "description": "It sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today.",
+            "default": false
           },
           "active_dossier_count": {
             "type": "integer",
@@ -16675,6 +16693,7 @@
           "kind",
           "started_on",
           "ended_on",
+          "sitting",
           "active_dossier_count",
           "path"
         ],
@@ -16810,7 +16829,13 @@
               }
             ],
             "title": "Ended On",
-            "description": "Null while it sits."
+            "description": "`DatumInactief`: the source gives it for few that stopped."
+          },
+          "sitting": {
+            "type": "boolean",
+            "title": "Sitting",
+            "description": "It sits today: not ended, of the Eerste Kamer on its last snapshot, of the Tweede Kamer with a member seated today.",
+            "default": false
           },
           "active_dossier_count": {
             "type": "integer",
@@ -16876,6 +16901,7 @@
           "kind",
           "started_on",
           "ended_on",
+          "sitting",
           "active_dossier_count",
           "members",
           "dossiers",

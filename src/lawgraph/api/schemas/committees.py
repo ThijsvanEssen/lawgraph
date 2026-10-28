@@ -39,6 +39,7 @@ def _committee_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "kind": props.get("kind"),
         "started_on": props.get("started_on"),
         "ended_on": props.get("ended_on"),
+        "sitting": bool(doc.get("sitting")),
         "active_dossier_count": int(props.get("active_dossier_count") or 0),
     }
 
@@ -71,7 +72,14 @@ class CommitteeDTO(WithPath):
         "`overig`.",
     )
     started_on: str | None = None
-    ended_on: str | None = Field(None, description="Null while it sits.")
+    ended_on: str | None = Field(
+        None, description="`DatumInactief`: the source gives it for few that stopped."
+    )
+    sitting: bool = Field(
+        False,
+        description="It sits today: not ended, of the Eerste Kamer on its last snapshot, "
+        "of the Tweede Kamer with a member seated today.",
+    )
     active_dossier_count: int = Field(
         0,
         description="The open dossiers it leads (its activities are about them, its "

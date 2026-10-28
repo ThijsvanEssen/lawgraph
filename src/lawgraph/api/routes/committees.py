@@ -1,6 +1,6 @@
 """Committee endpoints.
 
-GET /api/committees                    — every committee
+GET /api/committees                    — the committees that sit
 GET /api/committees/{slug}             — one committee in full
 GET /api/committees/{slug}/activities  — the activities it leads
 """
@@ -46,15 +46,18 @@ router = APIRouter()
     response_model=list[CommitteeDTO],
     summary="All committees",
     description=(
-        "Every parliamentary committee with its number of open dossiers."
+        "The parliamentary committees that sit today, with their number of open "
+        "dossiers; `include_ended=true` also those that no longer sit."
         "\n\n"
-        "committees, each with `slug` (its own: of committees that share an "
-        "abbreviation the one sitting now, else the one that ended last, has it bare, "
-        "the others with the year they started, `ez-2010`), `kind` (`vast`, "
-        "`algemeen`, `tijdelijk`, `enquete`, `delegatie`, `overig`), `started_on`, "
-        "`ended_on` (null while it sits) and `active_dossier_count` (the open dossiers "
-        "it leads: its activities are about them, its cases part of them; the same in "
-        "list and detail and as `dossier_total` under `status=open`; 0 once it ended); "
+        "committees, each with `sitting` (it sits today: not ended, of the Eerste Kamer "
+        "on its last snapshot, of the Tweede Kamer with a member seated today), `slug` "
+        "(its own: of committees that share an abbreviation the one sitting now, else "
+        "the one that ended last, has it bare, the others with the year they started, "
+        "`ez-2010`), `kind` (`vast`, `algemeen`, `tijdelijk`, `enquete`, `delegatie`, "
+        "`overig`), `started_on`, `ended_on` (`DatumInactief`, given for few that "
+        "stopped) and `active_dossier_count` (the open dossiers it leads: its "
+        "activities are about them, its cases part of them; the same in list and detail "
+        "and as `dossier_total` under `status=open`; 0 once it ended); "
         "detail lists current members (`current_only=true`, the default; null when the "
         "data has no seat on it at all, not known rather than none) and a page of "
         "the dossiers it leads, newest first (`status` `open`/`closed`, `limit`, "
@@ -71,6 +74,13 @@ router = APIRouter()
 def list_committees(
     store: Annotated[GraphStore, Depends(get_store)],
     chamber: ListChamber = "TK",
+    include_ended: Annotated[
+        bool,
+        Query(
+            description="Also the committees that no longer sit (`sitting` false); "
+            "a period (`active_from`, `active_to`) lists those of the period instead."
+        ),
+    ] = False,
     active_from: ActiveFrom = None,
     active_to: ActiveTo = None,
 ) -> list[CommitteeDTO]:
@@ -79,6 +89,7 @@ def list_committees(
         for doc in get_committees(
             store,
             chamber=chamber,
+            include_ended=include_ended,
             active_from=iso_day(active_from),
             active_to=iso_day(active_to),
         )
