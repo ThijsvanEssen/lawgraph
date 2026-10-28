@@ -75,6 +75,7 @@ from lawgraph.db.queries.search.clause import tokenize_search_query
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.parser import load_code_aliases, load_notation_parser
 from lawgraph.db.queries.search.types import SEARCH_TYPES
+from lawgraph.db.queries.stats import cached_data_as_of
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)
@@ -272,6 +273,8 @@ _INSTRUMENT_TABLES = (
 PARTS: tuple[Part, ...] = (
     # cheap and asked most first, so that a deploy is warm for them within a minute
     Part("stats", stats_data),
+    # the data stand every stats, coverage and feed answer carries (kept a minute)
+    Part("data as of", cached_data_as_of),
     # the first call of the homepage
     Part("home summary", _warm_home_summary),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
