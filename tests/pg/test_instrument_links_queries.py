@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import EDGE_SOURCE_BWB_IMPLEMENTS, SOURCE_ECHR
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.instrument_links import get_eu_links, get_international_links
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 from tests.pg.plans import explain, recorded
@@ -385,6 +385,7 @@ def test_the_echr_judgments_of_a_law_cited_much_are_found_from_their_side(
     with pytest.MonkeyPatch.context() as monkeypatch:
         statements = recorded(store, monkeypatch)
         for cited in (None, instrument_links.ECHR_SIDE_FROM):
+            version_cache.clear()  # kept per request, and these are two plans
             get_international_links(store, REGULATION, scope, cited=cited)
     plans = [json.dumps(explain(store, c.statement, c.params)) for c in statements]
     by_target, by_echr = plans
