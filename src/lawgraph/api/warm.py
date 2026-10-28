@@ -36,6 +36,7 @@ from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
+from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.articles import (
     CITED_BY_INLINE_BELOW,
     get_article_cited_by,
@@ -216,6 +217,7 @@ def _warm_home_summary(store: GraphStore) -> None:
     first = last - dt.timedelta(days=HOME_SUMMARY["days"] - 1)
     filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
     get_feed_summary(store, filters, limit=HOME_SUMMARY["limit"])
+    get_chamber_schedule(store, last.isoformat())
 
 
 def _warm_delegated(store: GraphStore) -> None:

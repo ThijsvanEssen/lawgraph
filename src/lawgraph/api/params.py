@@ -34,6 +34,24 @@ LONG_LIST_MAX = 2000
 TOP_MAX = 100
 MEMBER_LIST_MAX = 1000
 PageLimit = Annotated[int, Query(ge=1, le=PAGE_MAX)]
+# The page after another of a list in a fixed order: the ``next_cursor`` of that page (the
+# rows are found by their place in the order, not by skipping, so a page deep in the list
+# costs what the first does); not with ``offset``.
+After = Annotated[
+    str | None,
+    Query(
+        description="The ``next_cursor`` of the page before: this page follows it. "
+        "Instead of ``offset``, not with it."
+    ),
+]
+
+
+def not_both(after: str | None, offset: int) -> None:
+    """422 where a request pages by ``after`` and by ``offset``."""
+    if after and offset:
+        raise Invalid(("after", "offset"), "choose one.")
+
+
 ListLimit = Annotated[int, Query(ge=1, le=LIST_MAX)]
 LongListLimit = Annotated[int, Query(ge=1, le=LONG_LIST_MAX)]
 TopLimit = Annotated[int, Query(ge=1, le=TOP_MAX)]

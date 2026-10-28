@@ -42,7 +42,7 @@ from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
-from lawgraph.db.queries._helpers import COUNTS_BUDGET
+from lawgraph.db.queries._helpers import page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -700,19 +700,24 @@ def get_feed(
     after one page. The total and the facets read every row under the filters (20 s on the
     full graph), whatever the cursor: they are kept per data version under the filters
     (``version_cache``)."""
-    items, searched_from = _page_items(store, filters, cursor, limit)
-    shown: dict[str, Any] = {"items": items}
-    if searched_from:
-        shown.update(partial=True, searched_from=searched_from)
+
+    def read_page() -> tuple[list[dict[str, Any]], str | None]:
+        return _page_items(store, filters, cursor, limit)
+
     if not facets:
-        return {**shown, "total": None, "facets": None}
-    with read_budget(COUNTS_BUDGET, "The counts of the feed"):
-        return {
-            **shown,
-            **(_counts_of_events(store, filters) or feed_counts(store, filters)),
-        }
-    # counted on for the next request (``lasting``); this one shows the page now
-    return {**shown, "total": None, "facets": None, "partial": True}
+        items, searched_from = read_page()
+        counted: dict[str, Any] | None = {"total": None, "facets": None}
+    else:
+        (items, searched_from), counted = page_with_counts(
+            read_page,
+            lambda: _counts_of_events(store, filters) or feed_counts(store, filters),
+            "The counts of the feed",
+        )
+    counted_page = with_counts(items, counted)
+    answer = {"items": counted_page.pop("items"), **counted_page}
+    if searched_from:
+        answer.update(partial=True, searched_from=searched_from)
+    return answer
 
 
 # Words, a faction or a law without a first day (``q``, ``faction`` or ``instrument``, and no

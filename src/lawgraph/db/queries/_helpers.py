@@ -21,12 +21,39 @@ from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.request_context import ReadTimedOut
 from lawgraph.db.schema import node_of
-from lawgraph.db.store import read_time_left
+from lawgraph.db.store import read_budget, read_time_left
 
 # How long a request waits for the total and facets of a list beside its page (seconds):
 # under a filter not counted yet (a minute or more, cold) it answers its page without them,
 # ``partial``, and they are counted on for a later request.
 COUNTS_BUDGET = 3.0
+
+
+def page_with_counts[P, C](
+    page: Callable[[], P], counts: Callable[[], C], what: str
+) -> tuple[P, C | None]:
+    """The result of *page*, read first and alone with no budget but the request's own,
+    and of *counts* (the total and facets, kept per filter: ``lasting``, ``cached``).
+    A request waits for the counts what is left of ``COUNTS_BUDGET`` counted from the start
+    of the answer, so that the page and the counts together take that long and no longer
+    (a page that took the whole of it leaves the counts a look at what is kept); past it
+    the counts are None and go on computing for a later request."""
+    began = time.monotonic()
+    shown = page()
+    left = max(0.0, COUNTS_BUDGET - (time.monotonic() - began))
+    with read_budget(left, what) as budget:
+        counted = counts()
+    return shown, None if budget.ran_out else counted
+
+
+def with_counts(
+    items: list[Any], counted: dict[str, Any] | None, empty_facets: Any = None
+) -> dict[str, Any]:
+    """``{items, total, facets}`` of a list: *counted* (``{total, facets}``) or, where the
+    counts ran out (None), ``total`` None, *empty_facets* and ``partial``."""
+    if counted is None:
+        return {"total": None, "items": items, "facets": empty_facets, "partial": True}
+    return {"total": counted["total"], "items": items, "facets": counted["facets"]}
 
 
 def _find_instrument_for_article(

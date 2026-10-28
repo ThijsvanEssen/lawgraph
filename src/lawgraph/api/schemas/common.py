@@ -98,6 +98,14 @@ def scope_type_of(meta: dict[str, Any]) -> str:
     return meta.get("scope_type") or SCOPE_TYPE_FIXED
 
 
+PARTIAL_COUNTS = (
+    "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not "
+    "counted since the data last changed: a request waits 3 s for them): ``total`` null and "
+    "empty facets now, ask again for them; they are counted on. The next page does not "
+    "depend on them."
+)
+
+
 class StrictModel(BaseModel):
     """The base of every DTO: an unknown field is an error, so a change of the contract
     shows at once. Every field is in every answer (none is left out for its default), so

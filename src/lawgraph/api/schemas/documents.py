@@ -8,6 +8,7 @@ from pydantic import Field
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
+    PARTIAL_COUNTS,
     DossierNameDTO,
     FacetCountDTO,
     PathSource,
@@ -637,7 +638,13 @@ class DocumentListResponse(StrictModel):
     """A page of the papers of the chambers, newest first."""
 
     total: int | None = Field(
-        None, description="Every match, whatever the page; null with ``facets=false``."
+        None,
+        description="Every match, whatever the page; null with ``facets=false`` and "
+        "while ``partial``.",
     )
     items: list[DocumentListItemDTO] = []
     facets: DocumentFacetsDTO | None = None
+    partial: bool = Field(False, description=PARTIAL_COUNTS)
+    next_cursor: str | None = Field(
+        None, description="Pass as ``after`` for the next page; null on the last page."
+    )

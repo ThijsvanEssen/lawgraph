@@ -31,6 +31,7 @@ from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN
 from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.core.votes import ADOPTED
 from lawgraph.db import GraphStore
+from lawgraph.db.version_cache import cached
 
 
 def lead_committee(activity: str) -> str:
@@ -261,15 +262,20 @@ def get_chamber_schedule(store: GraphStore, today: str) -> dict[str, Any]:
     (``Uitgevoerd``) on or before *today*, ``next_sitting`` and ``next_votes`` the first
     planned (``Gepland``) on or after it, of a week the one planned for a day before one
     planned for the week; a sitting any plenary kind (``PLENARY_KINDS``), the votes
-    ``Stemmingen``. Each ``{id, key, props}``, or None."""
-    rows = store.query(
-        _SCHEDULE_SQL,
-        {
-            "today": today,
-            "held": ACTIVITY_HELD,
-            "planned": ACTIVITY_PLANNED,
-            "sitting": [f"{kind}%" for kind in PLENARY_KINDS],
-            "votes": [f"{VOTES_KIND}%"],
-        },
+    ``Stemmingen``. Each ``{id, key, props}``, or None.
+
+    Four reads of the activities (3.5 s on prod): kept per day and version of the
+    activities, and warmed with the summary of the feed, which asks it of every visitor."""
+    bind = {
+        "today": today,
+        "held": ACTIVITY_HELD,
+        "planned": ACTIVITY_PLANNED,
+        "sitting": [f"{kind}%" for kind in PLENARY_KINDS],
+        "votes": [f"{VOTES_KIND}%"],
+    }
+    return cached(
+        store,
+        ("chamber schedule", today),
+        lambda: dict(next(iter(store.query(_SCHEDULE_SQL, bind)))),
+        tables=(COLLECTION_ACTIVITIES,),
     )
-    return dict(next(iter(rows)))
