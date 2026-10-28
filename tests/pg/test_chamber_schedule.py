@@ -163,3 +163,18 @@ def test_normalize_activities_reads_every_stored_activity_again(
     TKDossiersNormalizePipeline(store=store, activities=True).run()
     props = present(store.get_document(COLLECTION_ACTIVITIES, "a_week"))["props"]
     assert (props["date"], props["precision"]) == ("2026-12-07", "Weeknummer")
+
+
+def test_the_schedule_is_kept_per_day_and_version(
+    recess: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = get_chamber_schedule(recess, TODAY)
+    reads: list[Any] = []
+    original = recess.query
+    monkeypatch.setattr(
+        recess, "query", lambda *a, **k: reads.append(a) or original(*a, **k)
+    )
+    assert get_chamber_schedule(recess, TODAY) == first
+    assert not [r for r in reads if "last_sitting" in str(r[0])]
+    get_chamber_schedule(recess, "2026-10-28")
+    assert [r for r in reads if "last_sitting" in str(r[0])]

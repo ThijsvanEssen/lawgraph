@@ -272,33 +272,41 @@ def list_documents(
     if not facets:
         return {"items": read_page(), "total": None, "facets": None}
 
-    def counts() -> dict[str, Any]:
-        # The counts are the same on every page and for every visitor: kept per data
-        # version under the filters alone (on the full graph they read 650,000 documents).
-        facet_filters = FacetFilters(own=own)
-        row = cached_rows(
-            store,
-            f"""
-            WITH base AS (
-                SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
-                FROM {COLLECTION_DOCUMENTS} d
-                {where(shared)}
-            )
-            SELECT
-                (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
-                {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
-                {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
-            """,
-            without_page(bind),
-            tables=(COLLECTION_DOCUMENTS,),
-        )[0]
-        return {
-            "total": row["total"],
-            "facets": {"kind": row["kind"], "chamber": row["chamber"]},
-        }
-
-    page, counted = page_with_counts(read_page, counts, "The counts of the documents")
+    page, counted = page_with_counts(
+        read_page,
+        lambda: _document_counts(store, shared, own, bind),
+        "The counts of the documents",
+    )
     return with_counts(page, counted, {"kind": [], "chamber": []})
+
+
+def _document_counts(
+    store: GraphStore, shared: list[str], own: dict[str, str], bind: dict[str, Any]
+) -> dict[str, Any]:
+    """``total`` and ``facets`` of the list. The same on every page and for every visitor:
+    kept per data version under the filters alone (on the full graph they read 650,000
+    documents)."""
+    facet_filters = FacetFilters(own=own)
+    row = cached_rows(
+        store,
+        f"""
+        WITH base AS (
+            SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
+            FROM {COLLECTION_DOCUMENTS} d
+            {where(shared)}
+        )
+        SELECT
+            (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
+            {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
+            {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
+        """,
+        without_page(bind),
+        tables=(COLLECTION_DOCUMENTS,),
+    )[0]
+    return {
+        "total": row["total"],
+        "facets": {"kind": row["kind"], "chamber": row["chamber"]},
+    }
 
 
 # The documents an amended amendment or motion replaces, and those that replace it: ``REVISES``
