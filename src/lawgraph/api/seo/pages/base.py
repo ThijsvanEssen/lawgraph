@@ -76,6 +76,8 @@ class Page:
     # ``lib/first-paint``): the fields of its API answer that paint reads, its kind in
     # ``kind``; None for a page the front end does not paint first
     first_paint: dict[str, Any] | None = None
+    # whether the JSON-LD also names Concordans as an ``Organization`` (``/`` and ``/over``)
+    organization: bool = False
 
 
 def present(**fields: Any) -> dict[str, Any]:

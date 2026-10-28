@@ -127,4 +127,5 @@ def home_page(
         body=body,
         index=index,
         whole_title=True,
+        organization=True,
     )
