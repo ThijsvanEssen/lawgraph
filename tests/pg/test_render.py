@@ -2266,11 +2266,7 @@ def test_the_start_page_is_its_core_without_a_read(
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
     assert "/stemmingen" in hrefs and "/bundels" in hrefs
     assert "Probeer" not in main and "stappen" not in main
-    assert re.findall(r'<span class="onderschrift">(.*?)</span>', main) == [
-        "Eén zoekbalk voor alles",
-        "Elk artikel met wie het aanhaalt",
-        "Bewaar en volg wat je vindt",
-    ]
+    assert "onderschrift" not in main and "kenmerken" not in main
     assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Begin met een vraag"]
     assert re.findall(r"<h3[^>]*>(.*?)</h3>", main) == [
         "Wie haalt dit artikel aan?",
@@ -2299,12 +2295,12 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     whole, the text the server holds."""
     start = json.loads(json.dumps(home.START))
     start["heading"] = "Een andere kop"
-    start["features"][0]["text"] = "Een andere zoekbalk"
+    start["lede"] = "Een andere lede"
     (tmp_path / "start.json").write_text(json.dumps(start))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
     assert '<h1 class="blad__titel">Een andere kop</h1>' in main
-    assert '<span class="onderschrift">Een andere zoekbalk</span>' in main
+    assert '<p class="lede">Een andere lede</p>' in main
 
     (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
     shell.forget()
