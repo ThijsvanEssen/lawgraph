@@ -27,3 +27,39 @@ def has_role(props: Mapping[str, Any]) -> bool:
         isinstance(props.get(field), list) and len(props[field]) > 0
         for field in ROLE_LISTS
     ) or isinstance(props.get("ek"), dict)
+
+
+def _spells(props: Mapping[str, Any], field: str) -> list[Mapping[str, Any]]:
+    return [s for s in props.get(field) or [] if isinstance(s, Mapping)]
+
+
+def _day(spell: Mapping[str, Any], field: str) -> str:
+    value = spell.get(field)
+    return value if isinstance(value, str) else ""
+
+
+def _lasts(spell: Mapping[str, Any], today: str) -> bool:
+    """Whether a spell (``from_date``, ``to_date``) lasts on *today*."""
+    start, end = _day(spell, "from_date"), _day(spell, "to_date")
+    return (not start or start <= today) and (not end or end >= today)
+
+
+def _last_day(spells: list[Mapping[str, Any]]) -> str:
+    """The day a list of spells last was (the far future where one still lasts)."""
+    return max((_day(s, "to_date") or "9999" for s in spells), default="")
+
+
+def is_minister(props: Mapping[str, Any], today: str) -> bool:
+    """Whether a member is a bewindspersoon rather than a Kamerlid by the current role, as
+    the site has it (``rubrieken.ts``, ``isMinister``): a post in a cabinet that lasts
+    *today*; else not with a seat in a fractie that lasts; else the role that ended last.
+    Without a post: a Kamerlid."""
+    posts = _spells(props, "government_functions")
+    if not posts:
+        return False
+    if any(_lasts(p, today) for p in posts):
+        return True
+    seats = _spells(props, "faction_memberships")
+    if any(_lasts(m, today) for m in seats):
+        return False
+    return not seats or _last_day(posts) >= _last_day(seats)

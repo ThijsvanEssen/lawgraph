@@ -27,6 +27,7 @@ from lawgraph.api.seo.pages.parliament import (
     document_page,
     dossier_page,
     faction_page,
+    member_image,
     member_page,
 )
 from lawgraph.api.seo.paint import (
@@ -42,12 +43,13 @@ from lawgraph.db.queries import seo
 @dataclass(frozen=True)
 class SourcePage:
     """The read of a kind of page (store, node id → its row, or None), the page it builds
-    of the row, its ``og:image``, and where the front end paints it first, what that paint
-    reads (store, row → ``Page.first_paint``; ``api/seo/paint``)."""
+    of the row, its ``og:image`` (or a function of the row to it), and where the front
+    end paints it first, what that paint reads (store, row → ``Page.first_paint``;
+    ``api/seo/paint``)."""
 
     read: Callable[[GraphStore, str], dict[str, Any] | None]
     build: Callable[[dict[str, Any]], Page]
-    image: str = SITE_IMAGE
+    image: str | Callable[[dict[str, Any]], str] = SITE_IMAGE
     paint: Callable[[GraphStore, dict[str, Any]], dict[str, Any] | None] | None = None
 
 
@@ -63,14 +65,14 @@ SOURCE_PAGES: dict[str, SourcePage] = {
         seo.paper, document_page, "/og/kamerstuk.png", paint=document_paint
     ),
     "dossier": SourcePage(seo.dossier, dossier_page, "/og/dossier.png"),
-    "lid": SourcePage(seo.member, member_page),
-    "fractie": SourcePage(seo.faction, faction_page),
-    "kabinet": SourcePage(seo.cabinet, cabinet_page),
-    "ministerie": SourcePage(seo.ministry, ministry_page),
-    "commissie": SourcePage(seo.committee, committee_page),
-    "publicatie": SourcePage(seo.publication, publication_page),
-    "toezegging": SourcePage(seo.commitment, commitment_page),
-    "stemming": SourcePage(seo.decision, decision_page),
+    "lid": SourcePage(seo.member, member_page, member_image),
+    "fractie": SourcePage(seo.faction, faction_page, "/og/fractie.png"),
+    "kabinet": SourcePage(seo.cabinet, cabinet_page, "/og/kabinet.png"),
+    "ministerie": SourcePage(seo.ministry, ministry_page, "/og/ministerie.png"),
+    "commissie": SourcePage(seo.committee, committee_page, "/og/commissie.png"),
+    "publicatie": SourcePage(seo.publication, publication_page, "/og/publicatie.png"),
+    "toezegging": SourcePage(seo.commitment, commitment_page, "/og/toezegging.png"),
+    "stemming": SourcePage(seo.decision, decision_page, "/og/stemming.png"),
     "bijlage": SourcePage(seo.annex, annex_page, "/og/wet.png"),
     "zaak": SourcePage(seo.case, case_page, "/og/dossier.png"),
     "activiteit": SourcePage(seo.activity, activity_page, "/og/dossier.png"),
