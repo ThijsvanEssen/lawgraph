@@ -524,6 +524,14 @@ statutes made by the legislator:
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for
   `32016R0679`). Its articles carry it as `instrument_abbreviation` (`art. 8 EVRM`). Written
   by `normalize bwb`.
+- `series_id`, `series_position`, `series_size` (and `series_basis`) of an instrument bundle
+  regulations that are renewed under one name, each year a regulation of its own with its
+  own BWB id (`Mandaatbesluit DT&V 2020`, `2022`, ...). The BWB names no predecessor, so a
+  series is a **heuristic** (`core.instrument_series`): regulations of one `kind` whose
+  `citation_title` is the same once its years are taken out (at least two, a year in each),
+  ordered by `date_in_force`. Their articles carry it as `instrument_series_*`. Written by
+  `normalize bwb`; the API answers it on the instrument and on the `instrument` of an
+  article.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`
   `publicatie` (`publication_kind`, `publication_year`, `publication_number`, `date_signed`,
   `date_published`, `dossier_numbers`; `citation_title` is their name, `Stb. 2019, 33`); they
@@ -581,6 +589,10 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `official_id` | `str` | Of a publication: its id at officielebekendmakingen.nl (`stb-2019-33`); of a law the BWB does not hold (yet), that of the publication that enacted it (`stb-2026-56`). |
 | `abbreviation` | `str` | The abbreviation it is cited by (`core.aliases.abbreviation_of`): `EVRM`, `AVG`. |
 | `aliases` | `list[str]` | Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW". |
+| `series_id` | `str` | Of a BWB regulation renewed under one name (`mandaatbesluit-dt-v`): the id of the series, the same for each of them; absent for a regulation with no sibling (`core.instrument_series`, `normalize bwb`). |
+| `series_position` | `int` | Its place in the series (from 1), by the day it came into force. |
+| `series_size` | `int` | How many regulations the series holds. |
+| `series_basis` | `str` | How the series was found: `title_year`, the same citation title once the years are taken out (a heuristic: the BWB names no predecessor). |
 | `jurisdiction` | `str` | `nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank). |
 | `kind` | `str` | BWB `wetgeving@soort` (`wet`, `AMvB`, ...); a Verdragenbank treaty `verdrag`, `bilateraalverdrag` or `multilateraalverdrag`; a publication `publicatie`; a law of the Staatsblad the BWB does not hold (yet) `wet`; an EU act by its CELEX number (`richtlijn`, `verordening`, `besluit`, `kaderbesluit`; a proposal, sector 5, `voorstel`); lower-cased by `semantic graph-list-stats`. |
 | `lang` | `str` | Of an EU act: the language its text was read in. |
@@ -793,6 +805,9 @@ Articles:
 | `text` | `str` | Its text: a lid as `1. text`, list items on their own lines, a paragraph beside the leden included. |
 | `instrument_citation_title` | `str` | The citation title of its instrument. |
 | `instrument_abbreviation` | `str` | The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`). |
+| `instrument_series_id` | `str` | The `series_id` of its instrument, with `instrument_series_position` and `instrument_series_size` (`normalize bwb`). |
+| `instrument_series_position` | `int` | The `series_position` of its instrument. |
+| `instrument_series_size` | `int` | The `series_size` of its instrument. |
 | `stam_id` | `str` | The BWB `stam-id`, the same across versions and renumbering. |
 | `versie_id` | `str` | The BWB `versie-id` of its current version. |
 | `path` | `str` | `bwb-ng-variabel-deel` of its current version: `/Hoofdstuk1/Artikel7`; where a definition of its law holds (`core.bwb_definitions.applies`). |

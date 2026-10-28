@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.17",
+    "version": "0.80.18",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -24770,7 +24770,7 @@
               }
             ],
             "title": "Subject",
-            "description": "What the title says it is about: the part after the first `` over ``; null when it has none."
+            "description": "What the title says it is about: the part after the first `` over ``; null when it has none. Of a commitment from its whole text (``summary``), not from its title, which is only the first words."
           },
           "short_title": {
             "anyOf": [
@@ -28205,6 +28205,54 @@
       },
       "InstrumentDetailDTO": {
         "properties": {
+          "series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Id",
+            "description": "The same for every regulation of the series; null for one with no sibling. A heuristic, not a relation of the BWB (it names no predecessor): regulations of one kind whose citation titles are equal once their years are taken out (`series_basis`)."
+          },
+          "series_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Position",
+            "description": "Its place in the series, from 1, by the day it came into force."
+          },
+          "series_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Size",
+            "description": "How many regulations the series holds."
+          },
+          "series_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Basis",
+            "description": "How the series was found: `title_year`."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -28642,6 +28690,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "series_id",
+          "series_position",
+          "series_size",
+          "series_basis",
           "id",
           "key",
           "collection",
@@ -30148,6 +30200,54 @@
       },
       "InstrumentSummaryDTO": {
         "properties": {
+          "series_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Id",
+            "description": "The same for every regulation of the series; null for one with no sibling. A heuristic, not a relation of the BWB (it names no predecessor): regulations of one kind whose citation titles are equal once their years are taken out (`series_basis`)."
+          },
+          "series_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Position",
+            "description": "Its place in the series, from 1, by the day it came into force."
+          },
+          "series_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Size",
+            "description": "How many regulations the series holds."
+          },
+          "series_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Basis",
+            "description": "How the series was found: `title_year`."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -30312,6 +30412,10 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "series_id",
+          "series_position",
+          "series_size",
+          "series_basis",
           "id",
           "key",
           "bwb_id",
@@ -31142,6 +31246,14 @@
             "type": "array",
             "title": "Courts",
             "description": "Per court, most first."
+          },
+          "chambers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DataAsOfDTO"
+            },
+            "type": "object",
+            "title": "Chambers",
+            "description": "How current the papers of the Kamers are: `tk` and `eerstekamer`, as `data_as_of` of `/api/stats` gives them (`newest`: the date of the newest paper, `retrieved_at`: when it was fetched); a source with no row is left out."
           }
         },
         "additionalProperties": false,
@@ -31153,7 +31265,8 @@
           "stubs",
           "replaced",
           "tiers",
-          "courts"
+          "courts",
+          "chambers"
         ],
         "title": "JudgmentCoverageResponse",
         "description": "Which judgments the graph holds: a count of case law is a count of this selection.\n\n``total`` counts the judgments whose text is loaded, a decision published twice once\n(the ``total`` of ``/api/judgments``); ``stubs`` the judgments known only because a\nloaded text cites them (they cite nothing themselves)."

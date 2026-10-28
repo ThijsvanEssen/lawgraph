@@ -195,6 +195,17 @@ class InstrumentProps(_CommonProps):
     aliases: list[str] | None = None
     """Every name it is cited by: the WTI abbreviations and, for a book of a code, the forms
     "Boek 6 BW", "6 BW", "BW 6", "BW6", "BW Boek 6", "BW"."""
+    series_id: str | None = None
+    """Of a BWB regulation renewed under one name (`mandaatbesluit-dt-v`): the id of the
+    series, the same for each of them; absent for a regulation with no sibling
+    (`core.instrument_series`, `normalize bwb`)."""
+    series_position: int | None = None
+    """Its place in the series (from 1), by the day it came into force."""
+    series_size: int | None = None
+    """How many regulations the series holds."""
+    series_basis: str | None = None
+    """How the series was found: `title_year`, the same citation title once the years are
+    taken out (a heuristic: the BWB names no predecessor)."""
     jurisdiction: str | None = None
     """`nl` (BWB), `eu` (EUR-Lex) or `int` (Verdragenbank)."""
     kind: str | None = None
@@ -336,6 +347,13 @@ class ArticleProps(_CommonProps):
     """The citation title of its instrument."""
     instrument_abbreviation: str | None = None
     """The `abbreviation` of its instrument: "art. 8 EVRM" (`normalize bwb`)."""
+    instrument_series_id: str | None = None
+    """The `series_id` of its instrument, with `instrument_series_position` and
+    `instrument_series_size` (`normalize bwb`)."""
+    instrument_series_position: int | None = None
+    """The `series_position` of its instrument."""
+    instrument_series_size: int | None = None
+    """The `series_size` of its instrument."""
     stam_id: str | None = None
     """The BWB `stam-id`, the same across versions and renumbering."""
     versie_id: str | None = None

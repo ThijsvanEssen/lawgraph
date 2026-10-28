@@ -69,5 +69,7 @@ def patch_bwb_queries(monkeypatch: pytest.MonkeyPatch) -> None:
         ("instrument_dates", lambda store, keys: iter(())),
         ("update_abbreviations", lambda store, rows: 0),
         ("update_instrument_abbreviations", lambda store, rows: 0),
+        ("series_inputs", lambda store: []),
+        ("update_instrument_series", lambda store, rows: 0),
     ):
         monkeypatch.setattr(normalize_bwb, name, recorded(name, answer))

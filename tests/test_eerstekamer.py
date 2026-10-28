@@ -177,6 +177,27 @@ def test_a_paper_becomes_a_document_with_its_dossier_number() -> None:
     assert result.skipped == 0 and len(nodes) == 4
 
 
+def test_a_kamerstuk_in_the_index_twice_is_one_document() -> None:
+    stuk = {
+        "kind": "Gewijzigd voorstel van wet",
+        "number": "A",
+        "dossier_number": "36702",
+        "date": "2026-10-06",
+        "title": "Gewijzigd voorstel van wet",
+    }
+    other = {**stuk, "number": "B"}
+    stukken = [
+        {**stuk, "identifier": "kst-1274193"},
+        {**stuk, "identifier": "kst-36702-A"},
+        {**other, "identifier": "kst-36702-B"},
+        {**stuk, "identifier": "kst-9", "number": "", "dossier_number": None},
+    ]
+    nodes, _ = _normalize(stukken)
+
+    assert sorted(nodes) == ["ek_kst_36702_a", "ek_kst_36702_b", "ek_kst_9"]
+    assert nodes["ek_kst_36702_a"].props["external_id"] == "kst-36702-A"
+
+
 def test_a_budget_chapter_is_split_off_the_dossier_number() -> None:
     nodes, _ = _normalize(
         [

@@ -195,6 +195,26 @@ def test_a_surname_keeps_its_prefix(signature: dict, surname: str | None) -> Non
     assert _surname(signature) == surname
 
 
+def test_the_subject_of_a_commitment_comes_from_its_whole_text() -> None:
+    item = FeedItemDTO.from_row(
+        {
+            "kind": "toezegging",
+            "id": "commitments/c2",
+            "date": "2026-09-22",
+            "props": {
+                "display_name": "De minister zegt toe de Kamer te informeren over…"
+            },
+            "text": "De minister zegt toe de Kamer te informeren over het onderzoek.",
+        }
+    )
+    assert item.title == "De minister zegt toe de Kamer te informeren over…"
+    assert (
+        item.summary
+        == "De minister zegt toe de Kamer te informeren over het onderzoek."
+    )
+    assert item.headline.subject == "het onderzoek."
+
+
 def test_a_commitment_without_a_due_date_says_none() -> None:
     item = FeedItemDTO.from_row(
         {

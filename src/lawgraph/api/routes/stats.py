@@ -15,7 +15,11 @@ from lawgraph.api.schemas.stats import (
     JudgmentCoverageResponse,
     StatsResponse,
 )
-from lawgraph.config.constants import COLLECTION_JUDGMENTS
+from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
+    SOURCE_EERSTEKAMER,
+    SOURCE_TK,
+)
 from lawgraph.core.courts import TIERS, court_of
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.stats import (
@@ -189,4 +193,9 @@ def get_coverage(
         replaced=sum(r["count"] for r in data.get("replaced", [])),
         tiers=tiers,
         courts=courts,
+        chambers={
+            source: DataAsOfDTO(**row)
+            for source, row in cached_data_as_of(store).items()
+            if source in (SOURCE_TK, SOURCE_EERSTEKAMER)
+        },
     )
