@@ -30,6 +30,7 @@ ALLOWED: dict[str, str] = {
     "detect_tk_citations": "test seam: the citations of a TK text without the pipeline",
     "block_of": "docs guard: the generated block of a doc, which a test compares",
     "strict_meta": "test seam: the tests hold the meta of every edge to its whole model",
+    "criminal_decision": "read once normalize keeps it (validated, not yet wired)",
 }
 
 # Methods the standard library or pydantic calls by their name.
