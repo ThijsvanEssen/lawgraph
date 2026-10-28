@@ -1,15 +1,15 @@
-"""The start page (``/``): what Concordans promises, a search form, three steps and
-three questions it answers, as the start page of the app draws them (``home/`` of the
-front end). Fixed text, read of nothing: it is the first paint, without a script or a
-request. The text is ``start.json`` of the front end, the one source of both (beside its
-``index.html``); the text below stands in while that is not there or not whole.
+"""The start page (``/``): what Concordans promises, a search form, three features as
+small pictures and three questions it answers, as the start page of the app draws them
+(``home/`` of the front end). Fixed text, read of nothing: it is the first paint, without
+a script or a request. The text is ``start.json`` of the front end, the one source of
+both (beside its ``index.html``); the text below stands in while that is not there or not
+whole.
 """
 
 from __future__ import annotations
 
 from html import escape
 from typing import Any
-from urllib.parse import quote
 
 from lawgraph.api.seo.pages.base import Page, link
 from lawgraph.config import settings
@@ -22,38 +22,15 @@ PUBLISHER = {
 
 START: dict[str, Any] = {
     "heading": "Zie hoe wetten, rechtspraak en parlement samenhangen.",
-    "lede": (
-        "Zoek een wet, uitspraak, Kamerstuk of dossier en lees de officiële tekst. "
-        "Zie wie een artikel aanhaalt, hoe de Kamer stemde en wat er in een dossier "
-        "gebeurde. Volg de verbindingen in het netwerk en bewaar wat je vindt in een "
-        "bundel."
-    ),
+    "lede": "Zoek een wet, uitspraak, Kamerstuk of dossier en zie wat ermee verbonden is.",
     "placeholder": "Wet, uitspraak, Kamerstuk, dossier of motie",
-    "hint": {
-        "intro": "Probeer",
-        "examples": [
-            "art. 6:162 BW",
-            "ECLI:NL:HR:2019:1278",
-            "Awb",
-        ],
-        "outro": "Enter opent de bron direct.",
-    },
-    "steps": [
-        {
-            "title": "Zoek",
-            "text": "Op nummer, citaat of naam. Je komt in de tekst.",
-        },
-        {
-            "title": "Lees",
-            "text": "Rechts staat Verbonden: wie het artikel aanhaalt, met de passage.",
-        },
-        {
-            "title": "Volg",
-            "text": "Open het netwerk en ga van artikel naar uitspraak naar Kamerstuk.",
-        },
+    "features": [
+        {"visual": "zoek", "text": "Eén zoekbalk voor alles"},
+        {"visual": "lees", "text": "Elk artikel met wie het aanhaalt"},
+        {"visual": "volg", "text": "Bewaar en volg wat je vindt"},
     ],
     "questions": {
-        "heading": "Wat kun je ermee?",
+        "heading": "Begin met een vraag",
         "items": [
             {
                 "title": "Wie haalt dit artikel aan?",
@@ -74,7 +51,7 @@ START: dict[str, Any] = {
                 "href": "/stemmingen",
             },
             {
-                "title": "Wat onderzoek ik?",
+                "title": "Hoe houd ik bij wat ik vind?",
                 "text": (
                     "Bewaar artikelen, uitspraken en stukken met aantekeningen in een "
                     "bundel en deel de link."
@@ -98,21 +75,32 @@ def _search(start: dict[str, Any]) -> str:
     )
 
 
-def _hint(hint: dict[str, Any]) -> str:
-    tries = ", ".join(
-        link(f"/?q={quote(example)}", example) for example in hint["examples"]
-    )
-    return (
-        f'<p class="hint">{escape(hint["intro"])} {tries}. {escape(hint["outro"])}</p>'
-    )
+_PICTO = (
+    '<svg class="picto" width="14" height="14" viewBox="0 0 16 16" fill="none" '
+    'stroke="currentColor" stroke-width="1.4" stroke-linecap="round" '
+    'stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M4.5 1.8h7v12.4L8 11.3l-3.5 2.9z"/></svg>'
+)
+
+VISUALS = {
+    "zoek": '<span class="mini-zoek">art. 6:162 BW</span>',
+    "lees": (
+        '<span class="mini-artikel"><span class="mini-tekst"><i></i><i></i><i></i>'
+        '</span><span class="mini-verbonden"><em>Verbonden</em><i></i><i></i></span>'
+        "</span>"
+    ),
+    "volg": f'<span class="btn">Volg</span><span class="btn">{_PICTO}Bewaar</span>',
+}
 
 
-def _steps(steps: list[dict[str, Any]]) -> str:
+def _features(features: list[dict[str, Any]]) -> str:
     items = "".join(
-        f"<li><b>{escape(step['title'])}</b> {escape(step['text'])}</li>"
-        for step in steps
+        f'<li><span class="beeld beeld--{escape(feature["visual"])}" aria-hidden="true">'
+        f"{VISUALS[feature['visual']]}</span>"
+        f'<span class="onderschrift">{escape(feature["text"])}</span></li>'
+        for feature in features
     )
-    return f'<ol class="stappen">{items}</ol>'
+    return f'<ul class="kenmerken">{items}</ul>'
 
 
 def _questions(questions: dict[str, Any]) -> str:
@@ -136,8 +124,7 @@ def _body(start: dict[str, Any]) -> str:
         "</header>"
         f'<p class="lede">{escape(start["lede"])}</p>'
         + _search(start)
-        + _hint(start["hint"])
-        + _steps(start["steps"])
+        + _features(start["features"])
         + _questions(start["questions"])
     )
 

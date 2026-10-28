@@ -2240,7 +2240,7 @@ def test_the_start_page_is_its_core_without_a_read(
     client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``/``: the heading, what Concordans does, a search form that works without scripts
-    (the SearchAction), three steps and three questions, read of nothing."""
+    (the SearchAction), three features and three questions, read of nothing."""
 
     def no_read(*_: Any, **__: Any) -> None:
         raise AssertionError("the start page reads nothing")
@@ -2263,15 +2263,19 @@ def test_the_start_page_is_its_core_without_a_read(
     form = re.search(r'<form action="/" method="get"[^>]*>(.*?)</form>', main, re.S)
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
-    assert "/?q=art.%206%3A162%20BW" in hrefs
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
     assert "/stemmingen" in hrefs and "/bundels" in hrefs
-    assert re.findall(r"<b>(.*?)</b>", main) == ["Zoek", "Lees", "Volg"]
-    assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Wat kun je ermee?"]
+    assert "Probeer" not in main and "stappen" not in main
+    assert re.findall(r'<span class="onderschrift">(.*?)</span>', main) == [
+        "Eén zoekbalk voor alles",
+        "Elk artikel met wie het aanhaalt",
+        "Bewaar en volg wat je vindt",
+    ]
+    assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Begin met een vraag"]
     assert re.findall(r"<h3[^>]*>(.*?)</h3>", main) == [
         "Wie haalt dit artikel aan?",
         "Hoe stemde de Kamer?",
-        "Wat onderzoek ik?",
+        "Hoe houd ik bij wat ik vind?",
     ]
     (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
     assert site["url"] == "https://concordans.nl/"
@@ -2295,12 +2299,12 @@ def test_the_start_page_takes_its_text_from_the_front_end(
     whole, the text the server holds."""
     start = json.loads(json.dumps(home.START))
     start["heading"] = "Een andere kop"
-    start["steps"][0]["text"] = "Een andere stap"
+    start["features"][0]["text"] = "Een andere zoekbalk"
     (tmp_path / "start.json").write_text(json.dumps(start))
     shell.forget()
     main = _head(_get(client, "/").text)["main"]
     assert '<h1 class="blad__titel">Een andere kop</h1>' in main
-    assert "<b>Zoek</b> Een andere stap</li>" in main
+    assert '<span class="onderschrift">Een andere zoekbalk</span>' in main
 
     (tmp_path / "start.json").write_text(json.dumps({"heading": "Half"}))
     shell.forget()
