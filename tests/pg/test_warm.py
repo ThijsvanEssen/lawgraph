@@ -13,6 +13,7 @@ from lawgraph.api import warm
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _bm25, warm_nodes
+from lawgraph.db.queries.articles import get_article_cited_by
 from tests.fakes import ManualClock, until
 from tests.pg.plans import recorded
 
@@ -446,7 +447,7 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
 
         monkeypatch.setattr(module, name, asking)
 
-    spy("get_article_cited_by", warm_nodes.get_article_cited_by, warm_nodes)
+    spy("get_article_cited_by", get_article_cited_by, warm_nodes)
     for name in (
         "get_citing_judgments",
         "get_instruments_list",
