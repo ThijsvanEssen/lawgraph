@@ -93,7 +93,13 @@ def test_a_retrieve_mode_is_named_once() -> None:
 
 _RETRIEVE = re.compile(r"(?:^|\s)retrieve\s+([a-z][a-z-]*)(.*)$")
 # a shell value whose content the script gives at run time
-_PLACEHOLDERS = {'"$number"': "1", '"$@"': ""}
+_PLACEHOLDERS = {
+    '"$number"': "1",
+    '"$@"': "",
+    '"${TK_LIMIT:-3600}"': "3600",
+    '"${TK_MINUTES:-28}"': "28",
+    '"$TK_UNTIL"': "2016-01-01",
+}
 
 
 def _typed_retrieves() -> list[tuple[str, str, list[str]]]:

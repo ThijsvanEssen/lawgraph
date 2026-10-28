@@ -30,6 +30,19 @@ _CASE_ACTORS = (
 )
 
 
+def _modified_window(
+    since: dt.datetime | None, until: dt.datetime | None
+) -> str | None:
+    """The OData condition on ``ApiGewijzigdOp`` for the records modified since *since* and
+    before *until*; none for neither."""
+    clauses = []
+    if since is not None:
+        clauses.append(f"ApiGewijzigdOp ge {odata_datetime(since)}")
+    if until is not None:
+        clauses.append(f"ApiGewijzigdOp lt {odata_datetime(until)}")
+    return " and ".join(clauses) or None
+
+
 def _build_contains_filter(fields: list[str], keywords: list[str]) -> str:
     """Build an OData OR expression: (contains(tolower(F),'kw') or ...)."""
     clauses = []
@@ -108,11 +121,12 @@ class TKClient(BaseClient):
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
         replacing: bool = False,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
-        """Return TK Zaak records modified since *since*; with *replacing* only those that
-        replace another (``VervangenVanuit``: an amended amendment or motion)."""
-        since_string = odata_datetime(since)
-        odata_filter = f"ApiGewijzigdOp ge {since_string}"
+        """Return TK Zaak records modified since *since* (and before *until*); with
+        *replacing* only those that replace another (``VervangenVanuit``: an amended
+        amendment or motion)."""
+        odata_filter = _modified_window(since, until) or ""
         if keywords and keyword_fields:
             odata_filter += " and " + _build_contains_filter(keyword_fields, keywords)
         if replacing:
@@ -131,7 +145,7 @@ class TKClient(BaseClient):
         }
         if top is not None:
             params["$top"] = top
-        logger.info("Fetching Zaak modified since %s", since_string)
+        logger.info("Fetching Zaak: %s", odata_filter)
         return self._paged_get("Zaak", params=params)
 
     # ── New parliamentary entity fetchers ─────────────────────────────────────
@@ -141,8 +155,10 @@ class TKClient(BaseClient):
         since: dt.datetime | None = None,
         top: int = 250,
         number: int | None = None,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
-        """Fetch Kamerstukdossier records: modified since a date, or those with *number*
+        """Fetch Kamerstukdossier records: modified in a window (*since*, before *until*), or
+        those with *number*
         (one per addition: 36600 VII and 36600 VIII are two).
 
         Uses skip-based pagination because the TK API does not emit nextLink.
@@ -151,10 +167,9 @@ class TKClient(BaseClient):
         if number is not None:
             params["$filter"] = f"Nummer eq {int(number)}"
             logger.info("Fetching Kamerstukdossier number=%d", number)
-        elif since is not None:
-            since_string = odata_datetime(since)
-            params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
-            logger.info("Fetching Kamerstukdossier modified since %s", since_string)
+        elif window := _modified_window(since, until):
+            params["$filter"] = window
+            logger.info("Fetching Kamerstukdossier: %s", window)
         else:
             logger.info("Fetching all Kamerstukdossier records")
         return self._skip_paged_get("Kamerstukdossier", params=params, page_size=top)
@@ -163,6 +178,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
         """Fetch Activiteit (debate/hearing) records.
 
@@ -181,10 +197,9 @@ class TKClient(BaseClient):
                 "VervangenDoor($select=Id,Nummer)"
             ),
         }
-        if since is not None:
-            since_string = odata_datetime(since)
-            params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
-            logger.info("Fetching Activiteit modified since %s", since_string)
+        if window := _modified_window(since, until):
+            params["$filter"] = window
+            logger.info("Fetching Activiteit: %s", window)
         else:
             logger.info("Fetching all Activiteit records")
         return self._skip_paged_get("Activiteit", params=params, page_size=top)
@@ -193,6 +208,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
         """Fetch Stemming (vote) records with the parent Besluit expanded.
 
@@ -215,10 +231,9 @@ class TKClient(BaseClient):
                 f"Agendapunt($expand=Activiteit($select=Id,Datum,Soort),{zaak}))"
             ),
         }
-        if since is not None:
-            since_string = odata_datetime(since)
-            params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
-            logger.info("Fetching Stemming modified since %s", since_string)
+        if window := _modified_window(since, until):
+            params["$filter"] = window
+            logger.info("Fetching Stemming: %s", window)
         else:
             logger.info("Fetching all Stemming records")
         return self._skip_paged_get("Stemming", params=params, page_size=top)
@@ -229,6 +244,7 @@ class TKClient(BaseClient):
         since: dt.datetime | None = None,
         top: int = 250,
         without_votes: bool = False,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
         """Fetch the Besluit records ``Stemmen - ...`` on a zaak of one of *case_kinds* (a
         bill, a budget), as ``fetch_stemmingen`` expands them: also those without a vote
@@ -246,12 +262,9 @@ class TKClient(BaseClient):
         odata_filter = f"startswith(BesluitSoort,'Stemmen') and Zaak/any(z:{kinds})"
         if without_votes:
             odata_filter += " and not Stemming/any()"
-        if since is not None:
-            since_string = odata_datetime(since)
-            odata_filter += f" and ApiGewijzigdOp ge {since_string}"
-            logger.info(
-                "Fetching the Besluiten on bills modified since %s", since_string
-            )
+        if window := _modified_window(since, until):
+            odata_filter += f" and {window}"
+            logger.info("Fetching the Besluiten on bills: %s", window)
         else:
             logger.info("Fetching every Besluit on a bill")
         params: dict[str, Any] = {
@@ -266,6 +279,7 @@ class TKClient(BaseClient):
         self,
         since: dt.datetime | None = None,
         top: int = 250,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
         """Fetch Toezegging (ministerial commitment) records, with the letters that fulfil
         them (``KamerbriefNakoming``: their ids and the dossiers they are numbered in) and
@@ -275,10 +289,9 @@ class TKClient(BaseClient):
             "$expand=Kamerstukdossier($select=Nummer,Toevoeging)),"
             "Activiteit($select=Datum)"
         }
-        if since is not None:
-            since_string = odata_datetime(since)
-            params["$filter"] = f"ApiGewijzigdOp ge {since_string}"
-            logger.info("Fetching Toezegging modified since %s", since_string)
+        if window := _modified_window(since, until):
+            params["$filter"] = window
+            logger.info("Fetching Toezegging: %s", window)
         else:
             logger.info("Fetching all Toezegging records")
         return self._skip_paged_get("Toezegging", params=params, page_size=top)
@@ -301,6 +314,7 @@ class TKClient(BaseClient):
         dossier_number: int | None = None,
         keyword_fields: list[str] | None = None,
         keywords: list[str] | None = None,
+        until: dt.datetime | None = None,
     ) -> Iterable[dict[str, Any]]:
         """Fetch Document (Kamerstuk) records with Zaak soort context.
 
@@ -327,9 +341,9 @@ class TKClient(BaseClient):
             ),
         }
         filters: list[str] = []
-        if since is not None:
-            since_string = odata_datetime(since)
-            filters.append(f"ApiGewijzigdOp ge {since_string}")
+        window = _modified_window(since, until)
+        if window:
+            filters.append(window)
         if dossier_number is not None:
             # Numbered in the dossier, or part of a case of it (a nader rapport is only the
             # latter; a few papers only the former).
@@ -346,10 +360,10 @@ class TKClient(BaseClient):
             logger.info(
                 "Fetching Document for Kamerstukdossier number=%d%s",
                 dossier_number,
-                f" (modified since {filters[0]})" if since is not None else "",
+                f" ({window})" if window else "",
             )
-        elif since is not None:
-            logger.info("Fetching Document modified since %s", filters[0])
+        elif window:
+            logger.info("Fetching Document: %s", window)
         else:
             logger.info("Fetching all Document records")
         return self._skip_paged_get("Document", params=params, page_size=top)

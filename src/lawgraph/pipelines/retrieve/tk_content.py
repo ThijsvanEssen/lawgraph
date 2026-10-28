@@ -18,7 +18,9 @@ Flow:
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+import datetime as dt
+import time
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
 from lawgraph.clients.kamerstuk import KamerstukClient
@@ -48,6 +50,35 @@ _FRESH_RETRY_DAYS = 1
 MAX_PAPERS_PER_RUN = 15_000
 
 
+def dated_before(
+    documents: list[dict[str, Any]], until: dt.date
+) -> list[dict[str, Any]]:
+    """The *documents* dated before *until*; one without a date is not in any window."""
+    return [
+        document
+        for document in documents
+        if str(document.get("date") or "9999")[:10] < until.isoformat()
+    ]
+
+
+def within_budget[T](
+    records: Iterator[T],
+    minutes: int | None,
+    clock: Callable[[], float] = time.monotonic,
+) -> Iterator[T]:
+    """*records* until *minutes* have passed (none: all of them); what is cut off is a gap
+    of the next run."""
+    if not minutes:
+        yield from records
+        return
+    deadline = clock() + minutes * 60
+    for record in records:
+        yield record
+        if clock() >= deadline:
+            logger.info("Time is up (%d minutes); the same command goes on.", minutes)
+            return
+
+
 class TKContentRetrievePipeline(RetrievePipelineBase):
     """Fetch the XML of Tweede Kamer documents and store it.
 
@@ -70,6 +101,8 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
         kinds: Sequence[str] = (),
         limit: int | None = None,
         dry_run: bool = False,
+        until: dt.date | None = None,
+        minutes: int | None = None,
     ) -> PipelineResult:
         """Fetch the XML of every qualifying document that has none stored.
 
@@ -79,11 +112,16 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
             limit: At most this many documents (default ``MAX_PAPERS_PER_RUN``); the rest
                 are the gaps of the next run.
             dry_run: When True, log what would happen but make no changes.
+            until: Only documents dated before this day (a window of a backfill; one
+                without a date is left out).
+            minutes: Stop after this many minutes, whatever is left; the lock of a
+                scheduled run is then let go in time. The next run goes on.
         """
+        gaps = _gaps.kamerstuk_gaps(self.store, kinds)
+        if until is not None:
+            gaps = dated_before(gaps, until)
         documents = _gaps.Gaps.capped(
-            _gaps.kamerstuk_gaps(self.store, kinds),
-            "Kamerstukken without XML",
-            limit or MAX_PAPERS_PER_RUN,
+            gaps, "Kamerstukken without XML", limit or MAX_PAPERS_PER_RUN
         )
         which = f" (kind contains one of {list(kinds)})" if kinds else ""
         if not documents:
@@ -96,7 +134,8 @@ class TKContentRetrievePipeline(RetrievePipelineBase):
             " — DRY RUN" if dry_run else "",
         )
         result = self._store_all(
-            self._fetch_documents(documents, dry_run), what="papers"
+            within_budget(self._fetch_documents(documents, dry_run), minutes),
+            what="papers",
         )
         return _gaps.noted(result, documents)
 

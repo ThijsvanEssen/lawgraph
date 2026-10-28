@@ -132,6 +132,19 @@ def add_since_argument(
     parser.add_argument(flag, type=parse, default=_since(default), help=help)
 
 
+def add_until_argument(
+    parser: argparse.ArgumentParser, *, help: str, flag: str = "--until"
+) -> None:
+    """``--until``: the upper bound of a window, an ISO 8601 moment or a relative one as
+    ``--since``; none for no bound."""
+    parser.add_argument(flag, type=_since, default=None, help=help)
+
+
+def add_minutes_argument(parser: argparse.ArgumentParser, *, help: str) -> None:
+    """``--minutes N``: a time budget after which the command stops where it is."""
+    parser.add_argument("--minutes", type=int, default=None, metavar="N", help=help)
+
+
 def _since_or_last(value: str) -> dt.datetime | str | None:
     return LAST if value.strip().lower() == LAST else _since(value)
 

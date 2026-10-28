@@ -39,7 +39,9 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.command import (
     add_limit_argument,
+    add_minutes_argument,
     add_since_argument,
+    add_until_argument,
     command_parser,
     takes_option,
 )
@@ -565,13 +567,20 @@ def tk_args(parser: argparse.ArgumentParser) -> None:
         "retrieve began to read that relation.",
     )
     windowed_from_a_day_args(parser)
+    add_until_argument(parser, help=_TK_UNTIL_HELP)
 
 
 def retrieve_tk(args: argparse.Namespace) -> PipelineResult:
     since = _TK_EPOCH if args.mode is RetrieveMode.FULL else args.since
     return TKRetrievePipeline(GraphStore()).run(
-        since=since, limit=args.limit, replacing=args.replacing
+        since=since, limit=args.limit, replacing=args.replacing, until=args.until
     )
+
+
+_TK_UNTIL_HELP = (
+    "Only the records modified before this moment (ApiGewijzigdOp), with --since a window "
+    "of a backfill."
+)
 
 
 def tk_content_args(parser: argparse.ArgumentParser) -> None:
@@ -589,6 +598,15 @@ def tk_content_args(parser: argparse.ArgumentParser) -> None:
     add_limit_argument(
         parser, "At most this many papers in this run (the rest in the next)."
     )
+    add_until_argument(
+        parser,
+        help="Only the papers dated before this day (a window of a backfill; a paper "
+        "without a date is left out).",
+    )
+    add_minutes_argument(
+        parser,
+        help="Stop after N minutes; the same command goes on with what is left.",
+    )
     add_mode_argument(
         parser,
         (RetrieveMode.GAPS,),
@@ -599,7 +617,13 @@ def tk_content_args(parser: argparse.ArgumentParser) -> None:
 
 def retrieve_tk_content(args: argparse.Namespace) -> PipelineResult:
     pipeline = TKContentRetrievePipeline(store=GraphStore())
-    return pipeline.run(kinds=args.kind or (), limit=args.limit, dry_run=args.dry_run)
+    return pipeline.run(
+        kinds=args.kind or (),
+        limit=args.limit,
+        dry_run=args.dry_run,
+        until=args.until.date() if args.until else None,
+        minutes=args.minutes,
+    )
 
 
 def retrieve_tk_document_links(args: argparse.Namespace) -> PipelineResult:
@@ -645,6 +669,7 @@ def tk_dossiers_args(parser: argparse.ArgumentParser) -> None:
         metavar="N",
         help="Only this dossier and its documents, whatever the dates.",
     )
+    add_until_argument(parser, help=_TK_UNTIL_HELP + " Not for --mode gaps.")
     add_mode_argument(
         parser,
         (RetrieveMode.WINDOW, RetrieveMode.GAPS, RetrieveMode.UNVOTED),
@@ -664,7 +689,7 @@ def retrieve_tk_dossiers(args: argparse.Namespace) -> PipelineResult:
         numbers = _gaps.tk_dossier_gaps(store)
         return _gaps.noted(pipeline.run_gaps(numbers), numbers)
     if args.mode is RetrieveMode.UNVOTED:
-        return pipeline.run_unvoted(args.decisions_since or args.since)
+        return pipeline.run_unvoted(args.decisions_since or args.since, args.until)
     return pipeline.run(
         since=args.since,
         decisions_since=args.decisions_since,
@@ -674,6 +699,7 @@ def retrieve_tk_dossiers(args: argparse.Namespace) -> PipelineResult:
         skip_decisions=args.skip_decisions,
         skip_documents=args.skip_documents,
         dossier_number=args.dossier_number,
+        until=args.until,
     )
 
 
