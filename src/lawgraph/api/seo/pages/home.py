@@ -1,8 +1,9 @@
-"""The start page (``/``): what Concordans is, a search form and the three ways in, each
-with its example, as the start page of the app draws them (``Entrances.svelte``). Fixed
-text, read of nothing: it is the first paint, without a script or a request. The text is
-``start.json`` of the front end, the one source of both (beside its ``index.html``); the
-text below stands in while that is not there or not whole.
+"""The start page (``/``): what Concordans promises, a search form, three features as
+small pictures and three questions it answers, as the start page of the app draws them
+(``home/`` of the front end). Fixed text, read of nothing: it is the first paint, without
+a script or a request. The text is ``start.json`` of the front end, the one source of
+both (beside its ``index.html``); the text below stands in while that is not there or not
+whole.
 """
 
 from __future__ import annotations
@@ -10,9 +11,8 @@ from __future__ import annotations
 from html import escape
 from typing import Any
 
-from lawgraph.api.seo.pages.base import Page, bullets, link
+from lawgraph.api.seo.pages.base import Page, link
 from lawgraph.config import settings
-from lawgraph.core.votes import REJECTED, VOTE_AGAINST, VOTE_FOR
 
 PUBLISHER = {
     "@type": "Organization",
@@ -20,69 +20,46 @@ PUBLISHER = {
     "email": "concordans@tmve.nl",
 }
 
-# Art. 6:162 BW and the parts of its page (``?bronnen=``, the filter of Verbonden), a
-# motion and its vote, and the shared example bundel (``example-bundle.ts``).
-ARTICLE = "/wetten/BWBR0005289/artikel/6:162"
 START: dict[str, Any] = {
-    "heading": "Het artikel, en de uitspraken en Kamerstukken die ernaar verwijzen.",
-    "placeholder": "Zoek een artikel, uitspraak of motie",
-    "article": {
-        "heading": "Artikel",
-        "title": "Art. 6:162 BW, Onrechtmatige daad",
-        "href": ARTICLE,
-        "parts": [
-            {"label": "Uitspraken die het aanhalen", "bronnen": "uitspraken"},
+    "heading": "Zie hoe wetten, rechtspraak en parlement samenhangen.",
+    "lede": "Zoek een wet, uitspraak, Kamerstuk of dossier en zie wat ermee verbonden is.",
+    "placeholder": "Wet, uitspraak, Kamerstuk, dossier of motie",
+    "features": [
+        {"visual": "zoek", "text": "Eén zoekbalk voor alles"},
+        {"visual": "lees", "text": "Elk artikel met wie het aanhaalt"},
+        {"visual": "volg", "text": "Bewaar en volg wat je vindt"},
+    ],
+    "questions": {
+        "heading": "Begin met een vraag",
+        "items": [
             {
-                "label": "Kamerstukken die het noemen",
-                "bronnen": "toelichtingen,wetsvoorstellen,dossiers",
-            },
-            {"label": "Artikelen die ernaar verwijzen", "bronnen": "artikelen"},
-        ],
-    },
-    "vote": {
-        "heading": "Stemming",
-        "title": "Motie De Hoop en Grinwis over de WOZ-cap niet versoepelen",
-        "href": "/kamerstukken/27926/413",
-        "date": "16 juni 2026, Tweede Kamer",
-        "outcome": REJECTED.capitalize(),
-        "tally": "54 voor, 96 tegen",
-        "sides": [
-            {
-                "choice": VOTE_FOR,
-                "parties": "PRO, PVV, ChristenUnie, DENK, PvdD, SP, 50PLUS, Volt",
-            },
-            {
-                "choice": VOTE_AGAINST,
-                "parties": (
-                    "D66, VVD, CDA, JA21, FVD, Groep Markuszower, BBB, SGP, Lid Keijzer"
+                "title": "Wie haalt dit artikel aan?",
+                "text": (
+                    "Uitspraken, Kamerstukken en andere wetten die naar een artikel "
+                    "verwijzen, met de passage."
                 ),
+                "linkLabel": "Bekijk een artikel, bijvoorbeeld art. 6:162 BW",
+                "href": "/wetten/BWBR0005289/artikel/6:162",
+            },
+            {
+                "title": "Hoe stemde de Kamer?",
+                "text": (
+                    "Per motie en wetsvoorstel: de uitslag, het aantal stemmen en "
+                    "welke fracties voor of tegen waren."
+                ),
+                "linkLabel": "Bekijk de laatste stemmingen",
+                "href": "/stemmingen",
+            },
+            {
+                "title": "Hoe houd ik bij wat ik vind?",
+                "text": (
+                    "Bewaar artikelen, uitspraken en stukken met aantekeningen in een "
+                    "bundel en deel de link."
+                ),
+                "linkLabel": "Begin een bundel",
+                "href": "/bundels",
             },
         ],
-    },
-    "bundle": {
-        "heading": "Bundel",
-        "title": "Aansprakelijkheid werkgever thuiswerk",
-        "href": (
-            "/bundels#m=tZLRS8MwEMb_lSPPnW035jQvsomw4fBhogNFSroebdY0KWnaIWP_u1e66cZUfPElc"
-            "Pm-I78vd1umhSgYZ2Ohq9KKHJVc5xnKBDZo8xQbtOCyWlZtyTwmHRYV469bJhNqE9bJlcLKjzexDYJg"
-            "2L8OosvhFTmFI13JpBdSkRvrOvsFjDgZgBQIYbIksTGqlntZEsGpo7Yp2pYKluhigy1Fag2W1HAuwqQ9"
-            "Rp2nLu_xnWwbdPwIkERtnHQSSXsxNi2VXGXOA2PyLuwN23m_JgzDQ8LzcOEvscL_CfRJu66TtEDtKh9X"
-            "SkZaRZmN-uSKRD0YhINz6ukCCEqbBouYZt16Pbi7nc_4w5xPF7y94OOnffOB85uuU8I_gJSiJfbpj7rN"
-            "0_4Pz-7ejgf2bIVIOTRCOUDUsHic9XIlaIAQy_XXsoLRCaEdrdxkSXP9AA"
-        ),
-        "lines": [
-            {
-                "label": "art. 7:658 lid 1 BW",
-                "href": "/wetten/BWBR0005290/artikel/7:658#lid-1",
-            },
-            {"label": "art. 7:611 BW", "href": "/wetten/BWBR0005290/artikel/7:611"},
-            {
-                "label": "HR 11 november 2005, ECLI:NL:HR:2005:AU3313",
-                "href": "/uitspraken/ECLI:NL:HR:2005:AU3313",
-            },
-        ],
-        "noteLabel": "Aantekening",
-        "note": "Zorgplicht, ook thuis?",
     },
 }
 
@@ -98,52 +75,45 @@ def _search(start: dict[str, Any]) -> str:
     )
 
 
-def _entrance(key: str, part: dict[str, Any], html: str) -> str:
-    title = (
-        f'<a class="title" href="{escape(part["href"])}">{escape(part["title"])}</a>'
-    )
-    return (
-        f'<section class="entrance" aria-labelledby="entrance-{key}">'
-        f'<h2 id="entrance-{key}">{escape(part["heading"])}</h2>{title}{html}</section>'
-    )
+_PICTO = (
+    '<svg class="picto" width="14" height="14" viewBox="0 0 16 16" fill="none" '
+    'stroke="currentColor" stroke-width="1.4" stroke-linecap="round" '
+    'stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M4.5 1.8h7v12.4L8 11.3l-3.5 2.9z"/></svg>'
+)
+
+VISUALS = {
+    "zoek": '<span class="mini-zoek">art. 6:162 BW</span>',
+    "lees": (
+        '<span class="mini-artikel"><span class="mini-tekst"><i></i><i></i><i></i>'
+        '</span><span class="mini-verbonden"><em>Verbonden</em><i></i><i></i></span>'
+        "</span>"
+    ),
+    "volg": f'<span class="btn">Volg</span><span class="btn">{_PICTO}Bewaar</span>',
+}
 
 
-def _entrances(start: dict[str, Any]) -> str:
-    article, vote, bundle = start["article"], start["vote"], start["bundle"]
-    parts = bullets(
-        [
-            link(f"{article['href']}?bronnen={part['bronnen']}", part["label"])
-            for part in article["parts"]
-        ]
+def _features(features: list[dict[str, Any]]) -> str:
+    items = "".join(
+        f'<li><span class="beeld beeld--{escape(feature["visual"])}" aria-hidden="true">'
+        f"{VISUALS[feature['visual']]}</span>"
+        f'<span class="onderschrift">{escape(feature["text"])}</span></li>'
+        for feature in features
     )
-    sides = "".join(
-        f"<dt>{escape(side['choice'])}</dt><dd>{escape(side['parties'])}</dd>"
-        for side in vote["sides"]
-    )
-    tally = (
-        f'<p class="meta">{escape(vote["date"])}</p>'
-        f'<p class="outcome"><span class="uitkomst">{escape(vote["outcome"])}</span> '
-        f"<span>{escape(vote['tally'])}</span></p>"
-        f'<dl class="sides">{sides}</dl>'
-    )
-    note = (
-        f'<li class="note"><span class="note-label">{escape(bundle["noteLabel"])}</span> '
-        f"{escape(bundle['note'])}</li>"
-    )
-    lines = (
-        "<ul>"
-        + "".join(
-            f"<li>{link(line['href'], line['label'])}</li>" for line in bundle["lines"]
-        )
-        + note
-        + "</ul>"
+    return f'<ul class="kenmerken">{items}</ul>'
+
+
+def _questions(questions: dict[str, Any]) -> str:
+    items = "".join(
+        '<section class="vraag">'
+        f"<h3>{escape(item['title'])}</h3><p>{escape(item['text'])}</p>"
+        f"<p>{link(item['href'], item['linkLabel'])}</p></section>"
+        for item in questions["items"]
     )
     return (
-        '<div class="entrances">'
-        + _entrance("article", article, parts)
-        + _entrance("vote", vote, tally)
-        + _entrance("bundle", bundle, lines)
-        + "</div>"
+        '<section class="vragen" aria-labelledby="vragen-kop">'
+        f'<h2 id="vragen-kop">{escape(questions["heading"])}</h2>'
+        f'<div class="vragen__lijst">{items}</div></section>'
     )
 
 
@@ -151,7 +121,11 @@ def _body(start: dict[str, Any]) -> str:
     return (
         '<header class="blad__kop intro">'
         f'<h1 class="blad__titel">{escape(start["heading"])}</h1>'
-        "</header>" + _search(start) + _entrances(start)
+        "</header>"
+        f'<p class="lede">{escape(start["lede"])}</p>'
+        + _search(start)
+        + _features(start["features"])
+        + _questions(start["questions"])
     )
 
 
