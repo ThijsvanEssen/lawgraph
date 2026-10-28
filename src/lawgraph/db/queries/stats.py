@@ -224,15 +224,15 @@ _NEWEST: dict[str, str] = {
 
 
 def cached_data_as_of(store: GraphStore) -> dict[str, Any]:
-    """``get_data_as_of``, read at most once a minute per database (``/api/stats`` and every
-    page of the feed carry it), in the request that finds it older. Kept by age, not by the
-    data version: a retrieve changes ``retrieved_at`` and no table of the graph."""
+    """``get_data_as_of``, read at most once a minute per database (``/api/stats``, the
+    coverage and every page of the feed carry it). Kept by age, not by the data version: a
+    retrieve changes ``retrieved_at`` and no table of the graph. From three quarters of
+    the minute on it is read again in the background while the kept one is served, and
+    the warm-up has it ready: a request that found it older read the newest fetch of every
+    source itself, cold from the disk (it was the part of ``/api/stats/coverage`` that was
+    not kept)."""
     return version_cache.lasting(
-        store,
-        ("data as of",),
-        lambda: get_data_as_of(store),
-        60.0,
-        inline=True,
+        store, ("data as of",), lambda: get_data_as_of(store), 60.0
     )
 
 
