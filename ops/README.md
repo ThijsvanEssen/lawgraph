@@ -39,7 +39,7 @@ A night backfill sources `_night.sh`: `wait_night` waits for 03:00–07:00 Europ
 sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh`, `ek-seats.sh`,
 `member-death-dates.sh` and `papers-light.sh`. One over every judgment goes in slices, each under the lock on its own,
 going on from `out/<script>.after`, and sources `_night.sh` too: `renormalize-judgments.sh`, `relink-judgments.sh`,
-`relink-citations.sh`.
+`relink-citations.sh`. `renormalize-rvs.sh` removes the key of a finished `renormalize-judgments.sh` pass and starts a new one.
 
 A script here is a temporary correction: it does once what a complete rebuild plus the regular nightly and weekly
 runs would do too, and it goes once its run on the server is done.
