@@ -1093,7 +1093,7 @@ fetched by the CELEX numbers that loaded records refer to (`retrieve eurlex --mo
 |------|-----------------------|
 | `incremental` (default) | those of instruments in the graph that are not stored or that CELLAR changed since they were, or `--celex` (repeatable) |
 | `full` | the directives SPARQL lists, without corrigenda; `--type` (repeatable: `directive`, `regulation`, `decision`) chooses other types, at most 10000 per type. Not part of `retrieve all` |
-| `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`), and the old acts the concordance table of a stored act names that the graph does not hold, that were not retrieved. An old act fetched this way may have a table of its own: the next run after `normalize eurlex` fetches its old acts |
+| `gaps` | the acts BWB regulations name (`props.celex_refs`, `implements_celex`), the old acts the concordance table of a stored act names that the graph does not hold, and the core legislation of the curated list `eu-core` (AI Act first; GDPR, DSA, DMA and the like, each with the CELLAR url its number was checked against), that were not retrieved. A core act CELLAR does not hold stays in the report of `lawgraph gaps`; its text is never entered by hand. An old act fetched this way may have a table of its own: the next run after `normalize eurlex` fetches its old acts |
 | `nim` | the acts that have national implementing measures of `--country` (default `NLD`) |
 | `cjeu` | judgments that cite acts in the graph; without acts in the graph, the judgments referred from a court of `--country` |
 | `com` | Commission proposals for acts in the graph |

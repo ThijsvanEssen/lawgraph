@@ -332,7 +332,7 @@ def test_a_law_a_regulation_is_issued_under_is_a_gap_when_it_is_not_loaded(
 
 
 def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
-    database: str, cli: Any
+    database: str, cli: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The CELEX id is an attribute of the link, not text of the article: a scan of the
     article texts found none, and the rebuild ended without one EU act (3,951 named)."""
@@ -346,6 +346,9 @@ def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
     from lawgraph.pipelines.retrieve import _gaps
     from tests.integration.seed import FIXTURES
 
+    monkeypatch.setattr(
+        _gaps, "core_gaps", lambda store: []
+    )  # the seed has its own test
     amvb = (FIXTURES / "bwb_amvb_toestand.xml").read_text()
     link = '<extref doc="32016R0679" reeks="Celex">verordening (EU) 2016/679</extref>'
     amvb = amvb.replace("</toestand>", f"<!-- {link} --></toestand>")
@@ -369,3 +372,9 @@ def test_an_eu_act_a_regulation_names_is_a_gap_until_it_is_retrieved(
 
     store_raw(SOURCE_EURLEX, RAW_KIND_EURLEX_CELEX, "32016R0679", "<html></html>")
     assert _gaps.eurlex_gaps(store) == []
+
+    monkeypatch.undo()
+    core = _gaps.core_gaps(store)
+    assert core[0] == "32024R1689"  # the AI Act: not in the graph
+    assert "32016R0679" not in core  # retrieved above
+    assert _gaps.eurlex_gaps(store) == core

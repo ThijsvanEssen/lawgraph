@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -98,3 +98,27 @@ def test_below_the_cap_nothing_is_said(caplog) -> None:
     with caplog.at_level("WARNING"):
         assert _gaps.Gaps.capped(["a", "b"], "x") == ["a", "b"]
     assert not caplog.messages
+
+
+def test_the_core_legislation_is_a_gap_until_the_graph_holds_or_has_retrieved_it(
+    monkeypatch,
+) -> None:
+    from lawgraph.core.curated import LISTS
+    from lawgraph.db.queries import successions as succession_queries
+
+    seed = list(LISTS["eu-core"].entries())
+    monkeypatch.setattr(
+        succession_queries, "eu_acts", lambda store, ids: {seed[1]: "i1"}
+    )
+    asked: list[str] = []
+
+    def stored(store, documents, kind, **kwargs):
+        asked.extend(d["identifier"] for d in documents)
+        return {seed[2]}
+
+    monkeypatch.setattr(_gaps, "_with_raw_record", stored)
+    gaps = _gaps.core_gaps(cast(Any, None))
+    assert gaps == [c for c in seed if c not in seed[1:3]]
+    assert gaps[0] == "32024R1689"  # the AI Act comes first
+    assert seed[1] not in asked  # a held act is not looked up as a raw record
+    assert set(gaps) <= set(seed)

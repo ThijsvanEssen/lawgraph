@@ -244,6 +244,22 @@ def _instrument_abbreviations(entries: Entries) -> list[str]:
     return found
 
 
+def _eu_core(entries: Entries) -> list[str]:
+    from lawgraph.core.identifiers import parse_celex
+
+    found = []
+    for celex, value in entries.items():
+        value = value or {}
+        if not parse_celex(celex) or celex != celex.upper():
+            found.append(f"{celex}: not a CELEX number in upper case")
+        for field in ("name", "theme", "title"):
+            if not str(value.get(field) or "").strip():
+                found.append(f"{celex}: needs a {field}")
+        if not str(value.get("source") or "").endswith(f"/{celex}"):
+            found.append(f"{celex}: source must be the CELLAR url of this number")
+    return found
+
+
 def _concepts(entries: Entries) -> list[str]:
     from lawgraph.core.concepts import concept_key
     from lawgraph.core.identifiers import is_bwb_id, parse_celex
@@ -463,6 +479,14 @@ LISTS: dict[str, CuratedList] = {
             "to the ECHR, whose articles HUDOC names as P1-1",
             _records("protocols", "protocol"),
             _echr_protocols,
+        ),
+        _list(
+            "eu-core",
+            "eu_kern.json",
+            "CELEX -> {name, theme, title, source}: the EU core legislation the graph holds "
+            "although no Dutch regulation names it",
+            _records("acts", "celex"),
+            _eu_core,
         ),
         _list(
             "decision-kinds",
