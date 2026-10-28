@@ -529,7 +529,8 @@ statutes made by the legislator:
   own BWB id (`Mandaatbesluit DT&V 2020`, `2022`, ...). The BWB names no predecessor, so a
   series is a **heuristic** (`core.instrument_series`): regulations of one `kind` whose
   `citation_title` is the same once its years are taken out (at least two, a year in each),
-  ordered by `date_in_force`. Their articles carry it as `instrument_series_*`. Written by
+  ordered by `date_in_force`; an amending regulation (`Wijziging ...`) and a group whose members
+  carry the same years get none. Their articles carry it as `instrument_series_*`. Written by
   `normalize bwb`; the API answers it on the instrument and on the `instrument` of an
   article.
 - Amending publications (Staatsblad, Tractatenblad, ...) are instruments too, of `kind`

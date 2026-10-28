@@ -50,3 +50,29 @@ def test_regulations_of_one_name_are_a_series_in_order_of_the_day_in_force() -> 
         "bwbr0046339": Series(series_id, 2, 3),
         "bwbr0048317": Series(series_id, 3, 3),
     }  # a regulation with no sibling, or of another kind, is in none
+
+
+def test_an_amending_regulation_and_a_group_the_years_do_not_tell_apart_get_no_series() -> (
+    None
+):
+    found = series_of(
+        [
+            (
+                "w1",
+                "Wijziging Uitvoeringsregeling Invorderingswet 1990 (1993)",
+                "mr",
+                "1993-01-01",
+            ),
+            (
+                "w2",
+                "Wijziging Uitvoeringsregeling Invorderingswet 1990 (1998)",
+                "mr",
+                "1998-01-01",
+            ),
+            ("c1", "Contributieverordening 2013", "pbo", "2013-01-01"),
+            ("c2", "Contributieverordening 2013", "pbo", "2013-01-01"),
+            ("c3", "Contributieverordening 2014", "pbo", "2014-01-01"),
+        ]
+    )
+
+    assert found == {}
