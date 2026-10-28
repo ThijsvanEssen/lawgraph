@@ -242,7 +242,8 @@ def test_the_eu_core_names_each_act_once_with_the_source_it_was_checked_against(
     assert 45 <= len(acts) <= 60
     assert next(iter(acts)) == "32024R1689"
     assert {"32016R0679", "32022R2065", "32022R1925"} <= set(acts)
-    assert all(a["source"].endswith("/" + celex) for celex, a in acts.items())
+    off = [c for c, a in acts.items() if not a["source"].endswith("/" + c)]
+    assert not off, show_items(off)
 
     wrong = command.main(
         ["set", "eu-core", "32024r1689", '{"name": "x", "theme": "y", "title": "z"}']
