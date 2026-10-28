@@ -605,6 +605,11 @@ def test_the_events_of_a_law_say_how_they_are_tied_to_it(
             "article": None,
             "dossier": "36764",
         },
+        f"{COLLECTION_JUDGMENTS}/ecli_nl_rvs_2026_9": {
+            "relation": "refers_to",
+            "article": "1",
+            "dossier": None,
+        },
     }
     judgments = _feed(client, instrument=CBW, kind="uitspraak")
     assert _via(judgments) == {

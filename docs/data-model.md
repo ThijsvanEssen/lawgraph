@@ -1030,7 +1030,9 @@ no role.
 
 `outcome` is how a judgment ended, as the first clause of its decision says it: the paragraphs
 after its last heading "Beslissing", "De beslissing", "Dictum" or "Uitspraak" (also "5.
-Beslissing De Hoge Raad: …" in one paragraph), up to the signature or the next heading. The
+Beslissing De Hoge Raad: …" in one paragraph), up to the signature or the next heading; a
+heading that only names the court right under it ("De Afdeling bestuursrechtspraak van de
+Raad van State") is no end. The
 clause runs from its verb up to the next `;`, line, full stop before a capital, or verb:
 
 | Clause | `outcome` |
@@ -1041,6 +1043,7 @@ clause runs from its verb up to the next `;`, line, full stop before a capital, 
 | `bekrachtigt …` / `bevestigt …` | `bekrachtigd` / `bevestigd` |
 | `verklaart … niet-ontvankelijk` / `… ongegrond` / `… gegrond` | `niet-ontvankelijk` / `ongegrond` / `gegrond` |
 | `wijst het verzoek (de vordering, het gevorderde) af` / `… toe` | `afgewezen` / `toegewezen` |
+| `draagt … op` (an order to repair a defect, a bestuurlijke lus) | `tussenuitspraak` |
 
 Any other first clause (`verklaart bewezen`, `veroordeelt`, `bepaalt bij wijze van voorlopige
 voorziening`, `houdt iedere verdere beslissing aan`) gives none. `outcome_text` is the clause

@@ -35,6 +35,7 @@ from lawgraph.config.constants import (
     COLLECTION_PIPELINE_STATE,
     RELATION_PART_OF,
 )
+from lawgraph.core.logging import get_logger
 from lawgraph.db import GraphStore
 from lawgraph.db._sql import sql_text_list
 from lawgraph.db.schema import (
@@ -43,6 +44,8 @@ from lawgraph.db.schema import (
     SOURCE_STEPS_INDEXES,
     SOURCE_STEPS_TABLE,
 )
+
+logger = get_logger(__name__)
 
 # The collections of the sources a step joins.
 STEP_COLLECTIONS = (COLLECTION_INSTRUMENTS, COLLECTION_ARTICLES)
@@ -58,6 +61,9 @@ _DIGITS = len(str(THROUGH_CAP))
 # How long one statement of the build may run, and the memory of its sorts and hashes.
 BUILD_TIMEOUT = "30min"
 BUILD_WORK_MEM = "256MB"
+
+# How long the read of the new steps into the cache may run.
+WARM_TIMEOUT = "10min"
 
 _NEW = "_new"
 _SOURCES = sql_text_list(STEP_COLLECTIONS)
@@ -154,6 +160,23 @@ def _swap(conn: psycopg.Connection) -> int:
     return steps
 
 
+def _warm(conn: psycopg.Connection) -> None:
+    """Read the steps once, so that the first ``/api/chains`` after the build finds them in
+    the cache: both indexes whole (they hold what a search reads) and then the table. The
+    steps are in place by now: a read that fails or times out costs only the warmth."""
+    try:
+        with conn.transaction():
+            conn.execute(f"SET LOCAL statement_timeout = '{WARM_TIMEOUT}'")
+            conn.execute("SET LOCAL enable_seqscan = off")
+            conn.execute(f"SELECT count(*) FROM {SOURCE_STEPS_TABLE} WHERE a >= ''")
+            conn.execute(f"SELECT count(*) FROM {SOURCE_STEPS_TABLE} WHERE b >= ''")
+            conn.execute("SET LOCAL enable_seqscan = on")
+            conn.execute(f"SELECT count(via) FROM {SOURCE_STEPS_TABLE}")
+            conn.execute(f"SELECT count(*) FROM {SOURCE_STEP_NODES_TABLE}")
+    except psycopg.Error:
+        logger.warning("Reading the steps into the cache failed.", exc_info=True)
+
+
 def build_source_steps(store: GraphStore) -> int:
     """Build the steps between the sources again, whole, and put them in place of the
     ones there; the steps (rows of ``source_steps``)."""
@@ -168,7 +191,9 @@ def build_source_steps(store: GraphStore) -> int:
         finally:
             conn.autocommit = False
         with conn.transaction():
-            return _swap(conn)
+            steps = _swap(conn)
+        _warm(conn)
+        return steps
 
 
 def steps_built(store: GraphStore) -> bool:

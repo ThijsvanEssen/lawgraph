@@ -466,10 +466,10 @@ class JudgmentOutcomeFields(StrictModel):
         description="How it ended, from the first clause of its decision (Beslissing, "
         "Dictum): `verworpen` (verwerpt het beroep), `vernietigd`, `gedeeltelijk "
         "vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, "
-        "`ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`; of the ECHR "
-        "`schending` (a violation found) or `geen schending`. Null for a conclusion, and "
-        "when the decision does not say one of them first (a conviction, an interim "
-        "decision).",
+        "`ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`, `tussenuitspraak` "
+        "(an order to repair a defect, the case is not decided); of the ECHR `schending` "
+        "(a violation found) or `geen schending`. Null for a conclusion, and when the "
+        "decision does not say one of them first (a conviction).",
     )
     outcome_text: str | None = Field(
         None,

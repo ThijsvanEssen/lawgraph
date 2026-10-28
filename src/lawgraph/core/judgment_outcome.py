@@ -16,12 +16,17 @@ first, and so how the case ended there:
   ``niet-ontvankelijk`` → ``gegrond``, ``ongegrond``, ``niet-ontvankelijk`` (``gegrond``
   with a vernietiging and a verwijzing → ``vernietigd en verwezen``);
 - ``wijst het verzoek (de vordering, het gevorderde) af`` → ``afgewezen``, ``… toe`` →
-  ``toegewezen``.
+  ``toegewezen``;
+- ``draagt het bestuursorgaan op …`` (an order to repair a defect, a bestuurlijke lus) →
+  ``tussenuitspraak``: the case is not decided yet.
+
+A heading that only names the court under the heading of the decision ("De Afdeling
+bestuursrechtspraak van de Raad van State") is not its end.
 
 A first clause that is none of these (``verklaart bewezen``, ``veroordeelt``, ``bepaalt``)
-gives no outcome: a conviction, an order to pay or an interim decision is told by its
-sentence, not by a word. Of 13,249 judgments and decisions on the small database 76% have
-one; of 1,197 conclusions 82% say what they propose.
+gives no outcome: a conviction or an order to pay is told by its sentence, not by a word. Of 13,816
+judgments and decisions on the small database 80% have one; of 1,197 conclusions 82% say
+what they propose.
 
 **What a conclusion proposes** (its strekking) stands at its end: "De conclusie strekt tot
 verwerping van het beroep", "Ik geef de Hoge Raad in overweging het beroep in cassatie
@@ -58,6 +63,7 @@ JudgmentOutcome = Literal[
     "niet-ontvankelijk",
     "afgewezen",
     "toegewezen",
+    "tussenuitspraak",
     EchrFinding,
 ]
 REJECTED: Final[JudgmentOutcome] = "verworpen"
@@ -71,6 +77,7 @@ UNFOUNDED: Final[JudgmentOutcome] = "ongegrond"
 INADMISSIBLE: Final[JudgmentOutcome] = "niet-ontvankelijk"
 DISMISSED: Final[JudgmentOutcome] = "afgewezen"
 GRANTED: Final[JudgmentOutcome] = "toegewezen"
+INTERIM: Final[JudgmentOutcome] = "tussenuitspraak"
 
 # What a conclusion proposes.
 ConclusionOutcome = Literal[
@@ -104,6 +111,14 @@ _DECISION_HEADING = re.compile(
 # print it ("5. Beslissing De Hoge Raad: verwerpt het beroep").
 _INLINE_HEADING = re.compile(
     r"^(?:\d{1,2}\.?\s+)?(?i:de\s+)?(?i:beslissing|dictum)\s*:?\s+(?=[A-Z(\[-])"
+)
+# The court that speaks, printed as a heading right under the heading of the decision ("De
+# Afdeling bestuursrechtspraak van de Raad van State"): no end of the decision.
+_COURT_HEADING = re.compile(
+    r"^(?:de|het)\s+(?:(?:voorzieningenrechter|voorzitter)\s+van\s+(?:de|het)\s+)?"
+    r"(?:afdeling|hoge\s+raad|raad|rechtbank|centrale\s+raad|college|(?:gerechts)?hof|"
+    r"kantonrechter|president|voorzieningenrechter)\b",
+    re.IGNORECASE,
 )
 # Where the decision ends: its signature.
 _SIGNATURE = re.compile(
@@ -163,6 +178,9 @@ _CLAUSES: tuple[tuple[re.Pattern[str], str], ...] = (
         DISMISSED,
     ),
     (re.compile(rf"^wijst\s+(?:\S+\s+){{0,12}}?{_CLAIM}.*\btoe\b", re.I), GRANTED),
+    # an order to a body to repair a defect (bestuurlijke lus) leaves the case open; not the
+    # one to the registry to tell the parties something
+    (re.compile(r"^draagt\s+(?!de\s+griffi)(?:\S+\s+){0,12}?op\b", re.I), INTERIM),
 )
 
 # The sentence that says what a conclusion proposes.
@@ -224,7 +242,11 @@ def _decision(
     found: list[Mapping[str, Any]] = [inline] if inline else []
     for paragraph in paragraphs[start + 1 : start + 1 + _DECISION_PARAGRAPHS]:
         text = _text(paragraph)
-        if paragraph.get("kind") == ParagraphKind.HEADING or _SIGNATURE.match(text):
+        if paragraph.get("kind") == ParagraphKind.HEADING:
+            if found or not _COURT_HEADING.match(text):
+                break
+            continue
+        if _SIGNATURE.match(text):
             break
         found.append(paragraph)
     return found
