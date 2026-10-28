@@ -224,8 +224,9 @@ def list_instruments(
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(
         items=items,
-        total=int(data.get("total", 0)),
+        total=data.get("total"),
         facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
+        partial=bool(data.get("partial")),
     )
 
 

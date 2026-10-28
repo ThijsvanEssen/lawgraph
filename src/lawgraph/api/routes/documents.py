@@ -134,6 +134,7 @@ def list_chamber_documents(
     names = load_dossier_names(store)
     return DocumentListResponse(
         total=raw.get("total"),
+        partial=bool(raw.get("partial")),
         items=[
             DocumentListItemDTO.from_row(row, names) for row in raw.get("items") or []
         ],

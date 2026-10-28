@@ -32,7 +32,7 @@ from lawgraph.core.dossier_relations import RULE_REPLACEMENT
 from lawgraph.core.letter_kinds import ARTICLE_100, LetterKind
 from lawgraph.core.models import key_of, make_node_key
 from lawgraph.db import GraphStore, raw_key
-from lawgraph.db.queries._helpers import chamber_sql
+from lawgraph.db.queries._helpers import chamber_sql, page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import EMPTY_ARRAY, first_present, truthy_or
 from lawgraph.db.queries._lists import FacetFilters, facet, where, without_page
 from lawgraph.db.queries.articles import explained_targets, surest_per_anchor
@@ -265,34 +265,40 @@ def list_documents(
         ) d
         LEFT JOIN lg_document_light l ON l.id = d.id
     )"""
-    page = list(store.query(f"SELECT {items} AS items", bind))[0]
+
+    def read_page() -> Any:
+        return list(store.query(f"SELECT {items} AS items", bind))[0]
+
     if not facets:
-        return {"items": page, "total": None, "facets": None}
-    # The counts are the same on every page and for every visitor: kept per data version
-    # under the filters alone (on the full graph they read 650,000 documents).
-    counted = without_page(bind)
-    facet_filters = FacetFilters(own=own)
-    row = cached_rows(
-        store,
-        f"""
-        WITH base AS (
-            SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
-            FROM {COLLECTION_DOCUMENTS} d
-            {where(shared)}
-        )
-        SELECT
-            (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
-            {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
-            {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
-        """,
-        counted,
-        tables=(COLLECTION_DOCUMENTS,),
-    )[0]
-    return {
-        "items": page,
-        "total": row["total"],
-        "facets": {"kind": row["kind"], "chamber": row["chamber"]},
-    }
+        return {"items": read_page(), "total": None, "facets": None}
+
+    def counts() -> dict[str, Any]:
+        # The counts are the same on every page and for every visitor: kept per data
+        # version under the filters alone (on the full graph they read 650,000 documents).
+        facet_filters = FacetFilters(own=own)
+        row = cached_rows(
+            store,
+            f"""
+            WITH base AS (
+                SELECT d.kind, d.labels, {_CHAMBER_OF} AS chamber
+                FROM {COLLECTION_DOCUMENTS} d
+                {where(shared)}
+            )
+            SELECT
+                (SELECT count(*)::int FROM base d {facet_filters.where()}) AS total,
+                {facet("d.kind", "base d", facet_filters.where("kind"))} AS kind,
+                {facet("d.chamber", "base d", facet_filters.where("chamber"))} AS chamber
+            """,
+            without_page(bind),
+            tables=(COLLECTION_DOCUMENTS,),
+        )[0]
+        return {
+            "total": row["total"],
+            "facets": {"kind": row["kind"], "chamber": row["chamber"]},
+        }
+
+    page, counted = page_with_counts(read_page, counts, "The counts of the documents")
+    return with_counts(page, counted, {"kind": [], "chamber": []})
 
 
 # The documents an amended amendment or motion replaces, and those that replace it: ``REVISES``

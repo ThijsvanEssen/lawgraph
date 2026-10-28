@@ -31,7 +31,7 @@ from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
 from lawgraph.db.queries import proposals
-from lawgraph.db.queries._helpers import run_together
+from lawgraph.db.queries._helpers import page_with_counts, run_together, with_counts
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries._lists import (
     FacetFilters,
@@ -1236,59 +1236,78 @@ def get_instruments_list(
     # under the filters alone.
     counted = without_page(params)
 
-    def rows() -> list[Any]:
-        return list(store.query(page, params))
+    def listed_page() -> list[dict[str, Any]]:
+        return _listed(store, page, params)
 
-    # The total is the same for every page and visitor: kept per data version under the
-    # filters (every instrument tested for a SAME_AS edge: 2.7 s on prod, 10 Oct, when it
-    # was read per request), and warmed with the facets.
-    total_sql = f"SELECT count(*)::int AS total FROM {matched}"
-
-    # each facet without its own filter; the kinds over the list without a kind (every
-    # instrument but the publications)
-    counts = [
-        lambda sql=sql: cached_rows(
-            store, sql, counted, tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES)
+    if not facets:
+        listed, count = run_together(
+            listed_page, lambda: _instrument_total(store, matched, counted)
         )
-        for sql in (
-            _legal_area_facet(filters.where("legal_area")),
-            _policy_domain_facet(filters.where("policy_domain")),
-            facet_rows(
-                "kind",
-                "instruments",
-                where([*filters.clauses("kind"), regulations]),
-            ),
-            facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
-            facet_rows(
-                f"CASE WHEN {_EXPIRED} THEN 'expired' ELSE 'in_force' END",
-                "instruments",
-                filters.where("validity"),
-            ),
-        )
-        if facets
-    ]
-    answers = run_together(
-        rows,
-        lambda: cached_rows(
-            store,
-            total_sql,
-            counted,
-            tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
-        ),
-        *counts,
+        return {"total": count, "items": listed, "facets": None}
+    on_page, counts = page_with_counts(
+        listed_page,
+        lambda: _instrument_counts(store, filters, matched, regulations, counted),
+        "The counts of the instruments",
     )
-    items = list(answers[0])
-    total = int(answers[1][0]) if answers[1] else 0  # one column: its value
-    listed = [_list_item(row) for row in items]
+    return with_counts(on_page, counts)
+
+
+def _listed(
+    store: GraphStore, page: str, params: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """The items of one page of the list (*page*, its SQL) with the date of the next
+    version of each law."""
+    listed = [_list_item(row) for row in store.query(page, params)]
     coming = _next_versions(store, [i["bwb_id"] for i in listed if i["bwb_id"]])
     for item in listed:
         item["next_version_from"] = coming.get(item["bwb_id"] or "")
-    if not facets:
-        return {"total": total, "items": listed, "facets": None}
-    areas, domains, kinds, amendings, validities = answers[2:]
+    return listed
+
+
+def _kept(store: GraphStore, sql: Any, counted: dict[str, Any]) -> list[Any]:
+    """The rows of a count, kept per data version under the filters (*counted*)."""
+    return cached_rows(
+        store, sql, counted, tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES)
+    )
+
+
+def _instrument_total(store: GraphStore, matched: str, counted: dict[str, Any]) -> int:
+    """How many instruments the filters let through. The same for every page and visitor:
+    kept per data version (every instrument tested for a SAME_AS edge: 2.7 s on prod,
+    10 Oct, when it was read per request), and warmed with the facets."""
+    rows = _kept(store, f"SELECT count(*)::int AS total FROM {matched}", counted)
+    return int(rows[0]) if rows else 0  # one column: its value
+
+
+def _instrument_counts(
+    store: GraphStore,
+    filters: FacetFilters,
+    matched: str,
+    regulations: str,
+    counted: dict[str, Any],
+) -> dict[str, Any]:
+    """``total`` and ``facets`` of the list: each facet without its own filter, the kinds
+    over the list without a kind (every instrument but the publications)."""
+    statements = (
+        _legal_area_facet(filters.where("legal_area")),
+        _policy_domain_facet(filters.where("policy_domain")),
+        facet_rows(
+            "kind", "instruments", where([*filters.clauses("kind"), regulations])
+        ),
+        facet_rows(f"{_AMENDING}::text", "instruments", filters.where("amending")),
+        facet_rows(
+            f"CASE WHEN {_EXPIRED} THEN 'expired' ELSE 'in_force' END",
+            "instruments",
+            filters.where("validity"),
+        ),
+    )
+    answers: list[Any] = run_together(
+        lambda: _instrument_total(store, matched, counted),
+        *(lambda sql=sql: _kept(store, sql, counted) for sql in statements),
+    )
+    total, areas, domains, kinds, amendings, validities = answers
     return {
         "total": total,
-        "items": listed,
         "facets": {
             "legal_area": _legal_area_tree(areas),
             "policy_domain": [dict(row) for row in domains],

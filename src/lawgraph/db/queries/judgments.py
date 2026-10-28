@@ -18,7 +18,12 @@ from lawgraph.core.ecli import ECLI_EU_PREFIX, is_ecli
 from lawgraph.core.models import judgment_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.queries._helpers import _load_judgment, run_together
+from lawgraph.db.queries._helpers import (
+    _load_judgment,
+    page_with_counts,
+    run_together,
+    with_counts,
+)
 from lawgraph.db.queries._json_sql import is_absent
 from lawgraph.db.queries._lists import FacetFilters, facet_rows, without_page
 from lawgraph.db.queries.judgment_sql import slim_judgment
@@ -517,20 +522,19 @@ def get_judgments_list(
             items, lambda: _total(store, filtered, chosen.where(), params)
         )
         return {"total": total, "items": page, "facets": None}
-    answers: list[Any] = run_together(
-        items,
-        *(facet(name) for name in _FACETS),
-        narrower,
-        lambda: _total(store, filtered, chosen.where(), params),
-    )
-    counted = dict(zip(_FACETS, answers[1:-2], strict=True))
-    counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
-    result: dict[str, Any] = {
-        "total": answers[-1],
-        "items": answers[0],
-        "facets": counted,
-    }
-    return result
+
+    def counts() -> dict[str, Any]:
+        answers: list[Any] = run_together(
+            *(facet(name) for name in _FACETS),
+            narrower,
+            lambda: _total(store, filtered, chosen.where(), params),
+        )
+        counted = dict(zip(_FACETS, answers[:-2], strict=True))
+        counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
+        return {"total": answers[-1], "facets": counted}
+
+    shown, counted = page_with_counts(items, counts, "The counts of the judgments")
+    return with_counts(shown, counted)
 
 
 # The most hits of a search that are found first and then sorted (``_page``). Past them

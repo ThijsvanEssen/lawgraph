@@ -27,6 +27,7 @@ from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_ID,
     OFFICIAL_URL,
+    PARTIAL_COUNTS,
     VALID_UNTIL,
     ArticleCitationSpan,
     DefinitionDTO,
@@ -923,9 +924,12 @@ class InstrumentListResponse(StrictModel):
     """Paginated list envelope for instruments."""
 
     items: list[InstrumentListItemDTO]
-    total: int
+    total: int | None = Field(
+        ..., description="Matching instruments; null while ``partial``."
+    )
     # null when asked for without them (``facets=false``)
     facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)
+    partial: bool = Field(False, description=PARTIAL_COUNTS)
 
 
 class InstrumentVersionDTO(StrictModel):
