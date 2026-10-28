@@ -239,7 +239,7 @@ def test_the_dossiers_in_flux_are_the_dossiers_of_the_open_changes(
     counts = overlay.get_in_flux_counts(store)
     assert counts == {"articles/a": 3, "articles/b": 1}
     assert {node: entry["count"] for node, entry in found.items()} == counts
-    x = {"id": "dossiers/36000", "number": "36000", "title": "Wet x"}
+    x: dict[str, object] = {"id": "dossiers/36000", "number": "36000", "title": "Wet x"}
     x |= {"bill_id": "documents/b1", "closed_known": True}
     assert found["articles/a"]["dossiers"] == [
         {**x, "count": 2},
