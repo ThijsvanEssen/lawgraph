@@ -1,5 +1,5 @@
 {
- "document": "916654714408d459",
+ "document": "f26372d9cce076af",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2007:BB0782",
@@ -456,9 +456,9 @@
   "tier": "raad_van_state",
   "court_kind": "raad_van_state",
   "decision_kind": "uitspraak",
-  "outcome": null,
-  "outcome_text": null,
-  "outcome_paragraph_id": null,
+  "outcome": "ongegrond",
+  "outcome_text": "verklaart het beroep ongegrond",
+  "outcome_paragraph_id": "p-d342e126",
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
