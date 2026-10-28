@@ -477,6 +477,7 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
             *(("get_article_cited_by", p["sort"], p["limit"])
               for p in first["article_citations"]),
             ("get_citing_judgments", None, first["law_judgments"]),
+            ("get_citing_judgments", "citation_count", first["law_judgments"]),
             ("get_instruments_list", None, lists["instruments"]),
             ("get_instruments_list", names["sort"], names["limit"]),
             ("get_instruments_list", None, 1),  # the facets of Bladeren

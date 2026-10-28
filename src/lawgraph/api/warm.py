@@ -2,7 +2,8 @@
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search, the pages of the newest cabinets, the dossiers of the active
-factions and the first page of the judgments of the largest areas of law. Off with
+factions, the first page of the judgments of the largest areas of law, the pages of the
+most cited laws (judgments, related laws, EU links) and the dossiers of the homepage. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
@@ -15,7 +16,12 @@ from functools import partial
 from typing import Any
 
 from lawgraph.api.list_totals import list_totals
+from lawgraph.api.routes.dossiers import get_dossier
 from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
+from lawgraph.api.routes.instruments import (
+    get_instrument_eu_links,
+    get_instrument_related_route,
+)
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
@@ -137,15 +143,57 @@ def _warm_subject_areas(store: GraphStore) -> None:
             )
 
 
-# The laws with the most citations whose citing judgments are warmed: the first page as
-# the front end asks it (``law_judgments``, the newest first) with the years. The Awb and
-# Sr are hundreds of thousands of judgments each.
+# The laws with the most citations whose pages are warmed. The Awb and Sr are hundreds of
+# thousands of judgments each.
 WARM_LAWS = 15
 
 
 def _warm_law_judgments(store: GraphStore) -> None:
+    """The judgments citing each law: the first page as the front end asks it
+    (``law_judgments``, the newest first), the next page and the first of the most cited.
+    The first reading counts the law once (``get_citing_judgments``), the rest reads a
+    page: 24 to 27 s cold for each on prod (28 Oct)."""
+    limit = FIRST_PAGES["law_judgments"]
     for bwb_id in most_cited_laws(store, WARM_LAWS):
-        get_citing_judgments(store, bwb_id, limit=FIRST_PAGES["law_judgments"])
+        get_citing_judgments(store, bwb_id, limit=limit)
+        get_citing_judgments(store, bwb_id, limit=limit, offset=limit)
+        get_citing_judgments(store, bwb_id, sort="citation_count", limit=limit)
+
+
+# What Verbonden of a law asks besides its judgments (``RELATED_SHOWN`` and ``EU_LINKS_SHOWN``
+# of the explorer): the laws that refer to it (9 s cold for the Awb, 28 Oct) and its European
+# and international links, the most important first (4.4 s).
+RELATED_SHOWN = 50
+EU_LINKS_SHOWN = 50
+# How long the links of the laws are read at most (seconds), the most cited first.
+LAW_LINKS_FOR = 300.0
+
+
+def _warm_law_links(store: GraphStore) -> None:
+    ends = time.monotonic() + LAW_LINKS_FOR
+    for bwb_id in most_cited_laws(store, WARM_LAWS):
+        if time.monotonic() >= ends:
+            logger.info("Warm-up of the links of laws stopped at %s: its time.", bwb_id)
+            return
+        get_instrument_related_route(bwb_id, store, RELATED_SHOWN)
+        get_instrument_eu_links(bwb_id, store, EU_LINKS_SHOWN, "importance")
+
+
+# The dossiers of the homepage (those of the events of its summary, the newest day first)
+# whose page is warmed (1 to 2.5 s cold on prod, 28 Oct).
+WARM_DOSSIERS = 8
+
+
+def _warm_dossiers(store: GraphStore) -> None:
+    summary = get_feed_summary(store, _home_filters(), limit=HOME_SUMMARY["limit"])
+    numbers = dict.fromkeys(
+        dossier["number"]
+        for day in summary.get("days") or []
+        for dossier in day.get("dossiers") or []
+        if dossier.get("number")
+    )
+    for number in list(numbers)[:WARM_DOSSIERS]:
+        get_dossier(number, store)
 
 
 def _warm_articles(store: GraphStore) -> None:
@@ -200,12 +248,15 @@ def _warm_chains(store: GraphStore) -> None:
 HOME_SUMMARY = FIRST_PAGES["home_summary"]
 
 
-def _warm_home_summary(store: GraphStore) -> None:
+def _home_filters() -> FeedFilters:
     last = dutch_today()
     first = last - dt.timedelta(days=HOME_SUMMARY["days"] - 1)
-    filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
-    get_feed_summary(store, filters, limit=HOME_SUMMARY["limit"])
-    get_chamber_schedule(store, last.isoformat())
+    return FeedFilters(since=first.isoformat(), until=last.isoformat())
+
+
+def _warm_home_summary(store: GraphStore) -> None:
+    get_feed_summary(store, _home_filters(), limit=HOME_SUMMARY["limit"])
+    get_chamber_schedule(store, dutch_today().isoformat())
 
 
 def _warm_delegated(store: GraphStore) -> None:
@@ -334,6 +385,8 @@ PARTS: tuple[Part, ...] = (
 TAIL: tuple[Part, ...] = (
     Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
+    Part("links of laws", _warm_law_links),
+    Part("dossiers of the homepage", _warm_dossiers),
     Part("regulations under a law", _warm_delegated, DELEGATED_TABLES),
 )
 # The version of its tables each of the parts with tables was last warmed for, per
