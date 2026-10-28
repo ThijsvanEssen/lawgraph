@@ -370,7 +370,9 @@ def list_dossier_documents(
     summary="Dossier timeline",
     description=(
         "Documents, activities, decisions and commitments in date order, "
-        "newest first by default. Filter with ``?kind=motie,amendement``."
+        "newest first by default. Filter with ``?kind=motie,amendement``. "
+        "``limit`` and ``offset`` page them; ``total`` is the absolute count "
+        "under the filters."
     ),
     tags=["dossiers"],
 )
@@ -386,19 +388,23 @@ def get_timeline(
         Query(description="False leaves out the activities with status ``Gepland``."),
     ] = True,
     limit: ListLimit = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DossierTimelineResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
-    rows = get_dossier_timeline(
+    raw = get_dossier_timeline(
         store,
         dossier["id"],
         order=order,
         kind_filter=[k.strip() for k in kind.split(",")] if kind else None,
         include_planned=include_planned,
         limit=limit,
+        offset=offset,
     )
-    entries = [timeline_entry(row) for row in rows]
     return DossierTimelineResponse(
-        number=number, total=len(entries), order=order, entries=entries
+        number=number,
+        total=int(raw.get("total") or 0),
+        order=order,
+        entries=[timeline_entry(row) for row in raw.get("items") or []],
     )
 
 

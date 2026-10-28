@@ -54,7 +54,7 @@ def test_an_activity_led_by_two_committees_names_the_first(store: GraphStore) ->
 
     activity = get_activity(store, "a1")
     assert activity is not None and activity["committee"] == first
-    (entry,) = get_dossier_timeline(store, "dossiers/d1")
+    (entry,) = get_dossier_timeline(store, "dossiers/d1")["items"]
     assert entry["committee"] == first
     upcoming = get_next_activity(store, "dossiers/d1", "2026-10-14")
     assert upcoming is not None and upcoming["committee"] == first

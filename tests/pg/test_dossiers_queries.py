@@ -364,7 +364,7 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
 ) -> None:
     _build(store)
 
-    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=50)
+    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=50)["items"]
     entries = {row["node_id"].split("/")[1]: timeline_entry(row) for row in rows}
     # the motion is PART_OF a case only: it is on the timeline as the document of its decision
     assert list(entries) == [
@@ -450,13 +450,13 @@ def test_the_timeline_carries_slim_bodies_and_the_committee_of_an_activity(
 def test_only_an_activity_entry_has_a_committee(store: GraphStore) -> None:
     _build(store)
 
-    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=2)
+    rows = get_dossier_timeline(store, DOSSIER, order="asc", limit=2)["items"]
     assert [row["node_type"] for row in rows] == ["document"] * 2
     failing = [row for row in rows if row["committee"] is not None]
     assert not failing, show_items(failing)
     kind_filtered = get_dossier_timeline(
         store, DOSSIER, kind_filter=["commissiedebat"], limit=10
-    )
+    )["items"]
     assert [row["committee"]["slug"] for row in kind_filtered] == ["ienw"]
 
 
@@ -1303,11 +1303,13 @@ def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
 ) -> None:
     _timeline_graph(store)
 
-    newest = get_dossier_timeline(store, TIMELINE)
-    oldest = get_dossier_timeline(store, TIMELINE, order="asc")
-    unplanned = get_dossier_timeline(store, TIMELINE, include_planned=False)
-    two = get_dossier_timeline(store, TIMELINE, order="asc", limit=2)
-    kinds = get_dossier_timeline(store, TIMELINE, kind_filter=["BRIEF", "document"])
+    newest = get_dossier_timeline(store, TIMELINE)["items"]
+    oldest = get_dossier_timeline(store, TIMELINE, order="asc")["items"]
+    unplanned = get_dossier_timeline(store, TIMELINE, include_planned=False)["items"]
+    two = get_dossier_timeline(store, TIMELINE, order="asc", limit=2)["items"]
+    kinds = get_dossier_timeline(store, TIMELINE, kind_filter=["BRIEF", "document"])[
+        "items"
+    ]
 
     ids = [row["node_id"].split("/")[1] for row in newest]
     assert ids == ["promise", "planned", "vote", "d_b", "d_a"]
@@ -1339,10 +1341,30 @@ def test_the_timeline_sorts_by_date_then_id_and_drops_rows_without_a_date(
     assert set(by_id["promise"]["body"]) == {"minister_name", "status", "text"}
 
 
+def test_the_timeline_pages_by_offset_and_counts_every_entry_under_its_filters(
+    store: GraphStore,
+) -> None:
+    _timeline_graph(store)
+
+    def page(**kwargs: Any) -> tuple[int, list[str]]:
+        timeline = get_dossier_timeline(store, TIMELINE, **kwargs)
+        return timeline["total"], [
+            row["node_id"].split("/")[1] for row in timeline["items"]
+        ]
+
+    assert page(limit=2) == (5, ["promise", "planned"])
+    assert page(limit=2, offset=2) == (5, ["vote", "d_b"])
+    assert page(limit=2, offset=4) == (5, ["d_a"])
+    assert page(limit=2, offset=5) == (5, [])
+    assert page(order="asc", limit=1, offset=1) == (5, ["d_b"])
+    assert page(include_planned=False, limit=1) == (4, ["promise"])
+    assert page(kind_filter=["brief"], limit=1) == (1, ["d_a"])
+
+
 def test_a_timeline_row_has_its_keys(store: GraphStore) -> None:
     _timeline_graph(store)
 
-    (row,) = get_dossier_timeline(store, TIMELINE, limit=1)
+    (row,) = get_dossier_timeline(store, TIMELINE, limit=1)["items"]
 
     assert sorted(row) == [
         "after_closure",
@@ -1367,7 +1389,7 @@ def test_an_empty_dossier_has_an_empty_timeline_and_no_documents(
     _write(store, {COLLECTION_DOSSIERS: [_doc("40001", "dossier")]})
     dossier = f"{COLLECTION_DOSSIERS}/40001"
 
-    assert get_dossier_timeline(store, dossier) == []
+    assert get_dossier_timeline(store, dossier) == {"total": 0, "items": []}
     assert get_dossier_documents(store, dossier) == {"total": 0, "items": []}
     assert count_dossier_members(store, dossier) == {
         "documents": 0,
