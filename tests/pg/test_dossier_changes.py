@@ -171,7 +171,8 @@ def _brief(laws: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
 
 def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
     _seed(store)
-    laws = get_dossier_changed_articles(store, DOSSIER)
+    laws, truncated = get_dossier_changed_articles(store, DOSSIER)
+    assert not truncated
     # the laws by title, one not in the graph last; in a law the order of its articles,
     # then enacted before proposed
     assert _brief(laws) == [
@@ -219,7 +220,7 @@ def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
         "bwbr0003_5": 0,
     }
     assert laws[0]["changes"][1]["effective_date"] is None
-    assert get_dossier_changed_articles(store, "dossiers/none") == []
+    assert get_dossier_changed_articles(store, "dossiers/none") == ([], False)
 
 
 def test_the_route(store: GraphStore) -> None:
@@ -243,3 +244,14 @@ def test_the_route(store: GraphStore) -> None:
         (None, 1),
     ]
     assert_status(missing, 404)
+
+
+def test_the_changes_stop_at_the_limit_and_say_so(store: GraphStore) -> None:
+    _seed(store)
+    all_laws, _ = get_dossier_changed_articles(store, DOSSIER)
+    total = sum(len(law["changes"]) for law in all_laws)
+
+    laws, truncated = get_dossier_changed_articles(store, DOSSIER, limit=total - 1)
+    assert truncated
+    assert sum(len(law["changes"]) for law in laws) == total - 1
+    assert get_dossier_changed_articles(store, DOSSIER, limit=total)[1] is False

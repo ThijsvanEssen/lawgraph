@@ -78,13 +78,19 @@ LEFT JOIN {node_of("c.source_id", "split_part(c.source_id, '/', 1)")} s ON true
 ORDER BY i.citation_title NULLS LAST, a.bwb_id NULLS LAST,
          a.position IS NULL, a.position NULLS FIRST, a.key, c.article_id,
          c.stage NULLS LAST, c.relation NULLS LAST, c.source_id
+LIMIT %(max_rows)s
 """
+
+# The most changes the answer holds (the Omgevingswet changes thousands of articles); the
+# rest is left out, ``truncated``.
+CHANGES_MAX = 5000
 
 
 def get_dossier_changed_articles(
-    store: GraphStore, dossier_id: str
-) -> list[dict[str, Any]]:
-    """The changes of the dossier per law: ``[{law, changes}]``, the laws by title, the
+    store: GraphStore, dossier_id: str, *, limit: int = CHANGES_MAX
+) -> tuple[list[dict[str, Any]], bool]:
+    """The changes of the dossier per law, at most *limit* in all, and whether more were
+    left out: ``([{law, changes}], truncated)``, the laws by title, the
     changes in the order of the law (a law that is not in the graph last, by id). Each
     change: ``{article, relation, stage, source, effective_date}``, the relation in lower
     case (``amends``), as the dossier hub names it."""
@@ -97,10 +103,13 @@ def get_dossier_changed_articles(
             "members": [RELATION_PART_OF, RELATION_ABOUT],
             "proposed": EDGE_STATUS_VOORGESTELD,
             "refers_to": RELATION_REFERS_TO,
+            "max_rows": limit + 1,
         },
     )
     laws: dict[str, dict[str, Any]] = {}
-    for row in rows:
+    for count, row in enumerate(rows):
+        if count == limit:
+            return list(laws.values()), True
         law_key = row["bwb_id"] or row["celex"] or ""
         law = laws.setdefault(
             law_key,
@@ -115,7 +124,7 @@ def get_dossier_changed_articles(
             },
         )
         law["changes"].append(_change(row))
-    return list(laws.values())
+    return list(laws.values()), False
 
 
 def _change(row: dict[str, Any]) -> dict[str, Any]:
