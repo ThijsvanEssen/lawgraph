@@ -15548,6 +15548,14 @@
             "title": "Inbound Citation Count",
             "description": "The judgments that cite it, or another publication of the same decision, each once (as in `/api/judgments`): a standard judgment has many."
           },
+          "subject_areas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Subject Areas",
+            "description": "The main areas of law of the judgment (`Strafrecht`, `Civiel recht`, `Bestuursrecht`), each once, as `subject_areas` of `/api/judgments/{ecli}`; empty when the source gives none."
+          },
           "path": {
             "anyOf": [
               {
@@ -15580,6 +15588,7 @@
           "date",
           "display_name",
           "inbound_citation_count",
+          "subject_areas",
           "path"
         ],
         "title": "CitedByJudgment",

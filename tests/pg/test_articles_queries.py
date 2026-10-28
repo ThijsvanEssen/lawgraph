@@ -1175,6 +1175,7 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
                 "court_kind": "x",
                 "date_eff": "2021-01-01",
                 "inbound_citation_count": None,
+                "subjects": ["Strafrecht", "Civiel recht"],
                 # how it ended, from its light row (none here)
                 "outcome": None,
                 "outcome_text": None,
@@ -1194,6 +1195,7 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
         "court_kind",
         "date_eff",
         "inbound_citation_count",
+        "subjects",
         "outcome",
         "outcome_text",
         "conclusion_outcome",

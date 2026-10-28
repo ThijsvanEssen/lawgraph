@@ -27,14 +27,17 @@ NO_VIOLATION = (
 )
 
 
-def _xml(ecli: str, court: str, document: str, body: str) -> str:
+def _xml(
+    ecli: str, court: str, document: str, body: str, subject: str | None = None
+) -> str:
     return (
         '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
         'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
         f"<dcterms:identifier>{ecli}</dcterms:identifier>"
         f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>2020-03-01"
         f"</dcterms:date><dcterms:type>{document}</dcterms:type>"
-        "</rdf:Description></rdf:RDF>"
+        + (f"<dcterms:subject>{subject}</dcterms:subject>" if subject else "")
+        + "</rdf:Description></rdf:RDF>"
         f"{body}</open>"
     )
 
@@ -49,6 +52,7 @@ JUDGMENTS = {
         "</section><section><title><nr>2</nr>Beslissing</title>"
         "<para>De Hoge Raad:</para><para>- verwerpt het beroep;</para>"
         "<para>Dit arrest is gewezen door de vicepresident.</para></section></uitspraak>",
+        "Strafrecht; Materieel strafrecht",
     ),
     CONCLUSION: _xml(
         CONCLUSION,
@@ -148,6 +152,12 @@ EXPECTED: dict[str, tuple[str | None, str | None, list[str]]] = {
 def test_the_lists_of_citing_judgments_say_it_light(api: Api) -> None:
     passages = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by")["items"]
     assert _outcomes([p["judgment"] for p in passages]) == EXPECTED
+    assert {
+        p["judgment"]["ecli"]: p["judgment"]["subject_areas"] for p in passages
+    } == {
+        RULING: ["Strafrecht"],
+        CONCLUSION: [],
+    }
     judgments = api.get_json(f"/api/instruments/{GRONDWET}/judgments")["items"]
     assert _outcomes(judgments) == {**EXPECTED, ECHR: ("geen schending", None, [
         "geen schending"])}  # fmt: skip
