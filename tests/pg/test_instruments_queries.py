@@ -916,7 +916,7 @@ def _seed_list(store: GraphStore) -> None:
 def test_the_list_by_title(store: GraphStore) -> None:
     _seed_list(store)
     got = instruments.get_instruments_list(store)
-    assert list(got) == ["total", "items", "facets"]
+    assert list(got) == ["total", "items", "facets", "next_cursor"]
     assert got["facets"] == {
         "legal_area": [],
         "policy_domain": [],
@@ -1058,6 +1058,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
             "amending": [{"value": "false", "count": 6}],
             "validity": [{"value": "in_force", "count": 6}],
         },
+        "next_cursor": None,
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)

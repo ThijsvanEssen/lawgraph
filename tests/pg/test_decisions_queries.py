@@ -11,6 +11,7 @@ import psycopg
 import pytest
 
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import _helpers as helpers
 from lawgraph.db.queries.decisions import (
     DecisionFilters,
     get_decision_detail,
@@ -934,7 +935,7 @@ def test_a_page_whose_counts_take_long_comes_without_them_and_they_follow(
         return counts(store, filters)
 
     monkeypatch.setattr(decision_queries, "_counts", slow)
-    monkeypatch.setattr(decision_queries, "COUNTS_BUDGET", 0.3)
+    monkeypatch.setattr(helpers, "COUNTS_BUDGET", 0.3)
     try:
         first = get_decisions(votes, EVERY)
         assert not release.is_set()  # answered while they are counted

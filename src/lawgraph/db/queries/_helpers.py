@@ -52,13 +52,8 @@ def with_counts(
     """``{items, total, facets}`` of a list: *counted* (``{total, facets}``) or, where the
     counts ran out (None), ``total`` None, *empty_facets* and ``partial``."""
     if counted is None:
-        return {
-            "items": items,
-            "total": None,
-            "facets": empty_facets,
-            "partial": True,
-        }
-    return {"items": items, **counted}
+        return {"total": None, "items": items, "facets": empty_facets, "partial": True}
+    return {"total": counted["total"], "items": items, "facets": counted["facets"]}
 
 
 def _find_instrument_for_article(

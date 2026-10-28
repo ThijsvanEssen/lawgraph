@@ -128,6 +128,6 @@ def test_a_deep_page_is_read_by_the_index_of_the_order(store: GraphStore) -> Non
         bind,
         disable=("seqscan", "bitmapscan"),
     )
-    nodes = list(plan_nodes(plan))
-    assert not any(node["Node Type"] == "Sort" for node in nodes), nodes
-    assert any("Index" in node["Node Type"] for node in nodes)
+    kinds = [node["Node Type"] for node in plan_nodes(plan)]
+    assert "Sort" not in kinds, kinds
+    assert any("Index" in kind for kind in kinds), kinds
