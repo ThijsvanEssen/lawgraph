@@ -8,7 +8,6 @@ factions and the first page of the judgments of the largest areas of law. Off wi
 from __future__ import annotations
 
 import datetime as dt
-import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -28,7 +27,6 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
-    DATA_DIR,
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
@@ -38,8 +36,6 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.articles import (
-    CITED_BY_INLINE_BELOW,
-    get_article_cited_by,
     most_cited_articles,
 )
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
@@ -68,7 +64,6 @@ from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.nodes import (
     NeighborFilter,
     get_node_neighborhood,
-    get_node_with_neighbors,
 )
 from lawgraph.db.queries.overlay import IN_FLUX_TABLES, get_in_flux_counts
 from lawgraph.db.queries.search.clause import tokenize_search_query
@@ -76,15 +71,15 @@ from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.parser import load_code_aliases, load_notation_parser
 from lawgraph.db.queries.search.types import SEARCH_TYPES
 from lawgraph.db.queries.stats import cached_data_as_of
+from lawgraph.db.queries.warm_nodes import (
+    FIRST_PAGES,
+    WARM_ARTICLE_CITATIONS,
+    warm_articles,
+)
 from lawgraph.db.schema import SEARCH_FIELDS
 
 logger = get_logger(__name__)
 
-# The pages the explorer asks first, by their size and order (``data/first-pages.json``, a
-# copy of the explorer's): the warm-up asks exactly these, as an answer is kept per page.
-FIRST_PAGES: dict[str, Any] = json.loads(
-    (DATA_DIR / "first-pages.json").read_text("utf-8")
-)
 LISTS: dict[str, int] = FIRST_PAGES["lists"]
 
 
@@ -153,28 +148,12 @@ def _warm_law_judgments(store: GraphStore) -> None:
         get_citing_judgments(store, bwb_id, limit=FIRST_PAGES["law_judgments"])
 
 
-# The articles whose node and citing passages are warmed: those cited so often that they
-# open in more than a second cold (on prod, 10 Oct: 6:162 BW, 8,988 citations, its lid counts
-# 6.6 s and its passages 3.8 s cold; 1,500 citations or more were 335 articles). The node as
-# it opens (its lid counts read every edge of it), and the passages as the front end asks
-# them (``article_citations``), each kept per sort and page: Verbonden newest first or most
-# cited first, the homepage's network the most cited few. A page the front end does not
-# ask is never read from what was warmed (a page of 50 was warmed while Verbonden asked
-# 200: ~10 s cold for 6:162 BW on 10 Oct).
-WARM_ARTICLE_CITATIONS = CITED_BY_INLINE_BELOW
-
-
 def _warm_articles(store: GraphStore) -> None:
     """The most cited first, to the last also when newer data arrives meanwhile: what it
     keeps lasts whatever the data does (the lid counts, ``LIDS_MAX_AGE``) or is the pages
     read into the memory of the database, and the part takes 10 to 28 minutes on prod;
     stopped at every poll it was never done (16 Oct)."""
-    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
-        get_node_with_neighbors(store, "articles", article["key"])
-        for page in FIRST_PAGES["article_citations"]:
-            get_article_cited_by(
-                store, article["id"], sort=page["sort"], limit=page["limit"]
-            )
+    warm_articles(store)
 
 
 # The neighbourhood the canvas of the explorer asks of an article (Netwerk tonen in
