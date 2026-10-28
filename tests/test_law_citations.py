@@ -45,6 +45,10 @@ ROWS = [
 ]
 
 
+def _gone(index: LawCitations) -> bool:
+    return index.read("date", 1, 0, None, (), None) is None
+
+
 def ids_of(sort: str = "date", **kw: object) -> list[str]:
     found = LawCitations(ROWS).read(
         sort,
@@ -129,10 +133,10 @@ def test_the_laws_are_kept_up_to_the_budget_the_one_used_longest_ago_dropped(
     first, second, third = (LawCitations(ROWS) for _ in range(3))  # 5 rows each
     law_citations.keep("first", first)
     law_citations.keep("second", second)
-    assert first.released and not second.released
+    assert _gone(first) and not _gone(second)
     assert law_citations.generation("first") == 1
     law_citations.keep("third", third)
-    assert second.released and not third.released
+    assert _gone(second) and not _gone(third)
     assert first.read("date", 1, 0, None, (), None) is None
 
 
@@ -143,10 +147,10 @@ def test_a_law_read_lately_is_dropped_last(monkeypatch: pytest.MonkeyPatch) -> N
     law_citations.keep("second", second)
     law_citations.used("first")
     law_citations.keep("third", third)
-    assert second.released and not first.released and not third.released
+    assert _gone(second) and not _gone(first) and not _gone(third)
 
 
 def test_the_only_law_is_never_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(law_citations, "LAW_CITATIONS_ROWS", 1)
     only = law_citations.keep("only", LawCitations(ROWS))
-    assert not only.released
+    assert not _gone(only)

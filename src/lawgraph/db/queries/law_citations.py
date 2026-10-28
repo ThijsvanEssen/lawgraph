@@ -79,7 +79,7 @@ class _Columns:
         self.orders: dict[str, array[int]] = {}
 
     def order(self, sort: str) -> array[int]:
-        """The positions in the order of *sort* (``instruments.INSTRUMENT_JUDGMENT_SORTS``):
+        """The positions in the order of *sort* (``date``, ``cited``, ``citation_count``):
         the newest first, the most cited articles of the law first or the most cited judgment
         first, each then the newest; the id (the order of the positions) settles ties."""
         found = self.orders.get(sort)
@@ -114,10 +114,6 @@ class LawCitations:
     def release(self) -> None:
         """Drop the columns; a request that has them goes on with them."""
         self._columns = None
-
-    @property
-    def released(self) -> bool:
-        return self._columns is None
 
     def read(
         self,

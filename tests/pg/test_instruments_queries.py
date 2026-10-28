@@ -1736,7 +1736,8 @@ def test_another_page_or_filter_of_a_law_counts_its_judgments_no_more(
     instruments.get_citing_judgments(store, BWB, limit=2, offset=2)
     instruments.get_citing_judgments(store, BWB, sort="citation_count", year="2020")
     instruments.get_citing_judgments(store, BWB, tiers=("hoge_raad",))
-    assert all("AS cited_count" not in str(c.statement) for c in seen)
+    grouped = [c.statement for c in seen if "AS cited_count" in str(c.statement)]
+    assert not grouped, grouped
     assert len(seen) == 3  # one page each
 
 
