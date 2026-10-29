@@ -23,7 +23,7 @@ from html import escape
 from pathlib import Path
 from typing import Any
 
-from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title
+from lawgraph.api.seo.pages.base import Page, crumbs_nav, full_title, organization
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
 
@@ -52,6 +52,8 @@ class Shell:
     start: dict[str, Any]
     # the addresses that moved, to where they are now (``moved.json``), or empty
     moved: dict[str, str]
+    # the text of the prose pages (``spa-texts.json``): path to HTML, or empty
+    texts: dict[str, str] = field(default_factory=dict)
     # the scripts of the first paint of a reader's address by the kind of its bron
     # (``first-paint-article.js``), the one for every kind under "" (``first-paint.js``)
     first_paint: dict[str, str] = field(default_factory=dict)
@@ -82,6 +84,7 @@ def shell() -> Shell:
                 _routes(path),
                 _start(path),
                 _moved(path),
+                _texts(path),
                 _first_paint(path),
             )
         _kept["shell"] = fresh
@@ -113,6 +116,20 @@ def _moved(index: Path) -> dict[str, str]:
         str(path).rstrip("/"): to
         for path, to in listed.items()
         if isinstance(to, str) and to.startswith("/")
+    }
+
+
+def _texts(index: Path) -> dict[str, str]:
+    """The text of the prose pages (``/over``, ``/privacy``), from ``spa-texts.json``
+    beside the shell: each path (without a trailing slash) to its HTML. A front end of
+    before has none."""
+    if not (index.parent / "spa-texts.json").exists():
+        return {}
+    listed = _beside(index, "spa-texts.json", dict) or {}
+    return {
+        str(path).rstrip("/") or "/": html
+        for path, html in listed.items()
+        if isinstance(html, str) and html.strip()
     }
 
 
@@ -162,6 +179,8 @@ def _json_ld(page: Page, base: str) -> str:
     graph: list[dict[str, Any]] = []
     if page.data:
         graph.append({**page.data, "url": base + page.path})
+    if page.organization:
+        graph.append(organization(base))
     if page.crumbs:
         graph.append(
             {
