@@ -29,6 +29,7 @@ def _source(
     return {
         "newest": newest,
         "retrieved_at": retrieved,
+        "commitments_registered": newest,
         "completeness": {"source": {"state": state, "as_of": as_of}},
     }
 
@@ -108,6 +109,22 @@ def test_the_parket_of_43_days_alerts_today() -> None:
     findings = fresh.evaluate(RULES, _stats(), coverage, WEDNESDAY)
     found = next(f for f in findings if f.subject == "parket")
     assert (found.level, found.detail) == (ALERT, "43 d > 30 d")
+
+
+@pytest.mark.parametrize(
+    ("registered", "level"),
+    [
+        ("2026-10-14", OK),  # 10 workdays: a week without a registration is common
+        ("2026-10-13", WARN),  # 11: the recesses run to 16
+        ("2026-09-22", ALERT),  # 26: longer than the elections of 2025 (21)
+    ],
+)
+def test_the_commitments_of_the_kamer_apart_from_its_papers(
+    registered: str, level: str
+) -> None:
+    tk = {**_source("2026-10-28"), "commitments_registered": registered}
+    findings = fresh.evaluate(RULES, _stats(tk=tk), COVERAGE, WEDNESDAY)
+    assert (_level(findings, "tk"), _level(findings, "tk toezeggingen")) == (OK, level)
 
 
 def test_a_source_without_a_date_is_an_alert() -> None:

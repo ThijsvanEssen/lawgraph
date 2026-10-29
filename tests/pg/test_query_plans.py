@@ -293,6 +293,8 @@ _WHOLE_BY_DESIGN = (
     # version of them (``search.signers``)
     re.compile(r"lg_str\(props -> 'chamber'\) AS chamber\s+FROM factions"),
     re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
+    # the newest day a commitment was registered, once a minute (``cached_data_as_of``)
+    re.compile(r"SELECT max\(props ->> 'registered_on'\) FROM commitments"),
 )
 
 # The statements a route ran with ``indexes_only`` (``store.query``).

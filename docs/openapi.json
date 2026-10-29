@@ -5611,14 +5611,15 @@
             "schema": {
               "enum": [
                 "date",
-                "expected_resolution"
+                "expected_resolution",
+                "registered_on"
               ],
               "type": "string",
-              "description": "Newest made first, or soonest due first.",
+              "description": "Newest made first, soonest due first, or newest registered first (the Kamer registers a commitment often weeks after the debate).",
               "default": "date",
               "title": "Sort"
             },
-            "description": "Newest made first, or soonest due first."
+            "description": "Newest made first, soonest due first, or newest registered first (the Kamer registers a commitment often weeks after the debate)."
           },
           {
             "name": "limit",
@@ -16030,7 +16031,19 @@
               }
             ],
             "title": "Expected Resolution",
-            "description": "The day it is due; null when the Kamer names none."
+            "description": "The day it is due; null when the Kamer names none or the source gives a day it cannot be due (``expected_resolution_impossible``)."
+          },
+          "expected_resolution_impossible": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Resolution Impossible",
+            "description": "The ``DatumNakoming`` as the source gives it when no commitment can be due that day (``0025-01-28``): a gap in the source, not corrected; null otherwise."
           },
           "minister_name": {
             "anyOf": [
@@ -16150,6 +16163,7 @@
           "date",
           "registered_on",
           "expected_resolution",
+          "expected_resolution_impossible",
           "minister_name",
           "member",
           "post",
@@ -17286,6 +17300,18 @@
             "title": "Newest",
             "description": "The date of its newest dated record, on or before today: a paper of the Kamer, a judgment, a publication, a version of a law coming into force. Null for a source without dated records."
           },
+          "commitments_registered": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commitments Registered",
+            "description": "Of `tk` only: the newest day the Kamer registered a commitment (`registered_on` of `/api/commitments`), on or before today; a commitment is fetched apart from the papers."
+          },
           "completeness": {
             "additionalProperties": {
               "$ref": "#/components/schemas/PartStateDTO"
@@ -17303,6 +17329,7 @@
         "required": [
           "retrieved_at",
           "newest",
+          "commitments_registered",
           "completeness"
         ],
         "title": "DataAsOfDTO",
@@ -40269,7 +40296,8 @@
                 "type": "null"
               }
             ],
-            "title": "Expected Resolution"
+            "title": "Expected Resolution",
+            "description": "The day it is due; null when the Kamer names none or the source gives a day it cannot be due."
           }
         },
         "additionalProperties": false,

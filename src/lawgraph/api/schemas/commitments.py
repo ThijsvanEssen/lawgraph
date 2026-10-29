@@ -17,7 +17,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.tk_records.commitments import due_date
+from lawgraph.core.tk_records.commitments import due_date, impossible_due_date
 
 # Why a commitment is about a dossier: ``meta.basis`` of its ``ABOUT`` edge.
 CommitmentBasis = Literal["nakoming", "agenda"]
@@ -109,7 +109,15 @@ class CommitmentDTO(WithMinistry, WithPath):
         "after the debate.",
     )
     expected_resolution: str | None = Field(
-        None, description="The day it is due; null when the Kamer names none."
+        None,
+        description="The day it is due; null when the Kamer names none or the source "
+        "gives a day it cannot be due (``expected_resolution_impossible``).",
+    )
+    expected_resolution_impossible: str | None = Field(
+        None,
+        description="The ``DatumNakoming`` as the source gives it when no commitment can "
+        "be due that day (``0025-01-28``): a gap in the source, not corrected; null "
+        "otherwise.",
     )
     minister_name: str | None = Field(None, description="As the source writes it.")
     member: CommitmentMemberDTO | None = Field(
@@ -145,6 +153,7 @@ class CommitmentDTO(WithMinistry, WithPath):
             date=props.get("made_on"),
             registered_on=props.get("registered_on"),
             expected_resolution=due_date(due),
+            expected_resolution_impossible=impossible_due_date(due),
             minister_name=props.get("minister_name"),
             member=(
                 CommitmentMemberDTO.from_row(

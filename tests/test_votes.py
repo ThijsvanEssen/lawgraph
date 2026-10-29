@@ -11,7 +11,11 @@ from lawgraph.api.schemas.amendments import amendment_chain
 from lawgraph.api.schemas.decisions import CoalitionFactionDTO
 from lawgraph.api.schemas.documents import PaperOutcomeFields
 from lawgraph.api.schemas.feed import FeedVoteDTO
-from lawgraph.core.tk_records.commitments import NO_DUE_DATE, due_date
+from lawgraph.core.tk_records.commitments import (
+    NO_DUE_DATE,
+    due_date,
+    impossible_due_date,
+)
 from lawgraph.core.votes import (
     DECISION_KIND_WITHDRAWN,
     OUTCOMES,
@@ -53,10 +57,28 @@ def test_a_decision_that_is_no_vote_says_its_kind() -> None:
         (None, None),
         ("", None),
         ("2026-12-01", "2026-12-01"),
+        ("1900-01-01", "1900-01-01"),
+        # days the source holds that no commitment can be due: a gap, not corrected
+        ("0025-01-28", None),
+        ("0205-02-20", None),
     ],
 )
 def test_due_date(value: str | None, due: str | None) -> None:
     assert due_date(value) == due
+
+
+@pytest.mark.parametrize(
+    ("value", "impossible"),
+    [
+        ("0025-01-28", "0025-01-28"),
+        ("0205-02-20", "0205-02-20"),
+        (NO_DUE_DATE, None),  # the placeholder of none
+        (None, None),
+        ("2026-12-01", None),
+    ],
+)
+def test_impossible_due_date(value: str | None, impossible: str | None) -> None:
+    assert impossible_due_date(value) == impossible
 
 
 @pytest.mark.parametrize(

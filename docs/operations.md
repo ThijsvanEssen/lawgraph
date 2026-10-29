@@ -625,13 +625,14 @@ reads `/api/stats` (`data_as_of`) and, once the API has warmed up, `/api/stats/c
 `/srv/lawgraph/freshness.json` by `config-apply`). Nothing is read from the database or a source, nothing is written
 but `tmp/freshness/`. It says how far a source is behind what is expected, not that the source is empty.
 
-A limit is a `warn` and an `alert` in `days`, `workdays` (Monday to Friday only: no lag at a weekend for a source that
+A rule is named by its `id`, else its source. A limit is a `warn` and an `alert` in `days`, `workdays` (Monday to Friday only: no lag at a weekend for a source that
 publishes on workdays) or `hours`; the lag has to be past it. Past `warn` is `waarschuwing`, past `alert`
 `achterstand`:
 
 | subject | measure | unit | warn | alert | why |
 |---|---|---|---|---|---|
 | `tk` | `newest` | workdays | 4 | 7 | stukken keep coming in recess; the poll runs every half hour |
+| `tk toezeggingen` | `commitments_registered` (newest `registered_on`) | workdays | 10 | 25 | commitments are fetched apart from the papers; 2023–2026 the Kamer registered none for at most 9 workdays outside recess, 11–16 in recess, 21 around the elections of 2025 |
 | `eerstekamer` | `newest` | days | 10 | 21 | recess; votes on Tuesdays |
 | `hoge_raad`, `raad_van_state`, `college_van_beroep_bedrijfsleven` | last judgment of the tier | workdays | 4 | 7 | judgments on workdays |
 | `centrale_raad_van_beroep` | last judgment | days | 10 | 21 | publishes in batches |
