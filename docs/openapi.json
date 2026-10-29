@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.21",
+    "version": "0.80.23",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -11,6 +11,106 @@
     }
   },
   "paths": {
+    "/api/articles/batch": {
+      "get": {
+        "tags": [
+          "articles",
+          "articles"
+        ],
+        "summary": "The narrow form of several articles",
+        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. One item per article of `refs`, in the order asked (each once), at most 20; an article the data does not hold has `article` null and its `ref` in `not_in_data`.",
+        "operationId": "get_article_text_batch_api_articles_batch_get",
+        "parameters": [
+          {
+            "name": "refs",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "The articles as their routes name them, `{bwb_id}/{article_number}`, comma-separated: `BWBR0052875/19,BWBR0005289/6:162`.",
+              "title": "Refs"
+            },
+            "description": "The articles as their routes name them, `{bwb_id}/{article_number}`, comma-separated: `BWBR0052875/19,BWBR0005289/6:162`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleTextBatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{bwb_id}/{article_number}/text": {
+      "get": {
+        "tags": [
+          "articles",
+          "articles"
+        ],
+        "summary": "The narrow form of an article",
+        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. 404 when the article is unknown.",
+        "operationId": "get_article_text_api_articles__bwb_id___article_number__text_get",
+        "parameters": [
+          {
+            "name": "bwb_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bwb Id"
+            }
+          },
+          {
+            "name": "article_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Article Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleTextDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{bwb_id}/{article_number}": {
       "get": {
         "tags": [
@@ -2001,7 +2101,7 @@
           "instruments"
         ],
         "summary": "Regulations issued under a law",
-        "description": "The regulations whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. By `validity` those in force (the default), those no longer in force (`expired_on` today or before) or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for and `by_kind` the items per kind. A repealed article is left out. `detail=summary`: the light form, per regulation only the articles of the law it names, without `referring` and `also_based_on`, with `sub_delegated` (its articles without `referring`). Empty for an unknown instrument.",
+        "description": "The regulations whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. By `validity` those in force (the default), those no longer in force (`expired_on` today or before) or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for and `by_kind` the items per kind. A repealed article is left out. `detail=summary`: the light form, per regulation only the articles of the law it names, without `referring` and `also_based_on`, with the first of `sub_delegated` (their articles without `referring`) and how many there are (`sub_delegated_total`). Empty for an unknown instrument.",
         "operationId": "get_instrument_delegated_route_api_instruments__bwb_id__delegated_get",
         "parameters": [
           {
@@ -2716,7 +2816,7 @@
           "nodes"
         ],
         "summary": "Explore a node and its neighbors",
-        "description": "Fetches a node from the given collection and returns its neighbors from the unified edge collection in buckets, one per relation, direction and neighbor collection. Each neighbor carries the edge that leads to it: `edge_id`, `status`, `confidence` and `meta`. A bucket holds one page (`limit` neighbors from `offset`, in the same order on every request), its `total`, and the `next_offset` of the following page (null on the last). `relations`, `node_types`, `direction` and `status` narrow the edges; the totals count what remains. What became of an old article no new article takes the place of (`TRANSPOSED_TO` the new law, `meta.outcome`) is a neighbour of the old article, not of the law.\n\na node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection, a page of `limit` (at most 200; 500 with `props=canvas`) from `offset` in each. An article's `lid_counts` are waited for only on the first page with every prop: a further page or a page of the canvas gives those counted before, or none while they are being counted. Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, `confidence`, `meta`. The node, every neighbour and every node of a neighbourhood or path has `title`, the `<title>` of its page (`core.names.title_of`; of a publication with the title of its nota van toelichting; with `props=canvas` too, which keeps what it reads), and a judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props `short_title` and `short_title_basis` as the feed gives them, a decision `short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, `Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. `props=canvas` gives a neighbour only what the canvas of the explorer draws: of its props those of its collection and those its title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), an annex its `label` and `title`, an instrument version the citation title of its law, `instrument_citation_title`, from the columns of `instruments`; a motion, an amendment or a judgment its `outcome` alone of how it ended), of its edge's `meta` the keys the canvas reads (null when none, never `{}`); the node itself stays whole. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page), `lid_counts`, `capacity_counts`, `tier_counts` and `items`; `tier_counts`, of a judgment's bucket of judgments: per tier how many of the whole bucket (`{\"hoge_raad\": 412, \"rechtbank\": 530}`, `\"\"` for one without a tier), so a bar per instantie counts them all and not the page; null for every other bucket; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `\"\"` for none), how many of the whole bucket and not only of its page (`{\"kamerlid\": 980, \"bewindspersoon\": 503}`), from `lg_authored`; null for every other bucket and with a `status` filter; `lid_counts`, of an article: per lid the edges of the whole bucket cite (in their `meta`: `leden`, and the `leden` of each of a judgment's `mentions`), how many do (only the leden the article has: a citation can give it the lid of another article it names), `\"\"` for those that cite none and an edge that cites two counted for each (`{\"1\": 28, \"2\": 174, \"\": 12}`); with `limit=1` (the light node) an article whose lid counts are not kept yet waits for them 0.5 s at most, then answers with every `lid_counts` null and `lid_counts_pending` true while they are counted (a larger `limit` waits for them), so that a reader can show them without reading every page (counted over the meta of every edge of the article, so kept an hour whatever the data does, a newer count made in the background after that; those of the 20 most cited articles warmed); null for a bucket that cites no lid and for a node that is no article; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request. A neighbour is light: its `props` leave out besides those the text of a paper (`sections`, `footnotes`), the structure of an article (`parts`, `references`, `breadcrumb`) and the rollups of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, `court`, `court_code`, `case_number`, `source`, `stub`, `translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, `outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and `echr_findings` alone (`lg_judgment_light`), and its `tier` (`hoge_raad`, `hvj_eu`, `ehrm`: by its court code, of code XX by the court it names) and its `source` (by its ECLI) where those lack them; its `summary` is cut at 400 characters (with `…`), and the `meta` of its edge leaves out `mentions` (each place a judgment cites the article or the judgment; `/api/judgments/{ecli}` has them), which the node itself, `/api/documents/{key}` and `/api/articles/...` carry. The answer has the `title` and `description` of the node's page (as `/render` gives them, from the node's own props: without the outcome of a motion or the counts of an article; `title` is the page's `<title>` without `, Concordans`, never cut, the title the app's tab shows: `Art. 6:162 BW, Onrechtmatige daad` (an article with its heading, else its `caption`), `Motie 36496-71 Bolhuis over een AI-killswitch` (a motion or an amendment by its number, then every word of its subject), `HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36600-VII Begroting Binnenlandse Zaken en Koninkrijksrelaties 2025`; a day in a title or a description as `20 december 2019`) and its readable `path` (null for a node without one, an activity). The `meta` of a neighbour's edge holds `paragraphs` where a judgment cites: the numbers of the paragraphs it cites in (\"4.3\", as the judgment prints them), stored on an edge to a cited judgment and taken from the mentions of an edge to a cited article, so a list of citing judgments shows where each cites without a request per row. With `edge_meta=passages` (also with `props=canvas`) it holds `passages` too, from the mentions of the edge: the first place in each of its first three paragraphs (a footnote counts apart), each `paragraph_id`, `paragraph_number`, `footnote` (its label, null in the paragraph itself), `snippet`, `text` (the citation as written) and `start`, `end` (`snippet[start:end]` is `text`), so a row or a card shows the passage without the judgment; none of a mention linked before it kept `snippet_start`. `light` (the default) leaves them out: they weigh about 0.9 kB an edge. The `meta` of an edge from a Tweede Kamer paper holds `place`, where its citation stands in what `/api/documents/{key}` serves (`part` `title`, `text` with `section_id`, or `footnote` with `footnote_id`; `start` and `end` in that part; see data-model (docs/data-model.md#judgment))",
+        "description": "Fetches a node from the given collection and returns its neighbors from the unified edge collection in buckets, one per relation, direction and neighbor collection. Each neighbor carries the edge that leads to it: `edge_id`, `status`, `confidence` and `meta`. A bucket holds one page (`limit` neighbors from `offset`, in the same order on every request), its `total`, and the `next_offset` of the following page (null on the last). `relations`, `node_types`, `direction` and `status` narrow the edges; the totals count what remains. What became of an old article no new article takes the place of (`TRANSPOSED_TO` the new law, `meta.outcome`) is a neighbour of the old article, not of the law. A dossier has a bucket `LED_BY` (outbound) of committees and a committee one (inbound) of dossiers that no edge holds: derived from the activities about the dossier the committee leads (as `committees` of `/api/dossiers/{number}`; of a committee those `ABOUT` a dossier), after the buckets of the edges. Each edge of it has `edge_id` `derived:<from>:LED_BY:<to>`, status `canoniek` and `meta` `derived_from` (`activities`), `role` (`lead`: the Kamer names a voortouwcommissie alone) and `activities` (how many it leads; with `props=canvas` `derived_from` alone); in the order of the neighbours' ids, with `sort=importance` the most activities first.\n\na node (any node collection) with its neighbours in buckets of one relation, direction and neighbour collection, a page of `limit` (at most 200; 500 with `props=canvas`) from `offset` in each. An article's `lid_counts` are waited for only on the first page with every prop: a further page or a page of the canvas gives those counted before, or none while they are being counted. Every neighbour carries its edge: `edge_id` (the edge `key`), `status`, `confidence`, `meta`. The node, every neighbour and every node of a neighbourhood or path has `title`, the `<title>` of its page (`core.names.title_of`; of a publication with the title of its nota van toelichting; with `props=canvas` too, which keeps what it reads), and a judgment `cite` (as on `/api/judgments/{ecli}`); a dossier has in its props `short_title` and `short_title_basis` as the feed gives them, a decision `short_subject` (the name what was voted on goes by: `Wet AI-toezicht`, `Begroting Defensie 2027`; null without one), a paper or a case `kind_group`. `props=canvas` gives a neighbour only what the canvas of the explorer draws: of its props those of its collection and those its title reads (`_rows.canvas_keys`; of each of its `actors` the role, name and faction; an instrument its `kind` (`wet`, as `/api/instruments/{identifier}` gives it), an annex its `label` and `title`, an instrument version the citation title of its law, `instrument_citation_title`, from the columns of `instruments`; a motion, an amendment or a judgment its `outcome` alone of how it ended), of its edge's `meta` the keys the canvas reads (null when none, never `{}`); the node itself stays whole. A bucket has `type`, `total` (its edges), `next_offset` (null on the last page), `lid_counts`, `capacity_counts`, `tier_counts` and `items`; `tier_counts`, of a judgment's bucket of judgments: per tier how many of the whole bucket (`{\"hoge_raad\": 412, \"rechtbank\": 530}`, `\"\"` for one without a tier), so a bar per instantie counts them all and not the page; null for every other bucket; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `\"\"` for none), how many of the whole bucket and not only of its page (`{\"kamerlid\": 980, \"bewindspersoon\": 503}`), from `lg_authored`; null for every other bucket and with a `status` filter; `lid_counts`, of an article: per lid the edges of the whole bucket cite (in their `meta`: `leden`, and the `leden` of each of a judgment's `mentions`), how many do (only the leden the article has: a citation can give it the lid of another article it names), `\"\"` for those that cite none and an edge that cites two counted for each (`{\"1\": 28, \"2\": 174, \"\": 12}`); with `limit=1` (the light node) an article whose lid counts are not kept yet waits for them 0.5 s at most, then answers with every `lid_counts` null and `lid_counts_pending` true while they are counted (a larger `limit` waits for them), so that a reader can show them without reading every page (counted over the meta of every edge of the article, so kept an hour whatever the data does, a newer count made in the background after that; those of the 20 most cited articles warmed); null for a bucket that cites no lid and for a node that is no article; `limit` (default 30, max 200) and `offset` page inside every bucket. Bucket and page order are the same on every request. A neighbour is light: its `props` leave out besides those the text of a paper (`sections`, `footnotes`), the structure of an article (`parts`, `references`, `breadcrumb`) and the rollups of an activity (`case_ids`, `case_kinds_by_dossier`; the node itself keeps them); a judgment carries `ecli`, `display_name`, `names`, `summary`, `date`, `court`, `court_code`, `case_number`, `source`, `stub`, `translation_of`, `advocate_general`, `advocate_general_role`, `outcome`, `outcome_text`, `conclusion_outcome`, `conclusion_outcome_text` and `echr_findings` alone (`lg_judgment_light`), and its `tier` (`hoge_raad`, `hvj_eu`, `ehrm`: by its court code, of code XX by the court it names) and its `source` (by its ECLI) where those lack them; its `summary` is cut at 400 characters (with `…`), and the `meta` of its edge leaves out `mentions` (each place a judgment cites the article or the judgment; `/api/judgments/{ecli}` has them), which the node itself, `/api/documents/{key}` and `/api/articles/...` carry. The answer has the `title` and `description` of the node's page (as `/render` gives them, from the node's own props: without the outcome of a motion or the counts of an article; `title` is the page's `<title>` without `, Concordans`, never cut, the title the app's tab shows: `Art. 6:162 BW, Onrechtmatige daad` (an article with its heading, else its `caption`), `Motie 36496-71 Bolhuis over een AI-killswitch` (a motion or an amendment by its number, then every word of its subject), `HR 20 december 2019 (Urgenda), ECLI:NL:HR:2019:2006`, `36600-VII Begroting Binnenlandse Zaken en Koninkrijksrelaties 2025`; a day in a title or a description as `20 december 2019`) and its readable `path` (null for a node without one, an activity). The `meta` of a neighbour's edge holds `paragraphs` where a judgment cites: the numbers of the paragraphs it cites in (\"4.3\", as the judgment prints them), stored on an edge to a cited judgment and taken from the mentions of an edge to a cited article, so a list of citing judgments shows where each cites without a request per row. With `edge_meta=passages` (also with `props=canvas`) it holds `passages` too, from the mentions of the edge: the first place in each of its first three paragraphs (a footnote counts apart), each `paragraph_id`, `paragraph_number`, `footnote` (its label, null in the paragraph itself), `snippet`, `text` (the citation as written) and `start`, `end` (`snippet[start:end]` is `text`), so a row or a card shows the passage without the judgment; none of a mention linked before it kept `snippet_start`. `light` (the default) leaves them out: they weigh about 0.9 kB an edge. The `meta` of an edge from a Tweede Kamer paper holds `place`, where its citation stands in what `/api/documents/{key}` serves (`part` `title`, `text` with `section_id`, or `footnote` with `footnote_id`; `start` and `end` in that part; see data-model (docs/data-model.md#judgment))",
         "operationId": "get_node_graph_api_nodes__collection___key__get",
         "parameters": [
           {
@@ -12358,6 +12458,107 @@
         "title": "ArticleLegislativeHistoryResponse",
         "description": "Legislative history for an article."
       },
+      "ArticleNeighborDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "bwb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bwb Id"
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex"
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id"
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "`Artikel 67`."
+          },
+          "address": {
+            "type": "string",
+            "title": "Address",
+            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "bwb_id",
+          "celex",
+          "official_id",
+          "article_number",
+          "label",
+          "address",
+          "path"
+        ],
+        "title": "ArticleNeighborDTO",
+        "description": "The article before or after one in the list of the articles of its law."
+      },
       "ArticlePartDTO": {
         "properties": {
           "id": {
@@ -13347,6 +13548,576 @@
         ],
         "title": "ArticleTableDTO",
         "description": "A table in a text (of an article, a paper, a paragraph of a judgment), as a span of\nit: a row a line, its cells separated by a tab (an empty cell an empty string)."
+      },
+      "ArticleTextBatchItem": {
+        "properties": {
+          "ref": {
+            "type": "string",
+            "title": "Ref",
+            "description": "As asked: `BWBR0052875/19`."
+          },
+          "article": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleTextDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the data does not hold it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ref",
+          "article"
+        ],
+        "title": "ArticleTextBatchItem",
+        "description": "One article a batch asks for, in the order it asks."
+      },
+      "ArticleTextBatchResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTextBatchItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "not_in_data": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not In Data",
+            "description": "The `ref`s of the items the data does not hold, in their order."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "not_in_data"
+        ],
+        "title": "ArticleTextBatchResponse"
+      },
+      "ArticleTextBlockDTO": {
+        "properties": {
+          "anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anchor",
+            "description": "The id of its part (`lid-1`, `lid-2-aanhef`, `lid-2-onder-b`), the anchor of the place; null outside every part (an article without leden). It repeats where its part goes on after a part inside it (a line after a list)."
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "`lid`, `onderdeel`, `aanhef` or `tekst` (the kind of its part, `tekst` outside every part), or `kop` (a heading on a line of its own)."
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number",
+            "description": "Its number as printed: `2`, `a`, `1°`."
+          },
+          "marker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marker",
+            "description": "What is printed before it: `2.`, `a.`; null for none."
+          },
+          "within": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Within",
+            "description": "The anchors of the parts it stands in, the outermost first: `lid-2` of `lid-2-onder-a`. A lid with an aanhef has no block of its own: its aanhef and onderdelen name it here."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Its text, a paragraph a line."
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTextLinkDTO"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "anchor",
+          "kind",
+          "number",
+          "marker",
+          "within",
+          "text",
+          "links"
+        ],
+        "title": "ArticleTextBlockDTO",
+        "description": "A lid, an onderdeel, an aanhef or a paragraph of the text, in text order."
+      },
+      "ArticleTextDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "bwb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bwb Id"
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex"
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`), which names the law in the article routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address",
+            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "`Artikel 68`."
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading",
+            "description": "The title of its kop: `(toezichthouders)`."
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "How it is cited: `Art. 68 Cbw`."
+          },
+          "repealed": {
+            "type": "boolean",
+            "title": "Repealed"
+          },
+          "validity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidityDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whether it holds today, from the dates its source gives (docs/api.md \"Validity\"); null where the source says nothing of it (an EU act, a treaty the Verdragenbank does not say is in force)."
+          },
+          "law": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleTextLawDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleTextBlockDTO"
+            },
+            "type": "array",
+            "title": "Blocks"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleNeighborDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The article before it in its law, as `/api/instruments/{bwb_id}/articles` lists them; null for the first, and for one not in that list."
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArticleNeighborDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The article after it; null for the last."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "bwb_id",
+          "celex",
+          "official_id",
+          "article_number",
+          "address",
+          "label",
+          "heading",
+          "display_name",
+          "repealed",
+          "validity",
+          "law",
+          "blocks",
+          "previous",
+          "next",
+          "path"
+        ],
+        "title": "ArticleTextDTO",
+        "description": "An article to read beside something else: its heading, its text in blocks, and the\narticles before and after it."
+      },
+      "ArticleTextLawDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "bwb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bwb Id"
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex"
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id",
+            "description": "Of an article of a law the BWB does not hold (yet): the id of the Staatsblad publication that enacted its law (`stb-2026-56`), which names the law in the article routes (`/api/articles/STB-2026-56/2.8.6`) and in its address."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "citation_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Title"
+          },
+          "abbreviation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abbreviation",
+            "description": "The abbreviation it is cited by (`Cbw`), as `abbreviation` of the instrument."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "bwb_id",
+          "celex",
+          "official_id",
+          "title",
+          "citation_title",
+          "abbreviation",
+          "path"
+        ],
+        "title": "ArticleTextLawDTO",
+        "description": "The law an article stands in."
+      },
+      "ArticleTextLinkDTO": {
+        "properties": {
+          "leden": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Leden",
+            "description": "Numbers of the leden named (`['1', '2']`), ranges written out."
+          },
+          "onderdelen": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Onderdelen",
+            "description": "Letters or numbers of the onderdelen named (`['a']`, `['2']`)."
+          },
+          "aanhef": {
+            "type": "boolean",
+            "title": "Aanhef",
+            "description": "Whether the aanhef is named.",
+            "default": false
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start",
+            "description": "Offset of `text` in the `text` of the block."
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ArticleTextLinkTargetDTO"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "leden",
+          "onderdelen",
+          "aanhef",
+          "start",
+          "end",
+          "text",
+          "target"
+        ],
+        "title": "ArticleTextLinkDTO",
+        "description": "A reference in a block whose target the data holds, with the place it names."
+      },
+      "ArticleTextLinkTargetDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "collection": {
+            "type": "string",
+            "title": "Collection"
+          },
+          "bwb_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bwb Id"
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex"
+          },
+          "official_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Id"
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "collection",
+          "bwb_id",
+          "celex",
+          "official_id",
+          "article_number",
+          "path"
+        ],
+        "title": "ArticleTextLinkTargetDTO",
+        "description": "What a link opens: an article, a judgment, a law, an annex or an EU act."
       },
       "ArticleVersionDTO": {
         "properties": {
@@ -20715,7 +21486,7 @@
             },
             "type": "array",
             "title": "Committees",
-            "description": "Committees leading an activity about the dossier."
+            "description": "Committees leading an activity about the dossier: its `LED_BY` committees of `/api/nodes/dossiers/{key}`."
           },
           "documents_by_kind": {
             "additionalProperties": {
@@ -28515,7 +29286,13 @@
             },
             "type": "array",
             "title": "Sub Delegated",
-            "description": "The regulations in force issued under its articles in turn, as on the full form."
+            "description": "The first 12 regulations in force issued under its articles in turn, in the order of the full form."
+          },
+          "sub_delegated_total": {
+            "type": "integer",
+            "title": "Sub Delegated Total",
+            "description": "How many regulations in force are issued under its articles in turn: more than `sub_delegated` gives when it has more than 12.",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -28527,7 +29304,8 @@
           "expired_on",
           "basis_kind",
           "articles",
-          "sub_delegated"
+          "sub_delegated",
+          "sub_delegated_total"
         ],
         "title": "InstrumentDelegatedSummaryItem",
         "description": "A regulation whose preamble names an article of the law, in the light form\n(`detail=summary`): without what it takes reading its own articles for."
@@ -37038,7 +37816,7 @@
           "kind": {
             "type": "string",
             "title": "Kind",
-            "description": "The block as the BWB names it: `wij` (\"Wij Willem-Alexander, …\": a law or an AMvB), `wie` (\"De Minister van …\"), `considerans` (\"Gelet op …\"), `afkondiging` (\"Besluit:\"), `preambule` (of a treaty); or `gelet_op`: a line of the considerans that starts with \"Gelet op\" (the legal basis), inside it."
+            "description": "The block as the BWB names it: `wij` (\"Wij Willem-Alexander, …\": a law or an AMvB), `wie` (\"De Minister van …\"), `considerans` (\"Gelet op …\"), `afkondiging` (\"Besluit:\"), `preambule` (of a treaty); or `gelet_op`: the text of the considerans that states the legal basis (a line \"Gelet op …\", or a clause \"ingevolge artikel …\" of a line), inside it."
           },
           "start": {
             "type": "integer",

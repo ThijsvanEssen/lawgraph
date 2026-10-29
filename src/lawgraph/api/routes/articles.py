@@ -5,7 +5,23 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import ArticleAddress, DateSort, ListLimit, PageLimit, Tier
+from lawgraph.api.errors import Invalid
+from lawgraph.api.params import (
+    ArticleAddress,
+    ArticleRef,
+    DateSort,
+    ListLimit,
+    PageLimit,
+    Tier,
+    article_ref,
+    parse_choices,
+)
+from lawgraph.api.schemas.article_text import (
+    BATCH_MAX,
+    ArticleTextBatchItem,
+    ArticleTextBatchResponse,
+    ArticleTextDTO,
+)
 from lawgraph.api.schemas.articles import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -39,7 +55,7 @@ from lawgraph.api.schemas.common import (
     in_regulation_order,
 )
 from lawgraph.api.schemas.completeness import completeness_dto
-from lawgraph.api.validity import article_validity_dto
+from lawgraph.api.validity import article_validity_dto, ended_article_validity_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.delegations import (
     delegation_clauses,
@@ -53,6 +69,7 @@ from lawgraph.core.models import (
 from lawgraph.core.reference_targets import reference_targets
 from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.article_text import ArticleTextData, get_article_texts
 from lawgraph.db.queries.articles import (
     CITED_BY_INLINE_BELOW,
     citation_count,
@@ -77,6 +94,102 @@ from lawgraph.db.queries.unlinked_references import (
 )
 
 router = APIRouter()
+
+_TEXT = (
+    "The narrow form of an article, to read it beside something else: its heading "
+    "(`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), "
+    "its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its "
+    "place (`lid-2-onder-a`) and the links in it whose target the data holds, and the "
+    "articles before and after it in its law (`previous`, `next`). No citations of it "
+    "and no network: the article route has those."
+)
+
+
+def _article_texts(
+    store: GraphStore, refs: list[ArticleRef]
+) -> list[ArticleTextDTO | None]:
+    """The narrow form of each of *refs*, in their order; None for one the data does not
+    hold."""
+    texts, present = get_article_texts(store, [ref.key for ref in refs])
+    return [
+        _article_text(store, texts[ref.key], present) if ref.key in texts else None
+        for ref in refs
+    ]
+
+
+def _article_text(
+    store: GraphStore, data: ArticleTextData, present: set[tuple[str, str]]
+) -> ArticleTextDTO:
+    validity = ended_article_validity_dto(
+        store, data.article, data.instrument, data.successors, data.ended
+    )
+    return ArticleTextDTO.build(data, present, validity)
+
+
+def _batch_refs(refs: str) -> dict[str, ArticleRef]:
+    """The articles of ``refs`` by how it writes them: ``{bwb_id}/{article_number}``,
+    comma-separated, at most ``BATCH_MAX``, each once."""
+    asked = parse_choices(refs, None, "refs") or ()
+    if len(asked) > BATCH_MAX:
+        raise Invalid("refs", f"at most {BATCH_MAX} articles, not {len(asked)}.")
+    wrong = [ref for ref in asked if not all(ref.partition("/")[::2])]
+    if wrong:
+        raise Invalid(
+            "refs",
+            f"write each as `{{bwb_id}}/{{article_number}}`: {', '.join(wrong)}.",
+        )
+    return {ref: article_ref(*ref.split("/", 1)) for ref in asked}
+
+
+@router.get(
+    "/batch",
+    response_model=ArticleTextBatchResponse,
+    summary="The narrow form of several articles",
+    description=(
+        f"{_TEXT} One item per article of `refs`, in the order asked (each once), "
+        f"at most {BATCH_MAX}; an article the data does not hold has `article` null and "
+        "its `ref` in `not_in_data`."
+    ),
+    tags=["articles"],
+)
+def get_article_text_batch(
+    store: Annotated[GraphStore, Depends(get_store)],
+    refs: Annotated[
+        str,
+        Query(
+            max_length=2000,
+            description="The articles as their routes name them, `{bwb_id}/"
+            "{article_number}`, comma-separated: `BWBR0052875/19,BWBR0005289/6:162`.",
+        ),
+    ],
+) -> ArticleTextBatchResponse:
+    asked = _batch_refs(refs)
+    texts = _article_texts(store, list(asked.values()))
+    items = [
+        ArticleTextBatchItem(ref=name, article=article)
+        for name, article in zip(asked, texts, strict=True)
+    ]
+    return ArticleTextBatchResponse(
+        items=items,
+        not_in_data=[item.ref for item in items if item.article is None],
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/text",
+    response_model=ArticleTextDTO,
+    summary="The narrow form of an article",
+    description=f"{_TEXT} 404 when the article is unknown.",
+    tags=["articles"],
+)
+def get_article_text(
+    article: ArticleAddress,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> ArticleTextDTO:
+    (text,) = _article_texts(store, [article])
+    if text is None:
+        raise NotFound("Article", article.key)
+    return text
 
 
 @router.get(

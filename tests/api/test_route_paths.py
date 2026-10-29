@@ -18,6 +18,8 @@ from lawgraph.api.app import app
 from tests.asserts import assert_status
 
 ROUTES = [
+    ("GET", "/api/articles/batch"),
+    ("GET", "/api/articles/{bwb_id}/{article_number}/text"),
     ("GET", "/api/articles/{bwb_id}/{article_number}"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/cited-by"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/history"),

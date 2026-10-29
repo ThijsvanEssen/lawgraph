@@ -1,0 +1,155 @@
+<toestand bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0052872/2026-08-15/0" bwb-id="BWBR0052872" inwerkingtreding="2026-08-15"><wetgeving dtdversie="2.0" soort="wet" stam-id="17921543" versie-id="31706962" id="C45274601" label-id="17818814" inwerkingtredingsdatum="2026-08-15"><intitule bwb-ng-variabel-deel="/Intitule" stam-id="17921563" versie-id="31705372" id="C45273011" label-id="17817224" inwerking="2026-08-15" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">Wet van 8 juli 2026, houdende regels ter implementatie van Richtlijn (EU) 2022/2555 van het Europees Parlement en de Raad van 14 december 2022 betreffende maatregelen voor een hoog gezamenlijk niveau van cyberbeveiliging in de Unie, tot wijziging van Verordening (EU) nr. 910/2014 en Richtlijn (EU) 2018/1972 en tot intrekking van Richtlijn (EU) 2016/1148 (PbEU 2022, L 333) (Cyberbeveiligingswet)<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></intitule>
+<citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="17921573" versie-id="31705382" id="C45273021" label-id="17817234" inwerking="2026-08-15" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10">Cyberbeveiligingswet<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata></meta-data></citeertitel>
+<wettekst><artikel bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51" stam-id="17922313" versie-id="31706122" id="C45273761" label-id="17817974" inwerking="2026-08-15" label="Artikel 51" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">51</nr>
+    <titel status="officieel">(samenwerking en informatie-uitwisseling tussen instanties)</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid1" label-id="17817974L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De bevoegde autoriteiten, de CSIRT’s en het centrale contactpunt werken met elkaar samen voor de doeltreffende en doelmatige uitvoering van hun taken uit hoofde van deze wet en wisselen daartoe onderling alle daarvoor noodzakelijke gegevens uit, waaronder persoonsgegevens.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2" label-id="17817974L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De bevoegde autoriteiten, de CSIRT’s en het centrale contactpunt werken voor de doeltreffende en doelmatige uitvoering van hun taken uit hoofde van deze wet samen met de volgende instanties in Nederland en wisselen in het kader van die samenwerking alle daarvoor noodzakelijke gegevens uit, waaronder persoonsgegevens:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>de politie, het openbaar ministerie en de bijzondere opsporingsdiensten, genoemd in artikel 2 van de Wet op de bijzondere opsporingsdiensten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>de Autoriteit persoonsgegevens;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>de nationale bevoegde autoriteiten, bedoeld in de <extref doc="32008R0300" label="verordening" reeks="Celex">Verordening (EG) nr. 300/2008</extref> en <extref doc="32018R1139" label="verordening" reeks="Celex">Verordening (EU) 2018/1139</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>Onze Minister van Economische Zaken uit hoofde van de <extref doc="32014R0910" label="verordening" reeks="Celex">Verordening (EU) nr. 910/2014</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>de bevoegde autoriteiten uit hoofde van de <extref doc="32022R2554" label="verordening" reeks="Celex">Verordening (EU) 2022/2554</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeelf">
+        <li.nr>f.</li.nr>
+        <al>Onze Minister van Economische Zaken uit hoofde van de <extref doc="32018L1972" label="richtlijn" reeks="Celex">Richtlijn (EU) 2018/1972</extref>;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=f&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=f" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeelg">
+        <li.nr>g.</li.nr>
+        <al>de bevoegde autoriteiten, bedoeld in artikel 8 van de Wet weerbaarheid kritieke entiteiten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=g&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=g" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeelh">
+        <li.nr>h.</li.nr>
+        <al>de inlichtingen- en veiligheidsdiensten, bedoeld in de Wet op de inlichtingen- en veiligheidsdiensten 2017; en</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=h&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=h" /></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid2/Onderdeeli">
+        <li.nr>i.</li.nr>
+        <al>de bij of krachtens algemene maatregel van bestuur aangewezen autoriteiten.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;o=i&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=i" /></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk13/Paragraaf13.1/Artikel51/Lid3" label-id="17817974L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Indien Nederland wordt onderworpen aan een collegiale toetsing als bedoeld in artikel 19, eerste lid, van de NIS2-richtlijn, wisselen de bevoegde autoriteiten, de CSIRT’s en het centrale contactpunt met de cyberbeveiligingsdeskundigen, bedoeld in artikel 19, eerste lid, van de NIS2-richtlijn, de informatie uit die noodzakelijk is voor de door de cyberbeveiligingsdeskundigen uit te voeren collegiale toetsing.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;lid=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=3" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;artikel=51&amp;g=2026-08-15" onderdeel="artikel=51" korte-verwijzing="1.0:c:BWBR0052872&amp;artikel=51" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=13&amp;paragraaf=13.1&amp;artikel=51&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=51" korte-verwijzing="jci1.3:c:BWBR0052872&amp;artikel=51" /></jcis></meta-data></artikel>
+<artikel bwb-ng-variabel-deel="/Hoofdstuk14/Artikel67" stam-id="17922523" versie-id="31706332" id="C45273971" label-id="17818184" inwerking="2026-08-15" label="Artikel 67" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">67</nr>
+    <titel status="officieel">(verstrekking van gegevens in relatie tot nationale veiligheid, openbare veiligheid en defensie)</titel>
+  </kop>
+  <al>Het bepaalde bij of krachtens deze wet omvat niet de verstrekking van informatie waarvan de bekendmaking strijdig is met de wezenlijke belangen van nationale veiligheid, openbare veiligheid of defensie.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;artikel=67&amp;g=2026-08-15" onderdeel="artikel=67" korte-verwijzing="1.0:c:BWBR0052872&amp;artikel=67" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=14&amp;artikel=67&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=67" korte-verwijzing="jci1.3:c:BWBR0052872&amp;artikel=67" /></jcis></meta-data></artikel>
+<artikel bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel68" stam-id="17922543" versie-id="31706352" id="C45273991" label-id="17818204" inwerking="2026-08-15" label="Artikel 68" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">68</nr>
+    <titel status="officieel">(toezichthouders)</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel68/Lid1" label-id="17818204L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Met het toezicht op de naleving van het bepaalde bij of krachtens deze wet en het bepaalde in de op grond van de artikelen 21, vijfde lid, en 23, elfde lid, van de NIS2-richtlijn vastgestelde uitvoeringshandelingen en de op grond van artikel 24, tweede lid, van de NIS2-richtlijn vastgestelde gedelegeerde handelingen, voor zover in die uitvoeringshandelingen of gedelegeerde handelingen is bepaald dat deze verbindend zijn en rechtstreeks toepasselijk zijn in elke lidstaat van de Europese Unie, zijn belast: de bij besluit van de bevoegde autoriteit aangewezen ambtenaren.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=68&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel68/Lid2" label-id="17818204L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De ambtenaren, bedoeld in het eerste lid, zijn tevens belast met het verlenen van bijstand als bedoeld in artikel 60 aan een bevoegde autoriteit van een andere lidstaat van de Europese Unie.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=68&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel68/Lid3" label-id="17818204L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Ten behoeve van het verlenen van de bijstand, bedoeld in het tweede lid, kunnen de toezichthouders hun toezichthoudende bevoegdheden toepassen.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=68&amp;lid=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=3" /></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel68/Lid4" label-id="17818204L4">
+    <lidnr status="officieel">4</lidnr>
+    <al>Van een besluit als bedoeld in het eerste lid wordt mededeling gedaan door plaatsing in de Staatscourant.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=68&amp;lid=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=4" /></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;artikel=68&amp;g=2026-08-15" onderdeel="artikel=68" korte-verwijzing="1.0:c:BWBR0052872&amp;artikel=68" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=68&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=68" korte-verwijzing="jci1.3:c:BWBR0052872&amp;artikel=68" /></jcis></meta-data></artikel>
+<artikel bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69" stam-id="17922553" versie-id="31706362" id="C45274001" label-id="17818214" inwerking="2026-08-15" label="Artikel 69" bron="Stb.2026-187" effect="nieuwe-regeling" ondertekening_bron="2026-07-08" publicatie_bron="2026-07-10" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">69</nr>
+    <titel status="officieel">(toepassing handhavingsinstrumentarium)</titel>
+  </kop>
+  <al>Onverminderd artikel 3:4, tweede lid, van de Algemene wet bestuursrecht houdt de bevoegde autoriteit bij de toepassing van de artikelen 70, 72, eerste lid, onderdeel c, 73 tot en met 78, 80, 83, eerste lid, onderdeel c, 84 tot en met 87 en 89 tot en met 93 rekening met de omstandigheden van elk afzonderlijk geval, alsmede:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>de ernst van de overtreding en het belang van de geschonden bepalingen, waarbij onder meer het volgende in ieder geval een ernstige overtreding vormt:</al>
+      <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+        <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela/Onderdeel1">
+          <li.nr>1°.</li.nr>
+          <al>herhaalde overtredingen;</al>
+        <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;o=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=1" /></jcis></meta-data></li>
+        <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela/Onderdeel2">
+          <li.nr>2°.</li.nr>
+          <al>het niet melden of niet verhelpen van significante incidenten;</al>
+        <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;o=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=2" /></jcis></meta-data></li>
+        <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela/Onderdeel3">
+          <li.nr>3°.</li.nr>
+          <al>het niet verhelpen van tekortkomingen naar aanleiding van bindende aanwijzingen van de bevoegde autoriteit;</al>
+        <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;o=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=3" /></jcis></meta-data></li>
+        <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela/Onderdeel4">
+          <li.nr>4°.</li.nr>
+          <al>het belemmeren van audits of monitoringsactiviteiten waartoe de bevoegde autoriteit opdracht heeft gegeven naar aanleiding van de vaststelling van een overtreding;</al>
+        <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;o=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=4" /></jcis></meta-data></li>
+        <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeela/Onderdeel5">
+          <li.nr>5°.</li.nr>
+          <al>het verstrekken van valse of zeer onnauwkeurige informatie met betrekking tot de verplichtingen, bedoeld in de artikelen 21 en 25 tot en met 30;</al>
+        <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;o=5&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=5" /></jcis></meta-data></li>
+      </lijst>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de duur van de overtreding;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>eventuele relevante eerdere overtredingen door de betrokken entiteit;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeeld">
+      <li.nr>d.</li.nr>
+      <al>elke veroorzaakte materiële of immateriële schade, met inbegrip van elke financiële of economische schade, effecten op andere diensten en het aantal getroffen gebruikers;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeele">
+      <li.nr>e.</li.nr>
+      <al>opzet of nalatigheid van de overtreder;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeelf">
+      <li.nr>f.</li.nr>
+      <al>door de entiteit genomen maatregelen om de materiële of immateriële schade te voorkomen of te beperken;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=f&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=f" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeelg">
+      <li.nr>g.</li.nr>
+      <al>de naleving van goedgekeurde gedragscodes of goedgekeurde certificeringsmechanismen; en</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=g&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=g" /></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk15/Paragraaf15.1/Artikel69/Onderdeelh">
+      <li.nr>h.</li.nr>
+      <al>de mate waarin de overtreder meewerkt met de bevoegde autoriteiten.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;o=h&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=h" /></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-187"><publicatiejaar>2026</publicatiejaar><publicatienr>187</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum><dossierref dossier="36764">36764</dossierref></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052872&amp;artikel=69&amp;g=2026-08-15" onderdeel="artikel=69" korte-verwijzing="1.0:c:BWBR0052872&amp;artikel=69" /><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052872&amp;hoofdstuk=15&amp;paragraaf=15.1&amp;artikel=69&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=69" korte-verwijzing="jci1.3:c:BWBR0052872&amp;artikel=69" /></jcis></meta-data></artikel>
+</wettekst></wetgeving></toestand>
