@@ -212,11 +212,11 @@ _NEWEST: dict[str, str] = {
         WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stb'
           AND date_published <= %(today)s
         ORDER BY date_published DESC LIMIT 1""",
+    # its ministeriële regelingen (``normalize staatscourant``), not the few a BWB text names
     SOURCE_STAATSCOURANT: f"""
-        SELECT date_published FROM instruments
-        WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stcrt'
-          AND date_published <= %(today)s
-        ORDER BY date_published DESC LIMIT 1""",
+        SELECT date FROM documents
+        WHERE source = '{SOURCE_STAATSCOURANT}' AND date <= %(today)s
+        ORDER BY date DESC LIMIT 1""",
     SOURCE_BWB: """
         SELECT valid_from FROM instrument_versions WHERE valid_from <= %(today)s
         ORDER BY valid_from DESC LIMIT 1""",
