@@ -28,7 +28,39 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
+ },
+ "all BZK": {
+  "articles": [],
+  "cabinets": [],
+  "commitments": [],
+  "committees": [],
+  "decisions": [],
+  "documents": [],
+  "dossiers": [],
+  "factions": [],
+  "instruments": [],
+  "judgments": [],
+  "members": [],
+  "ministries": [
+   {
+    "collection": "ministries",
+    "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+    "exact": true,
+    "extra": {
+     "abbreviation": "BZK",
+     "successor": null,
+     "to_date": null,
+     "tooi": "mnre1034"
+    },
+    "id": "ministries/bzk",
+    "key": "bzk",
+    "score": 1.0,
+    "snippet": "BZK",
+    "type": "ministry"
+   }
+  ]
  },
  "all ECLI:NL:HR:1919:1": {
   "articles": [],
@@ -63,7 +95,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all Lindenbaum/Cohen": {
   "articles": [],
@@ -102,7 +135,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all R. van Gelder": {
   "articles": [],
@@ -143,7 +177,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all Sr": {
   "articles": [
@@ -226,7 +261,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all TZ202609-011": {
   "articles": [],
@@ -274,7 +310,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all Wetboek van Strafrecht": {
   "articles": [
@@ -356,7 +393,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all art 1": {
   "articles": [
@@ -824,7 +862,8 @@
     "snippet": "VVD",
     "type": "member"
    }
-  ]
+  ],
+  "ministries": []
  },
  "all art. 1 sr": {
   "articles": [
@@ -862,7 +901,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all artikel 6:162": {
   "articles": [
@@ -899,7 +939,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all belasting": {
   "articles": [
@@ -2140,7 +2181,68 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
+ },
+ "all binnenlandse zaken": {
+  "articles": [],
+  "cabinets": [],
+  "commitments": [],
+  "committees": [
+   {
+    "collection": "committees",
+    "display_name": "Binnenlandse Zaken",
+    "extra": {
+     "abbreviation": "BiZa",
+     "slug": "binnenlandse-zaken"
+    },
+    "id": "committees/bzk",
+    "key": "bzk",
+    "score": 0.75,
+    "snippet": "BiZa",
+    "type": "committee"
+   }
+  ],
+  "decisions": [],
+  "documents": [],
+  "dossiers": [],
+  "factions": [],
+  "instruments": [],
+  "judgments": [],
+  "members": [],
+  "ministries": [
+   {
+    "collection": "ministries",
+    "display_name": "Binnenlandse Zaken",
+    "exact": true,
+    "extra": {
+     "abbreviation": null,
+     "successor": "bzk",
+     "to_date": "1998-08-02",
+     "tooi": null
+    },
+    "id": "ministries/biza",
+    "key": "biza",
+    "score": 0.75,
+    "snippet": null,
+    "type": "ministry"
+   },
+   {
+    "collection": "ministries",
+    "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+    "extra": {
+     "abbreviation": "BZK",
+     "successor": null,
+     "to_date": null,
+     "tooi": "mnre1034"
+    },
+    "id": "ministries/bzk",
+    "key": "bzk",
+    "score": 0.5,
+    "snippet": "BZK",
+    "type": "ministry"
+   }
+  ]
  },
  "all cbw": {
   "articles": [
@@ -2215,7 +2317,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all cbw dossier": {
   "articles": [],
@@ -2246,7 +2349,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all cda": {
   "articles": [],
@@ -2289,7 +2393,8 @@
     "snippet": "CDA",
     "type": "member"
    }
-  ]
+  ],
+  "ministries": []
  },
  "all de vries": {
   "articles": [],
@@ -2331,7 +2436,8 @@
     "snippet": "CDA",
     "type": "member"
    }
-  ]
+  ],
+  "ministries": []
  },
  "all dossier": {
   "articles": [],
@@ -2344,7 +2450,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all hu": {
   "articles": [],
@@ -2394,7 +2501,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all huur": {
   "articles": [
@@ -2972,7 +3080,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all huurovereenkomst": {
   "articles": [],
@@ -3055,7 +3164,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all kabinet schoof": {
   "articles": [],
@@ -3082,7 +3192,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all kinds Brief regering,overig brief": {
   "documents": [
@@ -4077,7 +4188,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all lindenb": {
   "articles": [],
@@ -4115,7 +4227,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all no words": {
   "articles": [],
@@ -4128,7 +4241,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all noodweer": {
   "articles": [
@@ -4166,7 +4280,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all one type": {
   "articles": [
@@ -4654,7 +4769,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all period ECLI:NL:HR:2019:9": {
   "articles": [],
@@ -4689,7 +4805,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all period klimaat": {
   "articles": [
@@ -4846,7 +4963,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all period van gelder": {
   "articles": [],
@@ -4859,7 +4977,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all period wet": {
   "articles": [
@@ -4915,7 +5034,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all stemming": {
   "articles": [],
@@ -4928,7 +5048,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all stemming klimaat": {
   "articles": [],
@@ -4974,7 +5095,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all stik": {
   "articles": [
@@ -5055,7 +5177,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all strafbaar": {
   "articles": [
@@ -5113,7 +5236,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all strafbaar sv": {
   "articles": [],
@@ -5126,7 +5250,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all van geld": {
   "articles": [],
@@ -5139,7 +5264,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all vermeulen": {
   "articles": [],
@@ -5180,7 +5306,8 @@
     "type": "judgment"
    }
   ],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all wet": {
   "articles": [
@@ -5843,7 +5970,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all wvsr": {
   "articles": [
@@ -5926,7 +6054,8 @@
    }
   ],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "all yesilgoz": {
   "articles": [],
@@ -5950,11 +6079,12 @@
     },
     "id": "members/m3",
     "key": "m3",
-    "score": 0.25,
+    "score": 0.75,
     "snippet": "VVD",
     "type": "member"
    }
-  ]
+  ],
+  "ministries": []
  },
  "all zorgplicht cbw": {
   "articles": [
@@ -5989,7 +6119,8 @@
   "factions": [],
   "instruments": [],
   "judgments": [],
-  "members": []
+  "members": [],
+  "ministries": []
  },
  "full 3 36000": {
   "hits": {
@@ -6021,7 +6152,42 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "full 3 BZK": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -6059,7 +6225,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6101,7 +6268,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6145,7 +6313,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6231,7 +6400,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6282,7 +6452,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6367,7 +6538,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6479,7 +6651,8 @@
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -6520,7 +6693,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6560,7 +6734,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6785,7 +6960,71 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "full 3 binnenlandse zaken": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [
+    {
+     "collection": "committees",
+     "display_name": "Binnenlandse Zaken",
+     "extra": {
+      "abbreviation": "BiZa",
+      "slug": "binnenlandse-zaken"
+     },
+     "id": "committees/bzk",
+     "key": "bzk",
+     "score": 0.75,
+     "snippet": "BiZa",
+     "type": "committee"
+    }
+   ],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken",
+     "exact": true,
+     "extra": {
+      "abbreviation": null,
+      "successor": "bzk",
+      "to_date": "1998-08-02",
+      "tooi": null
+     },
+     "id": "ministries/biza",
+     "key": "biza",
+     "score": 0.75,
+     "snippet": null,
+     "type": "ministry"
+    },
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 0.5,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -6863,7 +7102,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6897,7 +7137,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -6943,7 +7184,8 @@
      "snippet": "CDA",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -6988,7 +7230,8 @@
      "snippet": "CDA",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -7004,7 +7247,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7057,7 +7301,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7281,7 +7526,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7367,7 +7613,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7397,7 +7644,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7733,7 +7981,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7774,7 +8023,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7815,7 +8065,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7880,7 +8131,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7896,7 +8148,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -7945,7 +8198,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8029,7 +8283,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8090,7 +8345,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8106,7 +8362,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8122,7 +8379,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8166,7 +8424,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8392,7 +8651,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8478,7 +8738,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -8505,11 +8766,12 @@
      },
      "id": "members/m3",
      "key": "m3",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -8547,7 +8809,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -9791,7 +10054,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "wet": {
    "articles": [
@@ -10454,7 +10718,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   }
  },
  "kept signatures": {
@@ -10492,7 +10757,42 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "live 1 BZK": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -10530,7 +10830,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10571,7 +10872,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10615,7 +10917,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10678,7 +10981,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10712,7 +11016,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10774,7 +11079,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10844,7 +11150,8 @@
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -10885,7 +11192,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -10925,7 +11233,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11016,7 +11325,56 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "live 1 binnenlandse zaken": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [
+    {
+     "collection": "committees",
+     "display_name": "Binnenlandse Zaken",
+     "extra": {
+      "abbreviation": "BiZa",
+      "slug": "binnenlandse-zaken"
+     },
+     "id": "committees/bzk",
+     "key": "bzk",
+     "score": 0.75,
+     "snippet": "BiZa",
+     "type": "committee"
+    }
+   ],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken",
+     "exact": true,
+     "extra": {
+      "abbreviation": null,
+      "successor": "bzk",
+      "to_date": "1998-08-02",
+      "tooi": null
+     },
+     "id": "ministries/biza",
+     "key": "biza",
+     "score": 0.75,
+     "snippet": null,
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -11094,7 +11452,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11128,7 +11487,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11174,7 +11534,8 @@
      "snippet": "CDA",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -11205,7 +11566,8 @@
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -11221,7 +11583,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11274,7 +11637,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11415,7 +11779,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11479,7 +11844,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11509,7 +11875,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11669,7 +12036,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11710,7 +12078,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11751,7 +12120,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11816,7 +12186,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11832,7 +12203,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11865,7 +12237,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11949,7 +12322,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -11987,7 +12361,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12003,7 +12378,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12047,7 +12423,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12091,7 +12468,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12207,7 +12585,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12270,7 +12649,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12297,11 +12677,12 @@
      },
      "id": "members/m3",
      "key": "m3",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -12339,7 +12720,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12373,7 +12755,42 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "live BZK": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -12411,7 +12828,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12452,7 +12870,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12496,7 +12915,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12582,7 +13002,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12633,7 +13054,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12718,7 +13140,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -12979,7 +13402,8 @@
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -13020,7 +13444,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -13060,7 +13485,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -13754,7 +14180,71 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
+  },
+  "partial": []
+ },
+ "live binnenlandse zaken": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [
+    {
+     "collection": "committees",
+     "display_name": "Binnenlandse Zaken",
+     "extra": {
+      "abbreviation": "BiZa",
+      "slug": "binnenlandse-zaken"
+     },
+     "id": "committees/bzk",
+     "key": "bzk",
+     "score": 0.75,
+     "snippet": "BiZa",
+     "type": "committee"
+    }
+   ],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken",
+     "exact": true,
+     "extra": {
+      "abbreviation": null,
+      "successor": "bzk",
+      "to_date": "1998-08-02",
+      "tooi": null
+     },
+     "id": "ministries/biza",
+     "key": "biza",
+     "score": 0.75,
+     "snippet": null,
+     "type": "ministry"
+    },
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 0.5,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
@@ -13832,7 +14322,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -13866,7 +14357,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -13912,7 +14404,8 @@
      "snippet": "CDA",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -13957,7 +14450,8 @@
      "snippet": "CDA",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -13973,7 +14467,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -14026,7 +14521,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -14397,7 +14893,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -14461,7 +14958,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -14491,7 +14989,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15276,7 +15775,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15317,7 +15817,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15358,7 +15859,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15423,7 +15925,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15439,7 +15942,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": [
    "articles",
@@ -15452,7 +15956,8 @@
    "factions",
    "instruments",
    "judgments",
-   "members"
+   "members",
+   "ministries"
   ]
  },
  "live period ECLI:NL:HR:2019:9": {
@@ -15489,7 +15994,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15649,7 +16155,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15665,7 +16172,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15703,7 +16211,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15719,7 +16228,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15768,7 +16278,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15852,7 +16363,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15913,7 +16425,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -15929,7 +16442,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -16000,7 +16514,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -16044,7 +16559,8 @@
      "type": "judgment"
     }
    ],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -16395,7 +16911,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -16481,7 +16998,8 @@
     }
    ],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  },
@@ -16508,11 +17026,12 @@
      },
      "id": "members/m3",
      "key": "m3",
-     "score": 0.25,
+     "score": 0.75,
      "snippet": "VVD",
      "type": "member"
     }
-   ]
+   ],
+   "ministries": []
   },
   "partial": []
  },
@@ -16550,7 +17069,8 @@
    "factions": [],
    "instruments": [],
    "judgments": [],
-   "members": []
+   "members": [],
+   "ministries": []
   },
   "partial": []
  }

@@ -18,7 +18,8 @@ SCORE_PREFIX = 0.5  # its name starts with the query
 SCORE_CONTAINS = 0.25  # every word of the query is in its name
 SCORE_WORDS = 0.1  # it matched on stems or text only
 
-# What identifies a hit, besides its key: the fields of ``extra`` that are identifiers.
+# What identifies a hit, besides its key: the fields of ``extra`` that are identifiers. Not
+# the dossier of a paper: every paper of the dossier holds its number.
 _IDENTIFIER_FIELDS = (
     "bwb_id",
     "celex",
@@ -26,7 +27,6 @@ _IDENTIFIER_FIELDS = (
     "appno",
     "number",
     "external_id",
-    "dossier_number",
     "abbreviation",
     "short_title",
     "slug",
@@ -112,10 +112,12 @@ def score_hit(query: str, hit: Mapping[str, Any]) -> float:
 
 def _surname_of(wanted: str, hit: Mapping[str, Any]) -> bool:
     """Whether *wanted* (folded) is the name of the member *hit* without the names or
-    initials before it: "rutte" of Mark Rutte, not of P.J. Rutten."""
+    initials before it: "rutte" of Mark Rutte, not of P.J. Rutten; of a double surname
+    each of its parts too ("yesilgoz" of Dilan Yeşilgöz-Zegerius)."""
     if hit.get("collection") != "members":
         return False
-    return folded(hit.get("display_name")).endswith(" " + wanted)
+    name = folded(hit.get("display_name"))
+    return name.endswith(" " + wanted) or wanted in name.rsplit(" ", 1)[-1].split("-")
 
 
 # What names a hit exactly, per collection: the fields of ``extra`` and its display name
@@ -139,6 +141,7 @@ _EXACT_FIELDS: dict[str, tuple[str, ...]] = {
     "committees": ("abbreviation", "display_name"),
     "cabinets": ("display_name",),
     "commitments": ("number",),
+    "ministries": ("abbreviation", "display_name"),
 }
 
 
@@ -172,14 +175,26 @@ def rank_hits(
     """*hits* with a ``score`` each (a hit that has one keeps it), best first; a member
     without a role (``member_role``) after every hit with one, whatever its score; a law or
     an article that no longer holds on *today* (the Dutch day by default) after every hit
-    of its score that does, not left out (a name that is the query still goes first)."""
+    that does, whatever its score, not left out: what the query identifies or names
+    exactly (``exact_hit``) goes first still."""
     day = today or dutch_today().isoformat()
     scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
     return sorted(
         scored,
         key=lambda h: (
             (h.get("extra") or {}).get("has_role") is False,
+            _held_no_longer(query, h, day),
             -h["score"],
             expired(h, day),
         ),
+    )
+
+
+def _held_no_longer(query: str, hit: Mapping[str, Any], today: str) -> bool:
+    """Whether *hit* no longer holds on *today* and the query neither identifies it nor
+    names it exactly: such a hit goes after every one that holds."""
+    return (
+        expired(hit, today)
+        and hit["score"] < SCORE_IDENTIFIER
+        and not exact_hit(query, hit)
     )
