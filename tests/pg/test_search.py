@@ -1473,6 +1473,29 @@ def test_the_words_that_name_a_vote_are_left_out_of_a_search_of_votes(
         assert found(word) == [], word
 
 
+def test_a_word_of_two_letters_is_the_start_of_a_word_of_a_vote(
+    store: GraphStore,
+) -> None:
+    """A word without three letters in a row ("BW") has no trigram to find a part of a
+    word by: it is the start of a word of the subject, at its start or after a space or a
+    parenthesis, not a part of one ("subwoofer")."""
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _node("v1", "decision", subject="BW-boek 7 over huur", date="2026-05-01"),
+            _node(
+                "v2", "decision", subject="Wijziging van Boek 6 BW", date="2026-05-02"
+            ),
+            _node(
+                "v3", "decision", subject="Herziening (BW) erfrecht", date="2026-05-03"
+            ),
+            _node("v4", "decision", subject="Heffing op subwoofers", date="2026-05-04"),
+        ],
+    )
+    hits = dispatch.search_all(store, q="BW", types=["decisions"])["decisions"]
+    assert [hit["key"] for hit in hits] == ["v3", "v2", "v1"]
+
+
 def _ministries(store: GraphStore, *keys: str) -> None:
     """The ministries *keys* as ``semantic tooi-ministries`` writes them."""
     store.bulk_insert_or_update_nodes(

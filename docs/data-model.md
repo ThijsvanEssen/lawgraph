@@ -1975,7 +1975,8 @@ weighs no length. The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names
 (`search_names`, a trigram index); `cabinets` by their name, `commitments` by their text and
 number, and `decisions` by their subject and kind, each through a trigram index on those
-words lower-cased (`<table>_search_words`).
+words lower-cased (`<table>_search_words`): a part of them, or, for a word without three
+letters or digits in a row (`BW`), which has no trigram, the start of one of them.
 `articles` are searched by their `display_name`, `heading`, the `title` of every division in
 the `breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id`; `instruments`
 by their titles, `short_title`, `aliases` and `bwb_id`; `judgments` by each of their `names`
