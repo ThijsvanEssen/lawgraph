@@ -57,7 +57,7 @@ from lawgraph.db.queries.delegations import (
 from lawgraph.db.queries.documents import list_documents
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.factions import get_factions
-from lawgraph.db.queries.feed import get_feed, get_feed_summary
+from lawgraph.db.queries.feed import get_feed, get_feed_summary, get_lower_courts
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.instruments import (
     get_citing_judgments,
@@ -263,6 +263,21 @@ def _warm_home_summary(store: GraphStore) -> None:
     get_chamber_schedule(store, dutch_today().isoformat())
 
 
+# The lower courts Actueel asks with its summary (``lower_courts=true``): the judgments of
+# the last ``LOWER_COURTS_DAYS`` days up to today (the most the route allows, as Actueel
+# opens it on a busy day), counted per day and area of law: 0.9 s cold over 31 days and 6,479
+# judgments on prod (29 Oct). Kept per its filters, so only that window is warm.
+LOWER_COURTS_DAYS = 31
+
+
+def _warm_lower_courts(store: GraphStore) -> None:
+    last = dutch_today()
+    first = last - dt.timedelta(days=LOWER_COURTS_DAYS - 1)
+    get_lower_courts(
+        store, FeedFilters(since=first.isoformat(), until=last.isoformat())
+    )
+
+
 def _warm_delegated(store: GraphStore) -> None:
     """The regulations in force under the most cited laws, as the explorer asks them
     (``/delegated?detail=summary``): the Awb has 850, 10 s cold."""
@@ -311,6 +326,8 @@ PARTS: tuple[Part, ...] = (
     Part("data as of", cached_data_as_of),
     # the first call of the homepage
     Part("home summary", _warm_home_summary),
+    # the lower courts of Actueel (``lower_courts=true``), before the slow parts after "warm"
+    Part("lower courts", _warm_lower_courts),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),
     Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),

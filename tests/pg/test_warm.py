@@ -401,6 +401,40 @@ def test_the_summary_of_the_homepage_is_warmed(
     assert not [c for c in calls if "day_kinds" in c.text]
 
 
+def test_the_lower_courts_of_actueel_are_warmed(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Actueel asks ``lower_courts=true`` over the last month: after a poll the warm-up
+    counts them (0.9 s cold on prod, 29 Oct), and a visitor reads none of it."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+
+    warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        response = TestClient(app).get(
+            "/api/feed/summary",
+            params={
+                "until": dutch_today().isoformat(),
+                "days": warm.LOWER_COURTS_DAYS,
+                "limit": 1,
+                "lower_courts": "true",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert response.status_code == 200, response.text
+    assert not [c for c in calls if "per_area" in c.text]
+
+
+def test_the_lower_courts_are_warmed_before_the_parts_after_warm() -> None:
+    names = [part.name for part in warm.PARTS]
+    assert "lower courts" in names
+
+
 def test_the_homepage_summary_is_of_the_dutch_day(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
