@@ -608,7 +608,7 @@ no code.
 ## Operations without a personal key
 
 `.github/workflows/ops.yml` reaches the server with the deploy key, started by hand: `status` (health, timers, the
-last runs, long statements, disk), `log` (an ops job or `runs.log`), `sql` (a read-only query from `ops/`) and `run`
+last runs, long statements, the memory of the API, disk), `log` (an ops job or `runs.log`), `sql` (a read-only query from `ops/`) and `run`
 (a script from `ops/`, in the background). Only files merged under `ops/` can be sent; `ops/README.md` has the
 commands and the lock a writing script takes.
 
