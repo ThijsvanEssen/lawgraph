@@ -288,11 +288,11 @@ class InstrumentProps(_CommonProps):
     """The dossiers of the publication (of a BWB regulation: of the one that enacted
     it)."""
     basis: list[dict[str, Any]] | None = None
-    """The `Gelet op` references of its toestand: `{bwb_id, article, doc, text}`
-    (`BASED_ON`)."""
+    """The links of the considerans of its toestand that state its legal basis (`Gelet op`,
+    or a clause "ingevolge artikel …"): `{bwb_id, article, doc, text}` (`BASED_ON`)."""
     basis_preamble: str | None = None
-    """The text of its `Gelet op` paragraphs: a law it names without a link is read from it
-    (`BASED_ON`)."""
+    """The text of the considerans that states its legal basis: a law it names without a
+    link is read from it (`BASED_ON`)."""
     celex_refs: list[str] | None = None
     """The EU acts its text names."""
     implements_celex: list[str] | None = None
@@ -300,8 +300,8 @@ class InstrumentProps(_CommonProps):
     preamble: dict[str, Any] | None = None
     """BWB: its aanhef as a text, a paragraph a line: `{text, parts, references}`, `parts`
     its blocks `{kind, start, end}` (`kind` the element: `wij`, `wie`, `considerans`,
-    `afkondiging`, `preambule`; `gelet_op` a paragraph of the considerans that starts with
-    "Gelet op", inside it) and `references` its links as those of an article, offsets into
+    `afkondiging`, `preambule`; `gelet_op` the text of the considerans that states the legal
+    basis, inside it) and `references` its links as those of an article, offsets into
     `text`; null without one."""
     enacted_publication: str | None = None
     """The publication that enacted it: `stb-2018-144`."""

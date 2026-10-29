@@ -1399,8 +1399,13 @@ titel "Onrechtmatige daad" is). A caption that did not change is not written. `-
 regulations whose toestand was fetched since then (the daily run); without it every one, also
 in slices (`--after BWB-ID`, `--limit N`; the log names the last one read).
 
-**Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article named in its
-`Gelet op` paragraph, 1.0, `meta = {text, doc, basis_kind}`: `text` the reference without its
+**Semantic `bwb-grondslagen`.** `BASED_ON` from a regulation to the article its considerans
+names as its legal basis, 1.0. That is a paragraph that starts with "Gelet op" or that the BWB
+marks `bevat="grondslag"`, with the paragraphs it runs on into (after ",", ":", "en"); and in
+another paragraph the list of links after "gelet op", "ingevolge", "ter uitvoering van" or
+"met toepassing van" in the same clause ("Alzo Wij …, dat ingevolge artikel 133 van de
+Grondwet …"; `core/bwb_xml.py`, `_basis_spans`). The same text is the `gelet_op` part of
+`props.preamble`. `meta = {text, doc, basis_kind}`: `text` the reference without its
 list word and law (`artikelen 3` is `3`, `107 van de Cyberbeveiligingswet` is `107`),
 `basis_kind` `delegates` when the leden named of the article (none: all of it) hold a
 delegation formula or another wording of a power ("bij besluit", "bij regeling", "kan nadere
