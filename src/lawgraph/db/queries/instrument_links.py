@@ -32,6 +32,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.instrument_scope import InstrumentScope
 from lawgraph.db.queries.judgment_sql import slim_judgment
 from lawgraph.db.schema import node_of
+from lawgraph.db.version_cache import lasting
 
 # The keys of the articles of a treaty: BWB treaties, the ECHR Convention among them, by their
 # BWBV id. The prefix keeps the edges of a large statute from being looked up one by one; the
@@ -136,6 +137,11 @@ def _eu_side(
     """
 
 
+# How long the links of an instrument are kept under one request (seconds): the answer of a
+# law changes with a poll of EUR-Lex or a run of the linker, not by the hour.
+LINKS_MAX_AGE = 3600.0
+
+
 def get_eu_links(
     store: GraphStore, instrument_id: str, *, limit: int = 500, importance: bool = False
 ) -> EuLinksData:
@@ -144,8 +150,20 @@ def get_eu_links(
 
     Each row is `{instrument, edge}`: the instrument at the other end and `{relation,
     confidence, source, meta}` of the edge. Highest confidence first; with *importance* the
-    instrument cited most first, then the highest confidence.
+    instrument cited most first, then the highest confidence. Kept ``LINKS_MAX_AGE`` per
+    request (``lasting``): the Awb took 4.4 s cold on prod (28 Oct).
     """
+    return lasting(
+        store,
+        ("eu links", instrument_id, limit, importance),
+        lambda: _eu_links(store, instrument_id, limit, importance),
+        LINKS_MAX_AGE,
+    )
+
+
+def _eu_links(
+    store: GraphStore, instrument_id: str, limit: int, importance: bool
+) -> EuLinksData:
     sides = (
         ("implements", "from", "to", "implements"),
         ("implemented_by", "to", "from", "implements"),
@@ -326,7 +344,33 @@ def get_international_links(
     one of its articles. Most confident first, or with *importance* the most cited first; the
     totals are independent of `limit`.
     *cited*: the citations of the instrument, which choose how its ECHR judgments are found.
+    Kept ``LINKS_MAX_AGE`` per request (``lasting``).
     """
+    return lasting(
+        store,
+        (
+            "international links",
+            instrument_id,
+            scope,
+            limit,
+            cited,
+            importance,
+        ),
+        lambda: _international_links(
+            store, instrument_id, scope, limit, cited, importance
+        ),
+        LINKS_MAX_AGE,
+    )
+
+
+def _international_links(
+    store: GraphStore,
+    instrument_id: str,
+    scope: InstrumentScope | None,
+    limit: int,
+    cited: int | None,
+    importance: bool,
+) -> InternationalLinksData:
     # The scope is the indexed column of the articles: `bwb_id` or `celex`; without one
     # the instrument has no articles.
     condition = f"a.{scope.prop} = %(scope_value)s" if scope else "false"

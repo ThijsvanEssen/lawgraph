@@ -34,7 +34,7 @@ from tests.paths import fixture_text
 # dossier 36867: kst-1259252, kst-36867-A, -B, -C (total 4)
 PAGE = fixture_text("sru_eerstekamer_kamerstukken_page.xml")
 
-pytestmark = pytest.mark.usefixtures("edge_removals")
+pytestmark = pytest.mark.usefixtures("edge_removals", "ek_documents")
 
 
 def _client(responses: list[Any], calls: list[dict]) -> EerstekamerClient:
@@ -140,8 +140,8 @@ def test_a_failed_search_is_an_error_of_the_run(slept) -> None:
 # ── normalize ────────────────────────────────────────────────────────────────
 
 
-def _normalize(papers: list[dict[str, Any]]):
-    store = InMemoryStore()  # no dossiers of the Tweede Kamer
+def _normalize(papers: list[dict[str, Any]], store: InMemoryStore | None = None):
+    store = store or InMemoryStore()  # no dossiers of the Tweede Kamer
     pipeline = EerstekamerNormalizePipeline(store=store)
     raw = [{"external_id": p.get("identifier"), "payload_json": p} for p in papers]
     result = PipelineResult()
@@ -196,6 +196,23 @@ def test_a_kamerstuk_in_the_index_twice_is_one_document() -> None:
 
     assert sorted(nodes) == ["ek_kst_36702_a", "ek_kst_36702_b", "ek_kst_9"]
     assert nodes["ek_kst_36702_a"].props["external_id"] == "kst-36702-A"
+
+
+def test_a_copy_of_a_kamerstuk_written_before_is_not_written_again() -> None:
+    """A run with ``--since`` that sees the other identifier of a Kamerstuk an earlier run
+    wrote (36702, A: ``kst-36702-A``, then ``kst-1274193``) leaves it one document."""
+    stuk: dict[str, Any] = {
+        "kind": "Voorstel van wet",
+        "number": "A",
+        "dossier_number": "36702",
+        "date": "2026-10-06",
+        "title": "Gewijzigd voorstel van wet",
+    }
+    store = InMemoryStore()
+    _normalize([{**stuk, "identifier": "kst-36702-A"}], store)
+    nodes, _ = _normalize([{**stuk, "identifier": "kst-1274193"}], store)
+
+    assert sorted(nodes) == ["ek_kst_36702_a"]
 
 
 def test_a_budget_chapter_is_split_off_the_dossier_number() -> None:

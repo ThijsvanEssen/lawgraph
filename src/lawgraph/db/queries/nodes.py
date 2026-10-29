@@ -229,6 +229,9 @@ class NeighborBucket:
     # of a member's AUTHORED: per capacity they signed in, how many of the whole bucket
     # ("" none); None for every other bucket
     capacity_counts: dict[str, int] | None = None
+    # of a judgment's judgments: per tier, how many of the whole bucket ("" none); None for
+    # every other bucket
+    tier_counts: dict[str, int] | None = None
 
 
 @dataclass
@@ -267,6 +270,39 @@ def _capacity_counts(store: GraphStore, member_id: str) -> dict[str, dict[str, i
     return counts
 
 
+def _tier_counts(
+    store: GraphStore, node_id: str, filters: NeighborFilter
+) -> dict[tuple[str | None, str], dict[str, int]]:
+    """Per (relation, direction) of a judgment's edges to judgments: how many of those
+    judgments are of each tier (``""`` none, a stub), every edge counted as its bucket's
+    ``total`` counts them; through the index of the judgments' ids."""
+    parts = []
+    for direction in filters.directions:
+        _, other, other_collection = _EDGE_SIDES[direction]
+        parts.append(
+            f"""
+            SELECT e.relation, '{direction}' AS direction,
+                   coalesce(j.tier, '') AS tier, count(*)::int AS n
+            FROM edges e
+            JOIN {COLLECTION_JUDGMENTS} j ON j.id = e.{other}
+            WHERE {filters.edges_sql(direction)}
+              AND e.{other_collection} = '{COLLECTION_JUDGMENTS}'
+            GROUP BY e.relation, coalesce(j.tier, '')
+            """
+        )
+    params = {
+        "node_id": node_id,
+        "collections": filters.collections,
+        **filters.edge_params(),
+    }
+    counts: dict[tuple[str | None, str], dict[str, int]] = {}
+    for row in store.query(" UNION ALL ".join(parts), params):
+        counts.setdefault((row["relation"], row["direction"]), {})[row["tier"]] = row[
+            "n"
+        ]
+    return counts
+
+
 def get_node_with_neighbors(
     store: GraphStore,
     collection: str,
@@ -302,6 +338,11 @@ def get_node_with_neighbors(
         if collection == COLLECTION_MEMBERS and filters.status is None
         else {}
     )
+    tiers = (
+        _tier_counts(store, node["id"], filters)
+        if collection == COLLECTION_JUDGMENTS
+        else {}
+    )
     end = offset + limit
     buckets = [
         NeighborBucket(
@@ -314,6 +355,11 @@ def get_node_with_neighbors(
             capacity_counts=(
                 capacities.get(facet.collection)
                 if (facet.relation, facet.direction) == (RELATION_AUTHORED, "outbound")
+                else None
+            ),
+            tier_counts=(
+                tiers.get((facet.relation, facet.direction))
+                if facet.collection == COLLECTION_JUDGMENTS
                 else None
             ),
         )

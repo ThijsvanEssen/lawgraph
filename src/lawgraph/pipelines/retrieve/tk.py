@@ -30,6 +30,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
         case_filter: Callable[[dict[str, Any]], bool] | None = None,
         keywords: list[str] | None = None,
         replacing: bool = False,
+        until: dt.datetime | None = None,
         **kwargs: object,
     ) -> Iterator[RetrieveRecord]:
         """Yield the TK Zaak records that match the filters.
@@ -44,7 +45,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
 
         With *replacing* only the cases that replace another (``Zaak.VervangenVanuit``): with
         the epoch as *since*, every one of them, the cases stored before the retrieve read
-        that relation.
+        that relation. With *until* only the cases modified before it.
         """
         logger.info(
             "Fetching TK Zaak since %s%s",
@@ -59,6 +60,7 @@ class TKRetrievePipeline(RetrievePipelineBase):
             keyword_fields=["Onderwerp", "Titel"] if keywords else None,
             keywords=keywords,
             replacing=replacing,
+            until=until,
         )
         case_count = 0
         for case in cases:

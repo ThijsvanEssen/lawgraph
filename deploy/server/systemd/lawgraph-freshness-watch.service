@@ -1,0 +1,11 @@
+[Unit]
+Description=LawGraph: the watch of the freshness (how far each source is behind; an alert past a limit)
+After=lawgraph-api.service
+RequiresMountsFor=/srv/lawgraph
+
+[Service]
+Type=oneshot
+User=ubuntu
+# the wait for the warm-up (10 minutes) and the coverage tries
+TimeoutStartSec=1500
+ExecStart=/bin/sh /srv/lawgraph/bin/freshness-watch.sh

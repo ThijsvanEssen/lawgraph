@@ -26,6 +26,7 @@ LARGE = ("judgments", "articles", "documents", "edges")
 JUDGMENTS = 6_000
 DOCUMENTS = 6_000
 EDGES = 30_000
+ARTICLES = 12_000
 # The rows of every table that no statement asks for (``planned_graph.fill``): enough
 # that the planner does not read a table whole for being small.
 FILLER = 3_000
@@ -84,6 +85,14 @@ def _shaped_like_the_real(store: GraphStore) -> None:
         " 'date', '2026-0' || (n % 9 + 1) || '-15', 'title', 'Motie ' || n,"
         " 'dossier_numbers', json_build_array('36600'))"
         f" FROM generate_series(1, {DOCUMENTS}) n"
+    )
+    # the articles of many laws: the law of the fixture is a small share of them, as the Awb
+    # is of the real ones
+    store.execute(
+        "INSERT INTO articles (id, type, props)"
+        " SELECT 'articles/other_' || n, 'article', json_build_object("
+        " 'bwb_id', 'BWBR9' || (n % 200), 'article_number', n::text)"
+        f" FROM generate_series(1, {ARTICLES}) n"
     )
     store.execute(
         "INSERT INTO edges (key, from_id, to_id, doc)"

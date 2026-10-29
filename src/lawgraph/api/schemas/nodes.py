@@ -278,6 +278,14 @@ class NeighborBucketDTO(StrictModel):
             "are kept with their capacity."
         ),
     )
+    tier_counts: dict[str, int] | None = Field(
+        None,
+        description=(
+            "Of a judgment's bucket of judgments: per tier (``hoge_raad``, "
+            '``gerechtshof``, …; "" for a judgment without one), how many of the whole '
+            "bucket, not only of its page. Null for every other bucket."
+        ),
+    )
     items: list[NeighborDTO]
 
 

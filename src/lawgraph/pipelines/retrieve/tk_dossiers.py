@@ -72,6 +72,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         skip_decisions: bool = False,
         skip_documents: bool = False,
         dossier_number: int | None = None,
+        until: dt.datetime | None = None,
     ) -> PipelineResult:
         """Fetch and store all parliamentary entity types.
 
@@ -93,6 +94,9 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             skip_decisions: Skip the Stemming fetch, and that of the Besluiten on bills,
                 entirely.
             skip_documents: Skip the Document (Kamerstuk) fetch entirely.
+            until: Only fetch records modified before this datetime (not the persons, the
+                factions and the committees, which have no window): with *since* a window
+                of a backfill, a year at a time.
             dossier_number: Targeted backfill — fetch only the Kamerstukdossier
                 with this number and the Documents that link to it, ignoring
                 date filters and skipping all other entity types. Used to fill
@@ -129,13 +133,13 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
             result,
             RAW_KIND_TK_DOSSIER,
             "Id",
-            lambda: self.client.fetch_dossiers(since=since),
+            lambda: self.client.fetch_dossiers(since=since, until=until),
         )
         self._fetch_and_store(
             result,
             RAW_KIND_TK_ACTIVITEIT,
             "Id",
-            lambda: self.client.fetch_activiteiten(since=since),
+            lambda: self.client.fetch_activiteiten(since=since, until=until),
         )
         if not skip_decisions:
             vote_since = decisions_since if decisions_since is not None else since
@@ -143,23 +147,24 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 result,
                 RAW_KIND_TK_STEMMING,
                 "Id",
-                lambda: self.client.fetch_stemmingen(since=vote_since),
+                lambda: self.client.fetch_stemmingen(since=vote_since, until=until),
             )
             self._fetch_and_store(
                 result,
                 RAW_KIND_TK_BESLUIT,
                 "Id",
                 lambda: self.client.fetch_bill_decisions(
-                    LEGISLATIVE_KINDS, since=vote_since
+                    LEGISLATIVE_KINDS, since=vote_since, until=until
                 ),
             )
-            self._fetch_unvoted(result, vote_since)
+            self._fetch_unvoted(result, vote_since, until)
         self._fetch_and_store(
             result,
             RAW_KIND_TK_TOEZEGGING,
             "Id",
             lambda: self.client.fetch_toezeggingen(
-                since=commitments_since if commitments_since is not None else since
+                since=commitments_since if commitments_since is not None else since,
+                until=until,
             ),
         )
         self._fetch_and_store(
@@ -199,7 +204,7 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
                 result,
                 RAW_KIND_TK_DOCUMENT,
                 "Id",
-                lambda: self.client.fetch_documents(since=doc_since),
+                lambda: self.client.fetch_documents(since=doc_since, until=until),
             )
 
         logger.info(
@@ -209,20 +214,27 @@ class TKDossiersRetrievePipeline(RetrievePipelineBase):
         )
         return result
 
-    def run_unvoted(self, since: dt.datetime | None = None) -> PipelineResult:
+    def run_unvoted(
+        self, since: dt.datetime | None = None, until: dt.datetime | None = None
+    ) -> PipelineResult:
         """Fetch only the Besluiten without a vote on an amendment or a motion, since
-        *since* or all (about 25,000): the backfill of ``--mode unvoted``."""
+        *since* (before *until*) or all (about 25,000): the backfill of ``--mode unvoted``."""
         result = PipelineResult()
-        self._fetch_unvoted(result, since)
+        self._fetch_unvoted(result, since, until)
         return result
 
-    def _fetch_unvoted(self, result: PipelineResult, since: dt.datetime | None) -> None:
+    def _fetch_unvoted(
+        self,
+        result: PipelineResult,
+        since: dt.datetime | None,
+        until: dt.datetime | None = None,
+    ) -> None:
         self._fetch_and_store(
             result,
             RAW_KIND_TK_BESLUIT,
             "Id",
             lambda: self.client.fetch_bill_decisions(
-                DOCUMENT_CASE_KINDS, since=since, without_votes=True
+                DOCUMENT_CASE_KINDS, since=since, until=until, without_votes=True
             ),
         )
 

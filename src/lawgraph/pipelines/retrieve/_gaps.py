@@ -24,6 +24,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
+from lawgraph.core import curated
 from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
 from lawgraph.core.concordance_html import read_tables
 from lawgraph.core.document_completeness import kamerstuk_address
@@ -157,13 +158,14 @@ def unanswered_referrals(store: Store) -> list[Referral]:
 
 def eurlex_gaps(store: Store) -> list[str]:
     """The EU acts the graph names and that were not retrieved: those BWB regulations name
-    (``props.celex_refs``), and the old acts of the concordance tables (``concordance_gaps``).
+    (``props.celex_refs``), the old acts of the concordance tables (``concordance_gaps``) and
+    the core legislation kept by hand (``core_gaps``).
 
     The id is an attribute of the link in the XML, not text of an article, so it is read
     from what ``normalize bwb`` kept on the regulation.
     """
     named = [str(celex) for celex in gap_queries.unretrieved_celex_refs(store)]
-    return list(dict.fromkeys([*named, *concordance_gaps(store)]))
+    return list(dict.fromkeys([*named, *concordance_gaps(store), *core_gaps(store)]))
 
 
 def concordance_gaps(store: Store) -> list[str]:
@@ -181,14 +183,25 @@ def concordance_gaps(store: Store) -> list[str]:
             if table.old_act
         }
     )
-    held = set(succession_queries.eu_acts(store, named))
+    return _unheld_acts(store, named)
+
+
+def core_gaps(store: Store) -> list[str]:
+    """The acts of the curated list ``eu-core`` (``data/curated/eu_kern.json``) that the graph
+    does not hold and that were not retrieved, in the order of the list: a scope chosen by hand,
+    so the graph holds the core of EU law whether or not a Dutch regulation names it."""
+    return _unheld_acts(store, list(curated.LISTS["eu-core"].entries()))
+
+
+def _unheld_acts(store: Store, celex_ids: list[str]) -> list[str]:
+    held = set(succession_queries.eu_acts(store, celex_ids))
     stored = _with_raw_record(
         store,
-        [{"identifier": celex} for celex in named if celex not in held],
+        [{"identifier": celex} for celex in celex_ids if celex not in held],
         RAW_KIND_EURLEX_CELEX,
         source=SOURCE_EURLEX,
     )
-    return [celex for celex in named if celex not in held | stored]
+    return [celex for celex in celex_ids if celex not in held | stored]
 
 
 def kamerstuk_gaps(store: Store, kinds: Sequence[str]) -> list[dict[str, Any]]:

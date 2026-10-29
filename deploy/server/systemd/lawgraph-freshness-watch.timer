@@ -1,0 +1,8 @@
+[Timer]
+# after the nightly run (01:00)
+OnCalendar=*-*-* 09:30 Europe/Amsterdam
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

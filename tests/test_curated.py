@@ -233,3 +233,21 @@ def test_a_concept_needs_a_law_a_reason_and_terms_of_its_own(copy: Path) -> None
         '{"law": "BWBR0005289", "why": "x", "variants": ["Wanprestatie!"]}',
     ):
         assert concept(wrong), wrong
+
+
+def test_the_eu_core_names_each_act_once_with_the_source_it_was_checked_against(
+    copy: Path,
+) -> None:
+    acts = LISTS["eu-core"].entries()
+    assert 45 <= len(acts) <= 60
+    assert next(iter(acts)) == "32024R1689"
+    assert {"32016R0679", "32022R2065", "32022R1925"} <= set(acts)
+    off = [c for c, a in acts.items() if not a["source"].endswith("/" + c)]
+    assert not off, show_items(off)
+
+    wrong = command.main(
+        ["set", "eu-core", "32024r1689", '{"name": "x", "theme": "y", "title": "z"}']
+    )
+    assert any("upper case" in e for e in wrong.errors), show_items(wrong.errors)
+    assert any("source" in e for e in wrong.errors), show_items(wrong.errors)
+    assert "32024r1689" not in LISTS["eu-core"].entries()

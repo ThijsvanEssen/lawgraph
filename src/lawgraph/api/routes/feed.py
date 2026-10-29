@@ -25,6 +25,8 @@ from lawgraph.api.params import (
 )
 from lawgraph.api.schemas.feed import (
     ChamberScheduleDTO,
+    FeedDossierCountDTO,
+    FeedDossierDTO,
     FeedFacetsDTO,
     FeedItemDTO,
     FeedPeriodDTO,
@@ -57,12 +59,14 @@ from lawgraph.core.feed import (
 )
 from lawgraph.core.identifiers import BWB_ID_PARAM_PATTERN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
+from lawgraph.core.models import node_id
 from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.core.votes import VOTE_PARAMETER, VoteParameter
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.activities import get_chamber_schedule
+from lawgraph.db.queries.dossier_changes import dossiers_changing_articles
 from lawgraph.db.queries.feed import get_feed, get_feed_summary
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.search.clause import queries_words
@@ -233,6 +237,21 @@ def feed_filters(
     return replace(scope, since=iso_day(since), until=iso_day(until))
 
 
+def mark_changes(
+    store: GraphStore, dossiers: list[FeedDossierDTO | FeedDossierCountDTO]
+) -> None:
+    """Say of each of *dossiers* whether it changes an article (``changes_articles``), from
+    one read for all: a front end asks ``changed-articles`` of those that do."""
+    keyed = [d for d in dossiers if d.key]
+    changing = dossiers_changing_articles(
+        store, [node_id("dossiers", d.key) for d in keyed if d.key]
+    )
+    for dossier in keyed:
+        dossier.changes_articles = bool(
+            dossier.key and node_id("dossiers", dossier.key) in changing
+        )
+
+
 def _page(
     store: GraphStore,
     filters: FeedFilters,
@@ -398,7 +417,9 @@ def get_feed_route(
         bool, Query(description="Count the facets and the total.")
     ] = True,
 ) -> FeedResponse:
-    return _page(store, filters, cursor, limit, facets)
+    page = _page(store, filters, cursor, limit, facets)
+    mark_changes(store, [item.dossier for item in page.items if item.dossier])
+    return page
 
 
 @atom_router.get(
@@ -633,6 +654,13 @@ def get_feed_summary_route(
         raw, since=first, until=last, margin=margin, limit=limit
     )
     summary.data_as_of = _data_as_of(store)
+    mark_changes(
+        store,
+        [
+            *(d for day in summary.days for d in day.dossiers),
+            *(item.dossier for item in summary.items if item.dossier),
+        ],
+    )
     summary.chamber_schedule = ChamberScheduleDTO.from_raw(
         get_chamber_schedule(store, dutch_today().isoformat())
     )

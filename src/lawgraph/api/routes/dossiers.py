@@ -21,6 +21,8 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     DOSSIER_PREFIX_PATTERN,
+    LONG_LIST_MAX,
+    After,
     ListLimit,
     MinistryKey,
     PageLimit,
@@ -60,9 +62,11 @@ from lawgraph.db.queries.dossier_changes import (
     get_dossier_changed_articles,
 )
 from lawgraph.db.queries.dossiers import (
+    MUTATIONS_PAGE,
     DossierFilters,
     TimelineOrder,
     count_dossier_members,
+    count_dossier_mutations,
     enrich_dossier_docs,
     get_dossier_by_number,
     get_dossier_documents,
@@ -78,8 +82,12 @@ from lawgraph.db.queries.dossiers import (
 from lawgraph.db.queries.law_names import get_laws_named
 from lawgraph.db.queries.members import get_member_brief
 from lawgraph.db.queries.not_found import require
+from lawgraph.db.request_context import read_budget
 
 router = APIRouter()
+
+# How long the count of the mutations of a dossier may take (seconds).
+MUTATIONS_COUNT_BUDGET = 5.0
 
 DossierNumber = Annotated[
     str,
@@ -448,13 +456,14 @@ def get_changed_articles(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> DossierChangedArticlesResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
+    found_laws, truncated = get_dossier_changed_articles(store, dossier["id"])
     laws = [
         DossierChangedLaw(
             law=found["law"],
             total=len(found["changes"]),
             changes=[DossierChange.from_row(c) for c in found["changes"]],
         )
-        for found in get_dossier_changed_articles(store, dossier["id"])
+        for found in found_laws
     ]
     changes = [c for law in laws for c in law.changes]
     enacted = sum(c.stage == STAGE_ENACTED for c in changes)
@@ -464,6 +473,7 @@ def get_changed_articles(
         articles=len({c.article.id for c in changes}),
         enacted=enacted,
         proposed=len(changes) - enacted,
+        truncated=truncated,
         laws=laws,
     )
 
@@ -475,18 +485,39 @@ def get_changed_articles(
     description=(
         "The nodes and edges by which this dossier proposes to change the "
         "law, shaped like the graph endpoint so the frontend can render it "
-        "directly."
+        "directly. A page of at most `limit` edges by key, with the nodes they name: "
+        "`has_more` and `next_cursor` (pass it as `after`) where the dossier has more, "
+        "`total` the edges in all (null where counting ran past its budget). The `kind` "
+        "of a node is that of the edges of its page."
     ),
     tags=["dossiers"],
 )
 def get_mutations(
     number: DossierNumber,
     store: Annotated[GraphStore, Depends(get_store)],
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=LONG_LIST_MAX,
+            description="The most edges of a page; a dossier with more has `next_cursor`.",
+        ),
+    ] = MUTATIONS_PAGE,
+    after: After = None,
 ) -> DossierMutationsResponse:
     dossier = require(get_dossier_by_number(store, number), "Dossier", number)
-    raw = get_dossier_mutations(store, dossier["id"])
+    raw = get_dossier_mutations(store, dossier["id"], limit=limit, after=after)
+    # the count is the part to do without: a page comes with `total` null past its budget
+    total: int | None = None
+    with read_budget(MUTATIONS_COUNT_BUDGET, "The count of the mutations") as budget:
+        total = count_dossier_mutations(store, dossier["id"])
+    if budget.ran_out:
+        total = None
     return DossierMutationsResponse(
         number=number,
+        total=total,
+        has_more=raw["next_cursor"] is not None,
+        next_cursor=raw["next_cursor"],
         nodes=[DossierMutationNode.from_document(n) for n in raw.get("nodes", [])],
         edges=[
             DossierMutationEdge(

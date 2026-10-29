@@ -76,6 +76,21 @@ class Page:
     # ``lib/first-paint``): the fields of its API answer that paint reads, its kind in
     # ``kind``; None for a page the front end does not paint first
     first_paint: dict[str, Any] | None = None
+    # whether the JSON-LD also names Concordans as an ``Organization`` (``/`` and ``/over``)
+    organization: bool = False
+
+
+def organization(base: str) -> dict[str, Any]:
+    """Concordans as the publisher of the site, the one node of it in the JSON-LD (the
+    ``WebSite`` of ``/`` points at it by ``@id``): what is certain, no more."""
+    return {
+        "@type": "Organization",
+        "@id": f"{base}/#organization",
+        "name": "Concordans",
+        "url": f"{base}/",
+        "logo": f"{base}/icon-512.png",
+        "email": "concordans@tmve.nl",
+    }
 
 
 def present(**fields: Any) -> dict[str, Any]:

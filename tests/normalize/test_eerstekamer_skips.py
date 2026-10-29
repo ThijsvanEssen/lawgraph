@@ -36,6 +36,7 @@ def _page(kind: str, external_id: str, text: str | None) -> dict[str, Any]:
     return {"kind": kind, "external_id": external_id, "payload_text": text}
 
 
+@pytest.mark.usefixtures("ek_documents")
 def test_a_paper_without_payload_or_identifier_is_skipped() -> None:
     pipeline = EerstekamerNormalizePipeline(store=InMemoryStore())
     result = PipelineResult()

@@ -187,6 +187,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "title": "Wijziging van de Wet voorbeeld (Wet beter voorbeeld)",
         "short_title": "Wet beter voorbeeld",
         "short_title_basis": "title",
+        "changes_articles": False,
         "path": "/dossiers/37000",
     }
 

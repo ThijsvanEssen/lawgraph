@@ -235,6 +235,22 @@ def test_the_links_of_documents_are_asked_for_alone_and_with_every_document() ->
     assert not failing, show_items(failing)
 
 
+def test_until_bounds_the_window_of_modified_records_from_above() -> None:
+    client, session = _tk(EMPTY, EMPTY, EMPTY, EMPTY)
+    since = dt.datetime(2015, 1, 1, tzinfo=dt.UTC)
+    until = dt.datetime(2016, 1, 1, tzinfo=dt.UTC)
+    list(client.fetch_dossiers(since=since, until=until))
+    list(client.fetch_documents(until=until))
+    list(client.fetch_bill_decisions(("Wetgeving",), since=since, until=until))
+    list(client.zaken_modified_since(since, top=10, until=until))
+    window = "ApiGewijzigdOp ge 2015-01-01T00:00:00Z and ApiGewijzigdOp lt 2016-01-01T00:00:00Z"
+    (_, dossiers), (_, documents), (_, decisions), (_, cases) = _asked(session)
+    assert dossiers["$filter"] == window
+    assert documents["$filter"] == "ApiGewijzigdOp lt 2016-01-01T00:00:00Z"
+    assert decisions["$filter"].endswith(f" and {window}")
+    assert cases["$filter"] == window
+
+
 def test_the_actors_of_cases_are_asked_for_alone() -> None:
     client, session = _tk(EMPTY, EMPTY)
     list(client.fetch_case_actors())
