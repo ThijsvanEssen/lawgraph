@@ -196,9 +196,11 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
     """The pipelines ``<phase> all`` runs: all of them, but in gaps mode those that can fill
-    gaps."""
+    gaps, and a semantic run ``--since`` none that is ``weekly``."""
     if phase == "retrieve" and args.mode is RetrieveMode.GAPS:
         return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
+    if phase == "semantic" and args.since is not None:
+        return [pipeline for pipeline in PIPELINES[phase] if not pipeline.weekly]
     return PIPELINES[phase]
 
 
@@ -230,7 +232,8 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
     add_since_argument(
         parser,
         last=True,
-        help="Passed to the pipelines that accept --since; the others run in full."
+        help="Passed to the pipelines that accept --since; the others run in full, but "
+        "those a day leaves nothing to do (graph-light), which a run --since leaves out."
         + _LAST_HELP,
     )
     parser.add_argument(

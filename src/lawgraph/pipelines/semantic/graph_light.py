@@ -14,9 +14,10 @@ a judgment into an article with its passages and the judgment's date, court and 
 which the judgments citing an article or a law are read from. Triggers on ``judgments``,
 ``documents``, ``cases``, ``activities``, ``instruments``, ``edges`` and ``decisions`` keep
 them with every write: this step adds the rows written before them (once, after the deploy
-that brought a table), and with ``--all`` keeps every row again (after the props kept
-changed); ``--only`` names the tables (``--all --only authored,led`` after a release that
-changed the date they derive). Writes no node or edge: the data version stays as it is.
+that brought a table; the weekly run, not the daily: ``semantic all --since`` leaves it out),
+and with ``--all`` keeps every row again (after the props kept changed); ``--only`` names
+the tables (``--all --only authored,led`` after a release that changed the date they derive).
+Writes no node or edge: the data version stays as it is.
 """
 
 from __future__ import annotations
