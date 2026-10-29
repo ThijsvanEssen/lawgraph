@@ -385,6 +385,7 @@ def test_verdragenbank_names_why_a_record_gives_no_treaty():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("ek_documents")
 def test_one_node_per_record_pipelines_stream_and_keep_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

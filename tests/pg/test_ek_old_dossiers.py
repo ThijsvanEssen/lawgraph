@@ -138,3 +138,30 @@ def test_a_dossier_of_the_papers_and_the_tweede_kamer_takes_it_over(
     EerstekamerNormalizePipeline(store=store).run()
     assert _dossier(store, "26200")["props"]["source"] == "tk"
     assert len(_part_of(store)) == 4
+
+
+def test_a_copy_written_by_an_earlier_run_goes_with_its_edges(
+    store: GraphStore,
+) -> None:
+    """36702, A was first in the index as ``kst-1274193``, later as ``kst-36702-A``: a run with
+    ``--since`` that sees only the second removes the first with its edges."""
+    first = _document(
+        "kst-1274193", "36702", "Wet digitale identificatie", "2026-10-06"
+    )
+    first["payload_json"]["number"] = "A"
+    store.insert_raw_sources([first])
+    EerstekamerNormalizePipeline(store=store).run()
+    EerstekamerSemanticPipeline(store).run()
+    assert _part_of(store) == [("documents/ek_kst_1274193", "dossiers/36702")]
+
+    store.execute("DELETE FROM raw_sources")
+    store.insert_raw_sources(
+        [_document("kst-36702-a", "36702", "Wet digitale identificatie", "2026-10-06")]
+    )
+    EerstekamerNormalizePipeline(store=store).run()
+    EerstekamerSemanticPipeline(store).run()
+
+    assert list(store.query("SELECT key FROM documents ORDER BY key")) == [
+        "ek_kst_36702_a"
+    ]
+    assert _part_of(store) == [("documents/ek_kst_36702_a", "dossiers/36702")]

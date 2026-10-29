@@ -105,6 +105,15 @@ def raw_reads(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture()
+def ek_documents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Kamerstukken ``normalize eerstekamer`` wrote before, from the documents of an
+    ``InMemoryStore``."""
+    from tests.fakes import patch_ek_documents
+
+    patch_ek_documents(monkeypatch)
+
+
+@pytest.fixture()
 def edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
     """The edge removals of the semantic phase, on the ``edges`` of an ``InMemoryStore``."""
     from tests.fakes import patch_edge_removals
