@@ -59,12 +59,16 @@ line-length = 88
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "B", "BLE", "C", "I", "UP", "TID251"]
+select = ["E", "F", "W", "B", "BLE", "C", "I", "UP", "TID251", "PLR0915"]
 # UP031: a regex with braces reads better with %; UP042: StrEnum changes what str() gives
 ignore = ["UP031", "UP042"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 15
+
+# C901 counts branches, not length: a function of src has at most 50 statements.
+[tool.ruff.lint.pylint]
+max-statements = 50
 
 # The formatter wraps at 88; text it cannot wrap (strings, SQL) may run to 100.
 [tool.ruff.lint.pycodestyle]
@@ -77,6 +81,7 @@ max-line-length = 100
 "lawgraph.core.logging.setup_logging".msg = "Only an entry point (__main__, api/app.py) sets up logging."
 
 [tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["PLR0915"]
 "src/lawgraph/db/queries/*.py" = ["E501"]
 "src/lawgraph/__main__.py" = ["TID251"]
 "src/lawgraph/api/app.py" = ["TID251"]
