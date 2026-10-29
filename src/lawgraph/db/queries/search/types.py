@@ -7,7 +7,7 @@ import json
 import re
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
+from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, COLLECTION_MINISTRIES
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import make_node_key
@@ -51,6 +51,7 @@ from lawgraph.db.queries.search.text import (
 )
 from lawgraph.db.queries.validity import article_end_sql
 from lawgraph.db.schema import instrument_date_in_force, search_column, search_words
+from lawgraph.db.version_cache import cached
 
 # ── articles ─────────────────────────────────────────────────────────────────
 
@@ -1045,6 +1046,20 @@ def _ministry_holds(word: str, hit: Hit) -> bool:
     )
 
 
+def _ministries(store: GraphStore) -> tuple[Hit, ...]:
+    """Every ministry as a hit, by key: some fifty rows, read whole once per data version of
+    the ministries."""
+    return cached(
+        store,
+        ("ministry-hits",),
+        lambda: tuple(
+            store.query(f"SELECT {_MINISTRY_HIT} FROM ministries r ORDER BY r.key")
+        ),
+        tables=(COLLECTION_MINISTRIES,),
+        inline=True,
+    )
+
+
 def ministries_found(
     store: GraphStore, q: str, tokens: list[str], any_word: bool = False
 ) -> list[Hit]:
@@ -1055,12 +1070,12 @@ def ministries_found(
     whole = folded(_MINISTRY_OF.sub("", folded(q)))
     words = [t for t in tokens if t not in _MINISTRY_WORDS]
     hits: list[Hit] = []
-    for hit in store.query(f"SELECT {_MINISTRY_HIT} FROM ministries r ORDER BY r.key"):
+    for hit in _ministries(store):
         held = [_ministry_holds(w, hit) for w in words]
         if words and not (any(held) if any_word else all(held)):
             continue
         score = _names_ministry(whole, hit)
-        hits.append({**hit, "score": score, "exact": True} if score else hit)
+        hits.append({**hit, "score": score, "exact": True} if score else {**hit})
     # by key (as read), then by their last day, newest first (none last), then the
     # current ones and those named whole first
     hits.sort(key=lambda h: h["extra"].get("to_date") or "", reverse=True)

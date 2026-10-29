@@ -293,6 +293,8 @@ _WHOLE_BY_DESIGN = (
     # version of them (``search.signers``)
     re.compile(r"lg_str\(props -> 'chamber'\) AS chamber\s+FROM factions"),
     re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
+    # every ministry, once per data version of them (``search.types._ministries``)
+    re.compile(r"'collection', 'ministries'.*FROM ministries r ORDER BY r.key", re.S),
     # the newest day a commitment was registered, once a minute (``cached_data_as_of``)
     re.compile(r"SELECT max\(props ->> 'registered_on'\) FROM commitments"),
 )
