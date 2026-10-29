@@ -44,3 +44,39 @@ def test_a_commitment_is_listed_and_found_by_its_number(
     (item,) = listed["items"]
     assert (item["number"], item["expected_resolution"]) == ("TZ202603-130", None)
     assert (resolved["kind"], resolved["match"]["key"]) == ("commitment", item["key"])
+
+
+def test_the_newest_registered_first_and_an_impossible_due_day_a_gap(
+    database: str, cli: Any
+) -> None:
+    """The Kamer registers a commitment weeks after its debate: ``sort=registered_on`` puts
+    it first, and ``/api/stats`` gives the day for the freshness watch. A ``DatumNakoming``
+    no commitment can be due (``0025-01-28`` in the source) is a gap, not corrected."""
+    later = {
+        **COMMITMENT,
+        "Id": uid(1, 6),
+        "Nummer": "TZ202610-228",
+        "Aanmaakdatum": "2026-10-28T11:29:00+01:00",
+        "DatumNakoming": "0025-01-28T00:00:00Z",
+        "Activiteit": [{"Id": uid(1, 7), "Datum": "2026-02-15T10:00:00+01:00"}],
+    }
+    store = GraphStore()
+    write_tk(
+        store, [(RAW_KIND_TK_TOEZEGGING, COMMITMENT), (RAW_KIND_TK_TOEZEGGING, later)]
+    )
+    cli("normalize", "tk-dossiers")
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        by_date = client.get("/api/commitments").json()
+        registered = client.get("/api/commitments?sort=registered_on").json()
+        tk = client.get("/api/stats").json()["data_as_of"]["tk"]
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+
+    assert [i["number"] for i in by_date["items"]] == ["TZ202603-130", "TZ202610-228"]
+    assert [
+        (i["number"], i["expected_resolution"], i["expected_resolution_impossible"])
+        for i in registered["items"]
+    ] == [("TZ202610-228", None, "0025-01-28"), ("TZ202603-130", None, None)]
+    assert tk["commitments_registered"] == "2026-10-28"

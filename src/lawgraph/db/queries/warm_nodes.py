@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
 from typing import Any
 
 import psycopg
@@ -40,22 +41,42 @@ FIRST_PAGES: dict[str, Any] = json.loads(
 WARM_ARTICLE_CITATIONS = CITED_BY_INLINE_BELOW
 # How long the pipelines' end warms them at most (seconds), the most cited first.
 WARM_NODES_FOR = 300.0
+# The most cited articles the API always warms in full, also when newer data arrives:
+# those visited most.
+WARM_ARTICLES_FIRST = 20
 
 
-def warm_articles(store: GraphStore, seconds: float | None = None) -> None:
+def warm_articles(
+    store: GraphStore,
+    seconds: float | None = None,
+    *,
+    first: int = 0,
+    stopped: Callable[[], bool] = lambda: False,
+) -> int:
     """The node and the first citing passages of each article cited
-    ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first, at most *seconds*
-    (no limit without)."""
+    ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first: the *first* in full,
+    then until *seconds* have passed (no limit without) or *stopped* holds. How many were
+    warmed."""
     stop = None if seconds is None else time.monotonic() + seconds
-    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
-        if stop is not None and time.monotonic() >= stop:
-            logger.info("Warm-up of the nodes stopped at %s: its time.", article["key"])
-            return
+    articles = most_cited_articles(store, WARM_ARTICLE_CITATIONS)
+    for done, article in enumerate(articles):
+        if done >= first and (
+            (stop is not None and time.monotonic() >= stop) or stopped()
+        ):
+            logger.info(
+                "Warm-up of the nodes stopped at %s: %d of %d articles warmed.",
+                article["key"],
+                done,
+                len(articles),
+            )
+            return done
         get_node_with_neighbors(store, COLLECTION_ARTICLES, article["key"])
         for page in FIRST_PAGES["article_citations"]:
             get_article_cited_by(
                 store, article["id"], sort=page["sort"], limit=page["limit"]
             )
+    logger.info("Warm-up of the nodes done: %d articles warmed.", len(articles))
+    return len(articles)
 
 
 def warm_most_cited_nodes(store: GraphStore) -> None:

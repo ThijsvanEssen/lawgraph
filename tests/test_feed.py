@@ -396,6 +396,7 @@ def test_every_filter_is_a_parameter_of_the_page_or_named_as_none() -> None:
 
     not_on_site = {
         "tiers",
+        "subject_area",
         "party",
         "vote",
     }  # the filters /actueel has no parameter for

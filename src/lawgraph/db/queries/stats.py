@@ -212,15 +212,22 @@ _NEWEST: dict[str, str] = {
         WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stb'
           AND date_published <= %(today)s
         ORDER BY date_published DESC LIMIT 1""",
+    # its ministeriële regelingen (``normalize staatscourant``), not the few a BWB text names
     SOURCE_STAATSCOURANT: f"""
-        SELECT date_published FROM instruments
-        WHERE kind = '{KIND_PUBLICATION}' AND lg_str(props -> 'publication_kind') = 'Stcrt'
-          AND date_published <= %(today)s
-        ORDER BY date_published DESC LIMIT 1""",
+        SELECT date FROM documents
+        WHERE source = '{SOURCE_STAATSCOURANT}' AND date <= %(today)s
+        ORDER BY date DESC LIMIT 1""",
     SOURCE_BWB: """
         SELECT valid_from FROM instrument_versions WHERE valid_from <= %(today)s
         ORDER BY valid_from DESC LIMIT 1""",
 }
+
+
+# The newest day the Tweede Kamer registered a commitment (``Toezegging.Aanmaakdatum``), on
+# or before today: its own fetch, which the newest paper of the Kamer does not show.
+_NEWEST_COMMITMENT = f"""
+    SELECT max(props ->> 'registered_on') FROM {COLLECTION_COMMITMENTS}
+    WHERE props ->> 'registered_on' <= %(today)s"""
 
 
 def cached_data_as_of(store: GraphStore) -> dict[str, Any]:
@@ -265,7 +272,8 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
     """Per source (every source of the registry, and any other the graph holds records of):
     ``retrieved_at``, the moment its newest raw record was fetched (the last retrieve that
     brought something); ``newest``, the date of its newest dated record on or before
-    *today* (null for a source without one); and ``completeness.source``, what the last
+    *today* (null for a source without one); of ``tk`` also ``commitments_registered``,
+    the newest day it registered a commitment; and ``completeness.source``, what the last
     scheduled run did with it (``core.completeness.source_completeness``)."""
     today = today or dutch_today().isoformat()
     rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
@@ -287,4 +295,8 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
                 "source": source_completeness(runs.get(source), retrieved_at)
             },
         }
+        if source == SOURCE_TK:
+            result[source]["commitments_registered"] = next(
+                store.query(_NEWEST_COMMITMENT, {"today": today}), None
+            )
     return result

@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.19",
+    "version": "0.80.20",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -5611,14 +5611,15 @@
             "schema": {
               "enum": [
                 "date",
-                "expected_resolution"
+                "expected_resolution",
+                "registered_on"
               ],
               "type": "string",
-              "description": "Newest made first, or soonest due first.",
+              "description": "Newest made first, soonest due first, or newest registered first (the Kamer registers a commitment often weeks after the debate).",
               "default": "date",
               "title": "Sort"
             },
-            "description": "Newest made first, or soonest due first."
+            "description": "Newest made first, soonest due first, or newest registered first (the Kamer registers a commitment often weeks after the debate)."
           },
           {
             "name": "limit",
@@ -7166,7 +7167,7 @@
           "feed"
         ],
         "summary": "News feed",
-        "description": "What was promised and proposed, as a stream of events, newest first: ``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, ``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by its ``Document.Soort`` before `` (``), ``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in force) and ``uitspraak`` (a judgment or conclusion, on the day it was published; of the highest courts and the Parket unless ``tier`` asks for others). Ordered by date, then by ``id``, both descending; ``next_cursor`` gives the next page, which neither repeats nor skips an event. ``facets`` counts per ``kind``, ``ministry``, ``faction`` and ``cabinet`` the events under the other filters, with ``total``; ``facets=false`` leaves both out and reads only one page.\n\n`items`, `next_cursor`, `total`, `facets`, `partial`, `searched_from` and `data_as_of` (as in `/api/stats`). `total` and `facets` are counted from `lg_feed_events` (`/api/feed/periods`; as `lawgraph feed-events` last wrote it: the last 14 days after every poll, every event each night), by its indexes, each facet as the feed counts it, and kept an hour; under `member`, `tier` or `instrument`, or before that table is ever written, over every event under the filters itself. A request waits for them 3 s at most: under filters not counted before (cold, a minute or more on the full graph) the page comes at once with both null and `partial` true, and a request after the count has them. Filters: `kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` (a key: the events from its beëdiging to that of the next cabinet), `ministry`, `dossier` (the start of a dossier label: `36600` holds `36600-VII`, `37020-` the chapters; each kind with dossiers finds its events of them by the index on their dossier numbers, under the labels of the dossiers that start with it and itself; a kind without, a judgment or a commencement, has none), `member` (a member key: the papers they signed, the votes on them, the commitments they made), `faction` (a faction key: the papers its Kamerleden signed for it and the votes on them; without `since` its page is read as under `q`), `party` (a faction key: the votes it voted on, how it voted rather than what it signed, each with `vote.party_choice`; keeps votes alone; without `since` its page is read as under `q`) with `vote` (`voor`, `tegen`: the votes it voted that way on; 422 without `party`), `q` (the events that hold every word of it, in any order and any case, in the title, the title of the event's dossier, or of a publication the names of the laws it changes or enacts and the official title of a law it enacts (from `lg_feed_events`: a publication is found by them once `lawgraph feed-events` wrote it); its stop words left out unless they are all of it, as `/api/search` leaves them out; each word from the start of a word, one of at most four characters as a whole word (`ai`: the AI-verordening, not universitaire; `stikstof`: Stikstofbank, not natuurstikstof; `motie wantrouwen` a motie van wantrouwen; repeated, at most ten times, any of them: `q=AI&q=kunstmatige intelligentie`, each event once); each kind finds them by index where it can (from three characters); without `since` the page is read once from the first day it reaches back to, the day of the (`limit` + 1)-th newest matching event in `lg_feed_events` (`/api/feed/periods`; no later than 14 days ago, what that table may still lack, nor than the day of the cursor), when that table is written and the filters are ones it keeps; else, or when that read finds less than the table counted, the events are searched back from `until`, the cursor or today in windows of 90 days, a year, three years and then the rest, newest first, until the page is full or 8 s are spent: then the page has what was found, `partial` true and `searched_from`, the first day searched, and a request with `until` the day before goes on; `searched_from` is null when every day was searched), `tier` (comma-separated tiers as in `/api/judgments`: keeps judgments alone, of those tiers; without it the feed's judgments are of the default tiers), `chamber` (`EK`: the votes of the Eerste Kamer, only the one that decided each bill; `TK`: the papers, votes and commitments of the Tweede Kamer; publications and commencements are of neither), `coalition` (what the coalition did on a vote of the Tweede Kamer, as `vote.coalition` says it: `together`, `split` (on both sides, a wisselmeerderheid too), `wissel`, `decisive`; keeps votes alone), `instrument` (a BWB id: the events tied to that law: the publications that enact it or change it or its articles, the papers that propose to (a `voorgesteld` change), the events of the dossiers it or such a publication was `LEGISLATED_IN` and of the dossiers of those papers, its new versions and those of the regulations `BASED_ON` it, the judgments that cite it; without `since` read as under `q`, in windows; its total and facets are counted from the events themselves), `article` (with `instrument`, an article number of that law, `3:2`: the events tied to that article, the versions of the law that changed it, the dossiers of the publications and papers that change it, not those of the law itself nor its enactment; 422 without `instrument`); `limit` (1-200, default 50), `cursor` (the `next_cursor` of the page before; 422 for a token the API did not hand out). Order: `date`, newest first; within a day by kind, in the order `Voorstel van wet`, `stemming`, `toezegging`, `inwerkingtreding`, `publicatie`, `Nota van wijziging`, `Amendement`, `Motie`, `Brief regering`; within a kind by `id`. The cursor holds the date, kind and id of the last event of its page, and a page starts after it, so pages neither repeat nor skip an event. `facets` (default true) counts per `kind`, `ministry`, `faction`, `cabinet`, `chamber` (`TK`, `EK`, null for a publication or a commencement) and `coalition` (the values of the filter; a vote counts for each that holds, `split` with every `wissel`, an event without a coalition vote for none) (`{value, count}`, the largest first, `value` null for none) the events under the other filters, and `total` under all of them, whatever the cursor; `facets=false` gives null for both and reads one page only, the choice for the pages after the first. Each item says what it is tied to, read for the items of the page alone: `matched` (with `q`, per word the event holds `{term, field}`, `term` the word in lower case and `field` the first of `title` (its own title, of a bill not that of its dossier), `dossier_title` (the whole title of its first dossier) and `laws` (of a publication, the names of its laws) that holds it; empty without `q`), `via` (with `instrument`, how the event is tied to the law: `relation` `establishes`, `amends`, `introduces` or `repeals` (a publication), `proposes` (a paper with a `voorgesteld` change of it, or an event of the dossier of such a paper), `version_of` (a new version of the law), `based_on` (of a regulation issued under it), `refers_to` (a judgment), `legislated_in` (an event of a dossier the law or a publication of it was legislated in); `article` the number of the article of the law it touches, the first in the order of the law; `dossier` the label of the dossier it came through; the closest tie of all it has), `answers` (of a `Brief regering`: the motions and commitments it `ANSWERS`), `answered_by` (of a `toezegging`: the letters that fulfil it), `replaces` (of a changed `Motie` or `Amendement`: the paper it replaces, `REVISES`, \"ter vervanging van nr. 19\"), each such paper or commitment `{id, kind, title, date, number, dossier, surname, path}` (`kind` its `Document.Soort` or `toezegging`, `number` its nr. or the number of the commitment, `dossier` the label of its own dossier, `surname` its first signatory), at most twenty; `amends_articles` (of an `Amendement`: the articles it proposes to change, add or repeal, `effect` `amends`/`introduces`/`repeals`, in the order of their law, at most twenty) and `cites` (of an `uitspraak`: the articles it cites, the most mentioned first, at most five), each article `{key, bwb_id, number, law, law_short, effect, path}`; empty or null for the other kinds",
+        "description": "What was promised and proposed, as a stream of events, newest first: ``toezegging`` (a commitment made), ``Voorstel van wet``, ``Nota van wijziging``, ``Amendement``, ``Motie`` and ``Brief regering`` (a Tweede Kamer paper submitted, by its ``Document.Soort`` before `` (``), ``stemming`` (a vote with its outcome), ``publicatie`` (in the Staatsblad, Staatscourant or Tractatenblad) and ``inwerkingtreding`` (a new version of a law in force) and ``uitspraak`` (a judgment or conclusion, on the day it was published; of the highest courts and the Parket unless ``tier`` asks for others). Ordered by date, then by ``id``, both descending; ``next_cursor`` gives the next page, which neither repeats nor skips an event. ``facets`` counts per ``kind``, ``ministry``, ``faction`` and ``cabinet`` the events under the other filters, with ``total``; ``facets=false`` leaves both out and reads only one page.\n\n`items`, `next_cursor`, `total`, `facets`, `partial`, `searched_from` and `data_as_of` (as in `/api/stats`). `total` and `facets` are counted from `lg_feed_events` (`/api/feed/periods`; as `lawgraph feed-events` last wrote it: the last 14 days after every poll, every event each night), by its indexes, each facet as the feed counts it, and kept an hour; under `member`, `tier`, `subject_area` or `instrument`, or before that table is ever written, over every event under the filters itself. A request waits for them 3 s at most: under filters not counted before (cold, a minute or more on the full graph) the page comes at once with both null and `partial` true, and a request after the count has them. Filters: `kind` (comma-separated), `since`, `until` (YYYY-MM-DD, inclusive), `cabinet` (a key: the events from its beëdiging to that of the next cabinet), `ministry`, `dossier` (the start of a dossier label: `36600` holds `36600-VII`, `37020-` the chapters; each kind with dossiers finds its events of them by the index on their dossier numbers, under the labels of the dossiers that start with it and itself; a kind without, a judgment or a commencement, has none), `member` (a member key: the papers they signed, the votes on them, the commitments they made), `faction` (a faction key: the papers its Kamerleden signed for it and the votes on them; without `since` its page is read as under `q`), `party` (a faction key: the votes it voted on, how it voted rather than what it signed, each with `vote.party_choice`; keeps votes alone; without `since` its page is read as under `q`) with `vote` (`voor`, `tegen`: the votes it voted that way on; 422 without `party`), `q` (the events that hold every word of it, in any order and any case, in the title, the title of the event's dossier, or of a publication the names of the laws it changes or enacts and the official title of a law it enacts (from `lg_feed_events`: a publication is found by them once `lawgraph feed-events` wrote it); its stop words left out unless they are all of it, as `/api/search` leaves them out; each word from the start of a word, one of at most four characters as a whole word (`ai`: the AI-verordening, not universitaire; `stikstof`: Stikstofbank, not natuurstikstof; `motie wantrouwen` a motie van wantrouwen; repeated, at most ten times, any of them: `q=AI&q=kunstmatige intelligentie`, each event once); each kind finds them by index where it can (from three characters); without `since` the page is read once from the first day it reaches back to, the day of the (`limit` + 1)-th newest matching event in `lg_feed_events` (`/api/feed/periods`; no later than 14 days ago, what that table may still lack, nor than the day of the cursor), when that table is written and the filters are ones it keeps; else, or when that read finds less than the table counted, the events are searched back from `until`, the cursor or today in windows of 90 days, a year, three years and then the rest, newest first, until the page is full or 8 s are spent: then the page has what was found, `partial` true and `searched_from`, the first day searched, and a request with `until` the day before goes on; `searched_from` is null when every day was searched), `tier` (comma-separated tiers as in `/api/judgments`: keeps judgments alone, of those tiers; without it the feed's judgments are of the default tiers), `subject_area` (a main area of law of the judgments, as in `/api/judgments`, or `none` for those without one: keeps judgments alone, of `tier` or the default tiers), `chamber` (`EK`: the votes of the Eerste Kamer, only the one that decided each bill; `TK`: the papers, votes and commitments of the Tweede Kamer; publications and commencements are of neither), `coalition` (what the coalition did on a vote of the Tweede Kamer, as `vote.coalition` says it: `together`, `split` (on both sides, a wisselmeerderheid too), `wissel`, `decisive`; keeps votes alone), `instrument` (a BWB id: the events tied to that law: the publications that enact it or change it or its articles, the papers that propose to (a `voorgesteld` change), the events of the dossiers it or such a publication was `LEGISLATED_IN` and of the dossiers of those papers, its new versions and those of the regulations `BASED_ON` it, the judgments that cite it; without `since` read as under `q`, in windows; its total and facets are counted from the events themselves), `article` (with `instrument`, an article number of that law, `3:2`: the events tied to that article, the versions of the law that changed it, the dossiers of the publications and papers that change it, not those of the law itself nor its enactment; 422 without `instrument`); `limit` (1-200, default 50), `cursor` (the `next_cursor` of the page before; 422 for a token the API did not hand out). Order: `date`, newest first; within a day by kind, in the order `Voorstel van wet`, `stemming`, `toezegging`, `inwerkingtreding`, `publicatie`, `Nota van wijziging`, `Amendement`, `Motie`, `Brief regering`; within a kind by `id`. The cursor holds the date, kind and id of the last event of its page, and a page starts after it, so pages neither repeat nor skip an event. `facets` (default true) counts per `kind`, `ministry`, `faction`, `cabinet`, `chamber` (`TK`, `EK`, null for a publication or a commencement) and `coalition` (the values of the filter; a vote counts for each that holds, `split` with every `wissel`, an event without a coalition vote for none) (`{value, count}`, the largest first, `value` null for none) the events under the other filters, and `total` under all of them, whatever the cursor; `facets=false` gives null for both and reads one page only, the choice for the pages after the first. Each item says what it is tied to, read for the items of the page alone: `matched` (with `q`, per word the event holds `{term, field}`, `term` the word in lower case and `field` the first of `title` (its own title, of a bill not that of its dossier), `dossier_title` (the whole title of its first dossier) and `laws` (of a publication, the names of its laws) that holds it; empty without `q`), `via` (with `instrument`, how the event is tied to the law: `relation` `establishes`, `amends`, `introduces` or `repeals` (a publication), `proposes` (a paper with a `voorgesteld` change of it, or an event of the dossier of such a paper), `version_of` (a new version of the law), `based_on` (of a regulation issued under it), `refers_to` (a judgment), `legislated_in` (an event of a dossier the law or a publication of it was legislated in); `article` the number of the article of the law it touches, the first in the order of the law; `dossier` the label of the dossier it came through; the closest tie of all it has), `answers` (of a `Brief regering`: the motions and commitments it `ANSWERS`), `answered_by` (of a `toezegging`: the letters that fulfil it), `replaces` (of a changed `Motie` or `Amendement`: the paper it replaces, `REVISES`, \"ter vervanging van nr. 19\"), each such paper or commitment `{id, kind, title, date, number, dossier, surname, path}` (`kind` its `Document.Soort` or `toezegging`, `number` its nr. or the number of the commitment, `dossier` the label of its own dossier, `surname` its first signatory), at most twenty; `amends_articles` (of an `Amendement`: the articles it proposes to change, add or repeal, `effect` `amends`/`introduces`/`repeals`, in the order of their law, at most twenty) and `cites` (of an `uitspraak`: the articles it cites, the most mentioned first, at most five), each article `{key, bwb_id, number, law, law_short, effect, path}`; empty or null for the other kinds",
         "operationId": "get_feed_route_api_feed_get",
         "parameters": [
           {
@@ -7482,6 +7483,25 @@
             "description": "Comma-separated tiers of the judgments (as in ``/api/judgments``): keeps judgments alone. Without it the feed's judgments are those of hoge_raad, raad_van_state, centrale_raad_van_beroep, college_van_beroep_bedrijfsleven, parket."
           },
           {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers."
+          },
+          {
             "name": "instrument",
             "in": "query",
             "required": false,
@@ -7551,7 +7571,7 @@
           "feed"
         ],
         "summary": "News feed summary",
-        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements; and ``chamber_schedule``: when the Tweede Kamer last met and voted in the plenary hall and when it meets and votes next (``last_sitting``, ``last_votes``, ``next_sitting``, ``next_votes``), as of today, from its activities (``Activiteit``): the latest held (``Uitgevoerd``) and the first planned (``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week the one planned for a day before one planned for the week (``precision`` ``Weeknummer``, dated on its Monday); each null when there is none. The Kamer publishes no recess as data: no sitting planned for days is what tells.",
+        "description": "The days up to ``until`` (default today, ``days`` of them) in one small answer, under the filters of ``GET /api/feed``: per day the events per kind, per dossier and, of the votes, per subkind and outcome; and the events a timeline shows one by one, as feed items in the order of the feed: bills submitted, votes on a bill, votes decided by at most ``margin`` seats, commitments and commencements; and ``chamber_schedule``: when the Tweede Kamer last met and voted in the plenary hall and when it meets and votes next (``last_sitting``, ``last_votes``, ``next_sitting``, ``next_votes``), as of today, from its activities (``Activiteit``): the latest held (``Uitgevoerd``) and the first planned (``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week the one planned for a day before one planned for the week (``precision`` ``Weeknummer``, dated on its Monday); each null when there is none. The Kamer publishes no recess as data: no sitting planned for days is what tells. ``lower_courts=true`` adds per day the judgments of the lower courts (gerechtshof, rechtbank, kantongerecht, tuchtcollege, andere_instantie, koninkrijksinstantie), which the feed shows only under ``tier``.\n\n`lower_courts` (default false): per day `lower_courts` `{total, subject_areas}`, the judgments of the lower courts published that day under the same filters (of `tier`, those that are lower; none under a `kind` without `uitspraak`), each once in `total`, and per main area of law `{value, count}`, most first: a judgment counts once in each of its areas (the part of a subject before its first `;`), so the counts may add up to more than `total`, and one without a subject in the null area, last (a gap of the source: never put in an area). The items of an area are `/api/feed` with that day as `since` and `until`, `tier` and `subject_area` (`none` for the null area). Without it `lower_courts` is absent; `total` and `kinds` never count them.",
         "operationId": "get_feed_summary_route_api_feed_summary_get",
         "parameters": [
           {
@@ -7628,6 +7648,18 @@
               "title": "Limit"
             },
             "description": "Events shown one by one, at most."
+          },
+          {
+            "name": "lower_courts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Count per day the judgments of the lower courts as well.",
+              "default": false,
+              "title": "Lower Courts"
+            },
+            "description": "Count per day the judgments of the lower courts as well."
           },
           {
             "name": "kind",
@@ -7862,6 +7894,25 @@
             "description": "Comma-separated tiers of the judgments (as in ``/api/judgments``): keeps judgments alone. Without it the feed's judgments are those of hoge_raad, raad_van_state, centrale_raad_van_beroep, college_van_beroep_bedrijfsleven, parket."
           },
           {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers."
+          },
+          {
             "name": "instrument",
             "in": "query",
             "required": false,
@@ -7931,7 +7982,7 @@
           "feed"
         ],
         "summary": "News feed per period",
-        "description": "The events of ``GET /api/feed`` under the same filters, counted per month (``per=month``) or day (``per=day``, at most 400 days from ``since``), per kind: each kind as the feed's ``kind`` facet counts it over those days. Every kind is counted unless ``kind`` names some. From the events as ``lawgraph feed-events`` last wrote them (``written_at``: after every poll and every night), not the live graph; not ``member`` and not ``tier``.\n\nthe events of `/api/feed` per period under the same filters (not `member`, `tier` or `instrument`: 422): `per` `month` (default) or `day` (needs `since`, at most 400 days to `until`, default today). `{per, since, until, periods: [{period, total, counts}], partial, written_at, data_as_of}`: `period` the first day of the month or the day, `counts` per kind (the feed's kinds) those it has, each as the feed's `kind` facet counts it over those days; `amendment_chains` (`count`, `aangenomen`, `verworpen`, `other`: withdrawn, held, postponed, lapsed, not voted yet), the amendments as the Kamer handles them, unless `kind` leaves them out: each chain of papers that replace each other (`REVISES`; chains meeting in one last paper are one) once, when any of its papers is an event under the filters, in the period of its oldest paper and by the outcome of its last (of its cases the first with a decision singling it out, of those the latest with an outcome, else the latest), from `lg_amendment_chains`, written with the events; every kind unless `kind` names some; a period without events left out, oldest first. Counted from `lg_feed_events` as `lawgraph feed-events` last wrote it (`written_at`; after every poll and every night), not from the live graph: within the budget of the feed's facets (3 s), else `partial` with no periods, as before the events were ever written",
+        "description": "The events of ``GET /api/feed`` under the same filters, counted per month (``per=month``) or day (``per=day``, at most 400 days from ``since``), per kind: each kind as the feed's ``kind`` facet counts it over those days. Every kind is counted unless ``kind`` names some. From the events as ``lawgraph feed-events`` last wrote them (``written_at``: after every poll and every night), not the live graph; not ``member``, ``tier`` or ``subject_area``.\n\nthe events of `/api/feed` per period under the same filters (not `member`, `tier`, `subject_area` or `instrument`: 422): `per` `month` (default) or `day` (needs `since`, at most 400 days to `until`, default today). `{per, since, until, periods: [{period, total, counts}], partial, written_at, data_as_of}`: `period` the first day of the month or the day, `counts` per kind (the feed's kinds) those it has, each as the feed's `kind` facet counts it over those days; `amendment_chains` (`count`, `aangenomen`, `verworpen`, `other`: withdrawn, held, postponed, lapsed, not voted yet), the amendments as the Kamer handles them, unless `kind` leaves them out: each chain of papers that replace each other (`REVISES`; chains meeting in one last paper are one) once, when any of its papers is an event under the filters, in the period of its oldest paper and by the outcome of its last (of its cases the first with a decision singling it out, of those the latest with an outcome, else the latest), from `lg_amendment_chains`, written with the events; every kind unless `kind` names some; a period without events left out, oldest first. Counted from `lg_feed_events` as `lawgraph feed-events` last wrote it (`written_at`; after every poll and every night), not from the live graph: within the budget of the feed's facets (3 s), else `partial` with no periods, as before the events were ever written",
         "operationId": "get_feed_periods_route_api_feed_periods_get",
         "parameters": [
           {
@@ -8217,6 +8268,25 @@
               "title": "Tier"
             },
             "description": "Comma-separated tiers of the judgments (as in ``/api/judgments``): keeps judgments alone. Without it the feed's judgments are those of hoge_raad, raad_van_state, centrale_raad_van_beroep, college_van_beroep_bedrijfsleven, parket."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers."
           },
           {
             "name": "instrument",
@@ -8988,6 +9058,25 @@
               "title": "Tier"
             },
             "description": "Comma-separated tiers of the judgments (as in ``/api/judgments``): keeps judgments alone. Without it the feed's judgments are those of hoge_raad, raad_van_state, centrale_raad_van_beroep, college_van_beroep_bedrijfsleven, parket."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgments (as in ``/api/judgments``: ``Strafrecht``), or ``none``: those without one. Keeps judgments alone, of ``tier`` or the default tiers."
           },
           {
             "name": "instrument",
@@ -16030,7 +16119,19 @@
               }
             ],
             "title": "Expected Resolution",
-            "description": "The day it is due; null when the Kamer names none."
+            "description": "The day it is due; null when the Kamer names none or the source gives a day it cannot be due (``expected_resolution_impossible``)."
+          },
+          "expected_resolution_impossible": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Resolution Impossible",
+            "description": "The ``DatumNakoming`` as the source gives it when no commitment can be due that day (``0025-01-28``): a gap in the source, not corrected; null otherwise."
           },
           "minister_name": {
             "anyOf": [
@@ -16150,6 +16251,7 @@
           "date",
           "registered_on",
           "expected_resolution",
+          "expected_resolution_impossible",
           "minister_name",
           "member",
           "post",
@@ -17286,6 +17388,18 @@
             "title": "Newest",
             "description": "The date of its newest dated record, on or before today: a paper of the Kamer, a judgment, a publication, a version of a law coming into force. Null for a source without dated records."
           },
+          "commitments_registered": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commitments Registered",
+            "description": "Of `tk` only: the newest day the Kamer registered a commitment (`registered_on` of `/api/commitments`), on or before today; a commitment is fetched apart from the papers."
+          },
           "completeness": {
             "additionalProperties": {
               "$ref": "#/components/schemas/PartStateDTO"
@@ -17303,6 +17417,7 @@
         "required": [
           "retrieved_at",
           "newest",
+          "commitments_registered",
           "completeness"
         ],
         "title": "DataAsOfDTO",
@@ -24611,6 +24726,17 @@
             },
             "type": "array",
             "title": "Votes"
+          },
+          "lower_courts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedLowerCourtsDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `lower_courts=true`: the judgments of the lower courts, which `total` and `kinds` leave out; absent without."
           }
         },
         "additionalProperties": false,
@@ -25743,6 +25869,32 @@
         ],
         "title": "FeedLinkDTO",
         "description": "A paper or a commitment an event is tied to."
+      },
+      "FeedLowerCourtsDTO": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "The judgments, each once.",
+            "default": 0
+          },
+          "subject_areas": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Subject Areas",
+            "description": "Per main area of law (as `subject_area` of `/api/judgments`), most first: a judgment counts once in each of its areas, so the counts may add up to more than `total`; `value` null counts those without an area (no subject in the source), last."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total",
+          "subject_areas"
+        ],
+        "title": "FeedLowerCourtsDTO",
+        "description": "The judgments of the lower courts published on one day (``lower_courts=true``)."
       },
       "FeedMatchDTO": {
         "properties": {
@@ -40269,7 +40421,8 @@
                 "type": "null"
               }
             ],
-            "title": "Expected Resolution"
+            "title": "Expected Resolution",
+            "description": "The day it is due; null when the Kamer names none or the source gives a day it cannot be due."
           }
         },
         "additionalProperties": false,

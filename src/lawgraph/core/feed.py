@@ -15,12 +15,15 @@ from typing import Final, Literal, get_args
 
 from lawgraph.core.coalition import CoalitionPattern
 from lawgraph.core.court_sources import (
+    TIER_BUITENLAND,
     TIER_CBB,
     TIER_CENTRALE_RAAD,
     TIER_HOGE_RAAD,
+    TIER_OF_TYPE,
     TIER_PARKET,
     TIER_RAAD_VAN_STATE,
 )
+from lawgraph.core.courts import TIERS
 from lawgraph.core.tk_records.actors import (
     CAPACITY_GOVERNMENT,
     CAPACITY_MEMBER,
@@ -90,6 +93,21 @@ FEED_TIERS: Final = (
     TIER_CBB,
     TIER_PARKET,
 )
+
+# The lower courts, which a summary counts per day (``lower_courts``): every Dutch tier of
+# the Instanties list of the Rechtspraak (``TIER_OF_TYPE``) below the highest courts and the
+# Parket, in the order of ``TIERS``; not the courts outside the Netherlands.
+LOWER_TIERS: Final = tuple(
+    tier
+    for tier in TIERS
+    if tier in TIER_OF_TYPE.values()
+    and tier not in FEED_TIERS
+    and tier != TIER_BUITENLAND
+)
+
+# The ``subject_area`` of the judgments without an area of law: no subject, a gap in the
+# source, counted apart (``value`` null) and never put in an area.
+NO_SUBJECT_AREA: Final = "none"
 
 # What the coalition did on a vote of the Tweede Kamer, as the feed filters and counts it
 # (``lg_decision_coalition``): ``split`` holds ``wissel`` (a wisselmeerderheid is a split),

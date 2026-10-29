@@ -1015,6 +1015,19 @@ class FeedVoteCountDTO(StrictModel):
     count: int
 
 
+class FeedLowerCourtsDTO(StrictModel):
+    """The judgments of the lower courts published on one day (``lower_courts=true``)."""
+
+    total: int = Field(0, description="The judgments, each once.")
+    subject_areas: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="Per main area of law (as `subject_area` of `/api/judgments`), most "
+        "first: a judgment counts once in each of its areas, so the counts may add up to "
+        "more than `total`; `value` null counts those without an area (no subject in the "
+        "source), last.",
+    )
+
+
 class FeedDayDTO(StrictModel):
     """The events of one day, counted."""
 
@@ -1028,6 +1041,12 @@ class FeedDayDTO(StrictModel):
         "most first within a kind.",
     )
     votes: list[FeedVoteCountDTO] = Field(default_factory=list)
+    lower_courts: FeedLowerCourtsDTO | None = Field(
+        None,
+        exclude_if=lambda value: value is None,
+        description="With `lower_courts=true`: the judgments of the lower courts, which "
+        "`total` and `kinds` leave out; absent without.",
+    )
 
 
 class ScheduledActivityDTO(WithPath):
@@ -1132,7 +1151,10 @@ class FeedSummaryResponse(StrictModel):
         until: dt.date,
         margin: int,
         limit: int,
+        lower_courts: dict[str, dict[str, Any]] | None = None,
     ) -> FeedSummaryResponse:
+        """The summary of *raw*, every day of the window; with *lower_courts* (per day
+        that has any, ``get_lower_courts``) the lower courts of every day."""
         titles = {d["number"]: d for d in raw.get("dossiers") or []}
         counted = {day["date"]: day for day in raw.get("days") or []}
         days = []
@@ -1156,6 +1178,9 @@ class FeedSummaryResponse(StrictModel):
                         )
                         for v in day.get("votes") or []
                     ],
+                    lower_courts=None
+                    if lower_courts is None
+                    else FeedLowerCourtsDTO(**lower_courts.get(date.isoformat(), {})),
                 )
             )
             date -= dt.timedelta(days=1)

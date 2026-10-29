@@ -1237,7 +1237,9 @@ class CommitmentProps(_CommonProps):
     registered_on: str | None = None
     """The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate)."""
     expected_resolution: str | None = None
-    """The day it is due; `0001-01-01` when the Kamer names none."""
+    """The day it is due, as the source gives it; `0001-01-01` when the Kamer names none.
+    A day before `1900-01-01` (`0025-01-28`, `0205-02-20`) is no day a commitment can be
+    due: the API gives it as a gap (null, `expected_resolution_impossible`), not corrected."""
     status: str | None = None
     """`Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels
     Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen`."""

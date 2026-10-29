@@ -20,6 +20,12 @@ esac
 case "$*" in "$UNAVAILABLE_ON"*) echo "$REASON" > "$LAWGRAPH_OUTCOME_FILE"; exit 3;; esac
 # a step that leaves the lock held (a file in it): the next step finds it taken
 case "$*" in "$HOLD_ON"*) touch "$TMPDIR/lawgraph-scheduled.lock/held";; esac
+# whether the lock was held as each step ran
+held=free
+[ ! -d "$TMPDIR/lawgraph-scheduled.lock" ] || held=locked
+echo "$held $*" >> "$TMPDIR/locks"
+# a poll that takes the lock while this step runs
+case "$*" in "$TAKEN_ON"*) mkdir "$TMPDIR/lawgraph-scheduled.lock";; esac
 # the steps of `semantic all`, and a slice that names where to go on, then that it is done
 case "$*" in
   "semantic all --list")
@@ -61,6 +67,7 @@ def _run(
         **inherited,
         "UNAVAILABLE_ON": "-",
         "HOLD_ON": "-",
+        "TAKEN_ON": "-",
         **extra,
         "CALLS": str(checkout / "calls"),
         "FAIL_ON": fail_on,
@@ -94,7 +101,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_aft
         "check --skip-edges",
         "search-stats prune",  # the counts of the terms searched, older than a week
         "search-candidates",  # the hits of the words searched most
-        "sitemaps",
+        "sitemaps",  # without the lock
     ]
     assert (checkout / "logs" / "runs.log").read_text().count("daily.sh: ok") == 1
 
@@ -180,6 +187,16 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
     assert len(_calls(checkout)) == 8
     runs = (checkout / "logs" / "runs.log").read_text()
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
+
+
+def test_the_sitemaps_run_after_the_daily_run_gave_the_lock_up(checkout: Path) -> None:
+    """They write files, not the graph: a poll may start beside them, and its lock stays."""
+    done = _run(checkout, "daily.sh", TAKEN_ON="sitemaps")
+    assert done.returncode == 0, done.stderr
+    locks = (checkout / "locks").read_text().splitlines()
+    assert locks[-1] == "free sitemaps"
+    assert all(line.startswith("locked ") for line in locks[:-1]), locks
+    assert (checkout / "lawgraph-scheduled.lock").is_dir()  # the poll's
 
 
 def test_two_scheduled_runs_never_write_side_by_side(checkout: Path) -> None:

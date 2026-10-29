@@ -356,6 +356,38 @@ def test_the_commitment_filters(
         assert page["total"] == len(keys)
 
 
+def test_the_commitments_newest_registered_and_an_impossible_due_day(
+    government: GraphStore,
+) -> None:
+    """``registered_on``: what the Kamer registered last first, weeks after the debate it was
+    made in; a due day before ``EARLIEST_DUE_DATE`` (``0025-01-28`` in the source) is no
+    date: last when soonest due, never overdue."""
+    government.bulk_insert_or_update_nodes(
+        "commitments",
+        [
+            node(
+                "k5",
+                status="Openstaand",
+                made_on="2026-03-01",
+                registered_on="2026-04-20",
+                expected_resolution="0025-01-28",
+            ),
+            node("k6", made_on="2026-04-03", registered_on="2026-04-10"),
+        ],
+    )
+    assert _keys(get_commitments(government, sort="registered_on"))[:2] == ["k5", "k6"]
+    assert _keys(get_commitments(government, sort="expected_resolution")) == [
+        "k1",
+        "k3",
+        "k6",
+        "k4",
+        "k2",
+        "k5",
+    ]
+    assert "k5" not in _keys(get_commitments(government, overdue=True))
+    assert "k5" not in _keys(get_commitments(government, due_before="2030-01-01"))
+
+
 def test_the_posts_of_every_cabinet_oldest_first(government: GraphStore) -> None:
     rows = cabinets_with_posts(government)
     assert [r["key"] for r in rows] == ["old", "schoof", "tie", "jetten"]

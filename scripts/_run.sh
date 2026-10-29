@@ -41,8 +41,14 @@ done
 OUTCOME="${TMPDIR:-/tmp}/lawgraph-outcome-$$"
 RECORD="${LAWGRAPH_RUN_RECORD:-${TMPDIR:-/tmp}/lawgraph-record-$$}"
 [ -n "$LAWGRAPH_RUN_RECORD" ] || : > "$RECORD"
-trap 'rmdir "$LOCK"; rm -f "$OUTCOME"; [ -n "$LAWGRAPH_RUN_RECORD" ] || rm -f "$RECORD"' EXIT
+held=1
+trap '[ -z "$held" ] || rmdir "$LOCK"; rm -f "$OUTCOME"; [ -n "$LAWGRAPH_RUN_RECORD" ] || rm -f "$RECORD"' EXIT
 rm -f "$SKIPPED"
+# Give the lock up before the run ends, for steps that write nothing another run writes (files,
+# not the graph): a poll may then start beside them. The lock it takes is its own: not removed here.
+unlock() {
+  rmdir "$LOCK" && held=""
+}
 
 # macOS: keep the machine from idle sleep while a command runs. A closed lid on battery
 # still sleeps (the run then pauses until the next wake); nothing here can change that.

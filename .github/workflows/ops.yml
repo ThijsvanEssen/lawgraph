@@ -100,6 +100,7 @@ jobs:
           echo "== runs.log"; tail -12 "$DEPLOY_DIR/logs/runs.log"
           echo "== statements running over 10 s"
           docker exec lawgraph-postgres psql -X -v ON_ERROR_STOP=1 -U lawgraph -d lawgraph -Atc "SELECT pid, application_name, date_trunc('second', now() - query_start), wait_event, left(query, 120) FROM pg_stat_activity WHERE datname = current_database() AND state <> 'idle' AND now() - query_start > interval '10 seconds' ORDER BY 3 DESC"
+          echo "== api memory"; systemctl show lawgraph-api -p MemoryCurrent -p MemoryPeak -p MemoryHigh -p MemoryMax
           echo "== disk"; df -h "$DEPLOY_DIR" / | tail -2
           echo "== ops jobs"
           for f in "$OPS_DIR"/*.log; do
