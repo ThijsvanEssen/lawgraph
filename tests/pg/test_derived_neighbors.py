@@ -138,6 +138,55 @@ def test_the_derived_bucket_pages_ranks_and_filters(graph: GraphStore) -> None:
     assert canvas[0][1]["meta"] == {"derived_from": "activities"}
 
 
+@pytest.fixture()
+def recent(graph: GraphStore) -> GraphStore:
+    """Committee fin leads activities about four dossiers: d1 three times long ago, d2 once
+    lately, d3 twice on that same day and once undated, d4 undated alone."""
+    g = Graph(graph)
+    g.node("committees", "fin", name="Financiën", abbreviation="FIN", slug="fin")
+    for key in ("d3", "d4"):
+        g.node("dossiers", key, number=key)
+    led = {
+        "f1": ("d1", "2019-03-01"),
+        "f2": ("d1", "2019-05-01"),
+        "f3": ("d1", "2018-01-01"),
+        "f4": ("d2", "2026-10-01"),
+        "f5": ("d3", "2026-10-01"),
+        "f6": ("d3", "2024-06-01"),
+        "f7": ("d3", None),
+        "f8": ("d4", None),
+    }
+    for key, (dossier, date) in led.items():
+        activity = g.node("activities", key, **({"date": date} if date else {}))
+        g.edge(activity, RELATION_LED_BY, "committees/fin")
+        g.edge(activity, RELATION_ABOUT, f"dossiers/{dossier}")
+    g.write()
+    return graph
+
+
+def test_by_importance_a_committee_has_its_latest_dossiers_first(
+    recent: GraphStore,
+) -> None:
+    """The latest activity first, undated last; on the same day the most activities."""
+    bucket_key = (RELATION_LED_BY, "inbound", COLLECTION_DOSSIERS)
+    found = _derived(recent, COLLECTION_COMMITTEES, "fin", importance=True)[bucket_key]
+    assert [(o, e["meta"]["latest"], e["meta"]["activities"]) for o, e in found] == [
+        ("dossiers/d3", "2026-10-01", 3),
+        ("dossiers/d2", "2026-10-01", 1),
+        ("dossiers/d1", "2019-05-01", 3),
+        ("dossiers/d4", None, 1),
+    ]
+    # in key order without it; a page is a slice of the order
+    plain = _derived(recent, COLLECTION_COMMITTEES, "fin")[bucket_key]
+    assert [o for o, _ in plain] == [f"dossiers/d{n}" for n in (1, 2, 3, 4)]
+    page = get_node_with_neighbors(
+        recent, COLLECTION_COMMITTEES, "fin", limit=2, offset=1, importance=True
+    )
+    (bucket,) = [b for b in page.buckets if b.facet.collection == COLLECTION_DOSSIERS]
+    assert [e.doc["id"] for e in bucket.entries] == ["dossiers/d2", "dossiers/d1"]
+    assert (bucket.facet.count, bucket.next_offset) == (4, 3)
+
+
 def test_the_dossiers_of_a_committee_are_a_range_of_lg_led(graph: GraphStore) -> None:
     """Read from the items it leads as ``lg_led`` keeps them, never from the edges of each
     activity (Financiën leads 17,920 items on prod)."""
@@ -184,3 +233,28 @@ def test_the_route_gives_the_derived_bucket_with_its_edges(client: TestClient) -
         "inbound",
         1,
     )
+    assert bucket["items"][0]["meta"]["latest"] == "2025-01-01"
+
+
+def test_the_route_gives_a_committee_its_latest_dossiers_first(
+    recent: GraphStore,
+) -> None:
+    app.dependency_overrides[get_store] = lambda: recent
+    try:
+        response = TestClient(app).get(
+            "/api/nodes/committees/fin", params={"sort": "importance"}
+        )
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert_status(response, 200)
+    (bucket,) = [
+        b
+        for b in response.json()["neighbors"]["buckets"]
+        if b["collection"] == COLLECTION_DOSSIERS
+    ]
+    assert [(i["key"], i["meta"]["latest"]) for i in bucket["items"]] == [
+        ("d3", "2026-10-01"),
+        ("d2", "2026-10-01"),
+        ("d1", "2019-05-01"),
+        ("d4", None),
+    ]
