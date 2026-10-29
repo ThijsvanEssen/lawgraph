@@ -159,6 +159,27 @@ def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> No
     assert second["facets"] is not None
 
 
+@pytest.mark.parametrize("facets", [False, True])
+def test_instruments_counts_of_a_search_are_computed_inline(
+    monkeypatch: pytest.MonkeyPatch, facets: bool
+) -> None:
+    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "_legal_area_tree", lambda rows: [])
+    inline: list[bool] = []
+
+    def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
+        inline.append(k["inline"])
+        return [0] if "AS total" in str(sql) else []
+
+    monkeypatch.setattr(instruments, "cached_rows", rows)
+    store = cast(GraphStore, object())
+    instruments.get_instruments_list(store, facets=facets)
+    assert inline and not any(inline)
+    inline.clear()
+    instruments.get_instruments_list(store, q="huurwet", facets=facets)
+    assert inline and all(inline)
+
+
 def test_documents_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None:
     store = InMemoryStore()
     monkeypatch.setattr(store, "query", lambda *a, **k: iter([[]]), raising=False)
