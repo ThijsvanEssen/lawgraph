@@ -39,11 +39,10 @@ FIRST_PAGES: dict[str, Any] = json.loads(
 # The articles whose node and citing passages are warmed: those cited so often that they
 # open in more than a second cold (1,500 citations or more were 335 articles on prod).
 WARM_ARTICLE_CITATIONS = CITED_BY_INLINE_BELOW
-# How long they are warmed at most (seconds), the most cited first: by the pipelines' end,
-# and by the API once ``WARM_ARTICLES_FIRST`` are done (335 took 21 to 27 minutes on prod).
+# How long the pipelines' end warms them at most (seconds), the most cited first.
 WARM_NODES_FOR = 300.0
-# The most cited articles the API always warms in full, also past its time or when newer
-# data arrives: those visited most.
+# The most cited articles the API always warms in full, also when newer data arrives:
+# those visited most.
 WARM_ARTICLES_FIRST = 20
 
 

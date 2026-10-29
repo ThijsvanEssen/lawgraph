@@ -81,7 +81,6 @@ from lawgraph.db.queries.warm_nodes import (
     FIRST_PAGES,
     WARM_ARTICLE_CITATIONS,
     WARM_ARTICLES_FIRST,
-    WARM_NODES_FOR,
     warm_articles,
 )
 from lawgraph.db.schema import SEARCH_FIELDS
@@ -199,12 +198,11 @@ def _warm_dossiers(store: GraphStore) -> None:
 
 
 def _warm_articles(store: GraphStore, version: str) -> None:
-    """The ``WARM_ARTICLES_FIRST`` most cited in full, then the next ones until
-    ``WARM_NODES_FOR`` has passed or newer data than *version* arrives: while this runs,
-    the warm-up of that data cannot begin."""
+    """The ``WARM_ARTICLES_FIRST`` most cited in full, then the next ones until newer data
+    than *version* arrives (no time limit): while this runs, the warm-up of that data
+    cannot begin (335 took 21 to 27 minutes on prod)."""
     warm_articles(
         store,
-        WARM_NODES_FOR,
         first=WARM_ARTICLES_FIRST,
         stopped=lambda: version_cache.superseded(store, version),
     )
