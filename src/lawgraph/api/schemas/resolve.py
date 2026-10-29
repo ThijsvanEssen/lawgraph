@@ -19,6 +19,7 @@ MatchKind = Literal[
     "commitment",
     "faction",
     "member",
+    "ministry",
 ]
 
 
@@ -40,7 +41,8 @@ class ResolveMatch(WithPath):
         le=1,
         description=(
             "1: an identifier (ECLI, BWB id, CELEX); 0.95: a citation read whole; "
-            "0.9: a law, faction or member by exact abbreviation or name; lower for "
+            "0.9: a law, faction, member or ministry by exact abbreviation or name; "
+            "lower for "
             "partial names, an "
             "article without a law, or several equally good nodes (at most 0.5)"
         ),

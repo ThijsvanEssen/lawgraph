@@ -2,8 +2,8 @@
 as "not there": the fields its words are found in, as one closed list of words
 (``Searched``), and its text ``none`` when the type has one its search does not read.
 
-Derived from what the search reads: ``SearchType.fields`` (``SEARCH_FIELDS``),
-``SEARCH_WORDS`` and the ``search_names`` column of a type searched by its names; the text
+Derived from what the search reads: ``SearchType.fields`` (``SEARCH_FIELDS``) and
+``SearchType.name_props``, ``SEARCH_WORDS`` and the ``search_names`` column of a type searched by its names; the text
 from the props schema of the type (``core.props``)."""
 
 from __future__ import annotations
@@ -63,6 +63,7 @@ def _fields(kind: SearchType) -> list[str]:
     columns = {column.name for column in COLUMNS.get(kind.table, ())}
     return [
         *kind.fields,
+        *kind.name_props,
         *SEARCH_WORDS.get(kind.table, ()),
         *([_NAMES] if _NAMES in columns else []),
     ]

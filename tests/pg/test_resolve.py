@@ -18,14 +18,17 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MINISTRIES,
     RELATION_PART_OF,
 )
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, SCORE_WORDS
+from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.asserts import show_items
 from tests.integration.graph import write_evrm
 from tests.pg.plans import recorded
@@ -410,6 +413,29 @@ def test_a_law_by_exact_name_or_abbreviation(store: GraphStore) -> None:
     assert resolve(store, "Wetboek van Strafrecht")["match"]["key"] == "bwbr0001854"
     assert resolve(store, "Sr")["match"]["key"] == "bwbr0001854"
     assert resolve(store, "de Grondwet")["match"]["key"] == "bwbr0001840"
+
+
+def test_a_ministry_by_its_abbreviation_or_name(store: GraphStore) -> None:
+    """A ministry by its TOOI abbreviation (``&`` as ``en``) or its name, "ministerie van"
+    before it or not; a word of its name alone names none."""
+    for key in ("bzk", "jenv", "venj", "justitie"):
+        ministry = MINISTRY_BY_KEY[key]
+        _put(store, COLLECTION_MINISTRIES, key, **ministry_props(ministry))
+    for query, key in (
+        ("BZK", "bzk"),
+        ("bzk", "bzk"),
+        ("J&V", "jenv"),
+        ("JenV", "jenv"),
+        ("Justitie en Veiligheid", "jenv"),
+        ("ministerie van Justitie en Veiligheid", "jenv"),
+        ("Ministerie van BZK", "bzk"),
+        ("Justitie", "justitie"),
+    ):
+        answer = resolve(store, query)
+        assert (answer["kind"], answer["confidence"]) == ("ministry", 0.9), query
+        assert answer["match"]["key"] == key, query
+        assert ResolveMatch(**answer["match"]).path == f"/ministeries/{key}", query
+    assert resolve(store, "Veiligheid")["kind"] == "none"
 
 
 def test_a_name_two_laws_share_lists_both_and_is_not_sure(store: GraphStore) -> None:

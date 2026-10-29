@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
@@ -17,6 +18,7 @@ from lawgraph.db.queries.search.spec import Hit
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 from lawgraph.db.schema import SEARCH_FIELDS
+from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
@@ -310,10 +312,10 @@ def test_members_and_factions_without_accents_or_in_capitals(
 
     for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
         assert found(q, "members") == ["members/m1"], q
-    # a part of the name, without its accents: more than words only (an article whose text
-    # names the minister), so the member is the best hit
+    # a part of a double surname, without its accents: a whole name (above an article
+    # whose text names the minister), so the member is the best hit
     (member,) = dispatch.search_all(store, q="yesilgoz", types=["members"])["members"]
-    assert member["score"] == ranking.SCORE_CONTAINS
+    assert member["score"] == ranking.SCORE_TITLE
     assert found("appel", "factions") == ["factions/cda"]
     # a member by the factions of their timeline only as written, not folded
     assert found("appèl", "members") == ["members/m2"]
@@ -1469,3 +1471,93 @@ def test_the_words_that_name_a_vote_are_left_out_of_a_search_of_votes(
     assert found("stemming motie abortus") == ["v1"]
     for word in ("stemming", "stemmingen", "besluit", "besluiten"):
         assert found(word) == [], word
+
+
+def _ministries(store: GraphStore, *keys: str) -> None:
+    """The ministries *keys* as ``semantic tooi-ministries`` writes them."""
+    store.bulk_insert_or_update_nodes(
+        "ministries",
+        [
+            {
+                "key": key,
+                "type": "ministry",
+                "labels": ["TOOI"],
+                "props": ministry_props(MINISTRY_BY_KEY[key]),
+            }
+            for key in keys
+        ],
+    )
+
+
+def test_a_ministry_by_its_name_or_abbreviation(store: GraphStore) -> None:
+    """Every word in its name or abbreviation ("ministerie" left out); one the query names
+    whole first and ``exact`` (its abbreviation 1, its name 0.75, "ministerie van" before
+    it or not), then the current ones, then the former ones newest first."""
+    _ministries(store, "bzk", "jenv", "venj", "justitie", "fin", "biza")
+
+    def found(q: str, live: bool = False) -> list[tuple[str, float, bool]]:
+        if live:
+            hits = dispatch.search_live(store, q=q, types=["ministries"])[0]
+        else:
+            hits = dispatch.search_all(store, q=q, types=["ministries"])
+        return [
+            (h["key"], h["score"], ranking.exact_hit(q, h)) for h in hits["ministries"]
+        ]
+
+    assert found("BZK") == found("BZK", live=True) == [("bzk", 1.0, True)]
+    assert found("J&V")[0] == ("jenv", 1.0, True)
+    assert found("JenV")[0] == ("jenv", 1.0, True)
+    assert found("ministerie van Financiën") == [("fin", 0.75, True)]
+    assert found("financien") == [("fin", 0.75, True)]
+    assert [key for key, *_ in found("Justitie")] == ["justitie", "jenv", "venj"]
+    assert [key for key, _, exact in found("veiligheid") if exact] == []
+    # a name that starts with the word before one that holds it (``score_hit``)
+    assert [key for key, *_ in found("veiligheid")] == ["venj", "jenv"]
+    assert [key for key, *_ in found("binnenlandse zaken")] == ["biza", "bzk"]
+    # the type alone: every ministry, the current ones first
+    assert [key for key, *_ in found("ministeries")][:3] == ["bzk", "fin", "jenv"]
+
+
+def test_the_books_of_a_code_by_its_name_in_the_order_of_their_number(
+    store: GraphStore,
+) -> None:
+    """ "BW" and "Burgerlijk Wetboek" find every book of the code, Boek 1 before Boek 2
+    and Boek 10 last, before the laws that hold the words; fewer asked for, the count says
+    how many hold the words."""
+    books = {"1": "BWBR0002656", "10": "BWBR0030068", "2": "BWBR0003045"}
+    books |= {"6": "BWBR0005289", "7A": "BWBR0006000"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                bwb_id.lower(),
+                "instrument",
+                bwb_id=bwb_id,
+                title=f"Burgerlijk Wetboek Boek {book}",
+                citation_title=f"Burgerlijk Wetboek Boek {book}",
+                aliases=["BW", f"BW Boek {book}"],
+            )
+            for book, bwb_id in books.items()
+        ]
+        + [
+            _node(
+                "bwbr0009999",
+                "instrument",
+                bwb_id="BWBR0009999",
+                title="Invoeringswet Burgerlijk Wetboek",
+                citation_title="Invoeringswet Burgerlijk Wetboek",
+            )
+        ],
+    )
+    order = [f"Burgerlijk Wetboek Boek {b}" for b in ("1", "2", "6", "7A", "10")]
+    for q in ("BW", "Burgerlijk Wetboek", "burgerlijk wetboek"):
+        hits = dispatch.search_all(store, q=q, types=["instruments"])["instruments"]
+        assert [h["display_name"] for h in hits[:5]] == order, q
+        assert all(h.get("exact") for h in hits[:5]), q
+        first = dispatch.search_all(store, q=q, types=["instruments"], limit=3)
+        assert [h["display_name"] for h in first["instruments"]] == order[:3], q
+    _, _, counted = dispatch.search_full_counted(
+        store, q="Burgerlijk Wetboek", types=["instruments"], limit=3
+    )
+    found = counted["instruments"]
+    assert found is not None and found.total == 6

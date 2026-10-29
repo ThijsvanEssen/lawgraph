@@ -1529,7 +1529,8 @@
   "document",
   "commitment",
   "faction",
-  "member"
+  "member",
+  "ministry"
  ],
  "/components/schemas/ResolveResponse/properties/kind/anyOf/0": [
   "article",
@@ -1539,7 +1540,8 @@
   "document",
   "commitment",
   "faction",
-  "member"
+  "member",
+  "ministry"
  ],
  "/components/schemas/ResolveResponse/properties/kind/anyOf/1#const": [
   "none"
