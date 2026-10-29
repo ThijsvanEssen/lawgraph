@@ -14,7 +14,7 @@ from lawgraph.config.constants import (
     RELATION_MADE_IN,
 )
 from lawgraph.core.time import dutch_today
-from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, NO_DUE_DATE
+from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN, EARLIEST_DUE_DATE
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._lists import FacetFilters, facet
@@ -78,10 +78,11 @@ _COMMITMENT_FACETS = {
 # the index on its words (``search_words``) is not folded.
 _WORDS = f"lg_fold({search_words(COLLECTION_COMMITMENTS, 'c')})"
 
-# The day a commitment is expected to be resolved (a string), or the placeholder of none;
-# one without it is due before every day.
+# The day a commitment is expected to be resolved (a string). One without it is due before
+# every day; the placeholder of none and a day before the first one a commitment can be due
+# (``due_date``) are no date.
 _EXPECTED = "(c.props ->> 'expected_resolution')"
-_DATED = f"{_EXPECTED} IS DISTINCT FROM %(no_date)s"
+_DATED = f"({_EXPECTED} IS NULL OR {_EXPECTED} >= %(earliest_due)s)"
 
 
 def _expected_before(day: str) -> str:
@@ -89,12 +90,17 @@ def _expected_before(day: str) -> str:
 
 
 # The orders of the list; the key settles ties. Soonest due puts those without a date (or
-# with the placeholder of none) last.
+# with the placeholder of none, or an impossible day) last; newest registered puts first
+# what the Kamer registered last, often weeks after the debate (``registered_on``).
 _COMMITMENT_SORTS = {
     "date": "c.made_on DESC NULLS LAST, c.key ASC",
     "expected_resolution": (
-        f"coalesce({_EXPECTED} = %(no_date)s, true) ASC,"
+        f"coalesce({_EXPECTED} < %(earliest_due)s, true) ASC,"
         f" {_EXPECTED} ASC NULLS FIRST, c.made_on DESC NULLS LAST, c.key ASC"
+    ),
+    "registered_on": (
+        "(c.props ->> 'registered_on') DESC NULLS LAST, c.made_on DESC NULLS LAST,"
+        " c.key ASC"
     ),
 }
 
@@ -125,13 +131,13 @@ def _commitment_filters(
     if due_before:
         shared.append(f"{_DATED} AND {_expected_before('due_before')}")
         bind["due_before"] = due_before
-        bind["no_date"] = NO_DUE_DATE
+        bind["earliest_due"] = EARLIEST_DUE_DATE
     if overdue:
         shared.append(
             f"c.status = %(open)s AND {_DATED} AND {_expected_before('today')}"
         )
         bind["open"] = COMMITMENT_OPEN
-        bind["no_date"] = NO_DUE_DATE
+        bind["earliest_due"] = EARLIEST_DUE_DATE
         bind["today"] = dutch_today().isoformat()
     shared += _words.any_query(q, _WORDS, bind, indexed=False)
     if dossier:
@@ -170,8 +176,8 @@ def get_commitments(
     alone, ``facets`` None). *q* the queries, any of them, each the words of which the
     text or number holds every one, in any order (``_words.any_query``). *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
-    has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first) or ``expected_resolution`` (soonest
-    first, those without one last)."""
+    has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first), ``expected_resolution`` (soonest
+    first, those without one last) or ``registered_on`` (newest registered first)."""
     own: dict[str, str] = {}
     bind: dict[str, Any] = {
         "limit": limit,
@@ -199,7 +205,7 @@ def get_commitments(
         made_to=made_to,
     )
     if sort == "expected_resolution":
-        bind["no_date"] = NO_DUE_DATE
+        bind["earliest_due"] = EARLIEST_DUE_DATE
     order = _COMMITMENT_SORTS.get(sort, _COMMITMENT_SORTS["date"])
 
     filters = FacetFilters(shared, own)

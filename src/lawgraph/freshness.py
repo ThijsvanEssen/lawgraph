@@ -8,7 +8,8 @@ rules, the two answers and the state of the last run go in, the lines to alert c
 A rule has a ``kind``, a ``warn`` and an ``alert`` limit, and (but ``courts``) a ``unit``: ``days``,
 ``workdays`` (Monday to Friday only) or ``hours``.
 
-    stats    a measure (``newest``, ``retrieved_at`` or ``as_of``) of a ``source`` in ``data_as_of``
+    stats    a measure (``newest``, ``retrieved_at``, ``as_of`` or ``commitments_registered``) of a
+             ``source`` in ``data_as_of``; named by its ``id`` when there is one, else its source
     tier     the last date of a ``tier`` of the coverage
     courts   how many courts of the ``tiers`` with at least ``min_count`` judgments are behind
              ``stale_days`` (and not ended: a last judgment within ``active_days``)
@@ -95,7 +96,7 @@ def _stats_rule(
         since = ((entry.get("completeness") or {}).get("source") or {}).get("as_of")
     else:
         since = entry.get(measure)
-    return _behind(source, rule, since, now)
+    return _behind(rule.get("id", source), rule, since, now)
 
 
 def _tier_rule(

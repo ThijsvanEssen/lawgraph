@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, cast, get_args
 
-from pydantic import Field, TypeAdapter, model_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from lawgraph.api.params import MinistryKey
 from lawgraph.api.schemas.common import (
@@ -48,6 +48,7 @@ from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity
+from lawgraph.core.tk_records.commitments import due_date
 from lawgraph.core.votes import DossierEnd
 
 TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
@@ -324,7 +325,16 @@ class TimelineCommitmentBody(StrictModel):
     status: str | None = Field(
         None, description="The Toezegging.Status of the Tweede Kamer: `Openstaand`, …"
     )
-    expected_resolution: str | None = None
+    expected_resolution: str | None = Field(
+        None,
+        description="The day it is due; null when the Kamer names none or the source "
+        "gives a day it cannot be due.",
+    )
+
+    @field_validator("expected_resolution")
+    @classmethod
+    def _due(cls, value: str | None) -> str | None:
+        return due_date(value)
 
 
 class _TimelineEntry(StrictModel):

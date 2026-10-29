@@ -28,10 +28,21 @@ _COMMITMENT_TEXT_FIELDS = ("Tekst", "TekstAlgemeen", "TekstBrief")
 # What a Toezegging holds as ``DatumNakoming`` when the Kamer names no date it is due.
 NO_DUE_DATE = "0001-01-01"
 
+# The first day a commitment can be due: the source also holds days no commitment can have
+# (``0025-01-28``, ``0205-02-20``), a gap, not a date to correct.
+EARLIEST_DUE_DATE = "1900-01-01"
+
 
 def due_date(value: Any) -> str | None:
-    """The day a commitment is due (``DatumNakoming``); None when the Kamer names none."""
-    return value if value and value != NO_DUE_DATE else None
+    """The day a commitment is due (``DatumNakoming``); None when the Kamer names none or
+    the source gives a day it cannot be due (before ``EARLIEST_DUE_DATE``)."""
+    return value if value and value >= EARLIEST_DUE_DATE else None
+
+
+def impossible_due_date(value: Any) -> str | None:
+    """The ``DatumNakoming`` the source gives when no commitment can be due that day (a gap,
+    ``due_date`` None); None for a possible day or the placeholder of none."""
+    return value if value and value != NO_DUE_DATE and not due_date(value) else None
 
 
 def made_on(payload: Payload) -> str | None:

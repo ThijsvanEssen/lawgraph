@@ -32,6 +32,12 @@ class DataAsOfDTO(StrictModel):
         "the Kamer, a judgment, a publication, a version of a law coming into force. Null "
         "for a source without dated records.",
     )
+    commitments_registered: str | None = Field(
+        None,
+        description="Of `tk` only: the newest day the Kamer registered a commitment "
+        "(`registered_on` of `/api/commitments`), on or before today; a commitment is "
+        "fetched apart from the papers.",
+    )
     completeness: Completeness = Field(
         description=f"{COMPLETENESS} Of a source its `source`: `done`, `paused` (off: no "
         "scheduled run asks it anything), `unavailable` (it refused the last run) or "

@@ -78,8 +78,11 @@ def list_commitments(
         ),
     ] = None,
     sort: Annotated[
-        Literal["date", "expected_resolution"],
-        Query(description="Newest made first, or soonest due first."),
+        Literal["date", "expected_resolution", "registered_on"],
+        Query(
+            description="Newest made first, soonest due first, or newest registered "
+            "first (the Kamer registers a commitment often weeks after the debate)."
+        ),
     ] = "date",
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,

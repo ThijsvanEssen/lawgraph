@@ -223,6 +223,13 @@ _NEWEST: dict[str, str] = {
 }
 
 
+# The newest day the Tweede Kamer registered a commitment (``Toezegging.Aanmaakdatum``), on
+# or before today: its own fetch, which the newest paper of the Kamer does not show.
+_NEWEST_COMMITMENT = f"""
+    SELECT max(props ->> 'registered_on') FROM {COLLECTION_COMMITMENTS}
+    WHERE props ->> 'registered_on' <= %(today)s"""
+
+
 def cached_data_as_of(store: GraphStore) -> dict[str, Any]:
     """``get_data_as_of``, read at most once a minute per database (``/api/stats``, the
     coverage and every page of the feed carry it). Kept by age, not by the data version: a
@@ -265,7 +272,8 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
     """Per source (every source of the registry, and any other the graph holds records of):
     ``retrieved_at``, the moment its newest raw record was fetched (the last retrieve that
     brought something); ``newest``, the date of its newest dated record on or before
-    *today* (null for a source without one); and ``completeness.source``, what the last
+    *today* (null for a source without one); of ``tk`` also ``commitments_registered``,
+    the newest day it registered a commitment; and ``completeness.source``, what the last
     scheduled run did with it (``core.completeness.source_completeness``)."""
     today = today or dutch_today().isoformat()
     rows = list(store.query(_RETRIEVED_AT))  # its connection back before the next query
@@ -287,4 +295,8 @@ def get_data_as_of(store: GraphStore, *, today: str | None = None) -> dict[str, 
                 "source": source_completeness(runs.get(source), retrieved_at)
             },
         }
+        if source == SOURCE_TK:
+            result[source]["commitments_registered"] = next(
+                store.query(_NEWEST_COMMITMENT, {"today": today}), None
+            )
     return result
