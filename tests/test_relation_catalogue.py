@@ -7,18 +7,25 @@ import re
 import pytest
 
 from lawgraph.config import constants
-from lawgraph.config.constants import COLLECTION_NAMES, RELATION_LITERALS
+from lawgraph.config.constants import (
+    COLLECTION_NAMES,
+    RELATION_LED_BY,
+    RELATION_LITERALS,
+)
 from lawgraph.core.identifiers import is_bwb_id
 from lawgraph.core.relations import (
     BY_NAME,
     CONCEPTS,
     RELATION_NAMES,
     RELATIONS,
+    allows,
     block_of,
     render_json,
     render_meta_table,
     render_tables,
 )
+from lawgraph.db.queries.derived_neighbors import DERIVED_BUCKETS
+from tests.asserts import show_items
 from tests.paths import ROOT
 
 # Concepts a relation name must not repeat (the target node already says it).
@@ -88,6 +95,19 @@ def test_only_instruments_and_bills_change_law() -> None:
 def test_the_api_types_are_the_catalogue() -> None:
     assert RELATION_LITERALS == tuple(r.name for r in RELATIONS)
     assert COLLECTION_NAMES == tuple(CONCEPTS.values())
+
+
+def test_the_derived_ends_are_those_the_api_derives_and_never_stored() -> None:
+    # each derived pair in both directions: the bucket of either end
+    derived = {
+        (RELATION_LED_BY, b.of, b.collection)
+        if b.direction == "outbound"
+        else (RELATION_LED_BY, b.collection, b.of)
+        for b in DERIVED_BUCKETS
+    }
+    assert derived == {(r.name, a, b) for r in RELATIONS for a, b in r.derived}
+    stored = [end for end in derived if allows(*end)]
+    assert not stored, show_items(stored)
 
 
 def test_the_relations_contract_is_in_sync() -> None:

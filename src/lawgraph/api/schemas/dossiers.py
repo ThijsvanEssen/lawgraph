@@ -1094,7 +1094,8 @@ class DossierDetailResponse(DossierSummaryDTO):
     )
     committees: list[DossierCommitteeDTO] = Field(
         default_factory=list,
-        description="Committees leading an activity about the dossier.",
+        description="Committees leading an activity about the dossier: its `LED_BY` "
+        "committees of `/api/nodes/dossiers/{key}`.",
     )
     documents_by_kind: dict[str, int] = Field(
         default_factory=dict,
