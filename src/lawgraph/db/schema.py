@@ -1060,17 +1060,37 @@ def search_words(collection: str, alias: str = "") -> str:
     return f"lower({words})"
 
 
+# The most a search index holds of its rows written since it was last merged (kB): its
+# pending list (GIN ``fastupdate``), which every lookup reads whole. At the default of
+# 4 MB a lookup of a word no row holds read some 400 pages of each index (prod, 29 Oct:
+# 17 lookups per word of an article search, 7,600 pages, 0.6 s from disk), and the
+# planner, which counts them, tested the other words of a row by its columns instead.
+SEARCH_PENDING_LIST_KB = 256
+
+
+def _search_index(name: str, collection: str, expression: str) -> list[str]:
+    """The trigram or array index *name* of *collection* on *expression*, with the pending
+    list of ``SEARCH_PENDING_LIST_KB``: created so, and set on one made before (a write
+    past it merges the list, as a vacuum does)."""
+    limit = f"(gin_pending_list_limit = {SEARCH_PENDING_LIST_KB})"
+    return [
+        f"CREATE INDEX IF NOT EXISTS {name} ON {collection}"
+        f" USING gin ({expression}) WITH {limit}",
+        f"ALTER INDEX {name} SET {limit}",
+    ]
+
+
 def _search_indexes(collection: str) -> list[str]:
     statements = []
     if collection in SEARCH_WORDS:
-        statements.append(
-            f"CREATE INDEX IF NOT EXISTS {collection}_search_words ON {collection}"
-            f" USING gin (({search_words(collection)}) gin_trgm_ops)"
+        statements += _search_index(
+            f"{collection}_search_words",
+            collection,
+            f"({search_words(collection)}) gin_trgm_ops",
         )
     if collection in (COLLECTION_MEMBERS, COLLECTION_FACTIONS):
-        statements.append(
-            f"CREATE INDEX IF NOT EXISTS {collection}_search_names ON {collection}"
-            " USING gin (search_names gin_trgm_ops)"
+        statements += _search_index(
+            f"{collection}_search_names", collection, "search_names gin_trgm_ops"
         )
         # the name folded as the search folds (``lg_fold``): ``yesilgoz`` finds Yeşilgöz.
         # An index, not a column: no row is written again (``search_names`` is lower case
@@ -1080,17 +1100,15 @@ def _search_indexes(collection: str) -> list[str]:
             if collection == COLLECTION_MEMBERS
             else "lg_fold(search_names)"
         )
-        statements.append(
-            f"CREATE INDEX IF NOT EXISTS {collection}_names_folded ON {collection}"
-            f" USING gin (({folded}) gin_trgm_ops)"
+        statements += _search_index(
+            f"{collection}_names_folded", collection, f"({folded}) gin_trgm_ops"
         )
     for column in _search_columns(collection):
         if column.index is None:
             continue
         operators = " gin_trgm_ops" if column.index == "trgm" else ""
-        statements.append(
-            f"CREATE INDEX IF NOT EXISTS {collection}_{column.name} ON {collection}"
-            f" USING gin ({column.name}{operators})"
+        statements += _search_index(
+            f"{collection}_{column.name}", collection, f"{column.name}{operators}"
         )
     return statements
 
