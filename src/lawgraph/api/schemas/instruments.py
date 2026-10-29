@@ -1897,7 +1897,8 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
     sub_delegated: list[SubDelegatedDTO] = Field(
         default_factory=list,
         description=f"The first {SUB_DELEGATED_MAX} regulations in force issued under its "
-        "articles in turn, in the order of the full form.",
+        "articles in turn, also one issued under this law itself as well (an item of its "
+        "own too), in the order of the full form.",
     )
     sub_delegated_total: int = Field(
         0,

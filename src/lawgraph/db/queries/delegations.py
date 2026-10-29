@@ -229,12 +229,14 @@ _ALSO_BASED_ON = f"""(
     JOIN LATERAL {_LAW.format(alias="l")} li ON true
 )"""
 
-# The regulations in force issued under its own articles (``sub_delegated``), one level
-# down, by key, each with the articles of this regulation it names; not one that is issued
-# under the law itself as well (an item of its own). The edges into each article in the
-# ``(to_id, relation, from_collection)`` index alone (it holds ``key`` and ``from_id``); the
-# rows of the edges and articles found after.
-_SUB_DELEGATED = f"""(
+
+def _sub_delegated(besides: str = "") -> str:
+    """The regulations in force issued under its own articles (``sub_delegated``), one level
+    down, by key, each with the articles of this regulation it names; *besides* narrows them
+    (``_NOT_UNDER_LAW``). The edges into each article in the ``(to_id, relation,
+    from_collection)`` index alone (it holds ``key`` and ``from_id``); the rows of the edges
+    and articles found after."""
+    return f"""(
     SELECT json_agg(json_build_object('instrument', {summary_json("si")},
                                       'articles', sg.articles)
                     ORDER BY si.key)
@@ -251,7 +253,7 @@ _SUB_DELEGATED = f"""(
             WHERE s.to_id = ANY ((SELECT array_agg(id) FROM own)::text[])
               AND s.relation = %(based_on)s
               AND s.from_collection = '{COLLECTION_INSTRUMENTS}'
-              AND s.from_id NOT IN (SELECT from_id FROM based)
+              {besides}
             ORDER BY s.from_id, o.id, s.key
         ) u
         JOIN {COLLECTION_EDGES} m ON m.key = u.edge_key
@@ -261,6 +263,10 @@ _SUB_DELEGATED = f"""(
     JOIN {COLLECTION_INSTRUMENTS} si ON si.id = sg.sub_id
     WHERE {validity_clause("si")}
 )"""
+
+
+# Not a regulation issued under the law itself as well: the full form gives it as an item.
+_NOT_UNDER_LAW = "AND s.from_id NOT IN (SELECT from_id FROM based)"
 
 # The regulations issued under any article in force of a law: by the edges into the articles
 # of the law (their ``(bwb_id, …)`` index, then the ``(to_id, relation, from_collection)``
@@ -300,13 +306,15 @@ CROSS JOIN LATERAL (
         WHERE b.law = %(bwb)s
     ) AS articles,
     {_ALSO_BASED_ON} AS also_based_on,
-    {_SUB_DELEGATED} AS sub_delegated
+    {_sub_delegated(_NOT_UNDER_LAW)} AS sub_delegated
 ) p
 """
 
 # The light form: the regulation, the articles of the law it names and the regulations
-# issued under its own articles (``sub_delegated``, by the edges into them alone); nothing
-# read of the text of its articles, nor its co-bases.
+# issued under its own articles (``sub_delegated``, by the edges into them alone), also
+# those issued under the law itself as well: the keten draws their second line from it
+# (the Cyberbeveiligingsregeling voor de zorg under the Cbw and the Cbb). Nothing read of
+# the text of its articles, nor its co-bases.
 _DELEGATED_SUMMARY_SQL = f"""
 WITH {_BASED},
 regulations AS MATERIALIZED (
@@ -329,7 +337,7 @@ CROSS JOIN LATERAL (
         FROM named b
         WHERE b.law = %(bwb)s
     ) AS articles,
-    {_SUB_DELEGATED} AS sub_delegated
+    {_sub_delegated()} AS sub_delegated
 ) p
 """
 
@@ -356,7 +364,7 @@ def get_delegated_by_law(
     regulations of the validity issued under its articles that are not issued under the law
     itself (``instrument``, ``articles``: those of the regulation they name). Repealed
     articles are left out. With *summary* only ``instrument``, ``articles`` without
-    ``referring`` and ``sub_delegated``. One query, kept while its tables stand still: the
+    ``referring`` and ``sub_delegated``, there also those issued under the law itself. One query, kept while its tables stand still: the
     Awb has 850 regulations in force, which took 10 s cold on prod (23 Oct), and the
     warm-up asks it."""
     return cached_rows(
