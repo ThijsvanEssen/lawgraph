@@ -128,6 +128,8 @@ def _app_page(path: str) -> Page | None:
         path=path,
         whole_title=True,
         index=shell.indexed(route),
+        body=shell.shell().texts.get(path, ""),
+        organization=path == "/over",
     )
 
 

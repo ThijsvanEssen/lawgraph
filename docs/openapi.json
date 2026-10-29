@@ -3849,7 +3849,7 @@
           "dossiers"
         ],
         "summary": "Dossier mutation graph",
-        "description": "The nodes and edges by which this dossier proposes to change the law, shaped like the graph endpoint so the frontend can render it directly.",
+        "description": "The nodes and edges by which this dossier proposes to change the law, shaped like the graph endpoint so the frontend can render it directly. A page of at most `limit` edges by key, with the nodes they name: `has_more` and `next_cursor` (pass it as `after`) where the dossier has more, `total` the edges in all (null where counting ran past its budget). The `kind` of a node is that of the edges of its page.",
         "operationId": "get_mutations_api_dossiers__number__mutations_get",
         "parameters": [
           {
@@ -3863,6 +3863,38 @@
               "title": "Number"
             },
             "description": "Dossier number, e.g. 29684, 29684-I, 21501-31 or 36956-(R2220)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "description": "The most edges of a page; a dossier with more has `next_cursor`.",
+              "default": 1000,
+              "title": "Limit"
+            },
+            "description": "The most edges of a page; a dossier with more has `next_cursor`."
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it.",
+              "title": "After"
+            },
+            "description": "The ``next_cursor`` of the page before: this page follows it. Instead of ``offset``, not with it."
           }
         ],
         "responses": {
@@ -20059,6 +20091,12 @@
             "title": "Proposed",
             "description": "The proposed changes."
           },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "Whether changes beyond the first 5000 are left out.",
+            "default": false
+          },
           "laws": {
             "items": {
               "$ref": "#/components/schemas/DossierChangedLaw"
@@ -20076,6 +20114,7 @@
           "articles",
           "enacted",
           "proposed",
+          "truncated",
           "laws"
         ],
         "title": "DossierChangedArticlesResponse"
@@ -21508,6 +21547,36 @@
             "type": "string",
             "title": "Number"
           },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "The edges of the dossier in all; null where counting ran long."
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More",
+            "description": "Whether `next_cursor` gives a next page.",
+            "default": false
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as `after` for the next page; null on the last page."
+          },
           "nodes": {
             "items": {
               "$ref": "#/components/schemas/DossierMutationNode"
@@ -21527,6 +21596,9 @@
         "type": "object",
         "required": [
           "number",
+          "total",
+          "has_more",
+          "next_cursor",
           "nodes",
           "edges"
         ],

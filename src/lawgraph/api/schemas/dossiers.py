@@ -1329,5 +1329,15 @@ class DossierMutationsResponse(StrictModel):
     """The pending-change subgraph of a dossier, shaped like the graph endpoint."""
 
     number: str
+    total: int | None = Field(
+        None,
+        description="The edges of the dossier in all; null where counting ran long.",
+    )
+    has_more: bool = Field(
+        False, description="Whether `next_cursor` gives a next page."
+    )
+    next_cursor: str | None = Field(
+        None, description="Pass as `after` for the next page; null on the last page."
+    )
     nodes: list[DossierMutationNode]
     edges: list[DossierMutationEdge]

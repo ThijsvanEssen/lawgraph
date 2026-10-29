@@ -76,7 +76,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address (of IPv6 its /64) is only in the memory of the rate limiter |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
 | `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
-| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app, `start.json` holds the text of the start page (one that is missing or does not read is logged as an error with its path), `moved.json` the addresses that moved (a 301; none without it), `first-paint-<kind>.js` the script that paints the page of a law, an article, a judgment or a Kamerstuk before the app has come, `first-paint.js` the one for every kind (no first paint without either) |
+| `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app, `start.json` holds the text of the start page (one that is missing or does not read is logged as an error with its path), `moved.json` the addresses that moved (a 301; none without it), `spa-texts.json` the HTML of the prose pages (`/over`, `/bronnen`, `/privacy`, `/voorwaarden`, `/docs/methode`, `/docs/sneltoetsen`) that goes in their `<main id="seo">` (none without it, and no error), `first-paint-<kind>.js` the script that paints the page of a law, an article, a judgment or a Kamerstuk before the app has come, `first-paint.js` the one for every kind (no first paint without either) |
 
 ### Logging and tests
 
@@ -660,6 +660,21 @@ Nothing that keeps the site up needs a Claude session or a personal key:
   itself, after keeping the evidence.
 - By hand, when both fail: `gh workflow run ops -f action=status`, then
   `gh workflow run ops -f action=run -f name=restart-api`, then `status` again.
+
+## Memory of the API
+
+`lawgraph-api.service` has `MemoryHigh=3G`, `MemoryMax=4G`, `MemorySwapMax=0`, `OOMPolicy=stop` and
+`OOMScoreAdjust=300`: past the ceiling the kernel kills the API alone (not the database or the host), systemd
+restarts it, and the OOM killer takes the API before PostgreSQL. The values are a proposal: read what a normal day
+needs first (`gh workflow run ops -f action=status`, or `systemctl show lawgraph-api -p MemoryCurrent -p MemoryPeak`)
+and keep `MemoryHigh` above the peak of the warm-up. After `config-apply` (with Thijs's go), `systemctl show
+lawgraph-api -p MemoryMax -p OOMPolicy` shows them. An OOM kill is in `journalctl -u lawgraph-api` as
+`result 'oom-kill'`; the cause is a request: find it in the request log by the minute before the kill.
+
+`/api/dossiers/{number}/mutations` is a page of at most `limit` edges (default 1000, at most 2000) with `has_more`
+and `next_cursor`; a read that outlasts its request (`LAWGRAPH_API_REQUEST_TIMEOUT_MS`, 30 s) ends between two
+batches and the request answers 503 with `Retry-After`. `/changed-articles` holds at most 5000 changes
+(`truncated`).
 
 ## Observability
 

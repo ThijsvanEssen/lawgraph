@@ -128,3 +128,87 @@ def test_a_file_that_is_missing_or_does_not_read_is_logged_with_its_path(
     assert f"The front end's {beside} {reason}" in error
     shell.shell()  # kept until the shell changes: said once
     assert len(_errors(caplog)) == 1
+
+
+def test_the_text_of_a_prose_page_stands_in_main_seo_and_a_build_without_it_is_silent(
+    index: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """``spa-texts.json``: path to HTML; a front end of before has none, no word."""
+    from lawgraph.api.routes.render import _app_page
+
+    (index.parent / "spa-routes.json").write_text(
+        '[{"path": "/over", "title": "Over, Concordans"}, {"path": "/privacy"}]'
+    )
+    shell.forget()
+    assert shell.shell().texts == {} and _app_page("/over").body == ""  # type: ignore[union-attr]
+    assert _errors(caplog) == []
+
+    (index.parent / "spa-texts.json").write_text(
+        '{"/over/": "<h1>Over</h1><p>Tekst</p>", "/privacy": 3, "/leeg": " "}'
+    )
+    shell.forget()
+    assert shell.shell().texts == {"/over": "<h1>Over</h1><p>Tekst</p>"}
+    over, privacy = _app_page("/over"), _app_page("/privacy")
+    assert over is not None and privacy is not None and privacy.body == ""
+    html = shell.render(over)
+    assert '<main id="seo"><h1>Over</h1><p>Tekst</p></main>' in html
+    assert html.count("<h1") == 1
+    assert _errors(caplog) == []
+
+
+def test_concordans_is_an_organization_on_the_start_page_and_over_only(
+    index: Path,
+) -> None:
+    import json
+    import re
+
+    from lawgraph.api.routes.render import _app_page
+
+    (index.parent / "spa-routes.json").write_text(
+        '[{"path": "/"}, {"path": "/over"}, {"path": "/privacy"}]'
+    )
+    shell.forget()
+
+    def organizations(path: str) -> list[dict[str, object]]:
+        page = _app_page(path)
+        assert page is not None
+        found = re.findall(
+            r'<script type="application/ld\+json" data-seo>(.*?)</script>',
+            shell.render(page),
+        )
+        graph = json.loads(found[0])["@graph"] if found else []
+        return [n for n in graph if n["@type"] == "Organization"]
+
+    expected = {
+        "@type": "Organization",
+        "@id": f"{settings.SITE_URL}/#organization",
+        "name": "Concordans",
+        "url": f"{settings.SITE_URL}/",
+        "logo": f"{settings.SITE_URL}/icon-512.png",
+        "email": "concordans@tmve.nl",
+    }
+    assert organizations("/") == [expected]
+    assert organizations("/over") == [expected]
+    assert organizations("/privacy") == []
+
+
+def test_the_website_names_its_publisher_by_reference_not_a_second_organization(
+    index: Path,
+) -> None:
+    import json
+    import re
+
+    from lawgraph.api.routes.render import _app_page
+
+    (index.parent / "spa-routes.json").write_text('[{"path": "/"}]')
+    shell.forget()
+    page = _app_page("/")
+    assert page is not None
+    (found,) = re.findall(
+        r'<script type="application/ld\+json" data-seo>(.*?)</script>',
+        shell.render(page),
+    )
+    graph = json.loads(found)["@graph"]
+    (site,) = [n for n in graph if n["@type"] == "WebSite"]
+    (org,) = [n for n in graph if n["@type"] == "Organization"]
+    assert site["publisher"] == {"@id": org["@id"]}
