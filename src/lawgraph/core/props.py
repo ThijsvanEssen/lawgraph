@@ -297,6 +297,12 @@ class InstrumentProps(_CommonProps):
     """The EU acts its text names."""
     implements_celex: list[str] | None = None
     """The EU acts its considerans says it implements (`IMPLEMENTS`)."""
+    preamble: dict[str, Any] | None = None
+    """BWB: its aanhef as a text, a paragraph a line: `{text, parts, references}`, `parts`
+    its blocks `{kind, start, end}` (`kind` the element: `wij`, `wie`, `considerans`,
+    `afkondiging`, `preambule`; `gelet_op` a paragraph of the considerans that starts with
+    "Gelet op", inside it) and `references` its links as those of an article, offsets into
+    `text`; null without one."""
     enacted_publication: str | None = None
     """The publication that enacted it: `stb-2018-144`."""
     unlinked_references: int | None = None
