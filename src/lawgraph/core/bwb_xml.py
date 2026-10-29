@@ -13,7 +13,8 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 * references in the text are ``<extref>`` / ``<intref>`` with a machine-readable
   ``doc="jci1.3:c:BWBR0001854&artikel=287"``;
 * the preamble (``<aanhef>/<considerans>``) lists the legal basis in the
-  paragraph that starts with "Gelet op", again as ``<extref>``;
+  paragraph that starts with "Gelet op", again as ``<extref>``; the whole ``<aanhef>`` is
+  read as a text of its own (``PreambleXml``);
 * an annex (``<bijlage>``) has a heading of its own (``Bijlage 1``, ``Lijst Ia``) and its
   text is read as that of an article (``AnnexXml``), without the articles it holds.
 
@@ -436,6 +437,38 @@ class AnnexXml:
     footnotes: tuple[Footnote, ...] = ()
 
 
+# The part of an aanhef that is a paragraph of its considerans stating the legal basis
+PREAMBLE_GELET_OP = "gelet_op"
+
+
+@dataclass(frozen=True)
+class PreamblePart:
+    """A block of the aanhef, as a span of ``PreambleXml.text``: ``kind`` is the element it
+    is, as the XML names it (``wij``, ``wie``, ``considerans``, ``afkondiging``,
+    ``preambule``), or ``gelet_op``: a paragraph of the considerans that starts with
+    "Gelet op", inside it. The parts are listed by ``start``, a block before the
+    ``gelet_op`` inside it."""
+
+    kind: str
+    start: int
+    end: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-able form stored in ``props.preamble.parts``."""
+        return {"kind": self.kind, "start": self.start, "end": self.end}
+
+
+@dataclass(frozen=True)
+class PreambleXml:
+    """The ``<aanhef>`` of a regulation: who enacts it, its considerans ("Gelet op …") and
+    its afkondiging ("Besluit:"). A paragraph a line; ``parts`` its blocks and
+    ``references`` its links, offsets into ``text``."""
+
+    text: str
+    parts: tuple[PreamblePart, ...] = ()
+    references: tuple[Reference, ...] = ()
+
+
 @dataclass(frozen=True)
 class BasisRef:
     """An article an instrument is issued under ('Gelet op artikel …')."""
@@ -466,6 +499,7 @@ class ToestandXml:
     basis_preamble: str = ""
     # the EU acts its considerans says it implements (CELEX numbers), see ``implemented_acts``
     implements: tuple[str, ...] = ()
+    preamble: PreambleXml | None = None
     articles: tuple[ArticleXml, ...] = field(default_factory=tuple)
     annexes: tuple[AnnexXml, ...] = ()
 
@@ -1541,13 +1575,18 @@ def _parse_article(
 # ── preamble: "Gelet op" ─────────────────────────────────────────────────────
 
 
+def _states_basis(para: ET.Element) -> bool:
+    """A paragraph of the ``considerans`` that starts with 'Gelet op': the legal basis."""
+    return local_name(para.tag).startswith("considerans") and text_of(
+        para
+    ).lower().startswith("gelet op")
+
+
 def _gelet_op(root: ET.Element) -> Iterator[ET.Element]:
     """The ``considerans`` paragraphs that start with 'Gelet op'."""
     for considerans in iter_named(root, "considerans"):
         for para in considerans.iter():
-            if local_name(para.tag).startswith("considerans") and text_of(
-                para
-            ).lower().startswith("gelet op"):
+            if _states_basis(para):
                 yield para
 
 
@@ -1579,6 +1618,68 @@ def _implemented(root: ET.Element) -> tuple[str, ...]:
         if local_name(para.tag) == "considerans.al"
     ]
     return tuple(implemented_acts(clauses))
+
+
+# ── preamble: the aanhef as a text ───────────────────────────────────────────
+
+# The elements of an aanhef that are a paragraph of their own: a line of its text.
+_PREAMBLE_LINES = frozenset({"al", "considerans.al", "wij", "wie"})
+
+
+def _preamble_lines(element: ET.Element) -> Iterator[list[ET.Element]]:
+    """The lines of a block of the aanhef: each paragraph, and each item of a list its
+    marker and its paragraphs; an element with text of its own is a line."""
+    name = local_name(element.tag)
+    children = [child for child in element if local_name(child.tag) != "meta-data"]
+    if name == "li":
+        yield children
+    elif name in _PREAMBLE_LINES or (element.text or "").strip() or not children:
+        yield [element]
+    else:
+        for child in children:
+            yield from _preamble_lines(child)
+
+
+def _add_preamble_block(builder: TextBuilder, block: ET.Element) -> list[PreamblePart]:
+    """Add the lines of *block* to *builder*: its part, and after it a ``gelet_op`` part for
+    each paragraph of it that states the legal basis (``_states_basis``)."""
+    start = None
+    inner: list[PreamblePart] = []
+    for line in _preamble_lines(block):
+        pieces = [piece for piece in line if words_of(piece)]
+        if not pieces:
+            continue
+        if builder.length:
+            builder.add("\n")
+        line_start = builder.length
+        start = line_start if start is None else start
+        for index, piece in enumerate(pieces):
+            if index:
+                builder.add(" ")
+            builder.inline(piece)
+        if _states_basis(pieces[0]):
+            inner.append(PreamblePart(PREAMBLE_GELET_OP, line_start, builder.length))
+    if start is None:
+        return []
+    return [PreamblePart(local_name(block.tag), start, builder.length), *inner]
+
+
+def _preamble(root: ET.Element) -> PreambleXml | None:
+    """The first ``<aanhef>`` as a text, a block (its child) a part; None without one or
+    when it holds no text."""
+    aanhef = next(iter_named(root, "aanhef"), None)
+    if aanhef is None:
+        return None
+    builder = TextBuilder()
+    parts = [
+        part
+        for block in aanhef
+        if local_name(block.tag) != "meta-data"
+        for part in _add_preamble_block(builder, block)
+    ]
+    if not builder.length:
+        return None
+    return PreambleXml(builder.value(), tuple(parts), tuple(builder.refs))
 
 
 # ── entry point ──────────────────────────────────────────────────────────────
@@ -1620,6 +1721,7 @@ def read_toestand(xml_text: str) -> tuple[ToestandXml, tuple[ArticleHead, ...]]:
         basis=_basis(root),
         basis_preamble=_basis_preamble(root),
         implements=_implemented(root),
+        preamble=_preamble(root),
         annexes=parse_annexes(root),
     )
     return toestand, heads
@@ -1691,7 +1793,7 @@ def instrument_props(
     of the regulation as it was enacted (``ToestandXml.enacted``), always written (null or
     empty when the toestand does not say them); ``version_date_in_force`` is the start of
     the toestand. ``date_expired`` (``expiry_date``) is always written, null for a
-    regulation in force.
+    regulation in force, and so is ``preamble`` (``preamble_props``), null without one.
     """
     enacted = toestand.enacted
     title = toestand.title or f"BWB-regeling {bwb_id}"
@@ -1724,6 +1826,19 @@ def instrument_props(
         "date_expired": date_expired,
         "dossier_numbers": list(enacted.dossiers) if enacted else [],
         "enacted_publication": (enacted.identifier or None) if enacted else None,
+        "preamble": preamble_props(toestand.preamble),
+    }
+
+
+def preamble_props(preamble: PreambleXml | None) -> dict[str, Any] | None:
+    """``props.preamble``: its text, its blocks and the links in it that name a regulation
+    or an EU act, as the references of an article; None without a preamble."""
+    if preamble is None:
+        return None
+    return {
+        "text": preamble.text,
+        "parts": [part.to_dict() for part in preamble.parts],
+        "references": _references(preamble.references, (), None),
     }
 
 

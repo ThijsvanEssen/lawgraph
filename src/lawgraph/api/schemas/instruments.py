@@ -1255,6 +1255,58 @@ class TreatyRegisterDTO(StrictModel):
         )
 
 
+class PreamblePartDTO(StrictModel):
+    """A block of the aanhef of a regulation, as a span of its `text`."""
+
+    kind: str = Field(
+        description='The block as the BWB names it: `wij` ("Wij Willem-Alexander, …": '
+        'a law or an AMvB), `wie` ("De Minister van …"), `considerans` ("Gelet op '
+        '…"), `afkondiging` ("Besluit:"), `preambule` (of a treaty); or `gelet_op`: '
+        'a line of the considerans that starts with "Gelet op" (the legal basis), '
+        "inside it."
+    )
+    start: int = Field(description="Offset of the block in the `text` of the aanhef.")
+    end: int
+
+
+class InstrumentPreambleDTO(StrictModel):
+    """The aanhef of a BWB regulation: who enacts it, its considerans and its
+    afkondiging, with the links in it."""
+
+    text: str = Field(description="Its text, a paragraph a line.")
+    parts: list[PreamblePartDTO] = Field(
+        description="Its blocks, in the order of the text, a block before the "
+        "`gelet_op` inside it."
+    )
+    references: list[ArticleReferenceDTO] = Field(
+        description="Its links to an article, a regulation or an EU act, as those of the "
+        "text of an article: offsets into `text`, each with its `target`."
+    )
+
+    @classmethod
+    def from_props(
+        cls, stored: dict[str, Any], present: set[tuple[str, str]]
+    ) -> InstrumentPreambleDTO | None:
+        """From ``props.preamble``; *present* the reference targets the data holds. A
+        block that does not fit the text is left out; None without a text."""
+        text = stored.get("text")
+        if not isinstance(text, str) or not text:
+            return None
+        return cls(
+            text=text,
+            parts=[
+                PreamblePartDTO.model_validate(part)
+                for part in stored.get("parts") or []
+                if isinstance(part, dict)
+                and isinstance(part.get("kind"), str)
+                and isinstance(part.get("start"), int)
+                and isinstance(part.get("end"), int)
+                and 0 <= part["start"] < part["end"] <= len(text)
+            ],
+            references=references_from_props(stored, present),
+        )
+
+
 class InstrumentDetailDTO(WithMinistry, WithSeries, WithPath):
     """One instrument: its identifiers, names, classification and dates."""
 
@@ -1370,6 +1422,11 @@ class InstrumentDetailDTO(WithMinistry, WithSeries, WithPath):
         "the dossiers of its approval and the treaties it belongs to or that belong to it. "
         "Null for any other instrument.",
     )
+    preamble: InstrumentPreambleDTO | None = Field(
+        None,
+        description='Of a BWB regulation: its aanhef ("De Minister van …, Gelet op '
+        'artikel …, Besluit:"), with its links; null without one.',
+    )
     completeness: Completeness | None = Field(
         None,
         description="Of a law of the Staatsblad the BWB does not hold (yet): `references` "
@@ -1388,9 +1445,11 @@ class InstrumentDetailDTO(WithMinistry, WithSeries, WithPath):
         same_treaty: list[dict[str, Any]] | None = None,
         references: ReferenceCounts | None = None,
         validity: ValidityDTO | None = None,
+        preamble: InstrumentPreambleDTO | None = None,
     ) -> InstrumentDetailDTO:
         """Build from the node *doc*; *references* what the step that reads its references
-        counted of them (``db.queries.unlinked_references``)."""
+        counted of them (``db.queries.unlinked_references``), *preamble* its aanhef
+        (``InstrumentPreambleDTO.from_props``)."""
         props = doc.get("props") or {}
         return cls(
             id=doc["id"],
@@ -1436,6 +1495,7 @@ class InstrumentDetailDTO(WithMinistry, WithSeries, WithPath):
             treaty=TreatyRegisterDTO.from_props(props),
             completeness=completeness_dto(props, references=references),
             ministry=props.get("ministry"),
+            preamble=preamble,
         )
 
 
