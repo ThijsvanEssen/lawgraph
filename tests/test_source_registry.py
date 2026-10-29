@@ -245,6 +245,24 @@ def test_semantic_all_lists_its_steps_in_order_without_running_them(
     assert result.errors == []
 
 
+def test_a_semantic_run_since_a_date_leaves_the_weekly_steps_out() -> None:
+    """``semantic all --since`` (the daily run) leaves out ``graph-light``, whose tables the
+    triggers keep; a run over all and ``--list`` (the weekly run) keep every step."""
+    import argparse
+    import datetime as dt
+
+    from lawgraph.pipelines.orchestration import _pipelines_of
+    from lawgraph.sources.registry import PIPELINES
+
+    every = [p.name for p in PIPELINES["semantic"]]
+    since = argparse.Namespace(since=dt.datetime(2026, 10, 28, tzinfo=dt.UTC))
+    daily = [p.name for p in _pipelines_of("semantic", since)]
+    assert [n for n in every if n not in daily] == ["graph-light"]
+    assert daily == [n for n in every if n != "graph-light"]
+    full = [p.name for p in _pipelines_of("semantic", argparse.Namespace(since=None))]
+    assert full == every
+
+
 # ── the description and the options of a command ────────────────────────────
 
 
