@@ -683,21 +683,23 @@ def get_instrument_related_instruments(
     ``basis`` (:func:`_pair_bases`) says whether one is issued under the other. The
     counterpart of a BWB regulation is a BWB regulation; the counterpart of an EU act is a
     BWB regulation or another EU act. With the page: the total and how many of the total
-    have a ``basis``. Kept per data version of what it reads and per day (a law's
-    Verbonden asks it on every visit).
+    have a ``basis``. The whole list is kept per data version of what it reads and per day,
+    whatever the ``limit``: a law's Verbonden asks it on every visit, and each "Meer laden"
+    asks a longer page of the same list.
     """
     today = dutch_today().isoformat()
-    return cached(
+    items, based_on = cached(
         store,
-        ("related-instruments", identifier, limit, today),
-        lambda: _related_instruments(store, identifier, limit, today),
+        ("related-instruments", identifier, today),
+        lambda: _related_instruments(store, identifier, today),
         tables=(COLLECTION_EDGES, COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS),
     )
+    return items[:limit], len(items), based_on
 
 
 def _related_instruments(
-    store: GraphStore, identifier: str, limit: int, today: str
-) -> tuple[list[dict[str, Any]], int, int]:
+    store: GraphStore, identifier: str, today: str
+) -> tuple[list[dict[str, Any]], int]:
     scope = scope_of(identifier)
     # The identity of the counterpart article of an edge, and how its instrument is found
     # again: by the indexed bwb_id / celex of the instruments, the first by key.
@@ -734,34 +736,18 @@ def _related_instruments(
     """
     # Two identities can find the same instrument (its bwb_id and its celex): the identity
     # settles that tie.
-    page = """
-        SELECT r.*, row_number() OVER (
-            ORDER BY r.outbound_count + r.inbound_count DESC, r.key, r.b
-        ) AS n
-        FROM resolved r
-        ORDER BY n
-        LIMIT %(limit)s
-    """
-    # The page, the total and every id: whether one is issued under the other is asked of
-    # them all, so the count of those (``based_on``) holds for every page.
     rows = list(
         store.query(
             f"""{ctes}
-        SELECT t.total, t.ids, p.*
-        FROM (SELECT count(*)::int AS total, array_agg(id) AS ids FROM resolved) t
-        LEFT JOIN ({page}) p ON true
-        ORDER BY p.n
+        SELECT r.* FROM resolved r
+        ORDER BY r.outbound_count + r.inbound_count DESC, r.key, r.b
         """,
-            {
-                "bwb": scope.value,
-                "refers_to": RELATION_REFERS_TO,
-                "limit": limit,
-                "today": today,
-            },
+            {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "today": today},
         )
     )
-    page_rows, total = split_page(rows)
-    ids = (rows[0]["ids"] if rows else None) or []
+    # Whether one is issued under the other is asked of them all, so the count of those
+    # (``based_on``) holds for every page.
+    ids = [row["id"] for row in rows]
     bases = (
         _pair_bases(store, scope.value, ids) if scope.prop == "bwb_id" and ids else {}
     )
@@ -774,9 +760,9 @@ def _related_instruments(
             "inbound_cited_count": row["inbound_cited_count"],
             "basis": bases.get(row["id"]),
         }
-        for row in page_rows
+        for row in rows
     ]
-    return items, total, len(bases)
+    return items, len(bases)
 
 
 # Whether one of a pair of laws is issued under the other, for the law %(bwb)s and the

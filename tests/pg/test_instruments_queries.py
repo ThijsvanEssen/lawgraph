@@ -797,10 +797,11 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
     # two articles of this law refer to two of the other; none is issued under another
     assert (items[1]["outbound_cited_count"], items[1]["basis"]) == (2, None)
     assert list(items[0]["instrument"]) == ["key", "id", "type", "labels", "props"]
-    items, total, _ = instruments.get_instrument_related_instruments(
+    # a shorter page is the head of the same list, with the same counts
+    page, total, based_on = instruments.get_instrument_related_instruments(
         store, BWB, limit=1
     )
-    assert (total, len(items)) == (3, 1)
+    assert (page, total, based_on) == (items[:1], 3, 0)
 
 
 def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
