@@ -31,6 +31,7 @@ from lawgraph.commands.feed_events import main as feed_events
 from lawgraph.commands.gaps import main as gaps
 from lawgraph.commands.ministries import main as ministries
 from lawgraph.commands.poll import main as poll
+from lawgraph.commands.prewarm import main as prewarm
 from lawgraph.commands.search_candidates import main as search_candidates
 from lawgraph.commands.search_stats import main as search_stats
 from lawgraph.commands.sitemaps import main as sitemaps
@@ -61,6 +62,7 @@ _COMMANDS: dict[str, Main] = {
     "gaps": gaps,
     "ministries": ministries,
     "poll": poll,
+    "prewarm": prewarm,
     "search-candidates": search_candidates,
     "search-stats": search_stats,
     "sitemaps": sitemaps,

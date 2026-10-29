@@ -509,6 +509,8 @@ END $$
 
 # Substring search on the ngram columns (``LIKE '%word%'`` from an index).
 TRIGRAMS = "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+# The search read into memory after the nightly run (``lawgraph prewarm``).
+PREWARM = "CREATE EXTENSION IF NOT EXISTS pg_prewarm"
 
 # ── node tables ──────────────────────────────────────────────────────────────
 
@@ -1111,6 +1113,11 @@ def _search_indexes(collection: str) -> list[str]:
             f"{collection}_{column.name}", collection, f"{column.name}{operators}"
         )
     return statements
+
+
+def search_indexes(collection: str) -> list[str]:
+    """The names of the search indexes of *collection*, in the order they are made."""
+    return [s.split()[5] for s in _search_indexes(collection) if s.startswith("CREATE")]
 
 
 def _array_columns(collection: str) -> set[str]:
@@ -2594,6 +2601,7 @@ def statements() -> list[str]:
         SEARCH_FUNCTIONS,
         DATA_VERSION,
         TRIGRAMS,
+        PREWARM,
     ]
     for collection in NODE_COLLECTIONS:
         found += node_table(collection)

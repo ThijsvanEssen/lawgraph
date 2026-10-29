@@ -9,6 +9,8 @@
 SET default_transaction_read_only = on;
 SET statement_timeout = '30s';
 SET enable_seqscan = off;
+-- I/O Timings in each plan (a superuser only): a "shared read" from disk takes ms, one from the cache of the OS µs
+SELECT set_config('track_io_timing', 'on', false) FROM pg_roles WHERE rolname = current_user AND rolsuper;
 \pset pager off
 
 -- 1. 0.80.24: decisions 'BW'
