@@ -432,6 +432,48 @@ _FACET_JOINS = {
 }
 
 
+# The facets counted by a column of the judgment, which one read of the table counts together.
+_COLUMN_FACETS = ("tier", "court_kind", "source", "year", "procedure")
+
+
+def _column_facets(
+    store: GraphStore, where: str, params: dict[str, Any]
+) -> dict[str, list[dict[str, Any]]]:
+    """The facets of ``_COLUMN_FACETS`` under *where*, from one read of the table (a
+    ``GROUPING SETS``): each as the rows (``value``, ``count``) ``facet_rows`` gives, most
+    first, then by value; the years by year."""
+    values = {name: _FACETS[name][0] for name in _COLUMN_FACETS}
+    flags = ", ".join(
+        f"GROUPING({value}) AS {name}_off" for name, value in values.items()
+    )
+    columns = ", ".join(f"{value} AS {name}" for name, value in values.items())
+    sets = ", ".join(f"({value})" for value in values.values())
+    rows = lasting_rows(
+        store,
+        f"""SELECT {flags}, {columns}, count(*)::int AS count
+            FROM judgments j {where} GROUP BY GROUPING SETS ({sets})""",
+        without_page(params),
+        max_age=FACETS_MAX_AGE,
+    )
+    facets: dict[str, list[dict[str, Any]]] = {}
+    for name in _COLUMN_FACETS:
+        found = [
+            {"value": row[name], "count": row["count"]}
+            for row in rows
+            if not row[f"{name}_off"]
+        ]
+        by_count = name != "year"
+        found.sort(
+            key=lambda r: (
+                -r["count"] if by_count else 0,
+                r["value"] is not None,
+                r["value"] or "",
+            )
+        )
+        facets[name] = found
+    return facets
+
+
 def get_judgments_list(
     store: GraphStore,
     filters: JudgmentFilters | None = None,
@@ -523,15 +565,27 @@ def get_judgments_list(
         )
         return {"total": total, "items": page, "facets": None}
 
+    # Under no filter but the stubs and the replaced publications every facet leaves out
+    # the same filters: the five by a column are counted in one read of the table.
+    together = set(names) <= {"stubs", "duplicates"} and not search
+    separately = [name for name in _FACETS if not (together and name in _COLUMN_FACETS)]
+
     def counts() -> dict[str, Any]:
-        answers: list[Any] = run_together(
-            *(facet(name) for name in _FACETS),
+        calls = [
+            *(facet(name) for name in separately),
             narrower,
             lambda: _total(store, filtered, chosen.where(), params),
-        )
-        counted = dict(zip(_FACETS, answers[:-2], strict=True))
-        counted["subject_area"] = _with_narrower(counted["subject_area"], answers[-2])
-        return {"total": answers[-1], "facets": counted}
+        ]
+        if together:
+            calls.append(lambda: _column_facets(store, chosen.where(), params))
+        answers: list[Any] = run_together(*calls)
+        counted = dict(zip(separately, answers, strict=False))
+        subjects, total = answers[len(separately) : len(separately) + 2]
+        if together:
+            counted.update(answers[-1])
+        counted = {name: counted[name] for name in _FACETS}
+        counted["subject_area"] = _with_narrower(counted["subject_area"], subjects)
+        return {"total": total, "facets": counted}
 
     shown, counted = page_with_counts(items, counts, "The counts of the judgments")
     return with_counts(shown, counted)

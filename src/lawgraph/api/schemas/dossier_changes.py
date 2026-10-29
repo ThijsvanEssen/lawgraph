@@ -96,6 +96,9 @@ class DossierChangedArticlesResponse(StrictModel):
     articles: int = Field(description="The articles changed, each once.")
     enacted: int = Field(description="The enacted changes.")
     proposed: int = Field(description="The proposed changes.")
+    truncated: bool = Field(
+        False, description="Whether changes beyond the first 5000 are left out."
+    )
     laws: list[DossierChangedLaw] = Field(
         description="Per law, by title (a law not in the graph last)."
     )

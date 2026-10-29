@@ -28,6 +28,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
+from lawgraph.db import request_timing
 from lawgraph.db.counting import Store
 from lawgraph.db.request_context import ReadTimedOut, in_background, read_time_left
 from lawgraph.db.store import statement_text, version_stamp
@@ -416,16 +417,21 @@ def cached[T](
     with _lock:
         if entry_key in _values and not _too_old(entry_key, tables):
             _values.move_to_end(entry_key)
+            request_timing.hit()
             return _values[entry_key]  # type: ignore[no-any-return]
         last = _latest.get((version[0], key), _NONE)
+    started = time.perf_counter()
     if inline:
-        return _keep(entry_key, compute())
-    return _compute_or_wait(
-        entry_key,
-        lambda: _compute(entry_key, compute),
-        last,
-        key,
-    )
+        value = _keep(entry_key, compute())
+    else:
+        value = _compute_or_wait(
+            entry_key,
+            lambda: _compute(entry_key, compute),
+            last,
+            key,
+        )
+    request_timing.miss(time.perf_counter() - started)
+    return value
 
 
 def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
@@ -459,6 +465,7 @@ def lasting[T](
             _lasting.move_to_end(entry_key)
         age = None if kept is None else time.monotonic() - kept[1]
         if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
+            request_timing.hit()
             return kept[0]  # type: ignore[no-any-return]
         ahead = (
             kept is not None
@@ -469,21 +476,26 @@ def lasting[T](
         if ahead and not inline and not _in_cache_worker():
             if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
                 _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)
+            request_timing.hit()
             return kept[0]  # type: ignore[index, no-any-return]
         if ahead:
             # computed here (inline, or in a worker of the pool): the kept one now
+            request_timing.hit()
             return kept[0]  # type: ignore[index, no-any-return]
+    started = time.perf_counter()
     if inline:
         value = compute()
         with _lock:
             _keep_lasting(entry_key, value)
-        return value
-    return _compute_or_wait(
-        entry_key,
-        lambda: _compute_lasting(entry_key, compute),
-        _NONE if kept is None else kept[0],
-        key,
-    )
+    else:
+        value = _compute_or_wait(
+            entry_key,
+            lambda: _compute_lasting(entry_key, compute),
+            _NONE if kept is None else kept[0],
+            key,
+        )
+    request_timing.miss(time.perf_counter() - started)
+    return value
 
 
 def _compute_or_wait[T](

@@ -9,7 +9,10 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.dossier_changes import get_dossier_changed_articles
+from lawgraph.db.queries.dossier_changes import (
+    dossiers_changing_articles,
+    get_dossier_changed_articles,
+)
 from tests.asserts import assert_status
 
 DOSSIER = "dossiers/36264"
@@ -171,7 +174,8 @@ def _brief(laws: list[dict[str, Any]]) -> list[tuple[Any, ...]]:
 
 def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
     _seed(store)
-    laws = get_dossier_changed_articles(store, DOSSIER)
+    laws, truncated = get_dossier_changed_articles(store, DOSSIER)
+    assert not truncated
     # the laws by title, one not in the graph last; in a law the order of its articles,
     # then enacted before proposed
     assert _brief(laws) == [
@@ -219,7 +223,7 @@ def test_the_changes_per_law_in_the_order_of_the_law(store: GraphStore) -> None:
         "bwbr0003_5": 0,
     }
     assert laws[0]["changes"][1]["effective_date"] is None
-    assert get_dossier_changed_articles(store, "dossiers/none") == []
+    assert get_dossier_changed_articles(store, "dossiers/none") == ([], False)
 
 
 def test_the_route(store: GraphStore) -> None:
@@ -243,3 +247,30 @@ def test_the_route(store: GraphStore) -> None:
         (None, 1),
     ]
     assert_status(missing, 404)
+
+
+def test_the_changes_stop_at_the_limit_and_say_so(store: GraphStore) -> None:
+    _seed(store)
+    all_laws, _ = get_dossier_changed_articles(store, DOSSIER)
+    total = sum(len(law["changes"]) for law in all_laws)
+
+    laws, truncated = get_dossier_changed_articles(store, DOSSIER, limit=total - 1)
+    assert truncated
+    assert sum(len(law["changes"]) for law in laws) == total - 1
+    assert get_dossier_changed_articles(store, DOSSIER, limit=total)[1] is False
+
+
+def test_which_dossiers_change_an_article(store: GraphStore) -> None:
+    _seed(store)
+    store.bulk_insert_or_update_nodes("documents", [_node("paper", "document")])
+    store.bulk_insert_or_update_edges(
+        [
+            # a dossier whose paper only explains an article and amends one not proposed
+            _edge("q1", "documents/paper", "dossiers/36265", "PART_OF"),
+            _edge("q2", "documents/paper", "articles/bwbr0001_2", "EXPLAINS"),
+            _edge("q3", "documents/paper", "articles/bwbr0001_1", "AMENDS"),
+        ]
+    )
+    ids = [DOSSIER, "dossiers/36265", "dossiers/00001"]
+    assert dossiers_changing_articles(store, ids) == {DOSSIER}
+    assert dossiers_changing_articles(store, []) == set()

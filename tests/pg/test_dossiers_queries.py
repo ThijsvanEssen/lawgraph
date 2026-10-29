@@ -47,9 +47,11 @@ from lawgraph.config.constants import (
 from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, make_edge_doc
+from lawgraph.db.queries._keyset import InvalidCursor
 from lawgraph.db.queries.dossiers import (
     DossierFilters,
     count_dossier_members,
+    count_dossier_mutations,
     get_dossier_by_number,
     get_dossier_documents,
     get_dossier_hub,
@@ -1574,7 +1576,7 @@ def test_the_hub_lists_its_parts_in_their_order(store: GraphStore) -> None:
     assert list(hub["senate"]) == ["document_count", "first_date"]
 
 
-def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
+def test_the_mutations_are_the_edges_by_key_and_else_the_documents_that_name_it(
     store: GraphStore,
 ) -> None:
     a1, a2 = f"{COLLECTION_ARTICLES}/a1", f"{COLLECTION_ARTICLES}/a2"
@@ -1642,7 +1644,132 @@ def test_the_mutations_are_the_edges_by_key_and_else_the_papers_that_name_it(
     ]
     assert [e["from_id"].split("/")[1] for e in named["edges"]] == ["fb_a", "fb_b"]
     assert [n["key"] for n in named["nodes"]] == ["fb_a", "a2", "fb_b", "a1"]
-    assert nothing == {"nodes": [], "edges": []}
+    assert nothing == {"nodes": [], "edges": [], "next_cursor": None}
+    assert direct["next_cursor"] is None
+    assert count_dossier_mutations(store, f"{COLLECTION_DOSSIERS}/41000") == 4
+    assert count_dossier_mutations(store, f"{COLLECTION_DOSSIERS}/41001") == 2
+    assert count_dossier_mutations(store, f"{COLLECTION_DOSSIERS}/41002") == 0
+
+
+def test_the_mutations_come_in_pages_by_cursor_and_hold_no_more_than_the_answer_shows(
+    store: GraphStore,
+) -> None:
+    member = f"{COLLECTION_DOCUMENTS}/member"
+    articles = [_doc(f"a{n}", "article") for n in range(5)]
+    _write(
+        store,
+        {
+            COLLECTION_DOSSIERS: [
+                _doc("42000", "dossier", label="42000", number="42000")
+            ],
+            COLLECTION_DOCUMENTS: [
+                _doc(
+                    "member",
+                    "document",
+                    display_name="Het wetsvoorstel",
+                    text="x" * 5000,
+                )
+            ],
+            COLLECTION_ARTICLES: articles,
+        },
+        [
+            _link("m0", member, f"{COLLECTION_DOSSIERS}/42000", RELATION_PART_OF),
+            *(
+                _link(f"e{n}", member, f"{COLLECTION_ARTICLES}/a{n}", RELATION_AMENDS)
+                for n in range(5)
+            ),
+        ],
+    )
+    dossier = f"{COLLECTION_DOSSIERS}/42000"
+
+    first = get_dossier_mutations(store, dossier, limit=2)
+    second = get_dossier_mutations(store, dossier, limit=2, after=first["next_cursor"])
+    last = get_dossier_mutations(store, dossier, limit=2, after=second["next_cursor"])
+
+    pages = [first, second, last]
+    assert [[e["to_id"][-2:] for e in p["edges"]] for p in pages] == [
+        ["a0", "a1"],
+        ["a2", "a3"],
+        ["a4"],
+    ]
+    assert last["next_cursor"] is None
+    assert get_dossier_mutations(store, dossier, limit=5)["next_cursor"] is None
+    assert count_dossier_mutations(store, dossier) == 5
+    # only the nodes a page names, and of them what the answer shows
+    assert [n["key"] for n in first["nodes"]] == ["member", "a0", "a1"]
+    assert first["nodes"][0]["props"] == {"display_name": "Het wetsvoorstel"}
+    with pytest.raises(InvalidCursor):
+        get_dossier_mutations(store, dossier, after="x")
+
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        page = client.get("/api/dossiers/42000/mutations", params={"limit": 2}).json()
+        rest = client.get(
+            "/api/dossiers/42000/mutations",
+            params={"limit": 5, "after": page["next_cursor"]},
+        ).json()
+        whole = client.get("/api/dossiers/42000/mutations").json()
+        bad = client.get("/api/dossiers/42000/mutations", params={"after": "x"})
+        too_many = client.get("/api/dossiers/42000/mutations", params={"limit": 2001})
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert (page["total"], page["has_more"], len(page["edges"])) == (5, True, 2)
+    assert (rest["total"], rest["has_more"], len(rest["edges"])) == (5, False, 3)
+    assert (whole["has_more"], whole["next_cursor"], len(whole["edges"])) == (
+        False,
+        None,
+        5,
+    )
+    assert_status(bad, 422)
+    assert_status(too_many, 422)
+
+
+def test_the_mutations_of_the_documents_that_name_the_number_come_in_pages(
+    store: GraphStore,
+) -> None:
+    _write(
+        store,
+        {
+            COLLECTION_DOSSIERS: [_doc("43000", "dossier", label="43000")],
+            COLLECTION_DOCUMENTS: [
+                _doc(k, "document", dossier_numbers=["43000"]) for k in ("p1", "p2")
+            ],
+            COLLECTION_ARTICLES: [_doc("a1", "article"), _doc("a2", "article")],
+        },
+        [
+            _link(
+                "k1",
+                f"{COLLECTION_DOCUMENTS}/p1",
+                f"{COLLECTION_ARTICLES}/a1",
+                "AMENDS",
+            ),
+            _link(
+                "k2",
+                f"{COLLECTION_DOCUMENTS}/p1",
+                f"{COLLECTION_ARTICLES}/a2",
+                "AMENDS",
+            ),
+            _link(
+                "k3",
+                f"{COLLECTION_DOCUMENTS}/p2",
+                f"{COLLECTION_ARTICLES}/a1",
+                "AMENDS",
+            ),
+        ],
+    )
+    dossier = f"{COLLECTION_DOSSIERS}/43000"
+
+    first = get_dossier_mutations(store, dossier, limit=2)
+    rest = get_dossier_mutations(store, dossier, limit=2, after=first["next_cursor"])
+
+    assert [e["from_id"][-2:] for e in first["edges"] + rest["edges"]] == [
+        "p1",
+        "p1",
+        "p2",
+    ]
+    assert rest["next_cursor"] is None
+    assert count_dossier_mutations(store, dossier) == 3
 
 
 def test_the_related_dossiers_by_relation_direction_and_number(
