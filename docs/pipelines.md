@@ -1408,8 +1408,9 @@ Grondwet …"; `core/bwb_xml.py`, `_basis_spans`). The same text is the `gelet_o
 `props.preamble`. `meta = {text, doc, basis_kind}`: `text` the reference without its
 list word and law (`artikelen 3` is `3`, `107 van de Cyberbeveiligingswet` is `107`),
 `basis_kind` `delegates` when the leden named of the article (none: all of it) hold a
-delegation formula or another wording of a power ("bij besluit", "bij regeling", "kan nadere
-regels stellen", "kan beleidsregels vaststellen"), else `mentioned` (`core/delegations.py`,
+delegation formula, another wording of a power ("bij besluit", "bij regeling", "kan nadere
+regels stellen", "kan beleidsregels vaststellen") or a formula of the law as in the Grondwet
+("de wet regelt", "de wet stelt regels", "bij of krachtens de wet"), else `mentioned` (`core/delegations.py`,
 read from the text of the article). The BWB links a range ("artikelen 26 tot en met 30") as
 one link to its first article: every article in force from the first to the last, in the
 order of the law, gets an edge with the text of the range. Entries without an article, self

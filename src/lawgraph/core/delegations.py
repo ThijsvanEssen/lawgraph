@@ -17,7 +17,9 @@ Not every article a preamble names gives a power: a policy rule names Awb 3:4, w
 how to weigh interests. :func:`basis_kind` tells the two apart from the text of the article:
 ``delegates`` when the leden named hold a formula or another wording of a power to make
 rules or to designate ("bij besluit van Onze Minister", "kan nadere regels stellen", "kan
-beleidsregels vaststellen"), else ``mentioned``. :func:`basis_text`, :func:`basis_range_end`
+beleidsregels vaststellen"), or a formula of the law as the maker of rules, the wording of
+the Grondwet ("de wet regelt", "de wet stelt regels", "bij of krachtens de wet"), else
+``mentioned``. :func:`basis_text`, :func:`basis_range_end`
 and :func:`basis_qualifier` read the text of one reference of a preamble ("artikelen 26 tot
 en met 30 van de wet").
 """
@@ -61,6 +63,35 @@ _POWER_USED = re.compile(
     r"(?:\s+van\s+(?:Onze\s+Ministers?|\w+\s+\w+))?\s+"
     r"(?:(?:vast)?gestelde|gegevene?|genomen)\b",
     re.IGNORECASE,
+)
+
+# The law as the maker of rules, the formulas of the Grondwet and of a law that leaves a matter
+# to another law: by the law ("bij de wet te bepalen", "bij of krachtens de wet", "bij een
+# wet", "krachtens de wet", "uit kracht van een wet", "door de wet te stellen grenzen"), and
+# the law as subject ("de wet regelt", "de wet stelt regels", "de wet kan bepalen", "regelt de
+# wet"). Not a law of a date ("gewijzigd bij wet van 3 maart 2001"), rules made by it ("de
+# regels gesteld bij de wet", "de bij de wet gestelde regels"), nor an article of it ("artikel
+# 5 van de wet bepaalt").
+_LAW_BY = ("bij of krachtens", "bij", "krachtens", "uit kracht van")
+_LAW_ACTS = ("regelt", "stelt", "bepaalt", "geeft", "kan", "wijst", "verklaart")
+_LAW_DONE = ("gesteld", "gegeven", "bepaald", "geregeld", "vastgesteld")
+
+
+def _either(words: Iterable[str]) -> str:
+    return "|".join(word.replace(" ", r"\s+") for word in words)
+
+
+_LAW = re.compile(
+    "".join(rf"(?<!\b{word}\s)" for word in _LAW_DONE)
+    + rf"\b(?:{_either(_LAW_BY)})\s+(?:de\s+|een\s+)?wet\b(?!\s+van\s+\d)"
+    r"|\bdoor\s+de\s+wet\s+te\b"
+    rf"|(?<!\bvan\s)\bde\s+wet\s+(?:{_either(_LAW_ACTS)})\b"
+    rf"|\b(?:{_either(_LAW_ACTS)})\s+de\s+wet\b",
+    re.IGNORECASE,
+)
+# What follows a formula of the law that names rules already made: "de bij de wet gestelde".
+_LAW_USED = re.compile(
+    r"\s+(?:(?:vast)?gestelde|gegevene|bepaalde|geregelde|genomen)\b", re.IGNORECASE
 )
 
 # The list word that opens a reference of a preamble, and the law it closes with: what the
@@ -185,12 +216,19 @@ def basis_kind(
     chosen = [p for p in spans if part_slug(p.get("number")) in named]
     windows = [(p["start"], p["end"]) for p in chosen] or [(0, len(text))]
     for start, end in windows:
-        piece = text[start:end]
-        if delegation_clauses(piece) or any(
-            not _POWER_USED.match(piece, m.end()) for m in _POWER.finditer(piece)
-        ):
+        if _gives_power(text[start:end]):
             return "delegates"
     return "mentioned"
+
+
+def _gives_power(piece: str) -> bool:
+    """Whether *piece* holds a delegation formula, another wording of a power, or a formula
+    of the law that is not used up already."""
+    return (
+        bool(delegation_clauses(piece))
+        or any(not _POWER_USED.match(piece, m.end()) for m in _POWER.finditer(piece))
+        or any(not _LAW_USED.match(piece, m.end()) for m in _LAW.finditer(piece))
+    )
 
 
 def basis_text(text: str) -> str:

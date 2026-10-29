@@ -15,7 +15,9 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    EDGE_STATUS_CANONIEK,
     RELATION_AUTHORED,
+    RELATION_LED_BY,
     RELATION_MEMBER_OF,
     RELATION_PART_OF,
     RELATION_SERVED_IN,
@@ -40,6 +42,7 @@ from lawgraph.db._rows import (
 from lawgraph.db._sql import sql_text_array
 from lawgraph.db.queries._helpers import _extract_confidence
 from lawgraph.db.queries._json_sql import array_or_empty
+from lawgraph.db.queries.derived_neighbors import DerivedBucket, derived_pages
 from lawgraph.db.queries.not_found import require_node
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
@@ -365,7 +368,61 @@ def get_node_with_neighbors(
         )
         for facet in facets
     ]
+    buckets += _derived_buckets(
+        store, collection, node["id"], filters, limit, offset, canvas, importance
+    )
     return NodeGraphData(node=node, buckets=buckets, lid_counts_pending=lids is None)
+
+
+def _derived_buckets(
+    store: GraphStore,
+    collection: str,
+    node_id: str,
+    filters: NeighborFilter,
+    limit: int,
+    offset: int,
+    canvas: bool,
+    importance: bool,
+) -> list[NeighborBucket]:
+    """The buckets the API derives (``derived_neighbors``) that *filters* lets through,
+    after those of the edges: a derived edge is ``LED_BY`` and canonical."""
+
+    def wanted(bucket: DerivedBucket) -> bool:
+        return (
+            (filters.relations is None or RELATION_LED_BY in filters.relations)
+            and (
+                filters.collections is None or bucket.collection in filters.collections
+            )
+            and bucket.direction in filters.directions
+            and filters.status in (None, EDGE_STATUS_CANONIEK)
+        )
+
+    end = offset + limit
+    return [
+        NeighborBucket(
+            facet=NeighborFacet(
+                relation=RELATION_LED_BY,
+                direction=page.bucket.direction,
+                collection=page.bucket.collection,
+                count=page.total,
+            ),
+            next_offset=end if end < page.total else None,
+            entries=[
+                NeighborEntry(doc=doc, edge=edge, direction=page.bucket.direction)
+                for doc, edge in page.entries
+            ],
+        )
+        for page in derived_pages(
+            store,
+            collection,
+            node_id,
+            wanted,
+            limit=limit,
+            offset=offset,
+            canvas=canvas,
+            importance=importance,
+        )
+    ]
 
 
 def _count_facets(

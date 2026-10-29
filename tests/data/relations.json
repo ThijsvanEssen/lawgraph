@@ -563,6 +563,12 @@
           "commitments",
           "ministries"
         ]
+      ],
+      "derived": [
+        [
+          "dossiers",
+          "committees"
+        ]
       ]
     },
     {

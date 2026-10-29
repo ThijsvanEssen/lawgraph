@@ -362,6 +362,7 @@ CANVAS_EDGE_META = (
     "raw_match",
     "reason",
     "passages",
+    "derived_from",
 )
 
 
