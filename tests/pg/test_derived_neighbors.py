@@ -157,7 +157,8 @@ def recent(graph: GraphStore) -> GraphStore:
         "f8": ("d4", None),
     }
     for key, (dossier, date) in led.items():
-        activity = g.node("activities", key, **({"date": date} if date else {}))
+        props: dict[str, Any] = {"date": date} if date else {}
+        activity = g.node("activities", key, **props)
         g.edge(activity, RELATION_LED_BY, "committees/fin")
         g.edge(activity, RELATION_ABOUT, f"dossiers/{dossier}")
     g.write()
