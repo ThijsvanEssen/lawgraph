@@ -9,6 +9,7 @@ import pytest
 
 from lawgraph.config.constants import RELATION_BASED_ON
 from lawgraph.core.bwb_xml import instrument_props, parse_toestand
+from lawgraph.core.citations import LawDates
 from lawgraph.core.models import make_node_key
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.pipelines.semantic.bwb_grondslagen import BWBGrondslagenSemanticPipeline
@@ -36,9 +37,11 @@ class _Store(InMemoryStore):
         instruments: set[str] | None = None,
         articles: set[str] | None = None,
         texts: dict[str, str] | None = None,
+        first: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
         self.raw_rows = raw_rows
+        self.first = first or {}
         self.instruments = instruments if instruments is not None else set()
         self.articles = articles if articles is not None else set()
         self.texts = texts or {}
@@ -77,15 +80,28 @@ def _articles_in_order(store: _Store, bwb_ids: list[str]) -> Iterator[dict[str, 
     return iter(sorted(rows, key=lambda r: (r["bwb_id"], int(r["key"].split("_")[1]))))
 
 
+def _first_versions(store: _Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """The start of the first toestand of the laws the graph has one of."""
+    store.existence_calls.append("first")
+    return iter(
+        {"bwb_id": b, "first_from": store.first[b]} for b in bwb_ids if b in store.first
+    )
+
+
 @pytest.fixture(autouse=True)
 def _regulations(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_bwb, "regulations_with_basis", _regulations_with_basis)
+    monkeypatch.setattr(semantic_bwb, "first_versions", _first_versions)
     monkeypatch.setattr(semantic_bwb, "basis_targets", _basis_targets)
     monkeypatch.setattr(semantic_bwb, "articles_in_order", _articles_in_order)
 
 
-def _names(monkeypatch: pytest.MonkeyPatch, names: dict[str, str]) -> None:
-    """The laws the graph knows by name (title -> BWB id), no codes."""
+def _names(
+    monkeypatch: pytest.MonkeyPatch,
+    names: dict[str, str],
+    dates: dict[str, LawDates] | None = None,
+) -> None:
+    """The laws the graph knows by name (title -> BWB id), no codes, and their *dates*."""
     pipeline = BWBGrondslagenSemanticPipeline
     monkeypatch.setattr(pipeline, "_load_code_choices", lambda self: ({}, {}))
     monkeypatch.setattr(
@@ -93,7 +109,7 @@ def _names(monkeypatch: pytest.MonkeyPatch, names: dict[str, str]) -> None:
         "_load_instrument_aliases",
         lambda self: {name: (law, None) for name, law in names.items()},
     )
-    monkeypatch.setattr(pipeline, "_load_law_dates", lambda self: {})
+    monkeypatch.setattr(pipeline, "_load_law_dates", lambda self: dates or {})
 
 
 @pytest.fixture(autouse=True)
@@ -356,3 +372,88 @@ def test_a_law_named_without_a_link_is_read_from_the_preamble(
     } | {make_node_key(WINKELTIJDEN_ID, "8")}
     by_target = {e["to_id"].removeprefix("articles/"): e for e in store.edges.values()}
     assert by_target[make_node_key(ARBOWET_ID, "41")]["confidence"] < 1.0
+
+
+GRONDWET_ID = "BWBR0001840"
+KB_ID = "BWBR0002335"  # Besluit regeling overdracht zorg voor reiswezen (1959)
+AMBTENARENWET_125 = _link("125", "artikel 125 van de Ambtenarenwet")
+KB_XML = f"""<toestand bwb-id="{KB_ID}"><wetgeving><wet-besluit><aanhef><considerans>
+  <considerans.al>Gelet op artikel 86 van de Grondwet en {AMBTENARENWET_125};
+  </considerans.al></considerans></aanhef></wet-besluit></wetgeving></toestand>"""
+
+
+def _grondwet_of(monkeypatch: pytest.MonkeyPatch, signed: str) -> _Store:
+    """The KB signed on *signed*; the Grondwet known by name, its first toestand in the BWB
+    of 2002 (the source has no older one)."""
+    _names(
+        monkeypatch,
+        {"Grondwet": GRONDWET_ID},
+        {KB_ID: LawDates(signed, signed), GRONDWET_ID: LawDates("1815-08-24", None)},
+    )
+    return _Store(
+        [_row(KB_ID, KB_XML)],
+        instruments={make_node_key(KB_ID)},
+        articles={make_node_key(GRONDWET_ID, "86"), make_node_key(BASIS_ID, "125")},
+        first={GRONDWET_ID: "2002-03-21", BASIS_ID: "2002-01-01"},
+    )
+
+
+def test_a_reference_in_words_older_than_the_law_in_the_bwb_is_a_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Article 86 of the Grondwet of 1959 is not the article 86 of now: no edge to it, a
+    gap on the KB. The link to the Ambtenarenwet is the source's own and stays."""
+    store = _grondwet_of(monkeypatch, "1959-12-15")
+
+    result = _run(store)
+
+    targets = {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
+    assert targets == {make_node_key(BASIS_ID, "125")}
+    kb = store.nodes["instruments"][make_node_key(KB_ID)]["props"]
+    assert kb["basis_unresolved"] == [
+        {
+            "bwb_id": GRONDWET_ID,
+            "article": "86",
+            "text": "86",
+            "reason": "before_first_version",
+        }
+    ]
+    assert result.updated == 1
+
+    # written once: a second run finds it as it was and writes no node
+    store.raw_rows = [
+        {**_row(KB_ID, KB_XML), "basis_unresolved": kb["basis_unresolved"]}
+    ]
+    written: list[str] = []
+    upsert = store.bulk_insert_or_update_nodes
+    store.bulk_insert_or_update_nodes = lambda c, docs: (
+        written.append(c) or upsert(c, docs)
+    )
+    _run(store)
+    assert written == []
+
+
+def test_a_reference_in_words_of_a_regulation_the_bwb_has_the_law_for_is_linked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _grondwet_of(monkeypatch, "2003-01-01")
+
+    _run(store)
+
+    targets = {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
+    assert make_node_key(GRONDWET_ID, "86") in targets
+    assert store.nodes.get("instruments") is None  # no gap, nothing written
+
+
+def test_a_gap_that_resolved_is_cleared(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _grondwet_of(monkeypatch, "2003-01-01")
+    store.raw_rows = [{**_row(KB_ID, KB_XML), "basis_unresolved": [{"article": "86"}]}]
+    store.nodes.setdefault("instruments", {})[make_node_key(KB_ID)] = {
+        "_key": make_node_key(KB_ID),
+        "props": {"basis_unresolved": [{"article": "86"}]},
+    }
+
+    _run(store)
+
+    kb = store.nodes["instruments"][make_node_key(KB_ID)]["props"]
+    assert kb["basis_unresolved"] is None

@@ -1408,8 +1408,11 @@ regels stellen", "kan beleidsregels vaststellen"), else `mentioned` (`core/deleg
 read from the text of the article). The BWB links a range ("artikelen 26 tot en met 30") as
 one link to its first article: every article in force from the first to the last, in the
 order of the law, gets an edge with the text of the range. Entries without an article, self
-references and targets that are not in the graph are skipped. It reads `props.basis` of the
-regulations, which `normalize bwb` keeps when it parses the toestand; no XML is read again.
+references and targets that are not in the graph are skipped. A reference only in words of a
+regulation older than the first toestand the graph holds of its law (`instrument_versions`) gets
+no edge: the article may have had another number then ("gelet op artikel 86 der Grondwet" of
+1959). It is kept as a gap, `props.basis_unresolved` `{bwb_id, article, text, reason}`. It
+reads `props.basis` of the regulations, which `normalize bwb` keeps when it parses the toestand; no XML is read again.
 Every run reads all of them, also under `--since`.
 
 **Semantic `bwb-amendments`.** Reads the article versions that carry `origin_publication`:

@@ -89,18 +89,38 @@ def instrument_alias_rows(store: Store) -> Iterator[dict[str, Any]]:
 
 _BASIS_SQL = f"""
 SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'basis' AS basis,
-       props -> 'basis_preamble' AS basis_preamble
+       props -> 'basis_preamble' AS basis_preamble,
+       props -> 'basis_unresolved' AS basis_unresolved
 FROM instruments
 WHERE lg_str(props -> 'source') = %(source)s
-  AND ({has_length("props -> 'basis'")} OR {has_length("props -> 'basis_preamble'")})
+  AND ({has_length("props -> 'basis'")} OR {has_length("props -> 'basis_preamble'")}
+       OR {has_length("props -> 'basis_unresolved'")})
 ORDER BY key
 """
 
 
 def regulations_with_basis(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, bwb_id, basis, basis_preamble}`` of the BWB regulations that state a legal
-    basis: with a link, or in the words of the preamble."""
+    """``{key, bwb_id, basis, basis_preamble, basis_unresolved}`` of the BWB regulations
+    that state a legal basis, with a link or in the words of the preamble, or kept one that
+    did not resolve."""
     return store.query(_BASIS_SQL, {"source": SOURCE_BWB})
+
+
+def first_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{bwb_id, first_from}`` of these laws: the start of the first toestand the graph
+    holds, null when a toestand has no start."""
+    return store.query(
+        """
+        SELECT bwb_id,
+               CASE WHEN bool_or(valid_from IS NULL) THEN NULL
+                    ELSE min(valid_from) END AS first_from
+        FROM instrument_versions
+        WHERE bwb_id = ANY(%(bwb_ids)s)
+        GROUP BY bwb_id
+        ORDER BY bwb_id
+        """,
+        {"bwb_ids": bwb_ids},
+    )
 
 
 def basis_targets(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
