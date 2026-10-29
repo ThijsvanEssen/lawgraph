@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from lawgraph.core.delegations import (
     DelegationClause,
     DelegationKind,
@@ -14,6 +16,7 @@ from lawgraph.core.delegations import (
     kind_rank,
 )
 from tests.asserts import show_items
+from tests.paths import fixture_text
 
 _TEXT = (
     "1. Bij of krachtens algemene maatregel van bestuur wordt het CSIRT aangewezen.\n"
@@ -226,3 +229,60 @@ def test_the_number_of_the_article_is_no_lid() -> None:
     assert basis_qualifier("26 tot en met 30").leden == ()
     assert basis_qualifier("3e, tweede lid").leden == ("2",)
     assert basis_text(text) == "673e, eerste lid, aanhef en onderdeel b, en vierde lid"
+
+
+def test_the_formulas_of_the_law_delegate() -> None:
+    for text in (
+        "De wet regelt wie Nederlander is.",
+        "De wet stelt regels ter bescherming van de persoonlijke levenssfeer.",
+        "De wet kan regels stellen ter bescherming van de gezondheid.",
+        "Regels omtrent de bijzondere zorg worden bij de wet gegeven.",
+        "behoudens bij of krachtens de wet te stellen beperkingen",
+        "Bij of krachtens de wet worden regels gesteld over de kosten.",
+        "Bij de wet kunnen provincies en gemeenten worden opgeheven.",
+        "kunnen bij een wet een of meer personen van de erfopvolging worden uitgesloten",
+        "Krachtens de wet kunnen nadere regels worden gesteld.",
+        "Belastingen van het Rijk worden geheven uit kracht van een wet.",
+        "binnen door de wet te stellen grenzen",
+        "Voor het oorlogsstrafrecht kan de wet afwijkende regels stellen.",
+        "Dit additionele artikel vervalt op een bij wet te bepalen tijdstip.",
+    ):
+        assert basis_kind(text, None, []) == "delegates", text
+
+
+def test_a_law_named_is_no_formula_of_the_law() -> None:
+    for text in (
+        "gewijzigd bij wet van 3 maart 2001",
+        "met inachtneming van de bij de wet gestelde voorwaarden",
+        "onverminderd het bij of krachtens de wet bepaalde",
+        "In afwijking van artikel 5 van de wet kan het college besluiten.",
+        "Niemand kan worden afgehouden van de rechter die de wet hem toekent.",
+        "behoudens ieders verantwoordelijkheid volgens de wet",
+    ):
+        assert basis_kind(text, None, []) == "mentioned", text
+
+
+def test_the_articles_of_the_grondwet_that_leave_a_matter_to_the_law() -> None:
+    """The articles of the Grondwet in force (toestand 2023-02-22): every article with a
+    formula of the law delegates; only those about the King, the procedure of the Staten-
+    Generaal, the government and the revision, without one, are mentioned."""
+    articles = json.loads(fixture_text("bwb_grondwet_articles.json"))
+    mentioned = [
+        a["number"]
+        for a in articles
+        if basis_kind(a["text"], a["parts"], []) == "mentioned"
+    ]
+    assert len(articles) == 146
+    # art. 4, "behoudens bij de wet gestelde beperkingen", reads as rules already made
+    assert mentioned == [
+        *("1", "3", "4", "5", "16", "17", "21", "22", "24", "25", "26", "27", "31"),
+        *("33", "38", "41", "42", "45", "47", "48", "50", "51", "55", "56", "61"),
+        *("62", "66", "67", "68", "69", "71", "72", "76", "81", "82", "83", "84"),
+        *("85", "86", "87", "90", "92", "93", "94", "96", "97", "100", "101", "102"),
+        *("108", "114", "115", "120", "128", "139", "140"),
+    ]
+    # a lid: art. 10 lid 2 and 3 ("De wet stelt regels"), art. 46 lid 2 (no formula)
+    by_number = {a["number"]: a for a in articles}
+    art_10, art_46 = by_number["10"], by_number["46"]
+    assert basis_kind(art_10["text"], art_10["parts"], ["2", "3"]) == "delegates"
+    assert basis_kind(art_46["text"], art_46["parts"], ["2"]) == "mentioned"
