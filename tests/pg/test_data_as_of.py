@@ -15,13 +15,16 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import (
     CHAMBER_TK,
     COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     RAW_KIND_RECHTSPRAAK_CONTENT,
     RAW_KIND_TK_DOCUMENT,
     SOURCE_ECHR,
     SOURCE_RECHTSPRAAK,
+    SOURCE_STAATSCOURANT,
     SOURCE_TK,
 )
+from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.completeness import SOURCE_RUN_STATE
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import state as state_queries
@@ -57,8 +60,17 @@ def _seed(store: GraphStore) -> None:
             _node(COLLECTION_DOCUMENTS, "d1", [CHAMBER_TK], date="2026-09-01"),
             _node(COLLECTION_DOCUMENTS, "d2", [CHAMBER_TK], date="2026-09-20"),
             _node(COLLECTION_DOCUMENTS, "planned", [CHAMBER_TK], date=LATER),
+            # a ministeriële regeling of the Staatscourant, as its normalize writes it
+            _node(COLLECTION_DOCUMENTS, "stcrt_2026_1", ["Staatscourant", "Regeling"],
+                  source=SOURCE_STAATSCOURANT, date="2026-09-24"),
         ],
-    )
+    )  # fmt: skip
+    # the Staatscourant a BWB article version names: older, and not the source itself
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_INSTRUMENTS,
+        [_node(COLLECTION_INSTRUMENTS, "stcrt_2026_0", [], kind=KIND_PUBLICATION,
+               publication_kind="Stcrt", date_published="2026-09-02")],
+    )  # fmt: skip
     store.bulk_insert_or_update_nodes(
         COLLECTION_JUDGMENTS,
         [
@@ -83,6 +95,7 @@ def test_each_source_says_how_current_it_is(store: GraphStore) -> None:
     assert set(stats) == set(SOURCES) - {GRAPH}  # each source, fetched from or not
     assert stats[SOURCE_TK]["newest"] == "2026-09-20"  # not the planned paper
     assert stats[SOURCE_RECHTSPRAAK]["newest"] == "2026-09-23"
+    assert stats[SOURCE_STAATSCOURANT]["newest"] == "2026-09-24"  # its regelingen
     assert stats[SOURCE_TK]["retrieved_at"].startswith(TODAY.isoformat()[:4])
     assert feed == stats
 

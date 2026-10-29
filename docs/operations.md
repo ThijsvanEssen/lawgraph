@@ -640,7 +640,7 @@ publishes on workdays) or `hours`; the lag has to be past it. Past `warn` is `wa
 | `parket` | last conclusion | days | 14 | 30 | the source thins out in recess; 43 days (since 15 September 2026) is past that |
 | `gerechten` | courts of `gerechtshof`/`rechtbank` with ≥ 1,000 judgments, a last judgment 14–365 days old | count | 1 | 3 | small courts lag; older than a year is a court that ended in 2013 |
 | `staatsblad` | `newest` | workdays | 5 | 10 | |
-| `staatscourant` | `newest` | workdays | 4 | 10 | published on workdays; 5 workdays (21 October 2026) is a warning: check that we keep every kind of notice before it is called a gap |
+| `staatscourant` | `newest` (its newest ministeriële regeling in `documents`, not a Staatscourant a BWB text names) | workdays | 4 | 10 | published on workdays |
 | `bwb` | `retrieved_at` | days | 2 | 4 | `newest` (`valid_from`) is no measure of the fetch |
 | `eurlex`, `rijksoverheid`, `tooi`, `verdragenbank`, `kiesraad` | `completeness.as_of` | hours | 36 | 72 | no date of their own: only that the run ended well |
 | `<bron> status` | `completeness.state` | | not `done` | not `done` for 48 hours | `echr` may be `paused` (`LAWGRAPH_SOURCES_OFF`) |
