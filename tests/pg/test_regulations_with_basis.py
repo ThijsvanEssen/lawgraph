@@ -6,6 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_ARTICLE_VERSIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     SOURCE_BWB,
@@ -103,9 +104,38 @@ def test_the_first_toestand_of_a_law(store: GraphStore) -> None:
         ],
     )
 
+    store.bulk_insert_or_update_nodes(
+        COLLECTION_ARTICLE_VERSIONS,
+        [
+            _article("bwbr0001840_av_86_a", "86", "2002-03-21", None),
+            _article("bwbr0001840_av_85_a", "85", "1995-11-01", "2006-10-11"),
+            _article(
+                "bwbr0001840_av_85_b", "85", "2006-10-11", None
+            ),  # one number once
+            _article("bwbr0001840_av_vii", "VII", "1995-11-01", "2002-03-21"),  # gone
+            _article("bwbr0001840_av_142", "142", "2023-02-22", None),  # came later
+        ],
+    )
+
     rows = list(semantic_bwb.first_versions(store, ["BWBR0001840", "BWBR0000002"]))
 
-    assert [(r["bwb_id"], r["first_from"]) for r in rows] == [
-        ("BWBR0000002", None),
-        ("BWBR0001840", "2002-03-21"),
+    assert [(r["bwb_id"], r["first_from"], r["numbers"]) for r in rows] == [
+        ("BWBR0000002", None, None),
+        ("BWBR0001840", "2002-03-21", ["85", "86"]),
     ]
+
+
+def _article(
+    key: str, number: str, valid_from: str, valid_until: str | None
+) -> dict[str, Any]:
+    return {
+        "key": key,
+        "type": NodeType.ARTICLE_VERSION.value,
+        "labels": [],
+        "props": {
+            "bwb_id": "BWBR0001840",
+            "article_number": number,
+            "valid_from": valid_from,
+            "valid_until": valid_until,
+        },
+    }

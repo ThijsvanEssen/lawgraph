@@ -15,10 +15,13 @@ Arbeidsomstandighedenwet", the law only in words) is read from the text of the "
 paragraphs (``props.basis_preamble``) by the citation extractor, by the name of the law as the
 graph knows it; a name it does not know, or that two laws share, names nothing. Such an edge
 has the confidence of the citation, and stands only for an article the links do not name.
-A reference in words of a regulation older than the first toestand the BWB holds of its law
-names no article: the article may have had another number then ("gelet op artikel 86 der
-Grondwet" of 1959 is not the article 86 of now). It is kept as a gap on the regulation,
-``props.basis_unresolved``, written when it changed. The BWB holds most laws from 2002 on.
+The text is dated by the regulation: it names no law that came to be after it. A reference in
+words of a regulation older than the first toestand the BWB holds of its law (most from 2002
+on), to a number that toestand has no article of, names no article: that number was another
+article then, or none. It is kept as a gap on the regulation, ``props.basis_unresolved``,
+written when it changed. A number the first toestand has is linked: no source says whether it
+was the same article before (the Grondwet was renumbered in 1983, "gelet op artikel 86 der
+Grondwet" of 1959 is not the article 86 of now, and the BWB holds it from 2002).
 A link to a range ("artikelen 26 tot en met 30") points at its first article; every article
 in force of the range, in the order of the law, gets an edge.
 
@@ -62,8 +65,9 @@ EDGE_SOURCE = "bwb-grondslagen-linker"
 _CHUNK = 500
 
 # Why a reference of a preamble names no article (``props.basis_unresolved``): the regulation
-# is older than the first toestand the BWB holds of the law it names.
-UNRESOLVED_BEFORE_FIRST_VERSION = "before_first_version"
+# is older than the first toestand the BWB holds of the law it names, which has no article of
+# that number.
+UNRESOLVED_NOT_IN_FIRST_VERSION = "not_in_first_version"
 
 # (regulation key, basis BWB id, the "Gelet op" reference, its confidence)
 _Ref = tuple[str, str, dict[str, Any], float]
@@ -108,7 +112,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 result.skipped += 1
             refs.extend(linked)
             worded[row["key"]] = words
-        gaps = self._before_the_law(rows, worded)
+        gaps = self._not_in_first_version(rows, worded)
         for key, words in worded.items():
             refs.extend(ref for ref in words if ref not in gaps.get(key, []))
         for row in rows:
@@ -116,30 +120,38 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         if refs:
             self._link_refs(refs, edges, result)
 
-    def _before_the_law(
+    def _not_in_first_version(
         self, rows: list[dict[str, Any]], worded: dict[str, list[_Ref]]
     ) -> dict[str, list[_Ref]]:
         """Per regulation the references in its words to a law that the BWB holds no
-        toestand of on its date: the article it names may have had another number then (the
-        Grondwet of before 1983, "gelet op artikel 86 der Grondwet"). A regulation or a law
-        without a date names no such gap."""
+        toestand of on its date, to a number the first toestand it holds has no article of:
+        that number was another article then, or none. A regulation without a date, a law
+        whose toestanden are not all dated or whose first toestand has no articles in the
+        graph, names no such gap."""
         laws = sorted({law for words in worded.values() for _, law, _, _ in words})
         if not laws:
             return {}
         first = {
-            str(row["bwb_id"]).upper(): row["first_from"]
+            str(row["bwb_id"]).upper(): (
+                str(row["first_from"])[:10],
+                set(row["numbers"]),
+            )
             for row in semantic_bwb.first_versions(self.store, laws)
+            if row["first_from"] and row["numbers"]
         }
-        dates = self._dates()
         gaps: dict[str, list[_Ref]] = {}
         for row in rows:
-            dated = dates.get(str(row.get("bwb_id") or "").upper())
-            start = dated.start if dated else None
+            start = self._start(row)
             for ref in worded.get(row["key"], []):
-                since = first.get(ref[1])
-                if start and since and start < str(since)[:10]:
+                since, numbers = first.get(ref[1], ("", set()))
+                if start and start < since and ref[2]["article"] not in numbers:
                     gaps.setdefault(row["key"], []).append(ref)
         return gaps
+
+    def _start(self, row: dict[str, Any]) -> str | None:
+        """When the regulation of *row* came to be (``LawDates.start``), None undated."""
+        dated = self._dates().get(str(row.get("bwb_id") or "").upper())
+        return dated.start if dated else None
 
     @staticmethod
     def _keep_gaps(
@@ -156,7 +168,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
                 "bwb_id": bwb_id,
                 "article": article,
                 "text": text,
-                "reason": UNRESOLVED_BEFORE_FIRST_VERSION,
+                "reason": UNRESOLVED_NOT_IN_FIRST_VERSION,
             }
             for bwb_id, article, text in named
         ] or None
@@ -269,7 +281,7 @@ class BWBGrondslagenSemanticPipeline(SemanticPipelineBase):
         }
         refs: list[_Ref] = []
         for hit in self._extractor.extract(
-            preamble, every_occurrence=True, chains=True
+            preamble, every_occurrence=True, chains=True, on=self._start(row)
         ):
             law = (hit.bwb_id or "").upper()
             if not law or law == bwb_id or (law, hit.article_number) in linked:

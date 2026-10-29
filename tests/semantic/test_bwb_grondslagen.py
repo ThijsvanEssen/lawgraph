@@ -37,7 +37,7 @@ class _Store(InMemoryStore):
         instruments: set[str] | None = None,
         articles: set[str] | None = None,
         texts: dict[str, str] | None = None,
-        first: dict[str, str] | None = None,
+        first: dict[str, tuple[str, list[str]]] | None = None,
     ) -> None:
         super().__init__()
         self.raw_rows = raw_rows
@@ -81,10 +81,13 @@ def _articles_in_order(store: _Store, bwb_ids: list[str]) -> Iterator[dict[str, 
 
 
 def _first_versions(store: _Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """The start of the first toestand of the laws the graph has one of."""
+    """The start of the first toestand of the laws the graph has one of, and the numbers of
+    its articles."""
     store.existence_calls.append("first")
     return iter(
-        {"bwb_id": b, "first_from": store.first[b]} for b in bwb_ids if b in store.first
+        {"bwb_id": b, "first_from": store.first[b][0], "numbers": store.first[b][1]}
+        for b in bwb_ids
+        if b in store.first
     )
 
 
@@ -382,9 +385,11 @@ KB_XML = f"""<toestand bwb-id="{KB_ID}"><wetgeving><wet-besluit><aanhef><conside
   </considerans.al></considerans></aanhef></wet-besluit></wetgeving></toestand>"""
 
 
-def _grondwet_of(monkeypatch: pytest.MonkeyPatch, signed: str) -> _Store:
+def _grondwet_of(
+    monkeypatch: pytest.MonkeyPatch, signed: str, numbers: tuple[str, ...] = ("86",)
+) -> _Store:
     """The KB signed on *signed*; the Grondwet known by name, its first toestand in the BWB
-    of 2002 (the source has no older one)."""
+    of 2002 (the source has no older one) with the articles *numbers*."""
     _names(
         monkeypatch,
         {"Grondwet": GRONDWET_ID},
@@ -394,28 +399,35 @@ def _grondwet_of(monkeypatch: pytest.MonkeyPatch, signed: str) -> _Store:
         [_row(KB_ID, KB_XML)],
         instruments={make_node_key(KB_ID)},
         articles={make_node_key(GRONDWET_ID, "86"), make_node_key(BASIS_ID, "125")},
-        first={GRONDWET_ID: "2002-03-21", BASIS_ID: "2002-01-01"},
+        first={
+            GRONDWET_ID: ("2002-03-21", list(numbers)),
+            BASIS_ID: ("2002-01-01", ["125"]),
+        },
     )
 
 
-def test_a_reference_in_words_older_than_the_law_in_the_bwb_is_a_gap(
+def _targets(store: _Store) -> set[str]:
+    return {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
+
+
+def test_a_number_the_first_toestand_lacks_is_a_gap_before_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Article 86 of the Grondwet of 1959 is not the article 86 of now: no edge to it, a
-    gap on the KB. The link to the Ambtenarenwet is the source's own and stays."""
-    store = _grondwet_of(monkeypatch, "1959-12-15")
+    """A KB of 1959 names an article 86 that the first toestand the BWB holds (2002) does
+    not have: no edge to the article 86 of now, a gap on the KB. The link to the
+    Ambtenarenwet is the source's own and stays."""
+    store = _grondwet_of(monkeypatch, "1959-12-15", numbers=("85", "87"))
 
     result = _run(store)
 
-    targets = {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
-    assert targets == {make_node_key(BASIS_ID, "125")}
+    assert _targets(store) == {make_node_key(BASIS_ID, "125")}
     kb = store.nodes["instruments"][make_node_key(KB_ID)]["props"]
     assert kb["basis_unresolved"] == [
         {
             "bwb_id": GRONDWET_ID,
             "article": "86",
             "text": "86",
-            "reason": "before_first_version",
+            "reason": "not_in_first_version",
         }
     ]
     assert result.updated == 1
@@ -424,24 +436,43 @@ def test_a_reference_in_words_older_than_the_law_in_the_bwb_is_a_gap(
     store.raw_rows = [
         {**_row(KB_ID, KB_XML), "basis_unresolved": kb["basis_unresolved"]}
     ]
-    before = store.nodes["instruments"][make_node_key(KB_ID)]
     store.nodes["instruments"].clear()
     _run(store)
-    # no node written: had it been, the node would be back
     assert store.nodes["instruments"] == {}
-    assert before["props"]["basis_unresolved"] == kb["basis_unresolved"]
 
 
-def test_a_reference_in_words_of_a_regulation_the_bwb_has_the_law_for_is_linked(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("signed", "numbers"),
+    [
+        # older than the first toestand, but the number is in it: no source says it was
+        # another article then (the Grondwet of before 1983 cannot be told apart)
+        ("1959-12-15", ("85", "86", "87")),
+        # the BWB has the law on its date
+        ("2003-01-01", ("85", "87")),
+    ],
+)
+def test_a_reference_in_words_is_linked_unless_its_number_is_unknown_then(
+    monkeypatch: pytest.MonkeyPatch, signed: str, numbers: tuple[str, ...]
 ) -> None:
-    store = _grondwet_of(monkeypatch, "2003-01-01")
+    store = _grondwet_of(monkeypatch, signed, numbers)
 
     _run(store)
 
-    targets = {e["to_id"].removeprefix("articles/") for e in store.edges.values()}
-    assert make_node_key(GRONDWET_ID, "86") in targets
+    assert make_node_key(GRONDWET_ID, "86") in _targets(store)
     assert store.nodes.get("instruments") is None  # no gap, nothing written
+
+
+def test_a_regulation_names_no_law_that_came_after_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A KB of 1810 cannot mean the Grondwet of 1815 its words name: no edge, and no gap
+    (the name named no law of its time)."""
+    store = _grondwet_of(monkeypatch, "1810-01-01")
+
+    _run(store)
+
+    assert _targets(store) == {make_node_key(BASIS_ID, "125")}
+    assert store.nodes.get("instruments") is None
 
 
 def test_a_gap_that_resolved_is_cleared(monkeypatch: pytest.MonkeyPatch) -> None:

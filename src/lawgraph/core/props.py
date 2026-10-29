@@ -297,9 +297,9 @@ class InstrumentProps(_CommonProps):
     """The EU acts its text names."""
     basis_unresolved: list[dict[str, Any]] | None = None
     """The references in words of its `basis_preamble` that name no article (`semantic
-    bwb-grondslagen`): `{bwb_id, article, text, reason}`, `reason` `before_first_version`
-    when the regulation is older than the first toestand the BWB holds of the law (an
-    article of the Grondwet of before 1983 had another number); null when there are none."""
+    bwb-grondslagen`): `{bwb_id, article, text, reason}`, `reason` `not_in_first_version`
+    when the regulation is older than the first toestand the BWB holds of the law and that
+    toestand has no article of the number; null when there are none."""
     implements_celex: list[str] | None = None
     """The EU acts its considerans says it implements (`IMPLEMENTS`)."""
     preamble: dict[str, Any] | None = None

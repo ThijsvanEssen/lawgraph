@@ -107,17 +107,27 @@ def regulations_with_basis(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def first_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
-    """``{bwb_id, first_from}`` of these laws: the start of the first toestand the graph
-    holds, null when a toestand has no start."""
+    """``{bwb_id, first_from, numbers}`` of these laws: the start of the first toestand the
+    graph holds (null when a toestand has no start) and the numbers of the articles in it,
+    in order (null without one)."""
     return store.query(
         """
-        SELECT bwb_id,
-               CASE WHEN bool_or(valid_from IS NULL) THEN NULL
-                    ELSE min(valid_from) END AS first_from
-        FROM instrument_versions
-        WHERE bwb_id = ANY(%(bwb_ids)s)
-        GROUP BY bwb_id
-        ORDER BY bwb_id
+        WITH first AS (
+            SELECT bwb_id,
+                   CASE WHEN bool_or(valid_from IS NULL) THEN NULL
+                        ELSE min(valid_from) END AS first_from
+            FROM instrument_versions
+            WHERE bwb_id = ANY(%(bwb_ids)s)
+            GROUP BY bwb_id
+        )
+        SELECT f.bwb_id, f.first_from,
+               (SELECT array_agg(DISTINCT v.article_number ORDER BY v.article_number)
+                FROM article_versions v
+                WHERE v.bwb_id = f.bwb_id AND v.article_number IS NOT NULL
+                  AND v.valid_from <= f.first_from
+                  AND (v.valid_until IS NULL OR v.valid_until > f.first_from)) AS numbers
+        FROM first f
+        ORDER BY f.bwb_id
         """,
         {"bwb_ids": bwb_ids},
     )
