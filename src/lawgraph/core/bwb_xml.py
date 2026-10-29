@@ -13,8 +13,10 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 * references in the text are ``<extref>`` / ``<intref>`` with a machine-readable
   ``doc="jci1.3:c:BWBR0001854&artikel=287"``;
 * the preamble (``<aanhef>/<considerans>``) lists the legal basis in the
-  paragraph that starts with "Gelet op", again as ``<extref>``; the whole ``<aanhef>`` is
-  read as a text of its own (``PreambleXml``);
+  paragraph that starts with "Gelet op" (``bevat="grondslag"``, also on the paragraphs it
+  runs on into), or a law in a clause "Alzo Wij …, dat ingevolge artikel 133 van de Grondwet
+  …", again as ``<extref>``; the whole ``<aanhef>`` is read as a text of its own
+  (``PreambleXml``);
 * an annex (``<bijlage>``) has a heading of its own (``Bijlage 1``, ``Lijst Ia``) and its
   text is read as that of an article (``AnnexXml``), without the articles it holds.
 
@@ -445,8 +447,8 @@ PREAMBLE_GELET_OP = "gelet_op"
 class PreamblePart:
     """A block of the aanhef, as a span of ``PreambleXml.text``: ``kind`` is the element it
     is, as the XML names it (``wij``, ``wie``, ``considerans``, ``afkondiging``,
-    ``preambule``), or ``gelet_op``: a paragraph of the considerans that starts with
-    "Gelet op", inside it. The parts are listed by ``start``, a block before the
+    ``preambule``), or ``gelet_op``: the text of the considerans that states the legal
+    basis (``_basis_spans``), inside it. The parts are listed by ``start``, a block before the
     ``gelet_op`` inside it."""
 
     kind: str
@@ -495,7 +497,7 @@ class ToestandXml:
     enacted: Publication | None = None
     enacted_in_force: str | None = None
     basis: tuple[BasisRef, ...] = ()
-    # the text of its 'Gelet op' paragraph(s): a law it names without a link is read from it
+    # the text of its considerans that states the basis: a law it names without a link is read
     basis_preamble: str = ""
     # the EU acts its considerans says it implements (CELEX numbers), see ``implemented_acts``
     implements: tuple[str, ...] = ()
@@ -1574,28 +1576,103 @@ def _parse_article(
 
 # ── preamble: "Gelet op" ─────────────────────────────────────────────────────
 
+# The words of a considerans that open the references a regulation is issued under: a
+# paragraph that starts with "Gelet op", or a clause of another ("Alzo Wij in overweging
+# genomen hebben, dat ingevolge artikel 133 van de Grondwet …").
+_BASIS_WORDS = ("gelet op", "ingevolge", "ter uitvoering van", "met toepassing van")
+_BASIS_WORD = re.compile(
+    r"\b(?:" + "|".join(w.replace(" ", r"\s+") for w in _BASIS_WORDS) + r")\b",
+    re.IGNORECASE,
+)
+# Where the clause of a basis word ends: its first reference stands before it.
+_CLAUSE_END = re.compile(r";|\bdat\b", re.IGNORECASE)
+# What may stand between two references of one list ("de artikelen 6 en 9 en de additionele
+# artikelen III en V"); anything else ends the list ("artikel VI van de Grondwet de termijn
+# waarna artikel 10 …").
+_LIST_GLUE = re.compile(
+    r"[\s,]*(?:(?:en|alsmede|op|de|het|artikel(?:en)?|additione(?:el|le))[\s,]+)*",
+    re.IGNORECASE,
+)
+# How a paragraph of the legal basis ends that the next one continues ("…, en").
+_RUN_ON = re.compile(r"(?:[,:]|\b(?:en|alsmede|of))$", re.IGNORECASE)
+# The BWB marks a paragraph of the considerans by what it holds: ``bevat="grondslag"`` the
+# legal basis, ``gehoord``, ``gezien``, ``voordracht`` the others.
+_BASIS_MARK = "grondslag"
 
-def _states_basis(para: ET.Element) -> bool:
-    """A paragraph of the ``considerans`` that starts with 'Gelet op': the legal basis."""
-    return local_name(para.tag).startswith("considerans") and text_of(
-        para
-    ).lower().startswith("gelet op")
+# A span of the flat text of a paragraph (``_flatten``): start and end.
+_Span = tuple[int, int]
 
 
-def _gelet_op(root: ET.Element) -> Iterator[ET.Element]:
-    """The ``considerans`` paragraphs that start with 'Gelet op'."""
+def _paragraphs(considerans: ET.Element) -> Iterator[ET.Element]:
+    """The paragraphs and lists of a ``considerans``, in order."""
+    return (child for child in considerans if local_name(child.tag) != "meta-data")
+
+
+def _opens_basis(para: ET.Element, text: str) -> bool:
+    """A paragraph that is the legal basis as a whole: so marked, or opening with "Gelet
+    op"."""
+    return para.get("bevat") == _BASIS_MARK or text.lower().startswith("gelet op")
+
+
+def _runs_on(para: ET.Element, previous: str) -> bool:
+    """A paragraph the basis paragraph before it runs on into: that one ends with ",", ":",
+    "en", "alsmede" or "of", and this one is not marked as something else."""
+    return bool(_RUN_ON.search(previous)) and para.get("bevat") in (None, _BASIS_MARK)
+
+
+def _clause_spans(flat: _Flat) -> list[_Span]:
+    """The spans of a paragraph from a basis word to the end of the list of links that
+    follows it in its clause; a basis word without a link in its clause has none."""
+    spans: list[_Span] = []
+    for match in _BASIS_WORD.finditer(flat.text):
+        clause = _CLAUSE_END.search(flat.text, match.end())
+        limit = clause.start() if clause else len(flat.text)
+        end = None
+        for ref in sorted(flat.refs, key=lambda r: r.start):
+            if ref.start < match.end():
+                continue
+            if end is None and ref.start >= limit:
+                break
+            if end is not None and not _LIST_GLUE.fullmatch(flat.text[end : ref.start]):
+                break
+            end = ref.end
+        if end is not None:
+            spans.append((match.start(), end))
+    return spans
+
+
+def _lead(flat: _Flat) -> int:
+    """The whitespace a flat text starts with, which ``TextBuilder.inline`` strips."""
+    return len(flat.text) - len(flat.text.lstrip())
+
+
+def _basis_spans(root: ET.Element) -> Iterator[tuple[ET.Element, _Flat, list[_Span]]]:
+    """The paragraphs of the ``considerans`` that state the legal basis, each with its flat
+    text and the spans of it that do: the whole of a paragraph that is the basis
+    (``_opens_basis``) and of each it runs on into, else each clause of a basis word."""
     for considerans in iter_named(root, "considerans"):
-        for para in considerans.iter():
-            if _states_basis(para):
-                yield para
+        previous: str | None = None  # the text of the basis paragraph before this one
+        for para in _paragraphs(considerans):
+            flat = _flatten(para)
+            text = flat.text.strip()
+            whole = _opens_basis(para, text) or (
+                previous is not None and _runs_on(para, previous)
+            )
+            previous = text if whole else None
+            lead = _lead(flat)
+            spans = [(lead, lead + len(text))] if whole else _clause_spans(flat)
+            if spans:
+                yield para, flat, spans
 
 
 def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
-    """References in the ``considerans`` paragraph(s) that start with 'Gelet op'."""
+    """The links of the spans of the ``considerans`` that state the legal basis."""
     found: dict[tuple[str, str | None], BasisRef] = {}
-    for para in _gelet_op(root):
-        for ref in _flatten(para).refs:
+    for _, flat, spans in _basis_spans(root):
+        for ref in flat.refs:
             if ref.kind != "extref" or not ref.bwb_id:
+                continue
+            if not any(start <= ref.start and ref.end <= end for start, end in spans):
                 continue
             found.setdefault(
                 (ref.bwb_id, ref.article),
@@ -1605,8 +1682,13 @@ def _basis(root: ET.Element) -> tuple[BasisRef, ...]:
 
 
 def _basis_preamble(root: ET.Element) -> str:
-    """The text of the 'Gelet op' paragraph(s): what names a basis without a link."""
-    return " ".join(collapse_ws(_flatten(para).text) for para in _gelet_op(root))
+    """The text of the spans that state the legal basis: what names a basis without a
+    link."""
+    return " ".join(
+        collapse_ws(flat.text[start:end])
+        for _, flat, spans in _basis_spans(root)
+        for start, end in spans
+    )
 
 
 def _implemented(root: ET.Element) -> tuple[str, ...]:
@@ -1640,9 +1722,12 @@ def _preamble_lines(element: ET.Element) -> Iterator[list[ET.Element]]:
             yield from _preamble_lines(child)
 
 
-def _add_preamble_block(builder: TextBuilder, block: ET.Element) -> list[PreamblePart]:
+def _add_preamble_block(
+    builder: TextBuilder, block: ET.Element, basis: Mapping[ET.Element, list[_Span]]
+) -> list[PreamblePart]:
     """Add the lines of *block* to *builder*: its part, and after it a ``gelet_op`` part for
-    each paragraph of it that states the legal basis (``_states_basis``)."""
+    each span of a paragraph of it that states the legal basis (*basis*, of
+    ``_basis_spans``)."""
     start = None
     inner: list[PreamblePart] = []
     for line in _preamble_lines(block):
@@ -1657,11 +1742,23 @@ def _add_preamble_block(builder: TextBuilder, block: ET.Element) -> list[Preambl
             if index:
                 builder.add(" ")
             builder.inline(piece)
-        if _states_basis(pieces[0]):
-            inner.append(PreamblePart(PREAMBLE_GELET_OP, line_start, builder.length))
+        inner.extend(_gelet_op_parts(builder, line_start, basis.get(pieces[0], [])))
     if start is None:
         return []
     return [PreamblePart(local_name(block.tag), start, builder.length), *inner]
+
+
+def _gelet_op_parts(
+    builder: TextBuilder, line_start: int, spans: list[_Span]
+) -> Iterator[PreamblePart]:
+    """The ``gelet_op`` parts of the line from *line_start* on: *spans* of its paragraph,
+    offsets into its stripped text (as ``inline`` adds it)."""
+    for span_start, span_end in spans:
+        yield PreamblePart(
+            PREAMBLE_GELET_OP,
+            line_start + span_start,
+            min(line_start + span_end, builder.length),
+        )
 
 
 def _preamble(root: ET.Element) -> PreambleXml | None:
@@ -1670,12 +1767,16 @@ def _preamble(root: ET.Element) -> PreambleXml | None:
     aanhef = next(iter_named(root, "aanhef"), None)
     if aanhef is None:
         return None
+    basis = {
+        para: [(start - _lead(flat), end - _lead(flat)) for start, end in spans]
+        for para, flat, spans in _basis_spans(aanhef)
+    }
     builder = TextBuilder()
     parts = [
         part
         for block in aanhef
         if local_name(block.tag) != "meta-data"
-        for part in _add_preamble_block(builder, block)
+        for part in _add_preamble_block(builder, block, basis)
     ]
     if not builder.length:
         return None
