@@ -1,6 +1,6 @@
 -- Why three Rechtspraak steps of the nightly take 25-35 min for a few rows, read only (EXPLAIN without ANALYZE: nothing runs).
--- A: rechtspraak-duplicates as it reads (props of every judgment) against the stored columns pj_replaced_by / pj_same_as.
--- B: rechtspraak-series likewise (pj_series_id). C: rechtspraak-conclusions (props.judgment_metadata.document_type).
+-- A: rechtspraak-duplicates as it reads (props of every judgment) against the stored columns replaced_by / same_as.
+-- B: rechtspraak-series likewise (series_id). C: rechtspraak-conclusions (props.judgment_metadata.document_type).
 -- D: the size of the tables behind them.
 SET default_transaction_read_only = on;
 SET statement_timeout = '600s';
@@ -13,9 +13,9 @@ WHERE coalesce(json_typeof(j.props -> 'replaced_by'), 'null') <> 'null' OR coale
 ORDER BY j.key;
 
 \echo '== A2. the same on the stored columns'
-EXPLAIN SELECT j.id, j.key, j.pj_ecli, j.pj_replaced_by, j.pj_same_as
+EXPLAIN SELECT j.id, j.key, j.ecli, j.replaced_by, j.same_as
 FROM judgments j
-WHERE j.pj_replaced_by IS NOT NULL OR j.pj_same_as IS NOT NULL
+WHERE j.replaced_by IS NOT NULL OR j.same_as IS NOT NULL
 ORDER BY j.key;
 
 \echo '== B1. judgments_in_series as it is'
@@ -23,7 +23,7 @@ EXPLAIN SELECT j.props -> 'ecli' FROM judgments j
 WHERE coalesce(json_typeof(j.props -> 'series_id'), 'null') <> 'null' ORDER BY j.key;
 
 \echo '== B2. the same on the stored column'
-EXPLAIN SELECT j.pj_ecli FROM judgments j WHERE j.pj_series_id IS NOT NULL ORDER BY j.key;
+EXPLAIN SELECT j.ecli FROM judgments j WHERE j.series_id IS NOT NULL ORDER BY j.key;
 
 \echo '== C. conclusion_rows: every judgment of the source, props read for the document type and the named conclusions'
 EXPLAIN SELECT j.key, j.props -> 'ecli', j.props -> 'conclusion_eclis'
