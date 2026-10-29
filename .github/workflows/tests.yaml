@@ -55,6 +55,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # the Python of src, which ast parses
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
       - name: Budget
         run: .github/scripts/eenvoud.sh
 
