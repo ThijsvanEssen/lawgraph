@@ -35,6 +35,8 @@ from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_date
 from lawgraph.core.tk_records.dossiers import dossier_display_name, dossier_label
 from lawgraph.db import NodeWriter
+from lawgraph.db.queries import removals
+from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -144,7 +146,7 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
         writer = NodeWriter(self.store)
         dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
 
-        for node in unique_documents(self._documents(raw)):
+        for node in self._unique_documents(raw):
             writer.add(node)
             count += 1
             number = node.props.get("dossier_number")
@@ -167,6 +169,35 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
             count,
             made,
         )
+
+    def _unique_documents(self, raw: Records) -> list[Node]:
+        """The documents of *raw* to write: one for each Kamerstuk, also of the ones written
+        before. A run with ``--since`` may see one copy where an earlier run wrote the other
+        (``kst-1274193``, later ``kst-36702-A``): the copy that loses goes, with its edges,
+        and one that loses to a document written before is not written."""
+        nodes = list(self._documents(raw))
+        own = {node.key for node in nodes}
+        numbers = sorted(
+            {
+                str(n.props["dossier_number"])
+                for n in nodes
+                if n.props.get("dossier_number")
+            }
+        )
+        written = [
+            Node.skeleton(COLLECTION_DOCUMENTS, row["key"], row["props"])
+            for row in normalize_ek.ek_documents_of_dossiers(self.store, numbers)
+            if row["key"] not in own
+        ]
+        kept = unique_documents([*nodes, *written])
+        kept_keys = {node.key for node in kept}
+        gone = [str(node.key) for node in written if node.key not in kept_keys]
+        if gone:
+            removed = removals.remove_nodes(self.store, COLLECTION_DOCUMENTS, gone)
+            logger.info(
+                "Eerste Kamer normalize: %d copies of a Kamerstuk removed.", removed
+            )
+        return [node for node in kept if node.key in own]
 
     def _documents(self, raw: Records) -> Iterator[Node]:
         for record in raw:

@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_FACTIONS,
     COLLECTION_MEMBERS,
+    SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.tk_records.kinds import KIND_MOTION
 from lawgraph.db.counting import Store
@@ -119,6 +120,23 @@ def ek_papers_by_letter(store: Store, numbers: list[str]) -> dict[tuple[str, str
             if row["letter"]:
                 found.setdefault((label, row["letter"]), row["id"])
     return found
+
+
+def ek_documents_of_dossiers(store: Store, numbers: list[str]) -> list[dict[str, Any]]:
+    """``{key, props}`` of the Kamerstukken ``normalize eerstekamer`` wrote of the dossiers
+    *numbers* (their number without a suffix: ``36702``), by key."""
+    return list(
+        store.query(
+            f"""
+            SELECT d.key, d.props
+            FROM {COLLECTION_DOCUMENTS} d
+            WHERE d.dossier_number = ANY(%(numbers)s::text[])
+              AND d.source = '{SOURCE_EERSTEKAMER}'
+            ORDER BY d.key
+            """,
+            {"numbers": numbers},
+        )
+    )
 
 
 def ek_factions_named(store: Store) -> Iterator[dict[str, Any]]:

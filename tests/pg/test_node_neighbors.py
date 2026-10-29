@@ -935,3 +935,49 @@ def test_a_law_a_publication_and_a_version_carry_the_date_their_source_gives(
     page = client.get("/api/nodes/instruments/law").json()["neighbors"]["buckets"]
     paged = {i["id"]: (i["props"] or {}).get("date") for b in page for i in b["items"]}
     assert paged == {k: v for k, v in DATED.items() if k not in (LAW, VERSION)}
+
+
+def test_the_judgments_that_cite_a_judgment_are_counted_per_tier(
+    store: GraphStore,
+) -> None:
+    """A judgment's bucket of judgments says how many of the whole bucket are of each tier,
+    not only of the page; a bucket of another collection has none."""
+    tiers = ["hoge_raad", "rechtbank", "rechtbank", None]
+    _write(
+        store,
+        COLLECTION_JUDGMENTS,
+        [_node(NodeType.JUDGMENT, "cited")]
+        + [
+            _node(NodeType.JUDGMENT, f"c{n}", **({"tier": t} if t else {}))
+            for n, t in enumerate(tiers)
+        ],
+    )
+    _write(store, COLLECTION_ARTICLES, [_node(NodeType.ARTICLE, "art")])
+    _write(
+        store,
+        "edges",
+        [
+            _edge(
+                f"{COLLECTION_JUDGMENTS}/c{n}",
+                f"{COLLECTION_JUDGMENTS}/cited",
+                RELATION_REFERS_TO,
+            )
+            for n in range(len(tiers))
+        ]
+        + [
+            _edge(
+                f"{COLLECTION_JUDGMENTS}/cited",
+                f"{COLLECTION_ARTICLES}/art",
+                RELATION_REFERS_TO,
+            )
+        ],
+    )
+
+    data = get_node_with_neighbors(store, COLLECTION_JUDGMENTS, "cited", limit=1)
+    counts = {
+        (b.facet.direction, b.facet.collection): b.tier_counts for b in data.buckets
+    }
+    assert counts == {
+        ("inbound", COLLECTION_JUDGMENTS): {"hoge_raad": 1, "rechtbank": 2, "": 1},
+        ("outbound", COLLECTION_ARTICLES): None,
+    }

@@ -460,8 +460,12 @@ def get_shared_neighbors_route(
         "motion, an amendment or a judgment its `outcome` alone of how it ended), of "
         "its edge's `meta` the keys the canvas reads (null when none, never `{}`); the "
         "node itself stays whole. A bucket has `type`, `total` (its edges), "
-        "`next_offset` (null on the last page), `lid_counts`, `capacity_counts` and "
-        "`items`; `capacity_counts`, of a member's `AUTHORED` (outbound): per capacity "
+        "`next_offset` (null on the last page), `lid_counts`, `capacity_counts`, "
+        "`tier_counts` and `items`; `tier_counts`, of a judgment's bucket of judgments: "
+        'per tier how many of the whole bucket (`{"hoge_raad": 412, "rechtbank": 530}`, '
+        '`""` for one without a tier), so a bar per instantie counts them all and not '
+        "the page; null for every other bucket; `capacity_counts`, of a member's "
+        "`AUTHORED` (outbound): per capacity "
         'they signed in (`meta.capacity`: `kamerlid`, `bewindspersoon`, `overig`; `""` '
         "for none), how many of the whole bucket and not only of its page "
         '(`{"kamerlid": 980, "bewindspersoon": 503}`), from `lg_authored`; null for '
@@ -609,6 +613,7 @@ def get_node_graph(
             next_offset=bucket.next_offset,
             lid_counts=bucket.lid_counts,
             capacity_counts=bucket.capacity_counts,
+            tier_counts=bucket.tier_counts,
             items=[
                 NeighborDTO.from_entry(
                     doc=entry.doc,

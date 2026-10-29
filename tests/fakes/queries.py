@@ -17,6 +17,7 @@ from lawgraph.db.queries import (
     unlinked_references,
 )
 from lawgraph.db.queries import state as state_queries
+from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from tests.fakes.store import InMemoryStore, PipelineStateFake
@@ -65,6 +66,25 @@ def patch_edge_removals(monkeypatch: pytest.MonkeyPatch) -> None:
     ``edges`` of an ``InMemoryStore``."""
     monkeypatch.setattr(removals, "remove_edges_at", _remove_edges_at)
     monkeypatch.setattr(removals, "remove_edges_except", _remove_edges_except)
+
+
+def _ek_documents_of_dossiers(
+    store: InMemoryStore, numbers: list[str]
+) -> list[dict[str, Any]]:
+    return [
+        {"key": key, "props": doc.get("props") or {}}
+        for key, doc in sorted(store.nodes.get("documents", {}).items())
+        if (doc.get("props") or {}).get("source") == "eerstekamer"
+        and (doc.get("props") or {}).get("dossier_number") in numbers
+    ]
+
+
+def patch_ek_documents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``ek_documents_of_dossiers`` of ``db/queries/normalize/eerstekamer.py``, on the
+    documents of an ``InMemoryStore``."""
+    monkeypatch.setattr(
+        normalize_ek, "ek_documents_of_dossiers", _ek_documents_of_dossiers
+    )
 
 
 def _rijkswet_dossiers(store: InMemoryStore, numbers: list[str]) -> dict[str, str]:
