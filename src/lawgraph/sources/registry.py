@@ -279,6 +279,10 @@ class Pipeline:
     # Normalize only: the retrieve pipelines whose raw records it reads besides the one of its
     # own name (``normalize bwb`` also reads the TOOI thesaurus of ``retrieve tooi``).
     fed_by: tuple[str, ...] = ()
+    # Semantic only: what a day writes leaves it nothing to do (triggers keep its tables), so
+    # ``semantic all --since`` (the daily run) leaves it out; a run over all and the weekly
+    # run (``--list``) run it.
+    weekly: bool = False
 
     @property
     def name(self) -> str:
@@ -329,6 +333,7 @@ def _pipeline(
     options: Options | None = None,
     after: tuple[str, ...] = (),
     fed_by: tuple[str, ...] = (),
+    weekly: bool = False,
 ) -> Pipeline:
     """Register a normalize or semantic pipeline class, or a hand-written command (which
     takes no ``--since``).
@@ -351,7 +356,14 @@ def _pipeline(
         phase, source, part = address_of(runs.__module__, runs.__name__)
         command = HandWritten(runs)
     return Pipeline(
-        phase, source, part, command, description, after=after, fed_by=fed_by
+        phase,
+        source,
+        part,
+        command,
+        description,
+        after=after,
+        fed_by=fed_by,
+        weekly=weekly,
     )
 
 
@@ -1173,6 +1185,7 @@ SEMANTIC: list[Pipeline] = [
         "committee leads light, without its text, for those written before the triggers "
         "that keep them.",
         options=Options(graph_light.add_args, graph_light.extra_kwargs),
+        weekly=True,
     ),
     _pipeline(
         GraphArticleTermsSemanticPipeline,
