@@ -33,6 +33,13 @@ count has them. `facets=false` counts nothing. A page of `/api/documents` and
 `offset` for the next page, which costs what the first does at any depth; not both
 (422), and a cursor of another list or sort is 422 too. `offset` stays on every list.
 
+**An article to read beside.** `/api/articles/{bwb_id}/{article_number}/text` is the narrow
+form of an article, for a reader beside a page: its heading, law and validity, its text as
+blocks per lid, onderdeel and aanhef (`core/article_blocks.py`) whose `anchor` is the id of
+the part (`lid-2-onder-a`), with the links whose target the data holds, and the articles
+before and after it. `/api/articles/batch?refs=` gives up to 20 of them in one answer, in the
+order asked, and names in `not_in_data` what the data does not hold.
+
 ## Paths, parameters and periods
 
 Paths are relative to the host. `bwb_id` is a BWB id (`BWBR0001854`) and `article_number` the

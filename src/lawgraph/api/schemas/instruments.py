@@ -1262,8 +1262,8 @@ class PreamblePartDTO(StrictModel):
         description='The block as the BWB names it: `wij` ("Wij Willem-Alexander, …": '
         'a law or an AMvB), `wie` ("De Minister van …"), `considerans` ("Gelet op '
         '…"), `afkondiging` ("Besluit:"), `preambule` (of a treaty); or `gelet_op`: '
-        'a line of the considerans that starts with "Gelet op" (the legal basis), '
-        "inside it."
+        'the text of the considerans that states the legal basis (a line "Gelet op …", '
+        'or a clause "ingevolge artikel …" of a line), inside it.'
     )
     start: int = Field(description="Offset of the block in the `text` of the aanhef.")
     end: int
@@ -1882,6 +1882,11 @@ class _DelegatedFields(StrictModel):
     )
 
 
+# How many regulations under a regulation the light form gives (``sub_delegated``): a law
+# under the Grondwet has dozens (the Gemeentewet 38), a row of the keten draws 12.
+SUB_DELEGATED_MAX = 12
+
+
 class InstrumentDelegatedSummaryItem(_DelegatedFields):
     """A regulation whose preamble names an article of the law, in the light form
     (`detail=summary`): without what it takes reading its own articles for."""
@@ -1891,8 +1896,14 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
     )
     sub_delegated: list[SubDelegatedDTO] = Field(
         default_factory=list,
-        description="The regulations in force issued under its articles in turn, as on the "
-        "full form.",
+        description=f"The first {SUB_DELEGATED_MAX} regulations in force issued under its "
+        "articles in turn, in the order of the full form.",
+    )
+    sub_delegated_total: int = Field(
+        0,
+        description="How many regulations in force are issued under its articles in turn: "
+        "more than `sub_delegated` gives when it has more than "
+        f"{SUB_DELEGATED_MAX}.",
     )
 
     @classmethod
@@ -1901,6 +1912,9 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
         instrument = row["instrument"]
         props = instrument.get("props") or {}
         articles = [BasisArticleDTO.from_row(a) for a in row.get("articles") or []]
+        under = in_regulation_order(
+            SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
+        )
         return cls(
             instrument=InstrumentSummaryDTO.from_document(instrument),
             kind=regulation_kind(props),
@@ -1908,9 +1922,8 @@ class InstrumentDelegatedSummaryItem(_DelegatedFields):
             expired_on=props.get("date_expired"),
             basis_kind=summary_basis_kind(list(articles)),
             articles=articles,
-            sub_delegated=in_regulation_order(
-                SubDelegatedDTO.from_row(r) for r in row.get("sub_delegated") or []
-            ),
+            sub_delegated=under[:SUB_DELEGATED_MAX],
+            sub_delegated_total=len(under),
         )
 
 

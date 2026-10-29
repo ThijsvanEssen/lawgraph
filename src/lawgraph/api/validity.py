@@ -36,12 +36,26 @@ def article_validity_dto(
 ) -> ValidityDTO | None:
     """The ``validity`` of the article *article* of the law *law* (whole nodes), whose own
     ``successors`` are *successors* (``{edge, target, instrument}`` rows)."""
+    return ended_article_validity_dto(
+        store, article, law, successors, article_end(store, article["id"])
+    )
+
+
+def ended_article_validity_dto(
+    store: GraphStore,
+    article: dict[str, Any],
+    law: dict[str, Any] | None,
+    successors: list[dict[str, Any]],
+    ended: str | None,
+) -> ValidityDTO | None:
+    """``article_validity_dto`` of an article whose newest version ends on *ended* (its
+    ``valid_until``, ``db.queries.validity.article_end``), read with it."""
     today = dutch_today().isoformat()
     props = article.get("props") or {}
     law_props = (law or {}).get("props") or {}
     validity = article_validity(
         instrument_validity(law_props, today) if law else None,
-        article_end(store, article["id"]),
+        ended,
         bool(props.get("repealed")),
         today,
     )
