@@ -1907,15 +1907,15 @@
   "month",
   "day"
  ],
- "/paths//api/feed/summary/get/parameters/12/schema/anyOf/0": [
+ "/paths//api/feed/summary/get/parameters/13/schema/anyOf/0": [
   "voor",
   "tegen"
  ],
- "/paths//api/feed/summary/get/parameters/14/schema/anyOf/0": [
+ "/paths//api/feed/summary/get/parameters/15/schema/anyOf/0": [
   "TK",
   "EK"
  ],
- "/paths//api/feed/summary/get/parameters/15/schema/anyOf/0": [
+ "/paths//api/feed/summary/get/parameters/16/schema/anyOf/0": [
   "together",
   "split",
   "wissel",

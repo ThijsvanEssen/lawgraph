@@ -53,6 +53,8 @@ from lawgraph.core.feed import (
     EVENT_VOTE,
     FEED_KINDS,
     FEED_TIERS,
+    LOWER_TIERS,
+    NO_SUBJECT_AREA,
     FeedCoalition,
     FeedCursor,
     PeriodUnit,
@@ -67,7 +69,7 @@ from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import COUNTS_BUDGET
 from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.dossier_changes import dossiers_changing_articles
-from lawgraph.db.queries.feed import get_feed, get_feed_summary
+from lawgraph.db.queries.feed import get_feed, get_feed_summary, get_lower_courts
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.queries.search.clause import queries_words
 from lawgraph.db.queries.stats import cached_data_as_of
@@ -182,6 +184,15 @@ def scope_filters(
             f"are those of {', '.join(FEED_TIERS)}."
         ),
     ] = None,
+    subject_area: Annotated[
+        str | None,
+        Query(
+            description="A main area of law of the judgments (as in "
+            f"``/api/judgments``: ``Strafrecht``), or ``{NO_SUBJECT_AREA}``: those "
+            "without one. Keeps judgments alone, of ``tier`` or the default tiers.",
+            max_length=MAX_WORD_LENGTH,
+        ),
+    ] = None,
     instrument: Annotated[
         str | None,
         Query(
@@ -220,6 +231,7 @@ def scope_filters(
         q=_words(store, q),
         chamber=chamber,
         tiers=parse_choices(tier, TIERS, "tier"),
+        subject_area=(subject_area or "").strip() or None,
         coalition=coalition,
         instrument=instrument.upper() if instrument else None,
         article=(article.strip() or None) if article else None,
@@ -308,7 +320,7 @@ _Cursor = Annotated[
         "`lg_feed_events` (`/api/feed/periods`; as `lawgraph feed-events` last wrote "
         "it: the last 14 days after every poll, every event each night), by its "
         "indexes, each facet as the feed counts it, and kept an hour; under `member`, "
-        "`tier` or `instrument`, or before that table is ever written, over every "
+        "`tier`, `subject_area` or `instrument`, or before that table is ever written, over every "
         "event under the filters itself. A request waits for them 3 s at most: under "
         "filters not counted before (cold, a minute or more on the full graph) the "
         "page comes at once with both null and `partial` true, and a request after "
@@ -349,9 +361,12 @@ _Cursor = Annotated[
         "with `until` the day before goes on; `searched_from` is null when every day "
         "was searched), `tier` (comma-separated tiers as in `/api/judgments`: keeps "
         "judgments alone, of those tiers; without it the feed's judgments are of the "
-        "default tiers), `chamber` (`EK`: the votes of the Eerste Kamer, only "
-        "the one that decided each bill; `TK`: the papers, votes and commitments of "
-        "the Tweede Kamer; publications and commencements are of neither), `coalition` "
+        "default tiers), `subject_area` (a main area of law of the judgments, as in "
+        f"`/api/judgments`, or `{NO_SUBJECT_AREA}` for those without one: keeps judgments "
+        "alone, of `tier` or the default tiers), `chamber` (`EK`: the votes of the "
+        "Eerste Kamer, only the one that decided each bill; `TK`: the papers, votes "
+        "and commitments of the Tweede Kamer; publications and commencements are of "
+        "neither), `coalition` "
         "(what the coalition did on a vote of the Tweede Kamer, as `vote.coalition` "
         "says it: `together`, `split` (on both sides, a wisselmeerderheid too), "
         "`wissel`, `decisive`; keeps votes alone), `instrument` (a BWB id: the events "
@@ -571,6 +586,8 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         parts.append(" en ".join(_KIND_PLURALS[kind] for kind in filters.kinds))
     if filters.tiers:  # a tier key in words: ``hoge raad``
         parts.append(" en ".join(tier.replace("_", " ") for tier in filters.tiers))
+    if filters.subject_area:
+        parts.append(f"rechtsgebied {filters.subject_area}")
     if filters.dossier:
         parts.append(f"dossier {filters.dossier}")
     if filters.ministry:
@@ -613,7 +630,20 @@ def feed_title(filters: FeedFilters, page: FeedResponse) -> str:
         "(``Gepland``), a sitting any plenary kind, the votes ``Stemmingen``; of a week "
         "the one planned for a day before one planned for the week (``precision`` "
         "``Weeknummer``, dated on its Monday); each null when there is none. The Kamer "
-        "publishes no recess as data: no sitting planned for days is what tells."
+        "publishes no recess as data: no sitting planned for days is what tells. "
+        "``lower_courts=true`` adds per day the judgments of the lower courts "
+        f"({', '.join(LOWER_TIERS)}), which the feed shows only under ``tier``."
+        "\n\n"
+        "`lower_courts` (default false): per day `lower_courts` `{total, subject_areas}`, "
+        "the judgments of the lower courts published that day under the same filters "
+        "(of `tier`, those that are lower; none under a `kind` without `uitspraak`), "
+        "each once in `total`, and per main area of law `{value, count}`, most first: "
+        "a judgment counts once in each of its areas (the part of a subject before its "
+        "first `;`), so the counts may add up to more than `total`, and one without a "
+        "subject in the null area, last (a gap of the source: never put in an area). "
+        "The items of an area are `/api/feed` with that day as `since` and `until`, "
+        f"`tier` and `subject_area` (`{NO_SUBJECT_AREA}` for the null area). Without it "
+        "`lower_courts` is absent; `total` and `kinds` never count them."
     ),
     tags=["feed"],
 )
@@ -645,13 +675,22 @@ def get_feed_summary_route(
     limit: Annotated[
         int, Query(ge=1, le=LIST_MAX, description="Events shown one by one, at most.")
     ] = 100,
+    lower_courts: Annotated[
+        bool,
+        Query(description="Count per day the judgments of the lower courts as well."),
+    ] = False,
 ) -> FeedSummaryResponse:
     last = until or dutch_today()
     first = last - dt.timedelta(days=days - 1)
     filters = replace(scope, since=first.isoformat(), until=last.isoformat())
     raw = get_feed_summary(store, filters, margin=margin, few=few, limit=limit)
     summary = FeedSummaryResponse.from_raw(
-        raw, since=first, until=last, margin=margin, limit=limit
+        raw,
+        since=first,
+        until=last,
+        margin=margin,
+        limit=limit,
+        lower_courts=get_lower_courts(store, filters) if lower_courts else None,
     )
     summary.data_as_of = _data_as_of(store)
     mark_changes(
@@ -678,10 +717,10 @@ def get_feed_summary_route(
         "``kind`` facet counts it over those days. Every kind is counted unless ``kind`` "
         "names some. From the events as ``lawgraph feed-events`` last wrote them "
         "(``written_at``: after every poll and every night), not the live graph; not "
-        "``member`` and not ``tier``."
+        "``member``, ``tier`` or ``subject_area``."
         "\n\n"
         "the events of `/api/feed` per period under the same filters (not `member`, "
-        "`tier` or `instrument`: 422): `per` `month` (default) or `day` (needs "
+        "`tier`, `subject_area` or `instrument`: 422): `per` `month` (default) or `day` (needs "
         "`since`, at most 400 days to `until`, default today). `{per, since, until, "
         "periods: [{period, total, counts}], partial, written_at, data_as_of}`: "
         "`period` the first day of the month or the day, `counts` per kind (the feed's "
