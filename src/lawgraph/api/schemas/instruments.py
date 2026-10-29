@@ -1262,8 +1262,8 @@ class PreamblePartDTO(StrictModel):
         description='The block as the BWB names it: `wij` ("Wij Willem-Alexander, …": '
         'a law or an AMvB), `wie` ("De Minister van …"), `considerans` ("Gelet op '
         '…"), `afkondiging` ("Besluit:"), `preambule` (of a treaty); or `gelet_op`: '
-        'a line of the considerans that starts with "Gelet op" (the legal basis), '
-        "inside it."
+        'the text of the considerans that states the legal basis (a line "Gelet op …", '
+        'or a clause "ingevolge artikel …" of a line), inside it.'
     )
     start: int = Field(description="Offset of the block in the `text` of the aanhef.")
     end: int
