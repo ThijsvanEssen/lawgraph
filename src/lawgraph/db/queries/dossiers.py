@@ -171,6 +171,20 @@ def _in_dossier(relation: str, collection: str) -> str:
 # The documents of one dossier: directly PART_OF it, or PART_OF a case that is PART_OF it.
 DOSSIER_DOCUMENT_IDS = _in_dossier("%(part_of)s", COLLECTION_DOCUMENTS)
 
+# The committees that lead an activity about the dossier ``%(dossier_id)s`` (``ABOUT`` it, or
+# a case ``PART_OF`` it): CTEs of a ``WITH`` that end in ``lead_ids``, each committee's
+# ``id`` and ``led``, how many of those activities it leads. Binds ``dossier_id``,
+# ``about``, ``led_by`` and ``part_of``. What the ``committees`` of a dossier read, and its
+# ``LED_BY`` committees as neighbours (``derived_neighbors``).
+LEAD_COMMITTEE_CTES = f"""
+activity_ids AS ({_in_dossier("%(about)s", COLLECTION_ACTIVITIES)}),
+lead_ids AS (
+    SELECT led.to_id AS id, count(DISTINCT a.id)::int AS led
+    FROM activity_ids a
+    JOIN {COLLECTION_EDGES} led ON led.from_id = a.id AND led.relation = %(led_by)s
+    GROUP BY 1
+)"""
+
 
 @dataclass
 class DossierEnrichment:
@@ -650,13 +664,7 @@ links AS (
 hub_instruments AS (
     SELECT DISTINCT l.instrument_id, l.relation, l.status FROM links l
 ),
-activity_ids AS ({_in_dossier("%(about)s", COLLECTION_ACTIVITIES)}),
-lead_ids AS (
-    SELECT led.to_id AS id, count(DISTINCT a.id)::int AS led
-    FROM activity_ids a
-    JOIN {COLLECTION_EDGES} led ON led.from_id = a.id AND led.relation = %(led_by)s
-    GROUP BY 1
-)
+{LEAD_COMMITTEE_CTES}
 SELECT
     (
         SELECT coalesce(json_agg(json_build_object(
