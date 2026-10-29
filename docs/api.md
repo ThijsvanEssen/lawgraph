@@ -435,7 +435,9 @@ expired, those of its law.
 In `/api/search` a law or an article has `extra.expired_on` (of an article the earlier of its
 law's `date_expired` and its own end); one that has expired by today comes after every hit
 that holds, whatever its score, and is not left out; only what `q` identifies or names exactly
-(`exact`) goes first still.
+(`exact`) goes first still. The match and alternatives of `/api/resolve` (and `resolved` of
+`/api/search`) carry the same day as `expired_on`. Expired on a day: `expired_on` is on or
+before it.
 
 ### Resolve notations
 
@@ -449,7 +451,7 @@ that holds, whatever its score, and is not left out; only what `q` identifies or
 | Publication | `Stb. 2026, 94`, `Staatscourant 2026, 12345`, `Trb. 2018, 201` | the instrument with that key (`stb_2026_94`) | 1 |
 | Kamerstuk | `36327`, `Kamerstuk 36327`, `36 327`, `29684-I`, `23908-(R1519)` | the dossier with that number and suffix; other suffixes of the number are alternatives (0.5) | 0.95 |
 | Paper of a Kamerstuk | `36327-3`, `Kamerstukken II 2020/21, 36327, nr. 3`, `kst-36327-3` | the document with that ondernummer in the dossier; the dossier (0.6) when the graph lacks the paper | 0.95 |
-| Name or abbreviation of a faction, member or ministry | `VVD`, `Mark Rutte`, `BZK`, `J&V`, `ministerie van Financiën` | the faction, member or ministry (TOOI's name or abbreviation, `&` as `en`), before a law of that name | 0.9 |
+| Name or abbreviation of a faction, member or ministry | `VVD`, `Mark Rutte`, `BZK`, `J&V`, `ministerie van Financiën` | the faction, member or ministry (TOOI's name or abbreviation, `&` as `en`, loose letters as one: `J en V`, `B Z K`), before a law of that name | 0.9 |
 | Law name or abbreviation | `Wetboek van Strafvordering`, `Grondwet`, `Sr` | the instrument | 0.9; the start of a name 0.6, part of a name 0.4 |
 | Heading of an article without a number, and its law | `Algemene bepaling Grondwet` | the article | 0.95 |
 | Article without a law | `artikel 6`, `art. 6:162` | the most cited article with that number; the others are alternatives | 0.5 for one law, 0.3 for several |

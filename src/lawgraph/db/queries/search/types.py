@@ -11,7 +11,7 @@ from typing import Any
 from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, COLLECTION_MINISTRIES
 from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.motion_kinds import kinds_named
 from lawgraph.core.time import dutch_today
 from lawgraph.core.validity import instrument_validity
@@ -315,6 +315,26 @@ def hit_by_key(store: GraphStore, table: str, key: str) -> Hit | None:
         )
     )
     return rows[0] if rows else None
+
+
+def expired_on(store: GraphStore, ids: list[str]) -> dict[str, str | None]:
+    """Per article and instrument of *ids* its ``extra.expired_on`` as its search hit has
+    it (the first day it no longer holds; None while it holds); the nodes of other
+    collections and those that are gone are left out."""
+    keys: dict[str, list[str]] = {}
+    for node_id in ids:
+        table, key = parse_node_id(node_id)
+        if table in _HIT_SQL:
+            keys.setdefault(table, []).append(key)
+    found: dict[str, str | None] = {}
+    for table, some in keys.items():
+        hit_sql, joins = _HIT_SQL[table]
+        for hit in store.query(
+            f"SELECT {hit_sql} FROM {table} r {joins} WHERE r.key = ANY(%(keys)s)",
+            {"keys": some},
+        ):
+            found[hit["id"]] = hit["extra"].get("expired_on")
+    return found
 
 
 # ── judgments ────────────────────────────────────────────────────────────────

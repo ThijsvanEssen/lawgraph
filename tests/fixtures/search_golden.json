@@ -31,6 +31,37 @@
   "members": [],
   "ministries": []
  },
+ "all B Z K": {
+  "articles": [],
+  "cabinets": [],
+  "commitments": [],
+  "committees": [],
+  "decisions": [],
+  "documents": [],
+  "dossiers": [],
+  "factions": [],
+  "instruments": [],
+  "judgments": [],
+  "members": [],
+  "ministries": [
+   {
+    "collection": "ministries",
+    "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+    "exact": true,
+    "extra": {
+     "abbreviation": "BZK",
+     "successor": null,
+     "to_date": null,
+     "tooi": "mnre1034"
+    },
+    "id": "ministries/bzk",
+    "key": "bzk",
+    "score": 1.0,
+    "snippet": "BZK",
+    "type": "ministry"
+   }
+  ]
+ },
  "all BZK": {
   "articles": [],
   "cabinets": [],
@@ -5840,6 +5871,40 @@
   },
   "partial": []
  },
+ "full 3 B Z K": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
+  },
+  "partial": []
+ },
  "full 3 BZK": {
   "hits": {
    "articles": [],
@@ -10445,6 +10510,40 @@
   },
   "partial": []
  },
+ "live 1 B Z K": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
+  },
+  "partial": []
+ },
  "live 1 BZK": {
   "hits": {
    "articles": [],
@@ -12440,6 +12539,40 @@
    "judgments": [],
    "members": [],
    "ministries": []
+  },
+  "partial": []
+ },
+ "live B Z K": {
+  "hits": {
+   "articles": [],
+   "cabinets": [],
+   "commitments": [],
+   "committees": [],
+   "decisions": [],
+   "documents": [],
+   "dossiers": [],
+   "factions": [],
+   "instruments": [],
+   "judgments": [],
+   "members": [],
+   "ministries": [
+    {
+     "collection": "ministries",
+     "display_name": "Binnenlandse Zaken en Koninkrijksrelaties",
+     "exact": true,
+     "extra": {
+      "abbreviation": "BZK",
+      "successor": null,
+      "to_date": null,
+      "tooi": "mnre1034"
+     },
+     "id": "ministries/bzk",
+     "key": "bzk",
+     "score": 1.0,
+     "snippet": "BZK",
+     "type": "ministry"
+    }
+   ]
   },
   "partial": []
  },
