@@ -23,6 +23,7 @@ from lawgraph.db.queries.search.parser import kept_notation_parser, notation
 from lawgraph.db.queries.search.ranking import rank_hits
 from lawgraph.db.queries.search.signers import Signed, signed_for
 from lawgraph.db.queries.search.spec import Asked, Hit
+from lawgraph.db.queries.search.text import answered_in_part
 from lawgraph.db.queries.search.types import SEARCHES
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
@@ -263,12 +264,13 @@ def _full_or_live(
     full: Callable[[], list[Hit]], live: Callable[[], list[Hit]], ends: float
 ) -> tuple[list[Hit], bool]:
     """The hits of *full* within ``FULL_BUDGET``, or what is left of the deadline *ends*
-    (``time.monotonic``) less ``FALLBACK_BUDGET``; past it, those of *live* within
-    ``FALLBACK_BUDGET``, cut off."""
+    (``time.monotonic``) less ``FALLBACK_BUDGET``; past it, its precise hits when it has
+    them (``text.answered_in_part``), else those of *live* within ``FALLBACK_BUDGET``: cut
+    off either way."""
     left = ends - FALLBACK_BUDGET - time.monotonic()
     rows, cut = _within_budget(full, max(0.0, min(FULL_BUDGET, left)))
-    if not cut:
-        return rows, False
+    if not cut or rows:
+        return rows, cut
     return _within_budget(live, FALLBACK_BUDGET)[0], True
 
 
@@ -352,8 +354,11 @@ def _within_budget(
     search: Callable[[], list[Hit]], budget: float | None = None
 ) -> tuple[list[Hit], bool]:
     """The hits of *search* within *budget* seconds (``LIVE_BUDGET`` without one; or what
-    the request has left); none and cut off when it takes longer. A computation of the
+    the request has left); none and cut off when it takes longer, and cut off with its
+    precise hits when its text part did (``text.answered_in_part``). A computation of the
     cache it waited for goes on."""
     with read_budget(LIVE_BUDGET if budget is None else budget, "A live search"):
-        return search(), False
+        with answered_in_part() as in_part:
+            hits = search()
+        return hits, in_part.ran_out
     return [], True

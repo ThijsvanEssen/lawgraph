@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import _bm25
 from lawgraph.db.queries import resolve as resolve_queries
@@ -17,6 +18,7 @@ from lawgraph.db.queries.search.spec import Hit
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
 from lawgraph.db.request_context import reset_read_deadline, set_read_deadline
 from lawgraph.db.schema import SEARCH_FIELDS
+from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.asserts import show_items
 from tests.pg.plans import explain, plan_nodes, pool_busy, recorded
 
@@ -239,6 +241,41 @@ def test_a_name_an_alias_and_an_ecli(graph: GraphStore) -> None:
     assert _ids(found["instruments"]) == ["instruments/bwbr0001854"]
 
 
+def test_a_citation_is_found_without_searching_its_words(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An article cited, an ECLI: what the precise lookup finds is the answer, at once,
+    while typing and in full; their words are not searched."""
+    parser.load_notation_parser(graph)  # what the warm-up keeps
+    calls = recorded(graph, monkeypatch)
+    for search in (dispatch.search_live, dispatch.search_full):
+        hits, partial = search(graph, q="art. 1 Sr", types=["articles"])
+        assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"], partial
+        hits, partial = search(graph, q="ECLI:NL:HR:1919:1", types=["judgments"])
+        assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"], partial
+    assert not [c for c in calls if c.options.get("indexes_only")]
+
+
+def test_a_text_search_past_its_budget_keeps_the_hits_the_query_names(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The law whose abbreviation the query is stays the answer when the search of its
+    words takes longer than the budget of the type: the type is cut off with it."""
+    from lawgraph.db.queries.search import types as search_types
+
+    monkeypatch.setattr(
+        search_types,
+        "text_query",
+        lambda *args, **kwargs: ("SELECT 'x' AS id FROM pg_sleep(5)", None),
+    )
+    monkeypatch.setattr(dispatch, "FULL_BUDGET", 0.5)
+    started = time.monotonic()
+    hits, partial = dispatch.search_full(graph, q="Sr", types=["instruments"])
+    assert time.monotonic() - started < 2
+    assert _ids(hits["instruments"]) == ["instruments/bwbr0001854"]
+    assert partial == {"instruments"}
+
+
 def test_members_by_every_word_of_their_names(graph: GraphStore) -> None:
     found = dispatch.search_all(graph, q="de vries", types=["members"])["members"]
     assert _ids(found) == ["members/m1", "members/m2"]  # the active first
@@ -275,10 +312,10 @@ def test_members_and_factions_without_accents_or_in_capitals(
 
     for q in ("yeşilgöz", "yesilgoz", "YESILGOZ dilan"):
         assert found(q, "members") == ["members/m1"], q
-    # a part of the name, without its accents: more than words only (an article whose text
-    # names the minister), so the member is the best hit
+    # a part of a double surname, without its accents: a whole name (above an article
+    # whose text names the minister), so the member is the best hit
     (member,) = dispatch.search_all(store, q="yesilgoz", types=["members"])["members"]
-    assert member["score"] == ranking.SCORE_CONTAINS
+    assert member["score"] == ranking.SCORE_TITLE
     assert found("appel", "factions") == ["factions/cda"]
     # a member by the factions of their timeline only as written, not folded
     assert found("appèl", "members") == ["members/m2"]
@@ -1434,3 +1471,165 @@ def test_the_words_that_name_a_vote_are_left_out_of_a_search_of_votes(
     assert found("stemming motie abortus") == ["v1"]
     for word in ("stemming", "stemmingen", "besluit", "besluiten"):
         assert found(word) == [], word
+
+
+def _ministries(store: GraphStore, *keys: str) -> None:
+    """The ministries *keys* as ``semantic tooi-ministries`` writes them."""
+    store.bulk_insert_or_update_nodes(
+        "ministries",
+        [
+            {
+                "key": key,
+                "type": "ministry",
+                "labels": ["TOOI"],
+                "props": ministry_props(MINISTRY_BY_KEY[key]),
+            }
+            for key in keys
+        ],
+    )
+
+
+def test_a_ministry_by_its_name_or_abbreviation(store: GraphStore) -> None:
+    """Every word in its name or abbreviation ("ministerie" left out); one the query names
+    whole first and ``exact`` (its abbreviation 1, its name 0.75, "ministerie van" before
+    it or not), then the current ones, then the former ones newest first."""
+    _ministries(store, "bzk", "jenv", "venj", "justitie", "fin", "biza")
+
+    def found(q: str, live: bool = False) -> list[tuple[str, float, bool]]:
+        if live:
+            hits = dispatch.search_live(store, q=q, types=["ministries"])[0]
+        else:
+            hits = dispatch.search_all(store, q=q, types=["ministries"])
+        return [
+            (h["key"], h["score"], ranking.exact_hit(q, h)) for h in hits["ministries"]
+        ]
+
+    assert found("BZK") == found("BZK", live=True) == [("bzk", 1.0, True)]
+    assert found("J&V")[0] == ("jenv", 1.0, True)
+    assert found("JenV")[0] == ("jenv", 1.0, True)
+    assert found("ministerie van Financiën") == [("fin", 0.75, True)]
+    assert found("financien") == [("fin", 0.75, True)]
+    assert [key for key, *_ in found("Justitie")] == ["justitie", "jenv", "venj"]
+    assert [key for key, _, exact in found("veiligheid") if exact] == []
+    # a name that starts with the word before one that holds it (``score_hit``)
+    assert [key for key, *_ in found("veiligheid")] == ["venj", "jenv"]
+    assert [key for key, *_ in found("binnenlandse zaken")] == ["biza", "bzk"]
+    # the type alone: every ministry, the current ones first
+    assert [key for key, *_ in found("ministeries")][:3] == ["bzk", "fin", "jenv"]
+
+
+def test_a_ministry_by_the_letters_of_its_abbreviation(store: GraphStore) -> None:
+    """Loose letters and "en" or "&" between them are its abbreviation ("J en V", "B Z K",
+    "BZ K"), in full and live search alike; letters that are no abbreviation name none."""
+    _ministries(store, "bzk", "bz", "jenv", "ienw", "az")
+
+    def found(q: str, live: bool = False) -> list[tuple[str, float, bool]]:
+        if live:
+            hits = dispatch.search_live(store, q=q, types=["ministries"])[0]
+        else:
+            hits = dispatch.search_all(store, q=q, types=["ministries"])
+        return [
+            (h["key"], h["score"], ranking.exact_hit(q, h)) for h in hits["ministries"]
+        ]
+
+    for q, key in (
+        ("J en V", "jenv"),
+        ("j & v", "jenv"),
+        ("j&v", "jenv"),
+        ("B Z K", "bzk"),
+        ("BZ K", "bzk"),
+        ("b z", "bz"),
+        ("I en W", "ienw"),
+    ):
+        assert found(q)[0] == (key, 1.0, True), q
+        assert found(q, live=True)[0] == (key, 1.0, True), q
+    for q in ("a en b", "x y z", "B Z K L"):
+        assert [hit for hit in found(q) if hit[2]] == [], q
+
+
+def test_the_books_of_a_code_by_its_name_in_the_order_of_their_number(
+    store: GraphStore,
+) -> None:
+    """ "BW" and "Burgerlijk Wetboek" find every book of the code, Boek 1 before Boek 2
+    and Boek 10 last, before the laws that hold the words; fewer asked for, the count says
+    how many hold the words."""
+    books = {"1": "BWBR0002656", "10": "BWBR0030068", "2": "BWBR0003045"}
+    books |= {"6": "BWBR0005289", "7A": "BWBR0006000"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                bwb_id.lower(),
+                "instrument",
+                bwb_id=bwb_id,
+                title=f"Burgerlijk Wetboek Boek {book}",
+                citation_title=f"Burgerlijk Wetboek Boek {book}",
+                aliases=["BW", f"BW Boek {book}"],
+            )
+            for book, bwb_id in books.items()
+        ]
+        + [
+            _node(
+                "bwbr0009999",
+                "instrument",
+                bwb_id="BWBR0009999",
+                title="Invoeringswet Burgerlijk Wetboek",
+                citation_title="Invoeringswet Burgerlijk Wetboek",
+            )
+        ],
+    )
+    order = [f"Burgerlijk Wetboek Boek {b}" for b in ("1", "2", "6", "7A", "10")]
+    for q in ("BW", "Burgerlijk Wetboek", "burgerlijk wetboek"):
+        hits = dispatch.search_all(store, q=q, types=["instruments"])["instruments"]
+        assert [h["display_name"] for h in hits[:5]] == order, q
+        assert all(h.get("exact") for h in hits[:5]), q
+        first = dispatch.search_all(store, q=q, types=["instruments"], limit=3)
+        assert [h["display_name"] for h in first["instruments"]] == order[:3], q
+    _, _, counted = dispatch.search_full_counted(
+        store, q="Burgerlijk Wetboek", types=["instruments"], limit=3
+    )
+    found = counted["instruments"]
+    assert found is not None and found.total == 6
+
+
+def test_every_hit_of_an_expired_law_says_its_last_day(store: GraphStore) -> None:
+    """Every hit of a law or an article that no longer holds has ``extra.expired_on``, the
+    first day it did not, whatever found it (its abbreviation, a citation, its words), in
+    full and live search alike."""
+    version_cache.clear()
+    law = {"bwb_id": "BWBR0009100", "date_expired": "2010-01-01"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbr0009100",
+                "instrument",
+                title="Wet oude huurregels",
+                display_name="Wet oude huurregels",
+                citation_title="Wet oude huurregels",
+                short_title="Wohr",
+                **law,
+            )
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                "bwbr0009100_3",
+                "article",
+                bwb_id="BWBR0009100",
+                article_number="3",
+                display_name="Artikel 3 Wet oude huurregels",
+                text="De huurregels gelden voor elke woning.",
+            )
+        ],
+    )
+    for q in ("Wohr", "artikel 3 Wohr", "huurregels", "Wet oude huurregels"):
+        for found in (
+            dispatch.search_all(store, q=q, types=["articles", "instruments"]),
+            dispatch.search_live(store, q=q, types=["articles", "instruments"])[0],
+        ):
+            hits = [*found.get("articles", []), *found.get("instruments", [])]
+            assert hits, q
+            assert {h["extra"]["expired_on"] for h in hits} == {"2010-01-01"}, q

@@ -26,13 +26,15 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import lookup
 from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
 from lawgraph.db.queries.nodes import light_nodes
+from lawgraph.db.queries.search.clause import query_words
 from lawgraph.db.queries.search.parser import load_notation_parser
+from lawgraph.db.queries.search.types import expired_on, ministries_found
 from lawgraph.db.schema import search_column
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.
 CONFIDENCE_IDENTIFIER = 1.0  # an ECLI, BWB id or CELEX id that names one node
 CONFIDENCE_CITATION = 0.95  # a citation read whole: article of a law, dossier, document
-CONFIDENCE_NAME = 0.9  # a law, faction or member by its exact abbreviation or full name
+CONFIDENCE_NAME = 0.9  # a law, faction, member or ministry by abbreviation or full name
 CONFIDENCE_PARTIAL = 0.6  # the dossier of a document that is not in the graph; a law by the start of its name
 CONFIDENCE_AMBIGUOUS = 0.5  # the ceiling when several nodes fit equally well
 CONFIDENCE_CONTAINS = 0.4  # a law by part of its name
@@ -396,6 +398,15 @@ LIMIT %(limit)s
 """
 
 
+def _ministries_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
+    """The ministries *q* names whole, by their abbreviation (``BZK``, ``J&V``) or their
+    name, "ministerie van" before it or not (``search.types.ministries_found``)."""
+    hits = ministries_found(store, q, query_words(store, q).words)
+    return [
+        _target(hit, "ministry", CONFIDENCE_NAME) for hit in hits if hit.get("exact")
+    ]
+
+
 def _parties_named(store: GraphStore, q: str) -> list[dict[str, Any]]:
     """The factions and members *q* is the name of: the first sure (a party named "VVD" goes
     before the regulation whose abbreviation it is), the others as alternatives."""
@@ -418,9 +429,11 @@ def _candidates(
         headed = _headed_article(store, q, parser)
         if headed:
             return headed, None, False
-        # a faction or member before a law of the same name, which then is an alternative
+        # a faction, member or ministry before a law of the same name, which then is an
+        # alternative
         laws = _laws_named(store, parser.law_matches(q))
-        return [*_parties_named(store, q), *laws], None, False
+        named = [*_parties_named(store, q), *_ministries_named(store, q)]
+        return [*named, *laws], None, False
     if notation.kind == "article":
         return _articles(store, notation), notation.qualifier, notation.choice
     if notation.kind == "dossier":
@@ -461,12 +474,20 @@ CHOICES = 10
 
 def _with_path_props(store: GraphStore, answer: dict[str, Any]) -> dict[str, Any]:
     """The *answer*, its match and alternatives each with ``path_props``: what its readable
-    address is built from (``lookup.answer_props``, one query per collection)."""
+    address is built from (``lookup.answer_props``, one query per collection), and an
+    article or a law with its ``expired_on`` as its search hit has it
+    (``search.types.expired_on``)."""
     targets = [t for t in [answer["match"], *answer["alternatives"]] if t]
-    props = lookup.answer_props(store, [t["id"] for t in targets]) if targets else {}
+    ids = [t["id"] for t in targets]
+    props = lookup.answer_props(store, ids) if targets else {}
+    ended = expired_on(store, ids)
 
     def with_props(target: dict[str, Any]) -> dict[str, Any]:
-        return {**target, "path_props": props.get(target["id"], {})}
+        return {
+            **target,
+            "path_props": props.get(target["id"], {}),
+            "expired_on": ended.get(target["id"]),
+        }
 
     return {
         **answer,

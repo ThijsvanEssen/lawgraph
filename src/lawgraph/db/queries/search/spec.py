@@ -104,7 +104,8 @@ class SearchType:
     the titles it stands in, which are a tier above the hits that only hold the words
     (``score_hit``, ``text.tier_sql``). *signatures* makes the SQL of the signatures of a
     row (a JSON array of ``actors``) of its alias: a query that names a faction keeps the
-    hits signed for it (``signers``)."""
+    hits signed for it (``signers``). *name_props* are the props a type searched by its own
+    SQL, not by ``SEARCH_FIELDS``, finds its words in (``SEARCHED``)."""
 
     table: str
     search: Callable[[SearchType, Asked, bool], list[Hit]]
@@ -118,6 +119,7 @@ class SearchType:
     names: tuple[str, ...] = ()
     titles: tuple[str, ...] = ()
     signatures: Callable[[str], str] | None = None
+    name_props: tuple[str, ...] = ()
     # what the rows it matches are counted by (``counts``): a type without ``match`` is not
     # counted; with ``facets`` also per value of each
     match: Callable[[SearchType, Asked], Match] | None = None

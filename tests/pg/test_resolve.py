@@ -18,14 +18,17 @@ from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MINISTRIES,
     RELATION_PART_OF,
 )
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.core.models import make_node_key
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, SCORE_WORDS
+from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.asserts import show_items
 from tests.integration.graph import write_evrm
 from tests.pg.plans import recorded
@@ -412,6 +415,48 @@ def test_a_law_by_exact_name_or_abbreviation(store: GraphStore) -> None:
     assert resolve(store, "de Grondwet")["match"]["key"] == "bwbr0001840"
 
 
+def test_a_ministry_by_its_abbreviation_or_name(store: GraphStore) -> None:
+    """A ministry by its TOOI abbreviation (``&`` as ``en``) or its name, "ministerie van"
+    before it or not; a word of its name alone names none."""
+    for key in ("bzk", "jenv", "venj", "justitie"):
+        ministry = MINISTRY_BY_KEY[key]
+        _put(store, COLLECTION_MINISTRIES, key, **ministry_props(ministry))
+    for query, key in (
+        ("BZK", "bzk"),
+        ("bzk", "bzk"),
+        ("J&V", "jenv"),
+        ("JenV", "jenv"),
+        ("Justitie en Veiligheid", "jenv"),
+        ("ministerie van Justitie en Veiligheid", "jenv"),
+        ("Ministerie van BZK", "bzk"),
+        ("Justitie", "justitie"),
+    ):
+        answer = resolve(store, query)
+        assert (answer["kind"], answer["confidence"]) == ("ministry", 0.9), query
+        assert answer["match"]["key"] == key, query
+        assert ResolveMatch(**answer["match"]).path == f"/ministeries/{key}", query
+    assert resolve(store, "Veiligheid")["kind"] == "none"
+
+
+def test_a_ministry_by_the_letters_of_its_abbreviation(store: GraphStore) -> None:
+    """Loose letters with "en" or "&" between them name the ministry they abbreviate;
+    letters that abbreviate none name nothing."""
+    for key in ("bzk", "bz", "jenv"):
+        _put(store, COLLECTION_MINISTRIES, key, **ministry_props(MINISTRY_BY_KEY[key]))
+    for query, key in (
+        ("J en V", "jenv"),
+        ("j & v", "jenv"),
+        ("B Z K", "bzk"),
+        ("BZ K", "bzk"),
+        ("B Z", "bz"),
+    ):
+        answer = resolve(store, query)
+        assert (answer["kind"], answer["confidence"]) == ("ministry", 0.9), query
+        assert answer["match"]["key"] == key, query
+    for query in ("a en b", "x y z"):
+        assert resolve(store, query)["kind"] == "none", query
+
+
 def test_a_name_two_laws_share_lists_both_and_is_not_sure(store: GraphStore) -> None:
     answer = resolve(store, "Besluit ruimte")
     assert sorted(_keys(answer)) == ["bwbr0009001", "bwbr0009002"]
@@ -520,3 +565,24 @@ def test_search_one_article_hit_costs_no_query_of_its_own(
     # minute), the document frequencies of the words and the search itself, with the
     # titles of the laws
     assert len(article_queries) <= 4
+
+
+def test_an_expired_law_or_article_says_its_last_day(store: GraphStore) -> None:
+    """A law or an article that no longer holds has ``expired_on`` as its search hit has
+    it, the first day it did not; one that holds and a node of another kind have none."""
+    _instrument(
+        store, "BWBR0009100", "Wet oude regels", "Wor", date_expired="2010-01-01"
+    )
+    _article(store, "BWBR0009100", "3")
+    law = resolve(store, "Wor")
+    assert (law["kind"], law["match"]["expired_on"]) == ("instrument", "2010-01-01")
+    article = resolve(store, "artikel 3 Wor")
+    assert (article["kind"], article["match"]["expired_on"]) == (
+        "article",
+        "2010-01-01",
+    )
+    assert ResolveMatch(**article["match"]).expired_on == "2010-01-01"
+    assert resolve(store, "Sr")["match"]["expired_on"] is None
+    for key in ("bzk",):
+        _put(store, COLLECTION_MINISTRIES, key, **ministry_props(MINISTRY_BY_KEY[key]))
+    assert resolve(store, "BZK")["match"]["expired_on"] is None

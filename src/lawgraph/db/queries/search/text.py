@@ -5,8 +5,11 @@ typing, nothing ranked; and the hits of a word searched often, kept ready to ran
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import hashlib
 import json
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +18,7 @@ from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries.search.clause import Query, build_search_clause, live_clause
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER
 from lawgraph.db.queries.search.spec import Hit, SearchType
+from lawgraph.db.request_context import Budget, read_budget, read_time_left
 from lawgraph.db.schema import SEARCH_FIELDS, search_column, start_of_value_sql
 
 # An article whose case law calls it by a word of the query (``lg_article_terms``) ranks as
@@ -76,16 +80,21 @@ def titled_sql(kind: SearchType, words: list[str], row: str = "r") -> str:
 def two_phase_search(
     store: GraphStore,
     precise: Query,
-    text: Query,
+    text: Callable[[], Query],
     limit: int,
     precise_score: float | None = SCORE_IDENTIFIER,
     exact: bool = False,
+    cited: bool = False,
 ) -> list[Hit]:
-    """Run a precise lookup then a full-text fallback, deduplicating by id.
+    """Run a precise lookup then a full-text fallback (the statement *text* makes),
+    deduplicating by id.
 
     What the precise lookup finds is what the query names, so it scores as an identifier
     unless *precise_score* is None: then ``score_hit`` scores it like any hit. With *exact*
-    it is the thing the query names (``ranking.exact_hit``).
+    it is the thing the query names (``ranking.exact_hit``). With *cited* the query is a
+    citation (an article, an ECLI): what the lookup finds is all it asks, and the text is
+    searched only when it finds nothing. The text has a budget of its own
+    (``text_within_share``): past it, the precise hits are the answer.
     """
     seen: set[str] = set()
     results: list[Hit] = []
@@ -95,12 +104,50 @@ def two_phase_search(
             seen.add(rid)
             found = row if precise_score is None else {**row, "score": precise_score}
             results.append({**found, "exact": True} if exact else found)
-    if len(results) < limit:
-        for row in store.query(*text, indexes_only=True):
+    if len(results) < limit and not (cited and results):
+        for row in text_within_share(store, text()):
             if row.get("id") not in seen:
                 seen.add(row["id"])
                 results.append(row)
     return results[:limit]
+
+
+# The share of what a search has left that the text part of ``two_phase_search`` may read:
+# the rest is for what comes after it (the persons a judgment names, its terms).
+TEXT_SHARE = 0.8
+
+# Whether a search of the context answered without the text part it ran out of time for
+# (``answered_in_part``, ``text_within_share``).
+_IN_PART: contextvars.ContextVar[Budget | None] = contextvars.ContextVar(
+    "lawgraph_search_in_part", default=None
+)
+
+
+@contextlib.contextmanager
+def answered_in_part() -> Iterator[Budget]:
+    """Whether a search in the block answered its precise hits without its text part
+    (``text_within_share``): ``ran_out``, a search cut off at its budget."""
+    budget = Budget()
+    token = _IN_PART.set(budget)
+    try:
+        yield budget
+    finally:
+        _IN_PART.reset(token)
+
+
+def text_within_share(store: GraphStore, text: Query) -> list[Hit]:
+    """The hits of the text search *text* within ``TEXT_SHARE`` of what the reads have
+    left (all of it outside a request); none past it, the search answered in part
+    (``answered_in_part``)."""
+    left = read_time_left()
+    if left is None:
+        return list(store.query(*text, indexes_only=True))
+    with read_budget(left * TEXT_SHARE, "The text part of a search"):
+        return list(store.query(*text, indexes_only=True))
+    in_part = _IN_PART.get()
+    if in_part is not None:
+        in_part.ran_out = True
+    return []
 
 
 def text_query(
@@ -246,6 +293,18 @@ def text_query(
 _LIVE_START = "lg_like(lg_fold(%(_live_q)s)) || '%%'"
 
 
+def _first_found(table: str, condition: str) -> str:
+    """SQL: the ids of the first ``LIVE_CANDIDATES`` rows of *table* that hold
+    *condition*, one set of the candidates of a live search. They are found on their own,
+    from the indexes of the words (OFFSET 0): within a ``UNION`` the planner would read
+    them in the order of the ids, to merge the sets without a sort, walking the key index
+    and testing every row (``burgerlijk wetboek`` in 732,000 articles)."""
+    return (
+        f"(SELECT f.id FROM (SELECT r.id FROM {table} r WHERE {condition} OFFSET 0) f"
+        " LIMIT %(candidates)s)"
+    )
+
+
 def live_query(
     kind: SearchType,
     hit: str,
@@ -281,15 +340,10 @@ def live_query(
     )
     titled = titled_sql(kind, [w for w in clause_params if w.startswith("_tok_")])
     order = [f"({starts or 'false'}) DESC"]
-    found = [
-        f"(SELECT r.id FROM {table} r WHERE {clause} {where} LIMIT %(candidates)s)"
-    ]
+    found = [_first_found(table, f"{clause} {where}")]
     if titled != "false":
         order.append(f"({titled}) DESC")
-        found.append(
-            f"(SELECT r.id FROM {table} r WHERE {titled} AND {clause} {where}"
-            " LIMIT %(candidates)s)"
-        )
+        found.append(_first_found(table, f"{titled} AND {clause} {where}"))
     if termed:
         clause_params["_termed"] = sorted({row for rows in termed for row in rows})
         order.append("r.id = ANY(%(_termed)s::text[]) DESC")

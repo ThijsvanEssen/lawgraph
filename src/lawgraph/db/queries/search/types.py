@@ -3,12 +3,15 @@ each holds, how its search finds them, full and while typing."""
 
 from __future__ import annotations
 
+import functools
 import json
+import re
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
+from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, COLLECTION_MINISTRIES
+from lawgraph.core.code_families import CODE_FAMILIES
 from lawgraph.core.dossier_numbers import short_title
-from lawgraph.core.models import make_node_key
+from lawgraph.core.models import make_node_key, parse_node_id
 from lawgraph.core.motion_kinds import kinds_named
 from lawgraph.core.time import dutch_today
 from lawgraph.core.validity import instrument_validity
@@ -27,7 +30,12 @@ from lawgraph.db.queries.search.clause import (
     termed_articles,
 )
 from lawgraph.db.queries.search.persons import judgments_by_person, with_persons
-from lawgraph.db.queries.search.ranking import SCORE_TITLE, folded, score_hit
+from lawgraph.db.queries.search.ranking import (
+    SCORE_IDENTIFIER,
+    SCORE_TITLE,
+    folded,
+    score_hit,
+)
 from lawgraph.db.queries.search.spec import (
     JUDGMENT_CITE_PROPS,
     Asked,
@@ -44,6 +52,7 @@ from lawgraph.db.queries.search.text import (
 )
 from lawgraph.db.queries.validity import article_end_sql
 from lawgraph.db.schema import instrument_date_in_force, search_column, search_words
+from lawgraph.db.version_cache import cached
 
 # ── articles ─────────────────────────────────────────────────────────────────
 
@@ -140,23 +149,26 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     termed = termed_articles(store, tokens)
     laws = abbreviated_laws(store, tokens)
     in_period = period.where(kind.period_date)
-    text = text_query(
-        kind,
-        store,
-        _ARTICLE_HIT,
-        tokens,
-        limit,
-        joins=_ARTICLE_INSTRUMENT,
-        where=in_period,
-        params=period.params(),
-        live=live,
-        termed=termed.ids if termed else None,
-        laws=laws,
-        named=termed.named if termed else None,
-        any_word=asked.any_word,
-    )
+
+    def text() -> Query:
+        return text_query(
+            kind,
+            store,
+            _ARTICLE_HIT,
+            tokens,
+            limit,
+            joins=_ARTICLE_INSTRUMENT,
+            where=in_period,
+            params=period.params(),
+            live=live,
+            termed=termed.ids if termed else None,
+            laws=laws,
+            named=termed.named if termed else None,
+            any_word=asked.any_word,
+        )
+
     if notation is None or notation.kind != "article":
-        hits = list(store.query(*text, indexes_only=True))[:limit]
+        hits = list(store.query(*text(), indexes_only=True))[:limit]
         return _with_terms(hits, asked, termed)
 
     # The law is named: the article is one key. It is not: every law with that number.
@@ -186,7 +198,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
             },
         )
     # an article of a law the citation names is the one it names
-    found = two_phase_search(store, precise, text, limit, exact=bool(keys))
+    found = two_phase_search(store, precise, text, limit, exact=bool(keys), cited=True)
     return _with_terms(found, asked, termed)
 
 
@@ -242,22 +254,35 @@ def _validity_of(props: str | None) -> str | None:
     return validity.state.value if validity else None
 
 
+# The books of every code with books (``core.code_families``), each code in the order of
+# its books (1, 2, ... 10).
+_BOOKS = [bwb_id for books in CODE_FAMILIES.values() for bwb_id in books.values()]
+# The name of the code a book is of, from its citation title: "burgerlijk wetboek" of
+# "Burgerlijk Wetboek Boek 6".
+_CODE_NAME = r"regexp_replace(lg_fold(r.citation_title), '\s+boek\s+\S+$', '')"
+
+
 def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """Instruments whose alias or short title is the whole query first (``Boek 6 BW``,
-    ``BW``), then those that hold its words."""
+    ``BW``), and the books of a code the query is the name of (``Burgerlijk Wetboek``: the
+    citation title of its books without the book); the books of a code in the order of
+    their number. Then those that hold its words."""
     store, limit, period = asked.store, asked.limit, asked.period
     precise: Query = (
         f"""
         SELECT {_INSTRUMENT_HIT} FROM instruments r
         WHERE (r.{search_column("aliases", "norm")} @> ARRAY[lg_fold(%(name)s)]
-           OR r.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)])
+           OR r.{search_column("short_title", "norm")} @> ARRAY[lg_fold(%(name)s)]
+           OR (r.bwb_id = ANY(%(books)s::text[]) AND {_CODE_NAME} = lg_fold(%(name)s)))
           {period.where(kind.period_date)}
-        ORDER BY r.citation_title NULLS FIRST, r.key
+        ORDER BY array_position(%(books)s::text[], r.bwb_id) NULLS LAST,
+                 r.citation_title NULLS FIRST, r.key
         LIMIT %(limit)s
         """,
-        {"name": folded(asked.q), "limit": limit, **period.params()},
+        {"name": folded(asked.q), "books": _BOOKS, "limit": limit, **period.params()},
     )
-    text = text_query(
+    text = functools.partial(
+        text_query,
         kind,
         store,
         _INSTRUMENT_HIT,
@@ -290,6 +315,26 @@ def hit_by_key(store: GraphStore, table: str, key: str) -> Hit | None:
         )
     )
     return rows[0] if rows else None
+
+
+def expired_on(store: GraphStore, ids: list[str]) -> dict[str, str | None]:
+    """Per article and instrument of *ids* its ``extra.expired_on`` as its search hit has
+    it (the first day it no longer holds; None while it holds); the nodes of other
+    collections and those that are gone are left out."""
+    keys: dict[str, list[str]] = {}
+    for node_id in ids:
+        table, key = parse_node_id(node_id)
+        if table in _HIT_SQL:
+            keys.setdefault(table, []).append(key)
+    found: dict[str, str | None] = {}
+    for table, some in keys.items():
+        hit_sql, joins = _HIT_SQL[table]
+        for hit in store.query(
+            f"SELECT {hit_sql} FROM {table} r {joins} WHERE r.key = ANY(%(keys)s)",
+            {"keys": some},
+        ):
+            found[hit["id"]] = hit["extra"].get("expired_on")
+    return found
 
 
 # ── judgments ────────────────────────────────────────────────────────────────
@@ -337,7 +382,8 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         return _judgments_while_typing(kind, asked)
     store, tokens, limit = asked.store, asked.tokens, asked.limit
     period, q = asked.period, asked.q
-    text = text_query(
+    text = functools.partial(
+        text_query,
         kind,
         store,
         _JUDGMENT_HIT,
@@ -349,7 +395,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     )
     identified = _identified_judgments(kind, asked)
     if identified is not None:
-        return two_phase_search(store, identified, text, limit, exact=True)
+        return two_phase_search(store, identified, text, limit, exact=True, cited=True)
 
     # The query may be the name of a judgment ("Urgenda", "Lindenbaum/Cohen"): those first,
     # the latest decision first (of one case: the highest court), a translation after the
@@ -973,6 +1019,108 @@ def _search_decisions(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     )
 
 
+# ── ministries ───────────────────────────────────────────────────────────────
+
+# Words that name the type of a ministry rather than which one: "ministerie van Financiën".
+# Left out unless they are all that is asked.
+_MINISTRY_WORDS = frozenset({"ministerie", "ministeries"})
+# What a query puts before the name of a ministry it names whole ("ministerie van BZK").
+_MINISTRY_OF = re.compile(r"^ministeries?\s+(?:van\s+|voor\s+)?")
+# The props a ministry is found by: its name (``Justitie en Veiligheid``) and its
+# abbreviation (``JenV``), both from TOOI (``data/ministries.json``).
+MINISTRY_PROPS = ("name", "abbreviation")
+
+_MINISTRY_HIT = """
+    json_build_object(
+        'id', r.id, 'key', r.key,
+        'collection', 'ministries', 'type', r.type,
+        'display_name', r.props -> 'name',
+        'snippet', r.props -> 'abbreviation',
+        'extra', json_build_object(
+            'abbreviation', r.props -> 'abbreviation',
+            'tooi', r.props -> 'tooi',
+            'to_date', r.props -> 'to_date',
+            'successor', r.props -> 'successor'
+        )
+    )
+"""
+
+
+def abbreviation_key(text: str | None) -> str:
+    """*text* as an abbreviation is compared: folded, ``&`` as ``en``, without what is no
+    letter or digit ("J&V", "JenV", "jen-v": ``jenv``)."""
+    return re.sub(r"[^a-z0-9]", "", folded(text).replace("&", "en"))
+
+
+def _names_ministry(whole: str, hit: Hit) -> float | None:
+    """The score of the ministry *hit* when *whole* (folded) is its abbreviation
+    (``SCORE_IDENTIFIER``) or its name (``SCORE_TITLE``); None when it is neither."""
+    abbreviation = abbreviation_key(hit["extra"].get("abbreviation"))
+    if abbreviation and abbreviation == abbreviation_key(whole):
+        return SCORE_IDENTIFIER
+    return SCORE_TITLE if folded(hit.get("display_name")) == whole else None
+
+
+def _ministry_holds(word: str, hit: Hit) -> bool:
+    """Whether *word* is the start of a word of the name or the abbreviation of the
+    ministry *hit*, folded ("zaken", "koninkrijk"; not "sr" of "koninkrijksrelaties"), or
+    is its abbreviation (``abbreviation_key``)."""
+    abbreviation = hit["extra"].get("abbreviation")
+    words = re.split(r"[\s,-]+", folded(f"{hit.get('display_name')} {abbreviation}"))
+    return any(w.startswith(folded(word)) for w in words) or (
+        bool(abbreviation) and abbreviation_key(word) == abbreviation_key(abbreviation)
+    )
+
+
+def _ministries(store: GraphStore) -> tuple[Hit, ...]:
+    """Every ministry as a hit, by key: some fifty rows, read whole once per data version of
+    the ministries."""
+    return cached(
+        store,
+        ("ministry-hits",),
+        lambda: tuple(
+            store.query(f"SELECT {_MINISTRY_HIT} FROM ministries r ORDER BY r.key")
+        ),
+        tables=(COLLECTION_MINISTRIES,),
+        inline=True,
+    )
+
+
+def ministries_found(
+    store: GraphStore, q: str, tokens: list[str], any_word: bool = False
+) -> list[Hit]:
+    """The ministries every token is part of the name or abbreviation of (with *any_word*:
+    one at least), but those of ``_MINISTRY_WORDS`` (of them alone: every one): first
+    those *q* names whole (``exact``; "ministerie van" before it is left out), then the
+    current ones (with a TOOI code, no last day), then by their last day, newest first."""
+    whole = folded(_MINISTRY_OF.sub("", folded(q)))
+    words = [t for t in tokens if t not in _MINISTRY_WORDS]
+    hits: list[Hit] = []
+    for hit in _ministries(store):
+        held = [_ministry_holds(w, hit) for w in words]
+        if words and not (any(held) if any_word else all(held)):
+            continue
+        score = _names_ministry(whole, hit)
+        hits.append({**hit, "score": score, "exact": True} if score else {**hit})
+    # by key (as read), then by their last day, newest first (none last), then the
+    # current ones and those named whole first
+    hits.sort(key=lambda h: h["extra"].get("to_date") or "", reverse=True)
+    hits.sort(key=lambda h: (not h.get("exact"), not _current(h)))
+    return hits
+
+
+def _current(hit: Hit) -> bool:
+    """Whether the ministry *hit* has its name still: a TOOI code and no last day."""
+    return bool(hit["extra"].get("tooi")) and not hit["extra"].get("to_date")
+
+
+def _search_ministries(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
+    """``ministries_found``, at most ``limit``."""
+    return ministries_found(asked.store, asked.q, asked.tokens, asked.any_word)[
+        : asked.limit
+    ]
+
+
 # ── the types ─────────────────────────────────────────────────────────────────
 
 # The heavy types first, slowest first (``SearchType.heavy``): the order in which they take
@@ -1089,6 +1237,7 @@ SEARCHES: dict[str, SearchType] = {
             # those of the paper it decided
             signatures=decided_persons,
         ),
+        SearchType("ministries", _search_ministries, name_props=MINISTRY_PROPS),
     )
 }
 

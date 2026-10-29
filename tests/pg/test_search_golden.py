@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import RELATION_LEGISLATED_IN
+from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.search import candidates as search_candidates
 from lawgraph.db.queries.search import dispatch
@@ -22,6 +23,7 @@ from lawgraph.db.queries.search.clause import Period
 from lawgraph.db.queries.search.dispatch import search_all, search_full, search_live
 from lawgraph.db.queries.search.parser import load_notation_parser
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES
+from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.paths import FIXTURES
 
 GOLDEN = FIXTURES / "search_golden.json"
@@ -63,6 +65,9 @@ QUERIES = [
     "hu",
     "dossier",
     "onrechtmatige daad",
+    "BZK",
+    "B Z K",
+    "binnenlandse zaken",
 ]
 
 
@@ -289,6 +294,10 @@ def _people() -> dict[str, list[dict[str, Any]]]:
                   slug="binnenlandse-zaken"),
             _node("vro", "committee", name="Volkshuisvesting en Ruimtelijke Ordening",
                   abbreviation="VRO", slug="volkshuisvesting"),
+        ],
+        "ministries": [
+            _node(key, "ministry", **ministry_props(MINISTRY_BY_KEY[key]))
+            for key in ("bzk", "biza")
         ],
         "cabinets": [
             _node("schoof", "cabinet", name="kabinet-Schoof", from_date="2024-07-02"),

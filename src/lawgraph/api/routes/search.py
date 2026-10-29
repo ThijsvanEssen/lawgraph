@@ -21,8 +21,10 @@ from lawgraph.api.schemas.search import (
 )
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_COMMITTEES,
     COLLECTION_DOCUMENTS,
     COLLECTION_JUDGMENTS,
+    COLLECTION_MINISTRIES,
 )
 from lawgraph.core.concepts import Concept, concept_named
 from lawgraph.core.logging import get_logger
@@ -76,14 +78,24 @@ OFFSET_MAX = 500
         "\n\n"
         "text search over `types` (`articles`, `cabinets`, `commitments`, "
         "`committees`, `decisions`, `documents`, `dossiers`, `factions`, "
-        "`instruments`, `judgments`, `members`; all by default), `kind`, `limit`, and "
+        "`instruments`, `judgments`, `members`, `ministries`; all by default), `kind`, "
+        "`limit`, and "
         "a period `from`, `to` (YYYY-MM-DD, both days in it, either open; 422 for "
         "`from` after `to`): each hit by a date of its own, in full and live search "
         "alike: a judgment the day of its decision (`date_eff`), a paper its date, a "
         "dossier the day it was opened, a vote its date, a commitment the day it was "
         "made, a law the day it came into force (`date_in_force`), an article the day "
         "its law came into force; a type without a date of its own (a member, a "
-        "faction, a committee, a cabinet) finds nothing within a period. An article "
+        "faction, a committee, a cabinet, a ministry) finds nothing within a period. "
+        "A ministry is found by the start of a word of its name or its abbreviation "
+        "for every word (TOOI: `BZK`, `JenV`; `&` read as `en`, so `J&V` is `JenV`; "
+        "loose letters, groups of one or two with at least one of one, are the one "
+        "abbreviation they write, in every type: `J en V`, `j & v`, `B Z K`, `BZ K`), "
+        "`ministerie` and `ministeries` left out; one `q` names whole (`BZK`, "
+        "`Financiën`, `ministerie van Justitie en Veiligheid`) first and `exact` (its "
+        "abbreviation 1, its name "
+        "0.75), then the current ones, then the former ones newest first; `extra` has "
+        "its `abbreviation`, `tooi`, `to_date` (its last day) and `successor`. An article "
         "only a citation names, with no text of its own, is no hit. A citation in "
         "`q` (`art. 6:162 BW`, `artikel 287 Sr`, `Sr 287`, a full ECLI) puts its "
         "article or judgment first, and so does the whole name of a judgment "
@@ -92,7 +104,9 @@ OFFSET_MAX = 500
         "name (0.75), the start of its name (0.5), every word of `q` in its name "
         "(0.25), a match on words only (0.1), compared in lower case and without "
         "accents (`yesilgoz` is part of `Yeşilgöz-Zegerius`); a type lists its hits "
-        "best first, ties in database order. The names of a hit are its "
+        "best first, ties in database order, a law or an article that no longer holds "
+        "after every one that does, whatever its score, unless `q` names it exactly "
+        "(`exact`). The names of a hit are its "
         "`display_name`, citation title, the `heading` of an article and the `aliases` "
         "of an instrument (`BW`, `Boek 6 BW`, `6 BW`: 0.75, before the words); `q` "
         "inside the title of a division an article stands in counts as part of its "
@@ -110,8 +124,11 @@ OFFSET_MAX = 500
         "without accents), with a word in a heading (x4), a division title (x1.5), a "
         "display name (x2), an alias or short title (x3) weighing more than one in a "
         "text; an instrument whose alias or short title is the whole of `q` is always "
-        "fetched. Of the articles the database orders by their tier before BM25, as far "
-        "as the article says it (named by its terms, a heading or display name that "
+        "fetched, and so is every book of a code `q` is the name of (`BW`, `Burgerlijk "
+        "Wetboek`: the citation title of its books without the book), in the order of "
+        "their number (1, 2, ..., 10). Of the articles the database orders by their "
+        "tier before BM25, as far as the article says it (named by its terms, a heading "
+        "or display name that "
         "starts with `q`, every word of `q` in its heading or the title of a division it "
         "stands in), so that the best tiers are among the hits however few are asked, "
         "while typing too (`onrechtmatige daad`: art. 6:162 BW, in the title "
@@ -231,12 +248,15 @@ OFFSET_MAX = 500
         "`AU3313`: the number of the ECLI of a decision before 2013) is the judgment whose ECLI"
         " ends in it, as an ECLI is. A member is named whole by the name without the names or "
         "initials before it (`Rutte`: Mark Rutte, 0.75, before the Besluit archief Rutten that "
-        "holds it). `exact` per hit says whether `q` names it as the one thing it is (its "
+        "holds it), and by each part of a double surname (`Yeşilgöz`: Dilan "
+        "Yeşilgöz-Zegerius, 0.75). A paper is no identifier of its dossier: it scores 1 "
+        "by its own number, not by that of its dossier. `exact` per hit says whether `q` "
+        "names it as the one thing it is (its "
         "citation, ECLI, LJN, number, the abbreviation or whole title of a law, the name of a "
-        "judgment, the whole name of a member, faction, committee or cabinet), never by a "
-        "heading or words; `best` is the id of what a search box opens on Enter: the match of "
-        "`resolved` of confidence 0.9 or more, else the hit of a concept, else the one "
-        "`exact` hit, else null "
+        "judgment, the whole name of a member, faction, committee, cabinet or ministry), never "
+        "by a heading or words; `best` is the id of what a search box opens on Enter: the "
+        "match of `resolved` of confidence 0.9 or more, else the hit of a concept, else the "
+        "one `exact` hit (an `exact` ministry before the committees: `BZK`), else null "
         "(`huurverhoging`: no hit it names, however its words match)."
         "\n\n"
         "A query that is a term of the curated list of concepts (`wanprestatie`, `ontslag "
@@ -493,14 +513,22 @@ def _best(
     """The id of what the query names exactly: the match of *resolved* of
     ``BEST_CONFIDENCE`` or more (what the sources name: a citation, a law by its
     abbreviation), else the hit of the *concept* it names (``_concept_item``), else the one
-    hit that is ``exact``; None when there is none or more than one (``BW``: every book),
+    hit that is ``exact``, a ministry before the committees (``BZK``: the ministry, not the
+    committee for it); None when there is none or more than one (``BW``: every book),
     however well the words match."""
     match = resolved.match if resolved else None
     if match is not None and resolved and resolved.confidence >= BEST_CONFIDENCE:
         return match.id
     if concept is not None:
         return concept.id
-    exact = {hit.id for hits in grouped.values() for hit in hits if hit.exact}
+    ministry = any(hit.exact for hit in grouped.get(COLLECTION_MINISTRIES, []))
+    exact = {
+        hit.id
+        for table, hits in grouped.items()
+        if not (ministry and table == COLLECTION_COMMITTEES)
+        for hit in hits
+        if hit.exact
+    }
     return exact.pop() if len(exact) == 1 else None
 
 

@@ -14,6 +14,7 @@ from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search.clause import (
     Period,
     QueryWords,
+    letters_joined,
     tokenize_search_query,
 )
 from lawgraph.db.queries.search.ranking import (
@@ -37,6 +38,27 @@ def test_tokenize_drops_short_tokens_and_lowercases():
     assert tokenize_search_query("BWBR0001854 a b cd") == ["bwbr0001854", "cd"]
 
 
+@pytest.mark.parametrize(
+    ("query", "joined"),
+    [
+        ("J en V", "jenv"),
+        ("j & v", "jenv"),
+        ("j&v", "jenv"),
+        ("B Z K", "bzk"),
+        ("BZ K", "bzk"),
+        ("a en b", "aenb"),
+        ("BZK", None),
+        ("BZ EZ", None),
+        ("lid a", None),
+        ("art 6 a", None),
+        ("Justitie en Veiligheid", None),
+        ("en", None),
+    ],
+)
+def test_loose_letters_are_one_abbreviation(query: str, joined: str | None) -> None:
+    assert letters_joined(query) == joined
+
+
 def hit(**fields: Any) -> dict[str, Any]:
     return {"id": "x/k", "key": "k", "display_name": None, "extra": {}, **fields}
 
@@ -49,7 +71,13 @@ def hit(**fields: Any) -> dict[str, Any]:
         ("bwbr0001854", hit(extra={"bwb_id": "BWBR0001854"}), SCORE_IDENTIFIER),
         ("Sr", hit(extra={"short_title": "Sr"}), SCORE_IDENTIFIER),
         ("36327", hit(extra={"number": "36327"}), SCORE_IDENTIFIER),
-        ("36327", hit(extra={"dossier_number": "36327"}), SCORE_IDENTIFIER),
+        # a paper is no identifier of its dossier: every paper of it holds its number
+        (
+            "36327",
+            hit(collection="documents", extra={"dossier_number": "36327"}),
+            SCORE_WORDS,
+        ),
+        ("BZK", hit(collection="ministries", extra={"abbreviation": "BZK"}), 1.0),
         (
             "ECLI:NL:HR:2020:7",
             hit(key="ecli_nl_hr_2020_7", extra={"ecli": "ECLI:NL:HR:2020:7"}),
@@ -187,6 +215,11 @@ def hit(**fields: Any) -> dict[str, Any]:
             hit(collection="members", display_name="P.J. Rutten"),
             SCORE_CONTAINS,
         ),
+        # of a double surname each part, and the whole
+        *(
+            (q, hit(collection="members", display_name="Dilan Yeşilgöz-Zegerius"), 0.75)
+            for q in ("Yeşilgöz", "yesilgoz", "Zegerius", "Yeşilgöz-Zegerius")
+        ),
         (
             "Rutte",
             hit(collection="instruments", display_name="Besluit Rutte"),
@@ -236,6 +269,11 @@ def test_hits_come_best_score_first_and_ties_keep_their_order() -> None:
         ),
         ("mark rutte", hit(collection="members", display_name="Mark Rutte"), True),
         ("VVD", hit(collection="factions", extra={"abbreviation": "VVD"}), True),
+        (
+            "Financiën",
+            hit(collection="ministries", display_name="Financiën"),
+            True,
+        ),
         # found by its citation or its ECLI: its search says so
         ("art. 6:162 BW", hit(collection="articles", exact=True), True),
         # a heading, the dossier of a paper, a surname, words: no hit that is the thing
@@ -266,6 +304,21 @@ def test_a_hit_is_exact_when_the_query_names_it(
     query: str, the_hit: dict[str, Any], exact: bool
 ) -> None:
     assert exact_hit(query, the_hit) is exact
+
+
+def test_what_no_longer_holds_comes_after_all_that_holds() -> None:
+    """A law or article that expired goes after every one in force, whatever its score
+    (``stikstof``: art. 2.8 of the Wet natuurbescherming, expired, below the words of a
+    law in force); what the query names exactly or identifies goes first still."""
+    gone = {"expired_on": "2024-01-01"}
+    hits = [
+        hit(id="wnb", collection="articles", score=SCORE_TITLE, extra=gone),
+        hit(id="ow", collection="articles", score=SCORE_WORDS),
+        hit(id="awb", collection="instruments", extra={**gone, "aliases": ["Awb"]}),
+        hit(id="ab", collection="instruments", score=SCORE_PREFIX),
+    ]
+    ranked = rank_hits("awb", hits, today="2026-10-29")
+    assert [h["id"] for h in ranked] == ["awb", "ab", "ow", "wnb"]
 
 
 def test_a_hit_that_has_a_score_keeps_it() -> None:
@@ -378,6 +431,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "display_name": "AVG",
             "title": "Algemene verordening gegevensbescherming",
             "confidence": 0.9,
+            "expired_on": None,
         },
         "alternatives": [],
         "alternatives_total": 0,
@@ -500,6 +554,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "display_name",
         "title",
         "confidence",
+        "expired_on",
         "path",
     }
     q = next(p for p in operation["parameters"] if p["name"] == "q")
@@ -713,6 +768,15 @@ def test_best_is_the_one_hit_the_query_names_exactly(
         for book in (1, 6)
     ]
     assert client.get("/api/search", params={"q": "BW"}).json()["best"] is None
+
+    # a ministry named exactly, before the committee for it
+    found.clear()
+    found["committees"] = [_item("bzk", "committees", 1.0, abbreviation="BZK")]
+    body = client.get("/api/search", params={"q": "BZK"}).json()
+    assert body["best"] == "committees/bzk"
+    found["ministries"] = [_item("bzk", "ministries", 1.0, abbreviation="BZK")]
+    body = client.get("/api/search", params={"q": "BZK"}).json()
+    assert body["best"] == "ministries/bzk"
 
 
 def test_best_is_the_match_of_the_resolver_when_it_is_sure(
