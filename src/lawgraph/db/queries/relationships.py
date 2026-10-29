@@ -37,7 +37,7 @@ _NODE_FIELDS = ("id", "key", "type", "labels", "props")
 # The parent instrument of the article ``t`` (edges go article → instrument): the first
 # PART_OF edge by target id whose instrument exists. Its edges first, then each node by its
 # id (as ``_helpers._find_instrument_for_article``): never ``nodes`` in the order of its ids.
-_INSTRUMENT_FOR = f"""
+INSTRUMENT_FOR = f"""
     LEFT JOIN LATERAL (
         SELECT n.id, n.key, n.type, n.labels, n.props
         FROM (
@@ -51,7 +51,7 @@ _INSTRUMENT_FOR = f"""
         LIMIT 1
     ) i ON true
 """
-_INSTRUMENT = (
+INSTRUMENT_COLUMNS = (
     "i.id AS i_id, i.key AS i_key, i.type AS i_type, i.labels AS i_labels,"
     " i.props AS i_props"
 )
@@ -61,7 +61,7 @@ def _edge(row: dict[str, Any]) -> dict[str, Any]:
     return edge_doc({**row, "key": row["edge_key"]})
 
 
-def _instrument(row: dict[str, Any]) -> dict[str, Any] | None:
+def instrument_of_row(row: dict[str, Any]) -> dict[str, Any] | None:
     if row["i_id"] is None:
         return None
     return node_doc({f: row[f"i_{f}"] for f in _NODE_FIELDS})
@@ -76,22 +76,47 @@ def _article_links(
 ) -> list[dict[str, Any]]:
     """The edges of *relations* between *article_id* (the edge's *own* end) and another
     article (its *other* end), by edge key; each ``{edge, target, instrument}``."""
+    return _links_of(store, [article_id], own, other, relations).get(article_id, [])
+
+
+def _links_of(
+    store: GraphStore,
+    article_ids: list[str],
+    own: str,
+    other: str,
+    relations: tuple[str, ...],
+) -> dict[str, list[dict[str, Any]]]:
+    """``_article_links`` of each of *article_ids*, in one query."""
     rows = store.query(
         f"""
-        SELECT {_EDGE}, {_TARGET}, {_INSTRUMENT}
+        SELECT e.{own}_id AS own_id, {_EDGE}, {_TARGET}, {INSTRUMENT_COLUMNS}
         FROM edges e
         JOIN articles t ON t.id = e.{other}_id
-        {_INSTRUMENT_FOR}
-        WHERE e.{own}_id = %(article_id)s AND e.relation = ANY(%(relations)s)
+        {INSTRUMENT_FOR}
+        WHERE e.{own}_id = ANY(%(ids)s) AND e.relation = ANY(%(relations)s)
           AND e.{other}_collection = '{COLLECTION_ARTICLES}'
         ORDER BY e.key
         """,
-        {"article_id": article_id, "relations": list(relations)},
+        {"ids": list(article_ids), "relations": list(relations)},
     )
-    return [
-        {"edge": _edge(row), "target": node_doc(row), "instrument": _instrument(row)}
-        for row in rows
-    ]
+    links: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        links.setdefault(row["own_id"], []).append(
+            {
+                "edge": _edge(row),
+                "target": node_doc(row),
+                "instrument": instrument_of_row(row),
+            }
+        )
+    return links
+
+
+def article_successors(
+    store: GraphStore, article_ids: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """The ``successors`` of ``get_article_relationship_data`` of each of *article_ids*
+    that has any, in one query."""
+    return _links_of(store, article_ids, "from", "to", _TRANSPOSED)
 
 
 def get_article_relationship_data(
