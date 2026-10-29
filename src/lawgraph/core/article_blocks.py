@@ -20,21 +20,27 @@ OUTSIDE = "tekst"
 HEADING = "kop"
 
 
-class PartSpan(Protocol):
-    """A part of an article as a span of its text."""
-
-    id: str
-    kind: str
-    number: str | None
-    start: int
-    end: int
-
-
 class Span(Protocol):
     """A span of the text of an article: a heading."""
 
-    start: int
-    end: int
+    @property
+    def start(self) -> int: ...
+
+    @property
+    def end(self) -> int: ...
+
+
+class PartSpan(Span, Protocol):
+    """A part of an article as a span of its text."""
+
+    @property
+    def id(self) -> str: ...
+
+    @property
+    def kind(self) -> str: ...
+
+    @property
+    def number(self) -> str | None: ...
 
 
 @dataclass(frozen=True)
