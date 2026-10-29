@@ -10,5 +10,7 @@ step feed-events
 step check --skip-edges
 step search-stats prune
 step search-candidates
+# The sitemaps read the graph and write files: outside the lock, so the polls need not wait.
+unlock
 step sitemaps
 finish
