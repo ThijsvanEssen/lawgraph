@@ -53,13 +53,14 @@ from lawgraph.core.models import NodeType, key_of, make_node_key, node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db import GraphStore
-from lawgraph.db._rows import edge_doc, node_doc
+from lawgraph.db._rows import node_doc
 from lawgraph.db.queries._json_sql import (
     array_or_empty,
     as_text,
     first_present,
     is_present,
 )
+from lawgraph.db.queries._keyset import InvalidCursor, Keyset, SortKey
 from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
@@ -855,12 +856,34 @@ def classify_relation(relation: str | None) -> str:
 
 
 # An edge of a mutation subgraph with the node it leaves (any collection, ``nodes``) and
-# the article it points at; either is NULL when it is gone.
-_MUTATION_COLUMNS = """e.key, e.from_id, e.to_id, e.doc,
+# the article it points at; either is NULL when it is gone. Only what the answer shows: the
+# ``meta`` of the edge and the ``display_name`` of a node, not their documents (a paper's
+# props hold its text, and a dossier of thousands of papers held them all in memory).
+_MUTATION_COLUMNS = """e.key, e.from_id, e.to_id, e.relation, e.status,
+           e.doc -> 'meta' AS meta,
            f.id AS f_id, f.key AS f_key, f.type AS f_type, f.labels AS f_labels,
-           f.props AS f_props,
+           json_build_object('display_name', f.props -> 'display_name') AS f_props,
            a.id AS a_id, a.key AS a_key, a.type AS a_type, a.labels AS a_labels,
-           a.props AS a_props"""
+           json_build_object('display_name', a.props -> 'display_name') AS a_props"""
+
+# The edges of a dossier's mutations by key, and else those of the documents that name its
+# number by paper and key. ``after`` of a page is the sort values of its last edge.
+MUTATIONS_BY_EDGE = Keyset("mutations", (SortKey("e.key", not_null=True),))
+MUTATIONS_BY_DOCUMENT = Keyset(
+    "mutations-documents",
+    (SortKey("f.key", not_null=True), SortKey("e.key", not_null=True)),
+)
+# The edges of a page of ``get_dossier_mutations`` when no limit is given.
+MUTATIONS_PAGE = 1000
+
+_MUTATIONS_OF_MEMBERS = f"""e.from_id IN (
+        SELECT m.from_id FROM {COLLECTION_EDGES} m
+        WHERE m.to_id = %(dossier_id)s AND m.relation = ANY(%(members)s)
+    )
+      AND (e.status = %(proposed)s OR e.relation = ANY(%(relations)s))
+      AND e.to_collection = '{COLLECTION_ARTICLES}'"""
+_MUTATIONS_OF_DOCUMENTS = """f.dossier_numbers @> ARRAY[%(number)s]::text[]
+      AND e.relation = ANY(%(relations)s)"""
 
 
 def _side(row: dict[str, Any], prefix: str) -> dict[str, Any] | None:
@@ -872,59 +895,154 @@ def _side(row: dict[str, Any], prefix: str) -> dict[str, Any] | None:
     )
 
 
-def get_dossier_mutations(store: GraphStore, dossier_id: str) -> dict[str, Any]:
-    """The pending-change and explanation subgraph of a dossier.
-
-    Primary signal: an edge out of anything that belongs to the dossier, with
-    status ``voorgesteld`` or one of the change / explanation relations. When
-    nothing belongs to the dossier yet, the same relations are scoped by the
-    documents that name its number. Each node takes the strongest kind of its
-    edges, so a change outweighs an explanation.
-    """
-    sql = f"""
-    SELECT {_MUTATION_COLUMNS}
-    FROM {COLLECTION_EDGES} e
-    LEFT JOIN {node_of("e.from_id", "e.from_collection")} f ON true
-    LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
-    WHERE e.from_id IN (
-        SELECT m.from_id FROM {COLLECTION_EDGES} m
-        WHERE m.to_id = %(dossier_id)s AND m.relation = ANY(%(members)s)
-    )
-      AND (e.status = %(proposed)s OR e.relation = ANY(%(relations)s))
-      AND e.to_collection = '{COLLECTION_ARTICLES}'
-    ORDER BY e.key ASC
-    """
-    relations = list(MUTATION_RELATIONS) + list(EXPLANATION_RELATIONS)
-    bind = {
+def _mutation_binds(dossier_id: str) -> dict[str, Any]:
+    return {
         "dossier_id": dossier_id,
         "members": [RELATION_PART_OF, RELATION_ABOUT],
         "proposed": EDGE_STATUS_VOORGESTELD,
-        "relations": relations,
+        "relations": list(MUTATION_RELATIONS) + list(EXPLANATION_RELATIONS),
     }
-    graph = _MutationGraph()
-    for row in store.query(sql, bind):
-        graph.add(edge_doc(row), _side(row, "f"), _side(row, "a"))
-    if graph.nodes:
-        return graph.result()
 
+
+def _mutation_number(store: GraphStore, dossier_id: str) -> str:
     dossier = store.get_document(COLLECTION_DOSSIERS, key_of(dossier_id))
-    number = str((dossier or {}).get("props", {}).get("label") or "")
-    if not number:
-        return {"nodes": [], "edges": []}
+    return str((dossier or {}).get("props", {}).get("label") or "")
 
+
+def _mutation_cursor(after: str | None) -> tuple[Keyset | None, list[Any]]:
+    """The order a token belongs to and its values; ``(None, [])`` without a token."""
+    if after is None:
+        return None, []
+    try:
+        return MUTATIONS_BY_EDGE, MUTATIONS_BY_EDGE.values(after)
+    except InvalidCursor:
+        return MUTATIONS_BY_DOCUMENT, MUTATIONS_BY_DOCUMENT.values(after)
+
+
+def _mutation_page(
+    store: GraphStore,
+    keyset: Keyset,
+    sql: str,
+    bind: dict[str, Any],
+    limit: int,
+    values: list[Any],
+) -> dict[str, Any]:
+    """One page of *limit* edges of the statement *sql* (``FROM edges e`` .. ``WHERE``
+    its condition) in the order of *keyset*, after the edge with sort *values*."""
+    condition = f" AND {keyset.after(values, bind)}" if values else ""
+    rows = list(
+        store.query(
+            f"{sql}{condition} ORDER BY {keyset.order} LIMIT %(page_limit)s",
+            {**bind, "page_limit": limit + 1},
+        )
+    )
+    graph = _MutationGraph()
+    for row in rows[:limit]:
+        graph.add(_mutation_edge(row), _side(row, "f"), _side(row, "a"))
+    result = graph.result()
+    result["next_cursor"] = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        names = ("key",) if keyset is MUTATIONS_BY_EDGE else ("f_key", "key")
+        result["next_cursor"] = keyset.token([last[n] for n in names])
+    return result
+
+
+def _mutation_edge(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "from_id": row["from_id"],
+        "to_id": row["to_id"],
+        "relation": row["relation"],
+        "status": row["status"],
+        "meta": row["meta"],
+    }
+
+
+def get_dossier_mutations(
+    store: GraphStore,
+    dossier_id: str,
+    *,
+    limit: int = MUTATIONS_PAGE,
+    after: str | None = None,
+) -> dict[str, Any]:
+    """A page of the pending-change and explanation subgraph of a dossier:
+    ``{nodes, edges, next_cursor}``, at most *limit* edges, the next page *after* the
+    ``next_cursor`` of the one before (None on the last page).
+
+    Primary signal: an edge out of anything that belongs to the dossier, with
+    status ``voorgesteld`` or one of the change / explanation relations, by key. When
+    nothing belongs to the dossier yet, the same relations are scoped by the
+    documents that name its number, by document and key. Each node takes the strongest
+    kind of the edges of its page, so a change outweighs an explanation. A page holds
+    only the nodes its edges name.
+    """
+    keyset, values = _mutation_cursor(after)
+    bind = _mutation_binds(dossier_id)
+    if keyset is None or keyset is MUTATIONS_BY_EDGE:
+        sql = f"""
+        SELECT {_MUTATION_COLUMNS}
+        FROM {COLLECTION_EDGES} e
+        LEFT JOIN {node_of("e.from_id", "e.from_collection")} f ON true
+        LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
+        WHERE {_MUTATIONS_OF_MEMBERS}"""
+        page = _mutation_page(store, MUTATIONS_BY_EDGE, sql, bind, limit, values)
+        if page["nodes"] or keyset is not None:
+            return page
+
+    number = _mutation_number(store, dossier_id)
+    if not number:
+        return {"nodes": [], "edges": [], "next_cursor": None}
     # ``@number IN (dossier_numbers OR [])``: a string of the array the props hold.
-    fallback = f"""
+    sql = f"""
     SELECT {_MUTATION_COLUMNS}
     FROM {COLLECTION_DOCUMENTS} f
-    JOIN {COLLECTION_EDGES} e ON e.from_id = f.id AND e.relation = ANY(%(relations)s)
+    JOIN {COLLECTION_EDGES} e ON e.from_id = f.id
      AND e.to_collection = '{COLLECTION_ARTICLES}'
     LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
-    WHERE f.dossier_numbers @> ARRAY[%(number)s]::text[]
-    ORDER BY f.key ASC, e.key ASC
-    """
-    for row in store.query(fallback, {"number": number, "relations": relations}):
-        graph.add(edge_doc(row), _side(row, "f"), _side(row, "a"))
-    return graph.result()
+    WHERE {_MUTATIONS_OF_DOCUMENTS}"""
+    bind["number"] = number
+    return _mutation_page(
+        store,
+        MUTATIONS_BY_DOCUMENT,
+        sql,
+        bind,
+        limit,
+        values if keyset is MUTATIONS_BY_DOCUMENT else [],
+    )
+
+
+def count_dossier_mutations(store: GraphStore, dossier_id: str) -> int:
+    """How many edges the pages of ``get_dossier_mutations`` hold in all."""
+    bind = _mutation_binds(dossier_id)
+    total = next(
+        iter(
+            store.query(
+                f"SELECT count(*) FROM {COLLECTION_EDGES} e "
+                f"WHERE {_MUTATIONS_OF_MEMBERS}",
+                bind,
+            )
+        )
+    )
+    if total:
+        return int(total)
+    number = _mutation_number(store, dossier_id)
+    if not number:
+        return 0
+    bind["number"] = number
+    return int(
+        next(
+            iter(
+                store.query(
+                    f"""
+                    SELECT count(*) FROM {COLLECTION_DOCUMENTS} f
+                    JOIN {COLLECTION_EDGES} e ON e.from_id = f.id
+                     AND e.to_collection = '{COLLECTION_ARTICLES}'
+                    WHERE {_MUTATIONS_OF_DOCUMENTS}""",
+                    bind,
+                )
+            )
+        )
+    )
 
 
 class _MutationGraph:
@@ -948,16 +1066,7 @@ class _MutationGraph:
         for end in (edge.get("from_id"), edge.get("to_id")):
             if end and self._kinds.get(end) != "mutation":
                 self._kinds[end] = kind
-        self.edges.append(
-            {
-                "from_id": edge.get("from_id"),
-                "to_id": edge.get("to_id"),
-                "relation": edge.get("relation"),
-                "status": edge.get("status"),
-                "meta": edge.get("meta"),
-                "kind": kind,
-            }
-        )
+        self.edges.append({**edge, "kind": kind})
 
     def result(self) -> dict[str, Any]:
         return {

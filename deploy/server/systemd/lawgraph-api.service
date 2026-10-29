@@ -10,6 +10,17 @@ WorkingDirectory=/srv/lawgraph/app
 ExecStart=/srv/lawgraph/app/.venv/bin/lawgraph-api
 Restart=on-failure
 RestartSec=5
+# One request cannot take the host down (28 Oct 2026: 7.2 GB of anon-rss on 8 GB, the kernel
+# killed the API after a minute of 502): past MemoryHigh the API is slowed and reclaimed, at
+# MemoryMax the kernel kills in this cgroup alone, and systemd restarts the unit
+# (OOMPolicy=stop ends the whole unit, not one process). No swap for it: a process that
+# swaps for minutes is worse than one that restarts. The values are to measure against
+# `MemoryPeak` of a normal day (`docs/operations.md`, "Memory of the API").
+MemoryHigh=3G
+MemoryMax=4G
+MemorySwapMax=0
+OOMPolicy=stop
+OOMScoreAdjust=300
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

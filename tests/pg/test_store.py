@@ -628,3 +628,20 @@ def test_analyze_changed_analyzes_the_tables_with_changed_rows_alone(
     store.analyze_changed()
     assert analyzed("written")
     assert not analyzed("documents")
+
+
+def test_a_stream_that_outlasts_its_request_stops_between_batches(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rows the request has no time left to answer are not read on and held."""
+    token = request_context.set_read_deadline(60)
+    try:
+        rows = store.query("SELECT n FROM generate_series(1, 2500) n", batch_size=100)
+        assert [next(rows) for _ in range(100)] == list(range(1, 101))
+        # the clock runs past the deadline while the first batch is read
+        monkeypatch.setattr(request_context, "_now", lambda: time.monotonic() + 120)
+        with pytest.raises(request_context.ReadTimedOut, match="past the deadline"):
+            list(rows)
+    finally:
+        request_context.reset_read_deadline(token)
+    assert list(store.query("SELECT 1")) == [1]

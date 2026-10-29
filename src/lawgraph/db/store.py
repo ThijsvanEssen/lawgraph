@@ -838,6 +838,12 @@ class GraphStore:
                     yield from rows
                     return
                 yield from rows
+                if read.deadline is not None and seconds_past(read.deadline) > 0:
+                    # a result that outlasts its request is not read on: its next batches
+                    # would only be held in memory for an answer no one gets
+                    raise ReadTimedOut(
+                        f"A read ran past the deadline of its request: {text[:300]}"
+                    )
         except psycopg.errors.QueryCanceled as exc:
             if read.cancellation is not None and read.cancellation.cancelled:
                 raise RequestCancelled(
