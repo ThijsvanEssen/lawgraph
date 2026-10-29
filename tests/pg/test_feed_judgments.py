@@ -308,7 +308,7 @@ def test_a_summary_counts_the_lower_courts_per_area_of_law(lower: TestClient) ->
 
 def test_a_summary_without_lower_courts_has_none(lower: TestClient) -> None:
     days = _summary(lower)
-    assert not any("lower_courts" in day for day in days.values())
+    assert [date for date, day in days.items() if "lower_courts" in day] == []
 
 
 def test_the_lower_courts_follow_the_filters(lower: TestClient) -> None:
