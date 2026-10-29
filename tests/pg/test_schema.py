@@ -476,6 +476,33 @@ def test_a_start_on_the_same_schema_runs_no_statement(conn: psycopg.Connection) 
     assert _index_count(conn, "articles_official_id_article_number") == 1
 
 
+def test_the_search_indexes_keep_a_short_pending_list(conn: psycopg.Connection) -> None:
+    """Every search index holds at most ``SEARCH_PENDING_LIST_KB`` of rows written since
+    its last merge, which a lookup reads whole: a fresh one, and one an earlier release
+    made with the default of 4 MB, which the next start sets."""
+    limit = f"gin_pending_list_limit={schema.SEARCH_PENDING_LIST_KB}"
+
+    def without_limit() -> list[str]:
+        return sorted(
+            str(name)
+            for (name,) in conn.execute(
+                "SELECT c.relname FROM pg_class c JOIN pg_am a ON a.oid = c.relam"
+                " WHERE a.amname = 'gin' AND c.relname ~ '_(s_[a-z_]+_[tgpn]|search_"
+                "words|search_names|names_folded)$'"
+                " AND NOT coalesce(c.reloptions, '{}') @> ARRAY[%s]",
+                (limit,),
+            )
+        )
+
+    assert without_limit() == []
+    conn.execute("ALTER INDEX articles_s_text_t RESET (gin_pending_list_limit)")
+    conn.execute("ALTER INDEX decisions_search_words RESET (gin_pending_list_limit)")
+    assert without_limit() == ["articles_s_text_t", "decisions_search_words"]
+    _forget_schema(conn)
+    ensure_schema(conn)
+    assert without_limit() == []
+
+
 def test_a_changed_schema_runs_and_keeps_its_digest(
     conn: psycopg.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

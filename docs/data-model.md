@@ -1977,6 +1977,9 @@ insert is found at once. `members` and `factions` are searched by their names
 number, and `decisions` by their subject and kind, each through a trigram index on those
 words lower-cased (`<table>_search_words`): a part of them, or, for a word without three
 letters or digits in a row (`BW`), which has no trigram, the start of one of them.
+Every search index (GIN) merges the rows written since its last merge once they hold
+256 kB (`gin_pending_list_limit`, `schema.SEARCH_PENDING_LIST_KB`): a lookup reads that
+pending list whole, and at the default of 4 MB it read some 400 pages of each index.
 `articles` are searched by their `display_name`, `heading`, the `title` of every division in
 the `breadcrumb` (`breadcrumb.title`), `text`, `article_number` and `bwb_id`; `instruments`
 by their titles, `short_title`, `aliases` and `bwb_id`; `judgments` by each of their `names`
