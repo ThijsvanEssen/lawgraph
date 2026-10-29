@@ -273,12 +273,12 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     assert "instruments" in ran and "coverage" not in ran
 
 
-def test_the_articles_cited_most_are_warmed_to_the_last(
+def test_the_most_cited_articles_are_warmed_in_full_then_until_newer_data(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first,
-    and all of them also when a pipeline writes meanwhile: the part takes up to half an
-    hour, and stopped at every poll it was never done (16 Oct)."""
+    """The articles cited ``WARM_ARTICLE_CITATIONS`` times or more, the most cited first:
+    the ``WARM_ARTICLES_FIRST`` also when a pipeline writes meanwhile, the others only
+    until it does, so the warm-up of the newer data can begin."""
     at_least = warm_nodes.WARM_ARTICLE_CITATIONS
     store.bulk_insert_or_update_nodes(
         "articles",
@@ -287,20 +287,22 @@ def test_the_articles_cited_most_are_warmed_to_the_last(
          for key, n in (("low", at_least - 1), ("top", at_least * 9),
                         ("next", at_least * 2), ("last", at_least))],
     )  # fmt: skip
+    version = store.data_version()
     opened: list[str] = []
 
     def node(store_: GraphStore, collection: str, key: str) -> None:
         opened.append(key)
-        if key == "next":  # a pipeline writes while it is warmed
+        if key == "top":  # a pipeline writes while it is warmed
             store_.bulk_insert_or_update_nodes(
                 "instruments",
                 [{"key": "z", "type": "instrument", "labels": [], "props": {}}],
             )
 
+    monkeypatch.setattr(warm, "WARM_ARTICLES_FIRST", 2)
     monkeypatch.setattr(warm_nodes, "get_node_with_neighbors", node)
     monkeypatch.setattr(warm_nodes, "get_article_cited_by", lambda *a, **k: None)
-    warm._warm_articles(store)
-    assert opened == ["top", "next", "last"]
+    warm._warm_articles(store, version)
+    assert opened == ["top", "next"]
 
 
 def test_the_articles_are_warmed_at_most_once_an_hour(
@@ -310,7 +312,7 @@ def test_the_articles_are_warmed_at_most_once_an_hour(
     warm-up after one leaves the articles when it began them less than
     ``ARTICLES_EVERY`` ago."""
     warmed: list[int] = []
-    monkeypatch.setattr(warm, "_warm_articles", lambda store_: warmed.append(1))
+    monkeypatch.setattr(warm, "_warm_articles", lambda *a: warmed.append(1))
     monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
     assert warmed == [1]
@@ -338,7 +340,7 @@ def test_the_articles_are_warmed_after_the_warm_up_is_done(
     monkeypatch.setattr(
         warm,
         "_warm_articles",
-        lambda store_: warm_while_warming.append(warm.is_warm(store_.data_version())),
+        lambda store_, version: warm_while_warming.append(warm.is_warm(version)),
     )
     warm.warm_up(store)
     assert warm_while_warming == [True]
@@ -570,7 +572,7 @@ def test_the_neighborhoods_are_warmed_after_the_articles_once_an_hour(
     """After the passages of the most cited articles, at most once per
     ``ARTICLES_EVERY``, as they are."""
     ran: list[str] = []
-    monkeypatch.setattr(warm, "_warm_articles", lambda store_: ran.append("articles"))
+    monkeypatch.setattr(warm, "_warm_articles", lambda *a: ran.append("articles"))
     monkeypatch.setattr(
         warm, "_warm_neighborhoods", lambda store_: ran.append("neighborhoods")
     )
