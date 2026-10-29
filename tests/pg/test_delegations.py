@@ -324,10 +324,11 @@ def test_the_light_form_has_the_regulations_under_a_regulation(
     assert set(rows[FIRST]) == {"instrument", "articles", "sub_delegated"}
     assert [a["key"] for a in rows[FIRST]["articles"]] == [f"{LAW.lower()}_1"]
     assert [a for a in rows[FIRST]["articles"] if "referring" in a] == []
+    # also the one issued under the law itself as well: the keten draws both its lines
     assert [
         (s["instrument"]["props"]["bwb_id"], [a["key"] for a in s["articles"]])
         for s in rows[FIRST]["sub_delegated"]
-    ] == [(SUB, [f"{FIRST.lower()}_1"])]
+    ] == [(SUB, [f"{FIRST.lower()}_1"]), (BOTH, [f"{FIRST.lower()}_1"])]
     assert rows[_regulation(1)]["sub_delegated"] == []
     params = {
         "bwb": LAW,

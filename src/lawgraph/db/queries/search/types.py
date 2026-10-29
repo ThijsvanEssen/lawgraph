@@ -774,12 +774,15 @@ def _all_words(
     """Every token (with *any_word*: one at least) is a part of *words* (the words of a
     cabinet, commitment or vote: lower case), or its stem is (``lg_tokens``, of
     ``STEM_MIN`` characters or more: "pensioenen" finds "pensioen"): a trigram lookup each.
+    A token without three letters or digits in a row (``bw``, ``7:1``) has no trigram to
+    look up: it is the start of a word (``_part_of``), else every row is read (prod, 29
+    Oct: "BW" in the votes, 2.5 s).
     *also*: per token a condition that finds a row besides its words."""
     params = {f"_word_{i}": token for i, token in enumerate(tokens)}
     stem = "(lg_tokens(%({name})s))[1]"
     condition = joined(
         [
-            f"({words} LIKE '%%' || lg_like(%({name})s) || '%%'"
+            f"({_part_of(words, name, params[name])}"
             f" OR (char_length({stem.format(name=name)}) >= {STEM_MIN}"
             f" AND {words} LIKE '%%' || lg_like({stem.format(name=name)}) || '%%')"
             + (f" OR {also[i]}" if also and i in also else "")
@@ -789,6 +792,25 @@ def _all_words(
         any_word,
     )
     return condition, params
+
+
+# Three letters or digits in a row: what a trigram index looks a part of a value up by.
+_TRIGRAM = re.compile(r"[^\W_]{3}")
+# What stands before the start of a word in the words of a row: a space, a parenthesis.
+_WORD_STARTS = (" ", "(")
+
+
+def _part_of(words: str, name: str, token: str) -> str:
+    """SQL: the parameter *name*, the token *token*, is a part of *words*; a token without
+    a trigram the start of a word of it: of the value, or after one of ``_WORD_STARTS``, a
+    lookup of the trigrams of the start of a word each."""
+    if _TRIGRAM.search(token):
+        return f"{words} LIKE '%%' || lg_like(%({name})s) || '%%'"
+    pattern = f"lg_like(%({name})s) || '%%'"
+    return " OR ".join(
+        [f"{words} LIKE {pattern}"]
+        + [f"{words} LIKE '%%{start}' || {pattern}" for start in _WORD_STARTS]
+    )
 
 
 def _all_words_folded(
