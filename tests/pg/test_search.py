@@ -244,6 +244,7 @@ def test_a_citation_is_found_without_searching_its_words(
 ) -> None:
     """An article cited, an ECLI: what the precise lookup finds is the answer, at once,
     while typing and in full; their words are not searched."""
+    parser.load_notation_parser(graph)  # what the warm-up keeps
     calls = recorded(graph, monkeypatch)
     for search in (dispatch.search_live, dispatch.search_full):
         hits, partial = search(graph, q="art. 1 Sr", types=["articles"])
