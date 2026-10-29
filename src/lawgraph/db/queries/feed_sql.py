@@ -52,6 +52,7 @@ from lawgraph.core.feed import (
     FEED_KINDS,
     FEED_TIERS,
     KIND_RANK,
+    NO_SUBJECT_AREA,
     FeedCursor,
 )
 from lawgraph.core.models import make_node_key, node_id
@@ -149,6 +150,9 @@ class FeedFilters:
     coalition: str | None = None
     # the tiers of the judgments; None: ``FEED_TIERS``. A tier keeps judgments alone.
     tiers: tuple[str, ...] | None = None
+    # a main area of law of the judgments (``lg_subject_areas``), ``NO_SUBJECT_AREA`` those
+    # without one; keeps judgments alone
+    subject_area: str | None = None
     instrument: str | None = None
     article: str | None = None
 
@@ -311,6 +315,25 @@ def _tier_part(tier: str) -> str:
     """SQL: a judgment of *tier*: a part of its own, read on the index of the tier and the
     date of publication."""
     return f"n.tier = {lit(tier)}"
+
+
+def _in_subject_area(area: str) -> str:
+    """SQL: a judgment ``n`` in the main area of law *area*; of ``NO_SUBJECT_AREA``, one
+    without any."""
+    areas = "lg_subject_areas(n.subjects)"
+    if area == NO_SUBJECT_AREA:
+        return f"cardinality({areas}) = 0"
+    return f"{areas} @> ARRAY[{lit(area)}]::text[]"
+
+
+def judgments_of(source: Source, filters: FeedFilters) -> Source:
+    """The judgments *source* under the ``tier`` and ``subject_area`` of *filters*."""
+    if filters.tiers:
+        source = replace(source, parts=tuple(_tier_part(t) for t in filters.tiers))
+    if filters.subject_area:
+        area = _in_subject_area(filters.subject_area)
+        source = replace(source, where=f"{source.where} AND {area}")
+    return source
 
 
 _CHANGES = ", ".join(lit(r) for r in CHANGE_RELATIONS)
@@ -542,10 +565,11 @@ def cabinet_on(date: str) -> str:
 
 def kinds_of(filters: FeedFilters) -> tuple[str, ...] | None:
     """The kinds the feed keeps: those asked for; without, ``DEFAULT_KINDS`` (every kind),
-    unless a ``tier`` asks for judgments (None: every kind the other filters let through)."""
+    unless a ``tier`` or ``subject_area`` asks for judgments (None: every kind the other
+    filters let through)."""
     if filters.kinds:
         return filters.kinds
-    return None if filters.tiers else DEFAULT_KINDS
+    return None if filters.tiers or filters.subject_area else DEFAULT_KINDS
 
 
 def dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> FacetFilters:
@@ -702,10 +726,9 @@ def kinds_to_read(filters: FeedFilters, *, facets: bool) -> list[Source]:
     count every kind), without those that cannot have the member or faction asked for."""
     chosen = FEED_KINDS if facets else (kinds_of(filters) or FEED_KINDS)
     sources = [SOURCES[kind] for kind in FEED_KINDS if kind in chosen]
-    if filters.tiers:  # only a judgment has a tier
+    if filters.tiers or filters.subject_area:  # only a judgment has them
         judgments = [s for s in sources if s.kind == EVENT_JUDGMENT]
-        parts = tuple(_tier_part(tier) for tier in filters.tiers)
-        sources = [replace(s, parts=parts) for s in judgments]
+        sources = [judgments_of(s, filters) for s in judgments]
     if filters.member or filters.faction:
         sources = [s for s in sources if s.persons is not None]
     if filters.dossier:

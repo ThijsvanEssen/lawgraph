@@ -606,6 +606,8 @@ def unsupported(filters: FeedFilters) -> list[str]:
         found.append("member")
     if filters.tiers:
         found.append("tier")
+    if filters.subject_area:
+        found.append("subject_area")
     if filters.instrument:
         found.append("instrument")
     return found

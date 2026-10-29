@@ -36,6 +36,7 @@ from lawgraph.core.feed import (
     EVENT_PUBLICATION,
     EVENT_VOTE,
     FEED_KINDS,
+    LOWER_TIERS,
     FeedCursor,
 )
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
@@ -680,6 +681,82 @@ def _summary_of(
         if rows
         else {"days": [], "dossiers": [], "items": []}
     )
+
+
+def lower_filters(filters: FeedFilters) -> FeedFilters | None:
+    """*filters* on the judgments of the lower courts alone (``LOWER_TIERS``, of its own
+    tiers those that are lower); None when it keeps none of them."""
+    tiers = tuple(t for t in filters.tiers or LOWER_TIERS if t in LOWER_TIERS)
+    if not tiers or (filters.kinds and EVENT_JUDGMENT not in filters.kinds):
+        return None
+    return replace(filters, kinds=(EVENT_JUDGMENT,), tiers=tiers)
+
+
+# Per day the judgments of the lower courts and, per main area of law, those in it: a
+# judgment counts once in each of its areas, one without an area in the null one.
+def _lower_courts(dimensions: str) -> str:
+    """SQL: the days of ``events`` under *dimensions* (a WHERE), counted per area of law."""
+    return f""",
+    matching AS (SELECT id, date FROM events {dimensions}),
+    per_area AS (
+        SELECT m.date, a.area, count(*)::int AS count
+        FROM matching m
+        JOIN {COLLECTION_JUDGMENTS} j ON j.id = m.id
+        CROSS JOIN LATERAL (SELECT lg_subject_areas(j.subjects) AS v) s
+        CROSS JOIN LATERAL unnest(CASE WHEN cardinality(s.v) > 0 THEN s.v
+                                       ELSE ARRAY[NULL]::text[] END) AS a(area)
+        GROUP BY m.date, a.area
+    )
+    SELECT d.date, d.total,
+           json_agg(json_build_object('value', p.area, 'count', p.count)
+                    ORDER BY p.count DESC, p.area ASC NULLS LAST) AS subject_areas
+    FROM (SELECT date, count(*)::int AS total FROM matching GROUP BY date) d
+    JOIN per_area p ON p.date = d.date
+    GROUP BY d.date, d.total"""
+
+
+def lower_courts_query(filters: FeedFilters) -> tuple[str, dict[str, Any]] | None:
+    """The SQL of the judgments of the lower courts per day under *filters*
+    (``lower_filters``) and its parameters; None when the filters keep none."""
+    lower = lower_filters(filters)
+    if lower is None:
+        return None
+    bind = _base_bind(lower, 0)
+    plan = Plan(
+        filters=lower,
+        facets=True,  # every row of the window is counted
+        shared=shared_filters(lower, bind),
+        dimensions=dimension_filters(lower, bind),
+        cursor=None,
+    )
+    bind["until"] = plan.until
+    return rows_of(lower, plan, facets=True) + _lower_courts(
+        plan.dimensions.where()
+    ), bind
+
+
+def get_lower_courts(
+    store: GraphStore, filters: FeedFilters
+) -> dict[str, dict[str, Any]]:
+    """Per day (``YYYY-MM-DD``) of ``filters.since`` to ``filters.until`` that has any, the
+    judgments of the lower courts: ``total`` and ``subject_areas`` (``{value, count}``,
+    most first, null last), kept per data version as the summary is."""
+    return cached(
+        store, ("feed lower courts", filters), lambda: _lower_courts_of(store, filters)
+    )
+
+
+def _lower_courts_of(
+    store: GraphStore, filters: FeedFilters
+) -> dict[str, dict[str, Any]]:
+    query = lower_courts_query(filters)
+    if query is None:
+        return {}
+    rows = store.query(*query)
+    return {
+        str(row["date"]): {"total": row["total"], "subject_areas": row["subject_areas"]}
+        for row in rows
+    }
 
 
 def get_feed(
