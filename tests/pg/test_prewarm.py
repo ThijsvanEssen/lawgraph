@@ -20,17 +20,18 @@ def _article(store: GraphStore) -> None:
     )
 
 
-def test_the_search_indexes_go_to_the_buffers_and_the_heaps_to_the_cache(
+def test_the_search_indexes_are_read_then_the_heaps_asked_for(
     store: GraphStore,
 ) -> None:
     _article(store)
-    warmed = prewarm.prewarm(store)
-    modes = {w.relation: w.mode for w in warmed}
-    assert modes["articles_s_text_t"] == "buffer"
-    assert modes["dossiers_s_title_t"] == "buffer"
-    assert modes["judgments_s_summary_t"] == "buffer"
-    assert modes["articles"] == "read"
-    assert any(r.startswith("pg_toast.") and m == "read" for r, m in modes.items())
+    assert "articles" not in prewarm.relations(store)  # no heap by default
+    warmed = prewarm.prewarm(store, heaps=("articles",))
+    order = [w.relation for w in warmed]
+    assert {"articles_s_text_t", "dossiers_s_title_t", "judgments_s_summary_t"} <= set(
+        order
+    )
+    assert order.index("judgments_s_summary_t") < order.index("articles")
+    assert order[-1].startswith("pg_toast.")  # the TOAST of the articles
     assert not any(w.skipped for w in warmed)
     blocks = {w.relation: w.blocks for w in warmed}
     assert blocks["articles"] > 0 and blocks["articles_s_text_t"] > 0
@@ -40,9 +41,7 @@ def test_a_relation_that_does_not_fit_is_skipped_and_the_next_still_read(
     store: GraphStore,
 ) -> None:
     _article(store)
-    warmed = prewarm.prewarm(store, heap_mb=0)
-    heaps = [w for w in warmed if w.mode == "read"]
-    assert [w.relation for w in heaps if w.skipped] == [
-        "articles"
-    ]  # an empty TOAST fits
-    assert all(not w.skipped for w in warmed if w.mode == "buffer")
+    warmed = prewarm.prewarm(store, heaps=("articles",), budget_mb=0)
+    skipped = {w.relation for w in warmed if w.skipped}
+    assert "articles_s_text_t" in skipped and "articles" in skipped
+    assert not warmed[-1].skipped  # the TOAST of a short text: empty, it fits

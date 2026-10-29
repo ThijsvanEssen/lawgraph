@@ -1,10 +1,10 @@
 """``lawgraph prewarm``: what the search reads, read into memory (``queries/search/prewarm.py``).
 
-    lawgraph prewarm [--heaps articles ...] [--heap-mb 2048]
+    lawgraph prewarm [--heaps TABLE ...] [--budget-mb 2560]
 
-The search indexes into the buffers of PostgreSQL, the heap and TOAST of ``--heaps`` into
-the cache of the operating system. ``scripts/daily.sh`` runs it last, after it gave the
-lock up: it only reads.
+The search indexes, then the heap and TOAST of ``--heaps`` (none by default), into the
+cache of the operating system. ``scripts/daily.sh`` runs it last, after it gave the lock
+up: it only reads.
 """
 
 from __future__ import annotations
@@ -24,27 +24,23 @@ def main(argv: list[str] | None = None) -> PipelineResult:
     parser.add_argument(
         "--heaps",
         nargs="*",
-        default=list(search_prewarm.HEAPS),
-        help="The tables whose heap and TOAST are read too (default: %(default)s).",
+        default=[],
+        help="The tables whose heap and TOAST are read after the indexes.",
     )
     parser.add_argument(
-        "--heap-mb",
+        "--budget-mb",
         type=int,
-        default=search_prewarm.HEAP_MB,
-        help="The most of those heaps read, in MB (default: %(default)s).",
+        default=search_prewarm.BUDGET_MB,
+        help="The most read, in MB (default: %(default)s).",
     )
     args = parser.parse_args(argv)
-    warmed = search_prewarm.prewarm(GraphStore(), tuple(args.heaps), args.heap_mb)
+    warmed = search_prewarm.prewarm(GraphStore(), tuple(args.heaps), args.budget_mb)
     for w in warmed:
         if w.skipped:
-            logger.info("%s (%s): skipped, it does not fit.", w.relation, w.mode)
+            logger.info("%s: skipped, it does not fit.", w.relation)
         else:
             logger.info(
-                "%s (%s): %d MB in %.1f s.",
-                w.relation,
-                w.mode,
-                w.blocks * 8 // 1024,
-                w.seconds,
+                "%s: %d MB in %.1f s.", w.relation, w.blocks * 8 // 1024, w.seconds
             )
     read = [w for w in warmed if not w.skipped]
     mb = sum(w.blocks for w in read) * 8 // 1024

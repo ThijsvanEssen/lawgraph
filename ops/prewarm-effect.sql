@@ -1,7 +1,8 @@
 -- What `lawgraph prewarm` left in memory after the nightly (B32), read only: whether pg_prewarm is installed, what
 -- the buffers of PostgreSQL hold of the search of articles, dossiers and judgments (with pg_buffercache, when it
--- is installed), and how often their pages came from those buffers. The cold search itself: search-full-plan.sql
--- (its I/O Timings say whether a "shared read" came from disk or from the cache of the operating system).
+-- is installed), and how often their pages came from those buffers. The prewarm reads into the cache of the
+-- operating system, which no query here sees: the I/O Timings of search-full-plan.sql say whether a "shared read"
+-- came from disk (ms) or from that cache (µs).
 SET default_transaction_read_only = on;
 \pset pager off
 
