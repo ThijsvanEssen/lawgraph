@@ -3,6 +3,7 @@ each holds, how its search finds them, full and while typing."""
 
 from __future__ import annotations
 
+import functools
 import json
 from typing import Any
 
@@ -140,23 +141,26 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     termed = termed_articles(store, tokens)
     laws = abbreviated_laws(store, tokens)
     in_period = period.where(kind.period_date)
-    text = text_query(
-        kind,
-        store,
-        _ARTICLE_HIT,
-        tokens,
-        limit,
-        joins=_ARTICLE_INSTRUMENT,
-        where=in_period,
-        params=period.params(),
-        live=live,
-        termed=termed.ids if termed else None,
-        laws=laws,
-        named=termed.named if termed else None,
-        any_word=asked.any_word,
-    )
+
+    def text() -> Query:
+        return text_query(
+            kind,
+            store,
+            _ARTICLE_HIT,
+            tokens,
+            limit,
+            joins=_ARTICLE_INSTRUMENT,
+            where=in_period,
+            params=period.params(),
+            live=live,
+            termed=termed.ids if termed else None,
+            laws=laws,
+            named=termed.named if termed else None,
+            any_word=asked.any_word,
+        )
+
     if notation is None or notation.kind != "article":
-        hits = list(store.query(*text, indexes_only=True))[:limit]
+        hits = list(store.query(*text(), indexes_only=True))[:limit]
         return _with_terms(hits, asked, termed)
 
     # The law is named: the article is one key. It is not: every law with that number.
@@ -186,7 +190,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
             },
         )
     # an article of a law the citation names is the one it names
-    found = two_phase_search(store, precise, text, limit, exact=bool(keys))
+    found = two_phase_search(store, precise, text, limit, exact=bool(keys), cited=True)
     return _with_terms(found, asked, termed)
 
 
@@ -257,7 +261,8 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
         """,
         {"name": folded(asked.q), "limit": limit, **period.params()},
     )
-    text = text_query(
+    text = functools.partial(
+        text_query,
         kind,
         store,
         _INSTRUMENT_HIT,
@@ -337,7 +342,8 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         return _judgments_while_typing(kind, asked)
     store, tokens, limit = asked.store, asked.tokens, asked.limit
     period, q = asked.period, asked.q
-    text = text_query(
+    text = functools.partial(
+        text_query,
         kind,
         store,
         _JUDGMENT_HIT,
@@ -349,7 +355,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     )
     identified = _identified_judgments(kind, asked)
     if identified is not None:
-        return two_phase_search(store, identified, text, limit, exact=True)
+        return two_phase_search(store, identified, text, limit, exact=True, cited=True)
 
     # The query may be the name of a judgment ("Urgenda", "Lindenbaum/Cohen"): those first,
     # the latest decision first (of one case: the highest court), a translation after the

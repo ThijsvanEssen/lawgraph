@@ -239,6 +239,40 @@ def test_a_name_an_alias_and_an_ecli(graph: GraphStore) -> None:
     assert _ids(found["instruments"]) == ["instruments/bwbr0001854"]
 
 
+def test_a_citation_is_found_without_searching_its_words(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An article cited, an ECLI: what the precise lookup finds is the answer, at once,
+    while typing and in full; their words are not searched."""
+    calls = recorded(graph, monkeypatch)
+    for search in (dispatch.search_live, dispatch.search_full):
+        hits, partial = search(graph, q="art. 1 Sr", types=["articles"])
+        assert _ids(hits["articles"]) == ["articles/bwbr0001854_1"], partial
+        hits, partial = search(graph, q="ECLI:NL:HR:1919:1", types=["judgments"])
+        assert _ids(hits["judgments"]) == ["judgments/ecli_nl_hr_1919_1"], partial
+    assert not [c for c in calls if c.options.get("indexes_only")]
+
+
+def test_a_text_search_past_its_budget_keeps_the_hits_the_query_names(
+    graph: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The law whose abbreviation the query is stays the answer when the search of its
+    words takes longer than the budget of the type: the type is cut off with it."""
+    from lawgraph.db.queries.search import types as search_types
+
+    monkeypatch.setattr(
+        search_types,
+        "text_query",
+        lambda *args, **kwargs: ("SELECT 'x' AS id FROM pg_sleep(5)", None),
+    )
+    monkeypatch.setattr(dispatch, "FULL_BUDGET", 0.5)
+    started = time.monotonic()
+    hits, partial = dispatch.search_full(graph, q="Sr", types=["instruments"])
+    assert time.monotonic() - started < 2
+    assert _ids(hits["instruments"]) == ["instruments/bwbr0001854"]
+    assert partial == {"instruments"}
+
+
 def test_members_by_every_word_of_their_names(graph: GraphStore) -> None:
     found = dispatch.search_all(graph, q="de vries", types=["members"])["members"]
     assert _ids(found) == ["members/m1", "members/m2"]  # the active first
