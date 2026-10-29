@@ -167,6 +167,10 @@ URLS = [
     f"/api/articles/{BWB}/1/explained-by?sort=importance",
     # the passages, with the names of the dossiers (once per data version of them)
     f"/api/articles/{BWB}/1/explanations",
+    # the narrow form: the articles by key, the ones before and after each by the index of
+    # its law (of the BWB, of the EU, of the Staatsblad)
+    f"/api/articles/{BWB}/2/text",
+    f"/api/articles/batch?refs={BWB}/1,{BWB}/2,{CELEX}/21,STB-2026-1/1",
     f"/api/articles/{BWB}/1/delegated",
     f"/api/articles/{BWB}/1/history",
     f"/api/articles/{BWB}/1/history/av1",
