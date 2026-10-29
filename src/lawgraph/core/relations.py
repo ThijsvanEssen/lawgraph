@@ -796,7 +796,8 @@ RELATIONS: tuple[RelationSpec, ...] = (
         "`eerstverantwoordelijke`), of a dossier (that of the bewindspersoon who brought it "
         "in) and of a commitment: its `ministry`. Derived on read, not stored: a dossier "
         "→ the committees that lead an activity about it (`meta.derived_from` "
-        "`activities`, `role` `lead`, `activities` how many).",
+        "`activities`, `role` `lead`, `activities` how many), and a committee → those "
+        "dossiers (also `latest`, the day of the latest such activity).",
         derived=((_DOSSIER, _COMMITTEE),),
     ),
     RelationSpec(

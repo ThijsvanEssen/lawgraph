@@ -6,7 +6,8 @@ those dossiers the other way round, from the activities it leads as ``lg_led`` k
 (``ABOUT`` a dossier). Each neighbour comes with an edge of its own: key
 ``derived:<from>:LED_BY:<to>``, status ``canoniek``, ``meta`` ``derived_from``
 (``activities``), ``role`` (``lead``: the Kamer names a voortouwcommissie alone) and
-``activities`` (how many of them the committee leads).
+``activities`` (how many of them the committee leads); of a committee's dossier also
+``latest`` (the day of the latest of those activities).
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ from lawgraph.db.queries.dossiers import LEAD_COMMITTEE_CTES
 
 # What a derived edge is derived from, in its ``meta``.
 DERIVED_FROM_ACTIVITIES = "activities"
+# A neighbour as its bucket finds it: how many activities, and the day of the latest.
+type Found = tuple[int, str | None]
 # The role of a committee that leads an activity (``Voortouwcommissie``).
 ROLE_LEAD = "lead"
 
@@ -49,9 +52,10 @@ WHERE split_part(l.id, '/', 1) = '{COLLECTION_COMMITTEES}'
 """
 
 # The dossiers of a committee: those of the activities it leads, kept in ``lg_led``, a range
-# of its index (``lg_led_committee``, which includes the dossiers).
+# of its index (``lg_led_committee``, which includes the dossiers and the dates), with the
+# day of the latest of them.
 _DOSSIERS_OF_COMMITTEE = f"""
-SELECT x.dossier_id AS other, count(*)::int AS activities
+SELECT x.dossier_id AS other, count(*)::int AS activities, left(max(l.date), 10) AS latest
 FROM lg_led l CROSS JOIN LATERAL unnest(l.dossiers) AS x(dossier_id)
 WHERE l.committee_id = %(node_id)s AND l.item_collection = '{COLLECTION_ACTIVITIES}'
 GROUP BY 1
@@ -66,9 +70,20 @@ class DerivedBucket:
     direction: Direction
     collection: str
     statement: str
+    # whether its neighbours have the day of their latest activity (``latest``), which
+    # ``importance`` orders by first
+    recent: bool = False
 
-    def edge(self, node_id: str, other: str, activities: int) -> dict[str, Any]:
+    def edge(self, node_id: str, other: str, found: Found) -> dict[str, Any]:
         """The derived edge between the node and its neighbour *other*."""
+        activities, latest = found
+        meta: dict[str, Any] = {
+            "derived_from": DERIVED_FROM_ACTIVITIES,
+            "role": ROLE_LEAD,
+            "activities": activities,
+        }
+        if self.recent:
+            meta["latest"] = latest
         from_id, to_id = (
             (node_id, other) if self.direction == "outbound" else (other, node_id)
         )
@@ -79,13 +94,20 @@ class DerivedBucket:
             "doc": {
                 "relation": RELATION_LED_BY,
                 "status": EDGE_STATUS_CANONIEK,
-                "meta": {
-                    "derived_from": DERIVED_FROM_ACTIVITIES,
-                    "role": ROLE_LEAD,
-                    "activities": activities,
-                },
+                "meta": meta,
             },
         }
+
+    def order(self, found: dict[str, Found], importance: bool) -> list[str]:
+        """Its neighbours in the order of their ids; with *importance* the most activities
+        first, or where they have it the latest activity first (undated last), then the
+        most activities."""
+        if not importance:
+            return sorted(found)
+        most = sorted(found, key=lambda o: (-found[o][0], o))
+        if not self.recent:
+            return most
+        return sorted(most, key=lambda o: found[o][1] or "", reverse=True)
 
 
 DERIVED_BUCKETS: tuple[DerivedBucket, ...] = (
@@ -93,7 +115,11 @@ DERIVED_BUCKETS: tuple[DerivedBucket, ...] = (
         COLLECTION_DOSSIERS, "outbound", COLLECTION_COMMITTEES, _COMMITTEES_OF_DOSSIER
     ),
     DerivedBucket(
-        COLLECTION_COMMITTEES, "inbound", COLLECTION_DOSSIERS, _DOSSIERS_OF_COMMITTEE
+        COLLECTION_COMMITTEES,
+        "inbound",
+        COLLECTION_DOSSIERS,
+        _DOSSIERS_OF_COMMITTEE,
+        recent=True,
     ),
 )
 
@@ -120,8 +146,8 @@ def derived_pages(
     importance: bool = False,
 ) -> list[DerivedPage]:
     """The derived buckets of the node *node_id* of *collection* that *wanted* lets
-    through, each with ``limit`` neighbours from ``offset``: in the order of their ids,
-    with *importance* the most activities first. A bucket without neighbours is left out."""
+    through, each with ``limit`` neighbours from ``offset`` (``DerivedBucket.order``). A
+    bucket without neighbours is left out."""
     pages = []
     for bucket in DERIVED_BUCKETS:
         if bucket.of != collection or not wanted(bucket):
@@ -136,11 +162,10 @@ def derived_pages(
                 "part_of": RELATION_PART_OF,
             },
         )
-        found = {row["other"]: row["activities"] for row in rows}
+        found = {row["other"]: (row["activities"], row.get("latest")) for row in rows}
         if not found:
             continue
-        order = sorted(found, key=lambda o: (-found[o], o) if importance else ("", o))
-        page = order[offset : offset + limit]
+        page = bucket.order(found, importance)[offset : offset + limit]
         nodes = _nodes(store, bucket.collection, page, canvas)
         edge_doc = canvas_edge_doc if canvas else light_edge_doc
         entries = [
