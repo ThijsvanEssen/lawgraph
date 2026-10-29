@@ -32,7 +32,7 @@ def test_the_search_indexes_are_read_then_the_heaps_asked_for(
     )
     assert order.index("judgments_s_summary_t") < order.index("articles")
     assert order[-1].startswith("pg_toast.")  # the TOAST of the articles
-    assert not any(w.skipped for w in warmed)
+    assert [w.relation for w in warmed if w.skipped] == []
     blocks = {w.relation: w.blocks for w in warmed}
     assert blocks["articles"] > 0 and blocks["articles_s_text_t"] > 0
 

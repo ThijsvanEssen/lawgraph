@@ -9,14 +9,13 @@ up: it only reads.
 
 from __future__ import annotations
 
-import logging
-
+from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.search import prewarm as search_prewarm
 from lawgraph.pipelines.command import command_parser, docstring_title
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def main(argv: list[str] | None = None) -> PipelineResult:
