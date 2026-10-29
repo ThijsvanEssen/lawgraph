@@ -1182,7 +1182,8 @@ def get_instruments_list(
 
     if not facets:
         answers: list[Any] = run_together(
-            listed_page, lambda: _instrument_total(store, matched, counted)
+            listed_page,
+            lambda: _instrument_total(store, matched, counted, bool(tokens)),
         )
         (listed, next_cursor), count = answers
         return {
@@ -1193,7 +1194,9 @@ def get_instruments_list(
         }
     (on_page, next_cursor), counts = page_with_counts(
         listed_page,
-        lambda: _instrument_counts(store, filters, matched, regulations, counted),
+        lambda: _instrument_counts(
+            store, filters, matched, regulations, counted, bool(tokens)
+        ),
         "The counts of the instruments",
     )
     return {**with_counts(on_page, counts), "next_cursor": next_cursor}
@@ -1250,18 +1253,31 @@ def _listed(
     return listed, token
 
 
-def _kept(store: GraphStore, sql: Any, counted: dict[str, Any]) -> list[Any]:
-    """The rows of a count, kept per data version under the filters (*counted*)."""
+def _kept(
+    store: GraphStore, sql: Any, counted: dict[str, Any], searched: bool
+) -> list[Any]:
+    """The rows of a count, kept per data version under the filters (*counted*). Those of
+    a search (*searched*) are one visitor's: computed in the request itself, never in the
+    pool behind a warm-up (Wetten, 29 Oct: the rows of a search waited 16 s there for a
+    count of 0.6 s, past the explorer's 10 s)."""
     return cached_rows(
-        store, sql, counted, tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES)
+        store,
+        sql,
+        counted,
+        tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
+        inline=searched,
     )
 
 
-def _instrument_total(store: GraphStore, matched: str, counted: dict[str, Any]) -> int:
+def _instrument_total(
+    store: GraphStore, matched: str, counted: dict[str, Any], searched: bool
+) -> int:
     """How many instruments the filters let through. The same for every page and visitor:
     kept per data version (every instrument tested for a SAME_AS edge: 2.7 s on prod,
     10 Oct, when it was read per request), and warmed with the facets."""
-    rows = _kept(store, f"SELECT count(*)::int AS total FROM {matched}", counted)
+    rows = _kept(
+        store, f"SELECT count(*)::int AS total FROM {matched}", counted, searched
+    )
     return int(rows[0]) if rows else 0  # one column: its value
 
 
@@ -1271,6 +1287,7 @@ def _instrument_counts(
     matched: str,
     regulations: str,
     counted: dict[str, Any],
+    searched: bool,
 ) -> dict[str, Any]:
     """``total`` and ``facets`` of the list: each facet without its own filter, the kinds
     over the list without a kind (every instrument but the publications)."""
@@ -1288,8 +1305,8 @@ def _instrument_counts(
         ),
     )
     answers: list[Any] = run_together(
-        lambda: _instrument_total(store, matched, counted),
-        *(lambda sql=sql: _kept(store, sql, counted) for sql in statements),
+        lambda: _instrument_total(store, matched, counted, searched),
+        *(lambda sql=sql: _kept(store, sql, counted, searched) for sql in statements),
     )
     total, areas, domains, kinds, amendings, validities = answers
     return {

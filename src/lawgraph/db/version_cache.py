@@ -673,15 +673,18 @@ def cached_rows(
     params: dict[str, Any] | None = None,
     *,
     tables: tuple[str, ...] | None = None,
+    inline: bool = False,
     **options: Any,
 ) -> list[Any]:
     """The rows of *statement* with *params*, kept per data version (of *tables* when
-    given, see ``cached``): for a count or a facet that every visitor asks the same."""
+    given, see ``cached``): for a count or a facet that every visitor asks the same;
+    *inline* as ``cached``."""
     return cached(
         store,
         _rows_key(statement, params, options),
         lambda: list(store.query(statement, params, **options)),
         tables=tables,
+        inline=inline,
     )
 
 
