@@ -14,6 +14,7 @@ from lawgraph.db.queries.resolve import NO_MATCH
 from lawgraph.db.queries.search.clause import (
     Period,
     QueryWords,
+    letters_joined,
     tokenize_search_query,
 )
 from lawgraph.db.queries.search.ranking import (
@@ -35,6 +36,27 @@ from tests.asserts import assert_status
 def test_tokenize_drops_short_tokens_and_lowercases():
     assert tokenize_search_query("Art. 1 Grondwet") == ["art.", "grondwet"]
     assert tokenize_search_query("BWBR0001854 a b cd") == ["bwbr0001854", "cd"]
+
+
+@pytest.mark.parametrize(
+    ("query", "joined"),
+    [
+        ("J en V", "jenv"),
+        ("j & v", "jenv"),
+        ("j&v", "jenv"),
+        ("B Z K", "bzk"),
+        ("BZ K", "bzk"),
+        ("a en b", "aenb"),
+        ("BZK", None),
+        ("BZ EZ", None),
+        ("lid a", None),
+        ("art 6 a", None),
+        ("Justitie en Veiligheid", None),
+        ("en", None),
+    ],
+)
+def test_loose_letters_are_one_abbreviation(query: str, joined: str | None) -> None:
+    assert letters_joined(query) == joined
 
 
 def hit(**fields: Any) -> dict[str, Any]:
@@ -409,6 +431,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
             "display_name": "AVG",
             "title": "Algemene verordening gegevensbescherming",
             "confidence": 0.9,
+            "expired_on": None,
         },
         "alternatives": [],
         "alternatives_total": 0,
@@ -531,6 +554,7 @@ def test_resolve_is_in_the_schema_with_its_answer_typed() -> None:
         "display_name",
         "title",
         "confidence",
+        "expired_on",
         "path",
     }
     q = next(p for p in operation["parameters"] if p["name"] == "q")

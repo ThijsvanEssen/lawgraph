@@ -1518,6 +1518,35 @@ def test_a_ministry_by_its_name_or_abbreviation(store: GraphStore) -> None:
     assert [key for key, *_ in found("ministeries")][:3] == ["bzk", "fin", "jenv"]
 
 
+def test_a_ministry_by_the_letters_of_its_abbreviation(store: GraphStore) -> None:
+    """Loose letters and "en" or "&" between them are its abbreviation ("J en V", "B Z K",
+    "BZ K"), in full and live search alike; letters that are no abbreviation name none."""
+    _ministries(store, "bzk", "bz", "jenv", "ienw", "az")
+
+    def found(q: str, live: bool = False) -> list[tuple[str, float, bool]]:
+        if live:
+            hits = dispatch.search_live(store, q=q, types=["ministries"])[0]
+        else:
+            hits = dispatch.search_all(store, q=q, types=["ministries"])
+        return [
+            (h["key"], h["score"], ranking.exact_hit(q, h)) for h in hits["ministries"]
+        ]
+
+    for q, key in (
+        ("J en V", "jenv"),
+        ("j & v", "jenv"),
+        ("j&v", "jenv"),
+        ("B Z K", "bzk"),
+        ("BZ K", "bzk"),
+        ("b z", "bz"),
+        ("I en W", "ienw"),
+    ):
+        assert found(q)[0] == (key, 1.0, True), q
+        assert found(q, live=True)[0] == (key, 1.0, True), q
+    for q in ("a en b", "x y z", "B Z K L"):
+        assert [hit for hit in found(q) if hit[2]] == [], q
+
+
 def test_the_books_of_a_code_by_its_name_in_the_order_of_their_number(
     store: GraphStore,
 ) -> None:
@@ -1561,3 +1590,46 @@ def test_the_books_of_a_code_by_its_name_in_the_order_of_their_number(
     )
     found = counted["instruments"]
     assert found is not None and found.total == 6
+
+
+def test_every_hit_of_an_expired_law_says_its_last_day(store: GraphStore) -> None:
+    """Every hit of a law or an article that no longer holds has ``extra.expired_on``, the
+    first day it did not, whatever found it (its abbreviation, a citation, its words), in
+    full and live search alike."""
+    version_cache.clear()
+    law = {"bwb_id": "BWBR0009100", "date_expired": "2010-01-01"}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node(
+                "bwbr0009100",
+                "instrument",
+                title="Wet oude huurregels",
+                display_name="Wet oude huurregels",
+                citation_title="Wet oude huurregels",
+                short_title="Wohr",
+                **law,
+            )
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node(
+                "bwbr0009100_3",
+                "article",
+                bwb_id="BWBR0009100",
+                article_number="3",
+                display_name="Artikel 3 Wet oude huurregels",
+                text="De huurregels gelden voor elke woning.",
+            )
+        ],
+    )
+    for q in ("Wohr", "artikel 3 Wohr", "huurregels", "Wet oude huurregels"):
+        for found in (
+            dispatch.search_all(store, q=q, types=["articles", "instruments"]),
+            dispatch.search_live(store, q=q, types=["articles", "instruments"])[0],
+        ):
+            hits = [*found.get("articles", []), *found.get("instruments", [])]
+            assert hits, q
+            assert {h["extra"]["expired_on"] for h in hits} == {"2010-01-01"}, q

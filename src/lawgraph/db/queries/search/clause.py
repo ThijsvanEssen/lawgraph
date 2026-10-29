@@ -55,9 +55,30 @@ class QueryWords:
     left_out: list[str]
 
 
+# What stands between the letters of an abbreviation written loose ("J en V", "j & v").
+_LETTER_JOINS = frozenset({"en", "&"})
+
+
+def letters_joined(q: str) -> str | None:
+    """*q* as one abbreviation when it is loose letters, groups of one or two, at least one
+    of one, "en" or ``&`` between them ("J en V", "j & v": ``jenv``; "B Z K", "BZ K":
+    ``bzk``); None when it is anything else ("lid a", "Justitie en Veiligheid")."""
+    parts = q.lower().replace("&", " & ").split()
+    letters = [p for p in parts if p not in _LETTER_JOINS]
+    if len(letters) < 2 or not all(p.isalpha() and len(p) <= 2 for p in letters):
+        return None
+    if all(len(p) > 1 for p in letters):
+        return None
+    return "".join("en" if p in _LETTER_JOINS else p for p in parts)
+
+
 def query_words(store: GraphStore, q: str) -> QueryWords:
-    """The words *q* is searched by: its tokens without the stop words of ``STOP_WORDS_OF``,
+    """The words *q* is searched by: loose letters as the one abbreviation they write
+    (``letters_joined``), else its tokens without the stop words of ``STOP_WORDS_OF``,
     unless they are all it has."""
+    joined = letters_joined(q)
+    if joined:
+        return QueryWords([joined], [])
     tokens = tokenize_search_query(q)
     if len(tokens) < 2:
         return QueryWords(tokens, [])

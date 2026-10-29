@@ -36,6 +36,13 @@ class ResolveMatch(WithPath):
         description="Its title, as the `<title>` of its page has it and `title` of "
         "`/api/nodes/{collection}/{key}`: `Art. 6:162 BW, Onrechtmatige daad`.",
     )
+    expired_on: str | None = Field(
+        None,
+        description="Of an article or a law: the first day it no longer holds, as "
+        "`extra.expired_on` of its hit in `/api/search` (of an article the earlier of its "
+        "law's and its own end); null while it holds and for every other kind. On or "
+        "before today it has expired.",
+    )
     confidence: float = Field(
         ge=0,
         le=1,

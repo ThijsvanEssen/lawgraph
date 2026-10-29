@@ -28,7 +28,7 @@ from lawgraph.db.queries._json_sql import first_present, is_absent, is_present
 from lawgraph.db.queries.nodes import light_nodes
 from lawgraph.db.queries.search.clause import query_words
 from lawgraph.db.queries.search.parser import load_notation_parser
-from lawgraph.db.queries.search.types import ministries_found
+from lawgraph.db.queries.search.types import expired_on, ministries_found
 from lawgraph.db.schema import search_column
 
 # What a confidence means: how sure the resolver is that the match is what the query meant.
@@ -474,12 +474,20 @@ CHOICES = 10
 
 def _with_path_props(store: GraphStore, answer: dict[str, Any]) -> dict[str, Any]:
     """The *answer*, its match and alternatives each with ``path_props``: what its readable
-    address is built from (``lookup.answer_props``, one query per collection)."""
+    address is built from (``lookup.answer_props``, one query per collection), and an
+    article or a law with its ``expired_on`` as its search hit has it
+    (``search.types.expired_on``)."""
     targets = [t for t in [answer["match"], *answer["alternatives"]] if t]
-    props = lookup.answer_props(store, [t["id"] for t in targets]) if targets else {}
+    ids = [t["id"] for t in targets]
+    props = lookup.answer_props(store, ids) if targets else {}
+    ended = expired_on(store, ids)
 
     def with_props(target: dict[str, Any]) -> dict[str, Any]:
-        return {**target, "path_props": props.get(target["id"], {})}
+        return {
+            **target,
+            "path_props": props.get(target["id"], {}),
+            "expired_on": ended.get(target["id"]),
+        }
 
     return {
         **answer,

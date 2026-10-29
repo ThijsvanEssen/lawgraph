@@ -66,6 +66,7 @@ QUERIES = [
     "dossier",
     "onrechtmatige daad",
     "BZK",
+    "B Z K",
     "binnenlandse zaken",
 ]
 
