@@ -80,6 +80,8 @@ from lawgraph.db.queries.stats import cached_data_as_of
 from lawgraph.db.queries.warm_nodes import (
     FIRST_PAGES,
     WARM_ARTICLE_CITATIONS,
+    WARM_ARTICLES_FIRST,
+    WARM_NODES_FOR,
     warm_articles,
 )
 from lawgraph.db.schema import SEARCH_FIELDS
@@ -196,12 +198,16 @@ def _warm_dossiers(store: GraphStore) -> None:
         get_dossier(number, store)
 
 
-def _warm_articles(store: GraphStore) -> None:
-    """The most cited first, to the last also when newer data arrives meanwhile: what it
-    keeps lasts whatever the data does (the lid counts, ``LIDS_MAX_AGE``) or is the pages
-    read into the memory of the database, and the part takes 10 to 28 minutes on prod;
-    stopped at every poll it was never done (16 Oct)."""
-    warm_articles(store)
+def _warm_articles(store: GraphStore, version: str) -> None:
+    """The ``WARM_ARTICLES_FIRST`` most cited in full, then the next ones until
+    ``WARM_NODES_FOR`` has passed or newer data than *version* arrives: while this runs,
+    the warm-up of that data cannot begin."""
+    warm_articles(
+        store,
+        WARM_NODES_FOR,
+        first=WARM_ARTICLES_FIRST,
+        stopped=lambda: version_cache.superseded(store, version),
+    )
 
 
 # The neighbourhood the canvas of the explorer asks of an article (Netwerk tonen in
@@ -431,7 +437,7 @@ def warm_up(store: GraphStore) -> None:
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
     # is asked far less than the lists above
     if _due("most cited articles", store.name, ARTICLES_EVERY):
-        _run("most cited articles", lambda: _warm_articles(store))
+        _run("most cited articles", lambda: _warm_articles(store, version))
         _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
         _run("chains between the most cited", lambda: _warm_chains(store))
     if _due("search terms", store.name, SEARCH_TERMS_EVERY):
@@ -440,7 +446,7 @@ def warm_up(store: GraphStore) -> None:
 
 # The most cited articles are warmed at most once per this many seconds per process: the
 # lid counts it keeps last as long (``nodes.LIDS_MAX_AGE``), and a poll every half hour
-# would start the part of up to half an hour again and again.
+# would start the part of minutes again and again.
 ARTICLES_EVERY = 3600.0
 # The search of the terms searched most reads the pages of their index and hits into the
 # memory of the database, where a warm-up of an hour ago left them also when a poll has
