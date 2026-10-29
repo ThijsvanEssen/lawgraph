@@ -670,7 +670,8 @@ _VALIDITY = Query(
         "ones no longer in force whatever was asked for and `by_kind` the items per kind. "
         "A repealed article is left out. `detail=summary`: the light form, per regulation "
         "only the articles of the law it names, without `referring` and `also_based_on`, with "
-        "`sub_delegated` (its articles without `referring`). Empty for an unknown instrument."
+        "the first of `sub_delegated` (their articles without `referring`) and how many "
+        "there are (`sub_delegated_total`). Empty for an unknown instrument."
     ),
     tags=["instruments"],
 )

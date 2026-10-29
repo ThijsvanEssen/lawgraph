@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.schemas.instruments import SUB_DELEGATED_MAX
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_INSTRUMENTS,
@@ -390,6 +391,49 @@ def test_the_light_form_has_the_regulations_under_a_regulation(
         "sub_delegated"
     ]
     assert [a["article_number"] for a in sub[0]["articles"]] == ["2", "3"]
+
+
+def test_the_light_form_gives_the_first_regulations_under_a_regulation(
+    database: str, cli: Any
+) -> None:
+    """A law under the Grondwet has dozens of regulations under it: the light form gives the
+    first ``SUB_DELEGATED_MAX`` of them, in the order of the full form, and how many."""
+    store = GraphStore()
+    _seed(store)
+    many = [f"BWBR00530{n:02d}" for n in range(SUB_DELEGATED_MAX + 1)]
+    with NodeWriter(store) as writer:
+        writer.add_all(
+            _instrument(
+                bwb_id,
+                "ministeriele-regeling",
+                f"Regeling {n:02d}",
+                basis=[
+                    {
+                        "bwb_id": BESLUIT,
+                        "article": "2",
+                        "doc": f"jci1.3:c:{BESLUIT}&artikel=2",
+                        "text": "artikel 2 van het Cyberbeveiligingsbesluit",
+                    }
+                ],
+            )
+            for n, bwb_id in enumerate(many)
+        )
+    cli("semantic", "bwb-grondslagen")
+
+    full = _get(store, f"/api/instruments/{WET}/delegated")
+    light = _get(store, f"/api/instruments/{WET}/delegated?detail=summary")
+
+    def besluit(body: dict[str, Any]) -> dict[str, Any]:
+        return next(i for i in body["items"] if i["instrument"]["bwb_id"] == BESLUIT)
+
+    under = [s["instrument"]["bwb_id"] for s in besluit(full)["sub_delegated"]]
+    assert under == many
+    assert [s["instrument"]["bwb_id"] for s in besluit(light)["sub_delegated"]] == (
+        many[:SUB_DELEGATED_MAX]
+    )
+    assert besluit(light)["sub_delegated_total"] == len(many)
+    others = [i for i in light["items"] if i["instrument"]["bwb_id"] != BESLUIT]
+    assert all(i["sub_delegated_total"] == 0 for i in others), show_items(others)
 
 
 def test_the_basis_by_validity(database: str, cli: Any) -> None:
