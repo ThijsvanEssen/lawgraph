@@ -2001,7 +2001,7 @@
           "instruments"
         ],
         "summary": "Regulations issued under a law",
-        "description": "The regulations whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. By `validity` those in force (the default), those no longer in force (`expired_on` today or before) or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for and `by_kind` the items per kind. A repealed article is left out. `detail=summary`: the light form, per regulation only the articles of the law it names, without `referring` and `also_based_on`, with `sub_delegated` (its articles without `referring`). Empty for an unknown instrument.",
+        "description": "The regulations whose preamble (\"Gelet op\") names an article in force of this law as their legal basis (`BASED_ON`), one per regulation with the articles it names, whether those give the power it is made under (`basis_kind`), its articles that work each out (`referring`), the other laws it names (`also_based_on`) and the regulations issued under it in turn (`sub_delegated`): AMvBs first, then ministerial regulations, then the others; by title. By `validity` those in force (the default), those no longer in force (`expired_on` today or before) or all, each with its `expired_on`; `expired_total` counts the ones no longer in force whatever was asked for and `by_kind` the items per kind. A repealed article is left out. `detail=summary`: the light form, per regulation only the articles of the law it names, without `referring` and `also_based_on`, with the first of `sub_delegated` (their articles without `referring`) and how many there are (`sub_delegated_total`). Empty for an unknown instrument.",
         "operationId": "get_instrument_delegated_route_api_instruments__bwb_id__delegated_get",
         "parameters": [
           {
@@ -28515,7 +28515,13 @@
             },
             "type": "array",
             "title": "Sub Delegated",
-            "description": "The regulations in force issued under its articles in turn, as on the full form."
+            "description": "The first 12 regulations in force issued under its articles in turn, in the order of the full form."
+          },
+          "sub_delegated_total": {
+            "type": "integer",
+            "title": "Sub Delegated Total",
+            "description": "How many regulations in force are issued under its articles in turn: more than `sub_delegated` gives when it has more than 12.",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -28527,7 +28533,8 @@
           "expired_on",
           "basis_kind",
           "articles",
-          "sub_delegated"
+          "sub_delegated",
+          "sub_delegated_total"
         ],
         "title": "InstrumentDelegatedSummaryItem",
         "description": "A regulation whose preamble names an article of the law, in the light form\n(`detail=summary`): without what it takes reading its own articles for."
