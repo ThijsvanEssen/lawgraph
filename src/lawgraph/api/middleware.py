@@ -7,6 +7,7 @@ import asyncio
 import concurrent.futures
 import ipaddress
 import math
+import os
 import threading
 import time
 import uuid
@@ -26,7 +27,7 @@ from lawgraph.config.settings import (
     TRUSTED_PROXIES,
 )
 from lawgraph.core.logging import describe, get_logger
-from lawgraph.db import GraphStore, version_cache
+from lawgraph.db import GraphStore, request_timing, version_cache
 from lawgraph.db.request_context import (
     Cancellation,
     reset_cancellation,
@@ -414,12 +415,15 @@ async def log_requests(
     request: Request, call_next: RequestResponseEndpoint
 ) -> StarletteResponse:
     """One line per request: its id, the network of the client, the method, the path
-    without its query string, the status, the size and how long it took. Every answer
+    without its query string, the status, the size, how long it took, whether the cache
+    held its answers (``cache=hit|miss|none``), the time in its own statements and the
+    process that answered. The same, as ``Server-Timing``, goes to the client. Every answer
     carries the id as ``X-Request-ID``; an error no handler answers is a 500 with that id
     (``errors.internal_error``), and its line holds the traceback."""
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
+    timing, timing_token = request_timing.start()
     # the path without its query string (a search term may name a person) and the
     # network of the client, never its address
     line = (
@@ -433,8 +437,29 @@ async def log_requests(
         duration_ms = (time.perf_counter() - start) * 1000
         logger.exception("%s 500 (%.1fms)", line, duration_ms)
         return internal_error(request_id)
+    finally:
+        request_timing.stop(timing_token)
     duration_ms = (time.perf_counter() - start) * 1000
     response.headers["X-Request-ID"] = request_id
+    response.headers["Server-Timing"] = server_timing(timing, duration_ms)
     size = response.headers.get("content-length", "-")
-    logger.info("%s %d %sb (%.1fms)", line, response.status_code, size, duration_ms)
+    logger.info(
+        "%s %d %sb (%.1fms) cache=%s db=%.1fms worker=%d",
+        line,
+        response.status_code,
+        size,
+        duration_ms,
+        timing.cache,
+        timing.db * 1000,
+        os.getpid(),
+    )
     return response
+
+
+def server_timing(timing: request_timing.RequestTiming, total_ms: float) -> str:
+    """The ``Server-Timing`` of a request: ``total``, the time in its own statements
+    (``db``), and the cache (``desc`` ``hit`` or ``miss``, with what a miss waited for)."""
+    metrics = [f"total;dur={total_ms:.1f}", f"db;dur={timing.db * 1000:.1f}"]
+    if timing.cache != "none":
+        metrics.append(f"cache;desc={timing.cache};dur={timing.waited * 1000:.1f}")
+    return ", ".join(metrics)

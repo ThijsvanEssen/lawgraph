@@ -203,8 +203,9 @@ OFFSET_MAX = 500
         "does (a subject, `onrechtmatige daad`) the newest that hold the words "
         "(summary, name, display name; of the first 2,000 found, without a rank); a "
         "query of fewer than three characters finds no judgment. The full search ranks "
-        "each type within 3 s: a type that takes longer answers what its live search "
-        "finds (within 1 s more; for judgments that no name or display name holds: the "
+        "each type within 2 s, all together within 2.5 s: a type that takes longer "
+        "answers what its live search "
+        "finds (within 0.5 s more; for judgments that no name or display name holds: the "
         "newest that hold the words, of the first 2,000 found, without a rank) and is "
         "named in `partial` too, instead of the request answering 503 at its deadline; "
         "the next search of the same terms finds what it counted meanwhile. "
@@ -285,7 +286,8 @@ def search(
                 "nothing ranked by its words (a word, or the start of a word of a name or "
                 "title), the judgments by ECLI, name and display name (court, date, case number), "
                 "the most cited first, and only from three characters; `full` (the "
-                "default) ranks everything, a type within 3 s: past it, its `live` hits "
+                "default) ranks everything, a type within 2 s (all within 2.5 s): past "
+                "it, its `live` hits "
                 "and the type in `partial`"
             )
         ),

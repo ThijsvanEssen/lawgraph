@@ -31,9 +31,12 @@ Searches = dict[str, Callable[[], list[Hit]]]
 
 # How long one type of the full search may rank (seconds): past it, the type answers what
 # its live search finds within ``FALLBACK_BUDGET``, and is named in ``partial``, instead
-# of the whole request answering 503 at its deadline.
-FULL_BUDGET = 3.0
-FALLBACK_BUDGET = 1.0
+# of the whole request answering 503 at its deadline. One deadline holds for them all, the
+# two together (``full_deadline``): a type that waited for a thread of the pool has what is
+# left of it, so the search ends within 2.5 s whatever the number of its types (a text
+# search of a common word took 3.9 s).
+FULL_BUDGET = 2.0
+FALLBACK_BUDGET = 0.5
 # How long the count of one type may take (seconds): past it the type has no count.
 COUNT_BUDGET = 1.0
 # How long one type of a live search may read (seconds): what it has not found by then, it
@@ -44,6 +47,11 @@ LIVE_BUDGET = 0.25
 LIVE_STALE_WAIT = 0.05
 
 _SEARCHES = ThreadPoolExecutor(max_workers=4, thread_name_prefix="search")
+
+
+def full_deadline() -> float:
+    """When a full search started now must have answered (``time.monotonic``)."""
+    return time.monotonic() + FULL_BUDGET + FALLBACK_BUDGET
 
 
 def signed_of(
@@ -222,8 +230,9 @@ def search_full_counted(
         return {t: [] for t in types}, set(), {}
     full = _searches(asked, types, live=False)
     live = _searches(asked, types, live=True)
+    ends = full_deadline()
     tasks: dict[str, Callable[[], Any]] = {
-        t: functools.partial(_full_or_live, full[t], live[t]) for t in full
+        t: functools.partial(_full_or_live, full[t], live[t], ends) for t in full
     }
     counted = [t for t in full if counting and SEARCHES[t].match]
     tasks.update(
@@ -251,11 +260,13 @@ def _counted(table: str, asked: Asked) -> Counted | None:
 
 
 def _full_or_live(
-    full: Callable[[], list[Hit]], live: Callable[[], list[Hit]]
+    full: Callable[[], list[Hit]], live: Callable[[], list[Hit]], ends: float
 ) -> tuple[list[Hit], bool]:
-    """The hits of *full* within ``FULL_BUDGET``; past it, those of *live* within
+    """The hits of *full* within ``FULL_BUDGET``, or what is left of the deadline *ends*
+    (``time.monotonic``) less ``FALLBACK_BUDGET``; past it, those of *live* within
     ``FALLBACK_BUDGET``, cut off."""
-    rows, cut = _within_budget(full, FULL_BUDGET)
+    left = ends - FALLBACK_BUDGET - time.monotonic()
+    rows, cut = _within_budget(full, max(0.0, min(FULL_BUDGET, left)))
     if not cut:
         return rows, False
     return _within_budget(live, FALLBACK_BUDGET)[0], True

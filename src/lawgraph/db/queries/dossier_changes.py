@@ -25,6 +25,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.documents import chamber_of, number_in_dossier
 from lawgraph.db import GraphStore
 from lawgraph.db.schema import node_of
+from lawgraph.db.version_cache import cached
 
 STAGE_ENACTED = "enacted"
 STAGE_PROPOSED = "proposed"
@@ -84,6 +85,47 @@ LIMIT %(max_rows)s
 # The most changes the answer holds (the Omgevingswet changes thousands of articles); the
 # rest is left out, ``truncated``.
 CHANGES_MAX = 5000
+
+
+# The dossiers of ``%(ids)s`` that change an article: the same two halves as ``_CHANGES_SQL``,
+# asked for existence, so no article is read.
+_CHANGING_SQL = f"""
+SELECT d.id FROM unnest(%(ids)s::text[]) AS d(id)
+WHERE EXISTS (
+    SELECT 1 FROM edges l
+    JOIN edges e ON e.from_id = l.from_id
+     AND e.relation = ANY(%(changes)s) AND e.to_collection = '{COLLECTION_ARTICLES}'
+    WHERE l.to_id = d.id AND l.relation = %(legislated_in)s
+      AND l.from_collection = '{COLLECTION_INSTRUMENTS}'
+) OR EXISTS (
+    SELECT 1 FROM edges m
+    JOIN edges e ON e.from_id = m.from_id
+     AND e.relation = ANY(%(changes)s) AND e.to_collection = '{COLLECTION_ARTICLES}'
+    WHERE m.to_id = d.id AND m.relation = ANY(%(members)s)
+      AND e.status = %(proposed)s
+)
+"""
+
+
+def dossiers_changing_articles(store: GraphStore, ids: list[str]) -> set[str]:
+    """Which of the dossiers *ids* (``dossiers/36586``) change an article, enacted or
+    proposed (``get_dossier_changed_articles`` finds a change for each of them): one
+    read for all, kept per data version."""
+    wanted = sorted(set(ids))
+    if not wanted:
+        return set()
+    params = {
+        "ids": wanted,
+        "changes": list(CHANGE_RELATIONS),
+        "legislated_in": RELATION_LEGISLATED_IN,
+        "members": [RELATION_PART_OF, RELATION_ABOUT],
+        "proposed": EDGE_STATUS_VOORGESTELD,
+    }
+    return cached(
+        store,
+        ("dossiers changing articles", tuple(wanted)),
+        lambda: {str(row) for row in store.query(_CHANGING_SQL, params)},
+    )
 
 
 def get_dossier_changed_articles(

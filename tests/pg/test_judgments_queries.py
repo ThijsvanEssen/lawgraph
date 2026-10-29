@@ -931,3 +931,13 @@ def test_a_row_of_a_judgment_of_the_union_is_cited_with_its_case_number(
     assert item.cite.short == "HvJ EU 17 februari 2022, C-160/20"
     # a Dutch court's case number is no part of its cite, and not read
     assert rows[HR1]["case_number"] is None
+
+
+def test_the_facets_counted_in_one_read_are_those_counted_one_by_one(
+    corpus: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    together = get_judgments_list(corpus)["facets"]
+    version_cache.clear()
+    monkeypatch.setattr(judgment_queries, "_COLUMN_FACETS", ())
+    monkeypatch.setattr(judgment_queries, "_column_facets", lambda *args: {})
+    assert get_judgments_list(corpus)["facets"] == together

@@ -6,7 +6,7 @@ from __future__ import annotations
 import threading
 import time
 
-from lawgraph.db import GraphStore, request_context, version_cache
+from lawgraph.db import GraphStore, request_context, request_timing, version_cache
 from tests.fakes import PATIENCE, ManualClock, until
 
 
@@ -443,3 +443,17 @@ def test_a_refresh_ahead_waits_while_the_pool_is_busy(
         assert asked == []  # not started: the pool was busy
     finally:
         request_context.reset_read_deadline(token)
+
+
+def test_a_request_sees_whether_the_cache_held_its_answer(store: GraphStore) -> None:
+    def one() -> int:
+        return 1
+
+    timing, token = request_timing.start()
+    try:
+        version_cache.cached(store, ("timing",), one)
+        assert (timing.cache, timing.misses) == ("miss", 1)
+        version_cache.cached(store, ("timing",), one)
+        assert timing.hits == 1
+    finally:
+        request_timing.stop(token)
