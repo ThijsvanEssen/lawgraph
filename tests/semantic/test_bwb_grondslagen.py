@@ -424,13 +424,12 @@ def test_a_reference_in_words_older_than_the_law_in_the_bwb_is_a_gap(
     store.raw_rows = [
         {**_row(KB_ID, KB_XML), "basis_unresolved": kb["basis_unresolved"]}
     ]
-    written: list[str] = []
-    upsert = store.bulk_insert_or_update_nodes
-    store.bulk_insert_or_update_nodes = lambda c, docs: (
-        written.append(c) or upsert(c, docs)
-    )
+    before = store.nodes["instruments"][make_node_key(KB_ID)]
+    store.nodes["instruments"].clear()
     _run(store)
-    assert written == []
+    # no node written: had it been, the node would be back
+    assert store.nodes["instruments"] == {}
+    assert before["props"]["basis_unresolved"] == kb["basis_unresolved"]
 
 
 def test_a_reference_in_words_of_a_regulation_the_bwb_has_the_law_for_is_linked(
