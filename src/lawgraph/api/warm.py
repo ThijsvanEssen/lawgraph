@@ -1,10 +1,10 @@
 """The answers every visitor asks first, computed before they ask: at the start of the API
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
-statistics of the search, the pages of the newest cabinets, the dossiers of the active
-factions, the first page of the judgments of the largest areas of law, the pages of the
-most cited laws (judgments, related laws, EU links) and the dossiers of the homepage. Off with
-``LAWGRAPH_API_WARM_UP=false``."""
+statistics of the search, the lower courts of Actueel, the pages of the newest cabinets,
+the dossiers of the active factions, the first page of the judgments of the largest areas
+of law, the pages of the most cited laws (judgments, related laws, EU links) and the
+dossiers of the homepage. Off with ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
