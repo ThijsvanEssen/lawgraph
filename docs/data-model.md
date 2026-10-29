@@ -655,6 +655,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `basis_preamble` | `str` | The text of its `Gelet op` paragraphs: a law it names without a link is read from it (`BASED_ON`). |
 | `celex_refs` | `list[str]` | The EU acts its text names. |
 | `implements_celex` | `list[str]` | The EU acts its considerans says it implements (`IMPLEMENTS`). |
+| `preamble` | `object` | BWB: its aanhef as a text, a paragraph a line: `{text, parts, references}`, `parts` its blocks `{kind, start, end}` (`kind` the element: `wij`, `wie`, `considerans`, `afkondiging`, `preambule`; `gelet_op` a paragraph of the considerans that starts with "Gelet op", inside it) and `references` its links as those of an article, offsets into `text`; null without one. |
 | `enacted_publication` | `str` | The publication that enacted it: `stb-2018-144`. |
 | `unlinked_references` | `int` | Of a law of the Staatsblad: the article references in the text of its articles that `semantic staatsblad-law-references` read and could not link (0: it linked every one); absent until that step read the law. |
 | `definitions_found` | `int` | Of a law of the Staatsblad: the definitions `semantic bwb-definitions` read from its text; absent until that step read the law. |

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections import Counter
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 
@@ -53,6 +53,7 @@ from lawgraph.api.schemas.instruments import (
     InstrumentJudgmentsResponse,
     InstrumentListItemDTO,
     InstrumentListResponse,
+    InstrumentPreambleDTO,
     InstrumentReferenceDTO,
     InstrumentReferencesResponse,
     InstrumentRelatedItem,
@@ -65,11 +66,12 @@ from lawgraph.api.schemas.instruments import (
 )
 from lawgraph.api.validity import instrument_validity_dto
 from lawgraph.core.division_anchor import as_anchor
+from lawgraph.core.reference_targets import reference_targets
 from lawgraph.core.staatsblad_laws import is_law
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.annexes import get_law_annexes
-from lawgraph.db.queries.articles import get_current_references
+from lawgraph.db.queries.articles import get_current_references, present_targets
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import (
     count_expired_delegated,
@@ -245,9 +247,9 @@ def list_instruments(
         "(`32016L0680`), the official number of a law of the Staatsblad (`STB-2026-56`: "
         "the law, `wet_stb_2026_56`; the publication is `stb_2026_56`) or its node key "
         "(`bwbv0001000`, `verdrag_012345`): "
-        "identifiers, names, jurisdiction, kind, dates and article count, and for a "
-        "treaty the other instruments with its treaty number (`same_treaty`). 404 for "
-        "an unknown instrument."
+        "identifiers, names, jurisdiction, kind, dates and article count, of a BWB "
+        "regulation its aanhef (`preamble`), and for a treaty the other instruments with "
+        "its treaty number (`same_treaty`). 404 for an unknown instrument."
     ),
     tags=["instruments"],
 )
@@ -266,7 +268,18 @@ def get_instrument(
         same_treaty=same_treaty(store, doc),
         references=references,
         validity=instrument_validity_dto(store, doc),
+        preamble=_preamble(store, doc.get("props") or {}),
     )
+
+
+def _preamble(store: GraphStore, props: dict[str, Any]) -> InstrumentPreambleDTO | None:
+    """The aanhef stored on an instrument, its links with whether the data holds what they
+    name; None without one."""
+    stored = props.get("preamble")
+    if not isinstance(stored, dict):
+        return None
+    present = present_targets(store, reference_targets(stored.get("references")))
+    return InstrumentPreambleDTO.from_props(stored, present)
 
 
 @router.get(

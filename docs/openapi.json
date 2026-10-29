@@ -1319,7 +1319,7 @@
           "instruments"
         ],
         "summary": "One instrument",
-        "description": "The instrument named by its BWB id (`BWBR0001854`), its CELEX number (`32016L0680`), the official number of a law of the Staatsblad (`STB-2026-56`: the law, `wet_stb_2026_56`; the publication is `stb_2026_56`) or its node key (`bwbv0001000`, `verdrag_012345`): identifiers, names, jurisdiction, kind, dates and article count, and for a treaty the other instruments with its treaty number (`same_treaty`). 404 for an unknown instrument.",
+        "description": "The instrument named by its BWB id (`BWBR0001854`), its CELEX number (`32016L0680`), the official number of a law of the Staatsblad (`STB-2026-56`: the law, `wet_stb_2026_56`; the publication is `stb_2026_56`) or its node key (`bwbv0001000`, `verdrag_012345`): identifiers, names, jurisdiction, kind, dates and article count, of a BWB regulation its aanhef (`preamble`), and for a treaty the other instruments with its treaty number (`same_treaty`). 404 for an unknown instrument.",
         "operationId": "get_instrument_api_instruments__identifier__get",
         "parameters": [
           {
@@ -28971,6 +28971,17 @@
             ],
             "description": "Of a treaty of the Verdragenbank: where it was signed, its Tractatenblad publications, its parties with their dates, the parts of the Kingdom, the dossiers of its approval and the treaties it belongs to or that belong to it. Null for any other instrument."
           },
+          "preamble": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InstrumentPreambleDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of a BWB regulation: its aanhef (\"De Minister van …, Gelet op artikel …, Besluit:\"), with its links; null without one."
+          },
           "completeness": {
             "anyOf": [
               {
@@ -29061,6 +29072,7 @@
           "official_url",
           "same_treaty",
           "treaty",
+          "preamble",
           "completeness",
           "path",
           "ministry_name"
@@ -30117,6 +30129,40 @@
         ],
         "title": "InstrumentListResponse",
         "description": "Paginated list envelope for instruments."
+      },
+      "InstrumentPreambleDTO": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Its text, a paragraph a line."
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PreamblePartDTO"
+            },
+            "type": "array",
+            "title": "Parts",
+            "description": "Its blocks, in the order of the text, a block before the `gelet_op` inside it."
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleReferenceDTO"
+            },
+            "type": "array",
+            "title": "References",
+            "description": "Its links to an article, a regulation or an EU act, as those of the text of an article: offsets into `text`, each with its `target`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "parts",
+          "references"
+        ],
+        "title": "InstrumentPreambleDTO",
+        "description": "The aanhef of a BWB regulation: who enacts it, its considerans and its\nafkondiging, with the links in it."
       },
       "InstrumentReferenceArticleDTO": {
         "properties": {
@@ -36986,6 +37032,33 @@
           "staatssecretaris"
         ],
         "title": "Post"
+      },
+      "PreamblePartDTO": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "The block as the BWB names it: `wij` (\"Wij Willem-Alexander, …\": a law or an AMvB), `wie` (\"De Minister van …\"), `considerans` (\"Gelet op …\"), `afkondiging` (\"Besluit:\"), `preambule` (of a treaty); or `gelet_op`: a line of the considerans that starts with \"Gelet op\" (the legal basis), inside it."
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start",
+            "description": "Offset of the block in the `text` of the aanhef."
+          },
+          "end": {
+            "type": "integer",
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "start",
+          "end"
+        ],
+        "title": "PreamblePartDTO",
+        "description": "A block of the aanhef of a regulation, as a span of its `text`."
       },
       "PublicationDTO": {
         "properties": {

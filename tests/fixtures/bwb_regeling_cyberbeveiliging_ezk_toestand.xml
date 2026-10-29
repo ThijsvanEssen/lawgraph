@@ -1,0 +1,622 @@
+<?xml version="1.0" encoding="UTF-8"?><toestand xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bwb-ng-vast-deel="http://wetten.overheid.nl/id/BWBR0052884/2026-08-15/0" xsi:noNamespaceSchemaLocation="https://repository.officiele-overheidspublicaties.nl/Schema/BWB-toestand/2016-1/xsd/toestand_2016-1.xsd" bwb-id="BWBR0052884" inwerkingtreding="2026-08-15"><bwb-inputbestand/><bwb-wijzigingen/><redactionele-correcties/><wetgeving dtdversie="2.0" soort="ministeriele-regeling" stam-id="17925933" versie-id="31712762" id="C45280471" label-id="17821834" inwerkingtredingsdatum="2026-08-15">
+  <intitule bwb-ng-variabel-deel="/Intitule" stam-id="17925963" versie-id="31712512" id="C45280221" label-id="17821584" inwerking="2026-08-15" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">Regeling van de Staatssecretaris van Economische Zaken en Klimaat van 5 juli 2026, nr. WJZ/ 101446051, houdende regels voor essentiële en belangrijke entiteiten in de EZK-sectoren (Regeling cyberbeveiliging EZK) (KetenID WGK 28487)<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></intitule>
+  <citeertitel bwb-ng-variabel-deel="/Citeertitel" status="officieel" stam-id="17925973" versie-id="31712522" id="C45280231" label-id="17821594" inwerking="2026-08-15" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10">Regeling cyberbeveiliging EZK<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></citeertitel>
+  <regeling>
+    <aanhef bwb-ng-variabel-deel="/Aanhef" stam-id="17925983" versie-id="31712532" id="C45280241" label-id="17821604" inwerking="2026-08-15" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <wie>De Staatssecretaris van Economische Zaken en Klimaat, na overleg met de Minister van Justitie en Veiligheid, handelende in overeenstemming met de Minister van Economische Zaken en Klimaat,</wie>
+  <considerans>
+    <considerans.al bevat="grondslag">Gelet op de <extref doc="jci1.3:c:BWBR0052875&amp;artikel=19" label-id="17819444" verwijzing-id="3457619" bwb-id="BWBR0052875">artikelen 19</extref>, <extref doc="jci1.3:c:BWBR0052875&amp;artikel=23" label-id="17819504" verwijzing-id="3457620" bwb-id="BWBR0052875">23, eerste lid</extref>, en <extref doc="jci1.3:c:BWBR0052875&amp;artikel=28" label-id="17819574" verwijzing-id="3457621" bwb-id="BWBR0052875">28 van het Cyberbeveiligingsbesluit</extref>;</considerans.al>
+  </considerans>
+  <afkondiging>
+    <al>Besluit:</al>
+  </afkondiging>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></aanhef>
+    <regeling-tekst>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk1" stam-id="17926013" versie-id="31712562" id="C45280271" label-id="17821634" inwerking="2026-08-15" label="Hoofdstuk 1" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">1</nr>
+    <titel status="officieel">Algemene bepalingen</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1" stam-id="17925993" versie-id="31712542" id="C45280251" label-id="17821614" inwerking="2026-08-15" label="Artikel 1" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">1</nr>
+    <titel status="officieel">Begripsbepalingen</titel>
+  </kop>
+  <al>In deze regeling wordt verstaan onder:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_1">
+      <al>
+        <nadruk type="cur">alarmnummer:</nadruk> alarmnummer als bedoeld in <extref doc="jci1.3:c:BWBR0009950&amp;artikel=7.7" label-id="2779974" verwijzing-id="3457622" bwb-id="BWBR0009950">artikel 7.7, tweede lid, van de Telecommunicatiewet</extref>;</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_2">
+      <al>
+        <nadruk type="cur">besluit:</nadruk>
+        <extref doc="jci1.3:c:BWBR0052875" label-id="17819704" verwijzing-id="3457648" bwb-id="BWBR0052875">Cyberbeveiligingsbesluit</extref>;</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_3">
+      <al>
+        <nadruk type="cur">Minister:</nadruk> Minister van Economische Zaken en Klimaat;</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_4">
+      <al>
+        <nadruk type="cur">postzending:</nadruk> postzending als bedoeld in artikel 2, zesde lid, van <extref doc="31997L0067" label="richtlijn" reeks="Celex">Richtlijn 97/67/EG</extref> van het Europees Parlement en de Raad van 15 december 1997 betreffende gemeenschappelijke regels voor de ontwikkeling van de interne markt voor postdiensten in de Gemeenschap en de verbetering van de kwaliteit van de dienst (PbEG 1998, L 15);</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_5">
+      <al>
+        <nadruk type="cur">richtlijn (EU) 2016/943:</nadruk>
+        <extref doc="32016L0943" label="richtlijn" reeks="Celex">Richtlijn (EU) 2016/943</extref> van het Europees Parlement en de Raad van 8 juni 2016 betreffende de bescherming van niet-openbaar gemaakte knowhow en bedrijfsinformatie (bedrijfsgeheimen) tegen het onrechtmatig verkrijgen, gebruiken en openbaar maken daarvan (PbEU 2016, L 157);</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_6">
+      <al>
+        <nadruk type="cur">ruimtevoorwerp:</nadruk> ruimtevoorwerp als bedoeld in <extref doc="jci1.3:c:BWBR0021418&amp;artikel=1" label-id="8955034" verwijzing-id="3457623" bwb-id="BWBR0021418">artikel 1 van de Wet ruimtevaartactiviteiten</extref>;</al>
+    </li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk1/Artikel1/Onderdeel_7">
+      <al>
+        <nadruk type="cur">zone:</nadruk> logische of fysieke groep van systemen, apparaten of processen met vergelijkbare beveiligingsvereisten.</al>
+    </li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=1&amp;g=2026-08-15" onderdeel="artikel=1" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=1"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=1&amp;artikel=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=1" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=1"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk1/Artikel2" stam-id="17926003" versie-id="31712552" id="C45280261" label-id="17821624" inwerking="2026-08-15" label="Artikel 2" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">2</nr>
+    <titel status="officieel">Reikwijdte</titel>
+  </kop>
+  <al>De <intref doc="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;z=2026-08-15&amp;g=2026-08-15" label-id="17821684" verwijzing-id="3457644" bwb-id="BWBR0052884" bwb-ng-variabel-deel="/Hoofdstuk2">hoofdstukken 2</intref> en <intref doc="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;z=2026-08-15&amp;g=2026-08-15" label-id="17821764" verwijzing-id="3457645" bwb-id="BWBR0052884" bwb-ng-variabel-deel="/Hoofdstuk3">3</intref> zijn van toepassing op essentiële entiteiten en belangrijke entiteiten die behoren tot een of meer van de volgende sectoren of subsectoren:</al>
+  <table colsep="1" frame="all" pgwide="1" rowsep="1" tabstyle="xml1">
+    <tgroup align="left" char="" charoff="50" cols="3" tgroupstyle="xml1">
+      <colspec colname="col1" colnum="1" colwidth="86*"/>
+      <colspec colname="col2" colnum="2" colwidth="109*"/>
+      <colspec colname="col3" colnum="3" colwidth="188*"/>
+      <thead valign="bottom">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Sector</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Subsector</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Soorten entiteiten</al>
+          </entry>
+        </row>
+      </thead>
+      <tbody valign="top">
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Digitale infrastructuur</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top"/>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Aanbieders van internetknooppunten</al>
+            <al>Aanbieders van openbare elektronische communicatienetwerken</al>
+            <al>Aanbieders van openbare elektronische communicatiediensten</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Onderzoek</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top"/>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Onderzoeksorganisaties met als hoofddoel het verrichten van toegepast onderzoek of experimentele ontwikkeling met het oog op de exploitatie van de resultaten van dat onderzoek voor commerciële doeleinden, met uitsluiting van onderwijsinstellingen, ten aanzien waarvan de Minister ingevolge <extref doc="jci1.3:c:BWBR0052872&amp;artikel=15" label-id="17817454" verwijzing-id="3457624" bwb-id="BWBR0052872">artikel 15, vierde lid, van de wet</extref> de bevoegde autoriteit is</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ruimtevaart</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top"/>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Operators van grondfaciliteiten die in het bezit zijn van of beheerd of geëxploiteerd worden door de lidstaten van de Europese Unie of door particuliere partijen en die de verlening van vanuit de ruimte opererende diensten ondersteunen, met uitzondering van aanbieders van openbare elektronische communicatienetwerken</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Post- en koeriersdiensten</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top"/>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Aanbieders van postdiensten als bedoeld in artikel 2, onderdeel 1 bis, van <extref doc="31997L0067" label="richtlijn" reeks="Celex">Richtlijn 97/67/EG</extref>1, met inbegrip van aanbieders van koeriersdiensten, voor zover zij ten minste een van de stappen in de postbestelketen verzorgen, met name het ophalen, sorteren, vervoeren en bestellen van postzendingen, met inbegrip van de ophaaldiensten, waarbij rekening moet worden gehouden met de mate waarin zij afhankelijk zijn van netwerk- en</al>
+            <al>informatiesystemen. Uitgezonderd zijn vervoersdiensten die niet in samenhang met een van die stappen worden ondernomen</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col1" colsep="1" morerows="4" rotate="0" valign="top">
+            <al>Vervaardiging</al>
+          </entry>
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>vervaardiging van informaticaproducten en van elektronische en optische producten</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 26, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>vervaardiging van elektrische apparatuur</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 27, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>vervaardiging van machines, apparaten en werktuigen, niet elders geclassificeerd</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 28, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>vervaardiging van motorvoertuigen, aanhangers en opleggers</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 29, van NACE Rev. 2</al>
+          </entry>
+        </row>
+        <row rowsep="1">
+          <entry align="left" colname="col2" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>vervaardiging van andere transportmiddelen</al>
+          </entry>
+          <entry align="left" colname="col3" colsep="1" morerows="0" rotate="0" valign="top">
+            <al>Ondernemingen die economische activiteiten uitvoeren als bedoeld in sectie C, afdeling 30, van NACE Rev. 2</al>
+          </entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=2&amp;g=2026-08-15" onderdeel="artikel=2" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=2"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=1&amp;artikel=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=2" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=2"/></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=1&amp;g=2026-08-15" onderdeel="hoofdstuk=1" korte-verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=1"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="hoofdstuk=1" korte-verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=1"/></jcis></meta-data></hoofdstuk>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk2" stam-id="17926063" versie-id="31712612" id="C45280321" label-id="17821684" inwerking="2026-08-15" label="Hoofdstuk 2" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">2</nr>
+    <titel status="officieel">Nadere regels zorgplicht</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3" stam-id="17926023" versie-id="31712572" id="C45280281" label-id="17821644" inwerking="2026-08-15" label="Artikel 3" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">3</nr>
+    <titel status="officieel">Beleid over beveiliging van netwerk- en informatiesystemen</titel>
+  </kop>
+  <al>Ter uitvoering van <extref doc="jci1.3:c:BWBR0052875&amp;artikel=6" label-id="17819314" verwijzing-id="3457625" bwb-id="BWBR0052875">artikel 6 van het besluit</extref> legt de essentiële entiteit of belangrijke entiteit als onderdeel van haar managementsystematiek, bedoeld in artikel 6, vierde lid, van het besluit, vast:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>welke maatregelen voor het beheer van cyberbeveiligingsrisico’s, met inbegrip van processen en controles, moeten worden gemonitord, gemeten, geanalyseerd en geëvalueerd;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de methoden voor het monitoren, meten, analyseren en evalueren om valide resultaten te waarborgen;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>wanneer de monitoring en de meting moeten worden uitgevoerd;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeeld">
+      <li.nr>d.</li.nr>
+      <al>wie is belast met het monitoren en meten van de doeltreffendheid van de maatregelen voor het beheer van cyberbeveiligingsrisico’s;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeele">
+      <li.nr>e.</li.nr>
+      <al>wanneer de resultaten van de monitoring en meting moeten worden geanalyseerd en geëvalueerd;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel3/Onderdeelf">
+      <li.nr>f.</li.nr>
+      <al>wie is belast met het analyseren en evalueren van deze resultaten.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;o=f&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=f"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=3&amp;g=2026-08-15" onderdeel="artikel=3" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=3"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=3" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=3"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4" stam-id="17926033" versie-id="31712582" id="C45280291" label-id="17821654" inwerking="2026-08-15" label="Artikel 4" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">4</nr>
+    <titel status="officieel">Bedrijfscontinuïteit</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1" label-id="17821654L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De processen en procedures voor het maken en periodiek verifiëren van de betrouwbaarheid van back-ups van software en gegevens, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=9" label-id="17819344" verwijzing-id="3457626" bwb-id="BWBR0052875">artikel 9, tweede lid, van het besluit</extref>, omschrijven van welke software en gegevens een back-up wordt gemaakt en bevatten ten aanzien van die software en gegevens:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>hersteltijden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>herstelpunten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>waarborgen voor de volledigheid en nauwkeurigheid van back-ups;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>waarborgen voor integriteit, vertrouwelijkheid en beschikbaarheid van back-ups;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>waarborgen voor herstel van software en gegevens uit back-ups;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid1/Onderdeelf">
+        <li.nr>f.</li.nr>
+        <al>bewaartermijnen.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;o=f&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=f"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2" label-id="17821654L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Het bedrijfscontinuïteitsplan, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=9" label-id="17819344" verwijzing-id="3457627" bwb-id="BWBR0052875">artikel 9, derde lid, van het besluit</extref>, houdt rekening met de uitgevoerde beoordeling van risico’s, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=7" label-id="17819324" verwijzing-id="3457628" bwb-id="BWBR0052875">artikel 7 van het besluit</extref>, en omvat in ieder geval:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>doel en reikwijdte;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>taken en verantwoordelijkheden;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>belangrijkste contacten en interne en externe communicatiekanalen;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>voorwaarden voor activering en de-activering van het bedrijfscontinuïteitsplan;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeele">
+        <li.nr>e.</li.nr>
+        <al>vereiste middelen, met inbegrip van back-ups en redundanties;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel4/Lid2/Onderdeelf">
+        <li.nr>f.</li.nr>
+        <al>voorwaarden voor herstel en hervatting van activiteiten na afloop van tijdelijke maatregelen.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;o=f&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=f"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2"/></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=4&amp;g=2026-08-15" onderdeel="artikel=4" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=4"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=4" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=4"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5" stam-id="17926043" versie-id="31712592" id="C45280301" label-id="17821664" inwerking="2026-08-15" label="Artikel 5" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">5</nr>
+    <titel status="officieel">Beveiliging bij het verwerven, ontwikkelen en onderhouden van netwerk- en informatiesystemen</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid1" label-id="17821664L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>De processen en procedures, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=11" label-id="17819364" verwijzing-id="3457629" bwb-id="BWBR0052875">artikel 11, derde lid, van het besluit</extref>, hebben tevens betrekking op de processen en procedures inzake:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>beveiligingstesten;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=1&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>beveiligingspatchbeheer.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=1&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid2" label-id="17821664L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>De processen en procedures inzake beveiligingspatchbeheer zorgen ervoor dat beveiligingspatches:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>waar passend, afkomstig zijn van betrouwbare bronnen en op integriteit worden gecontroleerd;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=2&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>waar passend, worden getest voordat zij in productiesystemen worden toegepast;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=2&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid2/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>worden toegepast binnen een redelijke termijn nadat zij beschikbaar zijn, tenzij de nadelen van de toepassing van de beveiligingspatches zwaarder wegen dan de voordelen, in welk geval de essentiële entiteit of belangrijke entiteit motiveert waarom de beveiligingspatches niet of op een later moment worden toegepast en dit documenteert.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=2&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid3" label-id="17821664L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>Ter uitvoering van <extref doc="jci1.3:c:BWBR0052872&amp;artikel=21" label-id="17817534" verwijzing-id="3457630" bwb-id="BWBR0052872">artikel 21, derde lid, onderdeel e, van de wet</extref>:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid3/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>implementeert de essentiële entiteit of belangrijke entiteit maatregelen om het gebruik van kwaadaardige en ongeoorloofde software in haar netwerk- en informatiesystemen te detecteren en te voorkomen;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=3&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid3/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>voert de essentiële entiteit of belangrijke entiteit, waar passend, periodiek kwetsbaarheidsscans uit op haar netwerk- en informatiesystemen en legt zij de resultaten van deze scans vast;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=3&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid3/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>evalueert de essentiële entiteit of belangrijke entiteit structureel haar blootstelling aan relevante kwetsbaarheden en dreigingen waar zij kennis van heeft ten aanzien van haar netwerk- en informatiesystemen, voor zover <extref doc="jci1.3:c:BWBR0052875&amp;artikel=17" label-id="17819424" verwijzing-id="3457631" bwb-id="BWBR0052875">artikel 17 van het besluit</extref> daar niet reeds toe verplicht;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=3&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid3/Onderdeeld">
+        <li.nr>d.</li.nr>
+        <al>verhelpt de essentiële entiteit of belangrijke entiteit onverwijld kwetsbaarheden die een risico vormen voor de beveiliging van haar netwerk- en informatiesystemen, of motiveert waarom de kwetsbaarheid niet of op een later moment wordt verholpen en dit documenteert.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=3&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=3"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid4" label-id="17821664L4">
+    <lidnr status="officieel">4</lidnr>
+    <al>Ter uitvoering van <extref doc="jci1.3:c:BWBR0052872&amp;artikel=21" label-id="17817534" verwijzing-id="3457632" bwb-id="BWBR0052872">artikel 21, derde lid, onderdeel g, van de wet</extref> segmenteert de essentiële entiteit of belangrijke entiteit:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid4/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>haar netwerk- en informatiesystemen in netwerken of zones overeenkomstig de resultaten van de in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=7" label-id="17819324" verwijzing-id="3457633" bwb-id="BWBR0052875">artikel 7, vijfde lid, van het besluit</extref> bedoelde risicoanalyse;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=4&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel5/Lid4/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>waar passend, haar netwerk- en informatiesystemen van de netwerk- en informatiesystemen van derden.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=4&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;lid=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=4"/></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=5&amp;g=2026-08-15" onderdeel="artikel=5" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=5"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=5&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=5" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=5"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6" stam-id="17926053" versie-id="31712602" id="C45280311" label-id="17821674" inwerking="2026-08-15" label="Artikel 6" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">6</nr>
+    <titel status="officieel">Beveiligingsaspecten ten aanzien van toegangsbeleid</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6/Lid1" label-id="17821674L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Het beleid, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=15" label-id="17819404" verwijzing-id="3457634" bwb-id="BWBR0052875">artikel 15, eerste lid, van het besluit</extref>, omvat het beleid over bevoorrechte accounts en systeembeheeraccounts.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6/Lid2" label-id="17821674L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Het beleid, bedoeld in <extref doc="jci1.3:c:BWBR0052875&amp;artikel=15" label-id="17819404" verwijzing-id="3457635" bwb-id="BWBR0052875">artikel 15, eerste lid, van het besluit</extref>, zorgt ervoor dat:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6/Lid2/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>sterke identificatie-, authenticatie- en autorisatieprocedures voor bevoorrechte accounts en systeembeheeraccounts worden toegepast;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;lid=2&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6/Lid2/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>voorrechten op het gebied van systeembeheer zoveel mogelijk geïndividualiseerd en beperkt worden toegekend;</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;lid=2&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk2/Artikel6/Lid2/Onderdeelc">
+        <li.nr>c.</li.nr>
+        <al>voorrechten op het gebied van systeembeheer uitsluitend voor systeembeheer worden gebruikt.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;lid=2&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2"/></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=6&amp;g=2026-08-15" onderdeel="artikel=6" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=6"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;artikel=6&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=6" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=6"/></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=2&amp;g=2026-08-15" onderdeel="hoofdstuk=2" korte-verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=2"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="hoofdstuk=2" korte-verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=2"/></jcis></meta-data></hoofdstuk>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk3" stam-id="17926143" versie-id="31712692" id="C45280401" label-id="17821764" inwerking="2026-08-15" label="Hoofdstuk 3" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">3</nr>
+    <titel status="officieel">Criteria meldplicht</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7" stam-id="17926073" versie-id="31712622" id="C45280331" label-id="17821694" inwerking="2026-08-15" label="Artikel 7" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">7</nr>
+    <titel status="officieel">Algemene criteria significant incident</titel>
+  </kop>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7/Lid1" label-id="17821694L1">
+    <lidnr status="officieel">1</lidnr>
+    <al>Voor de toepassing van <extref doc="jci1.3:c:BWBR0052872&amp;artikel=25" label-id="17817594" verwijzing-id="3457636" bwb-id="BWBR0052872">artikel 25, tweede lid, van de wet</extref> is een incident in ieder geval een significant incident als:</al>
+    <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+      <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7/Lid1/Onderdeela">
+        <li.nr>a.</li.nr>
+        <al>het de dood van een of meer natuurlijke personen heeft veroorzaakt of kan veroorzaken; of</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;lid=1&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+      <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7/Lid1/Onderdeelb">
+        <li.nr>b.</li.nr>
+        <al>het aanzienlijke schade aan de gezondheid van een of meer natuurlijke personen heeft veroorzaakt of kan veroorzaken.</al>
+      <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;lid=1&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    </lijst>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;lid=1&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=1"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7/Lid2" label-id="17821694L2">
+    <lidnr status="officieel">2</lidnr>
+    <al>Een incident is tevens een significant incident als het voldoet aan een of meer criteria, bedoeld in de <intref doc="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=8&amp;z=2026-08-15&amp;g=2026-08-15" label-id="17821704,17821714,17821724,17821734,17821744,17821754" verwijzing-id="3457646" bwb-id="BWBR0052884" bwb-ng-variabel-deel="/Hoofdstuk3/Artikel8">artikelen 8 tot en met 13</intref>.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;lid=2&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=2"/></jcis></meta-data></lid>
+  <lid bwb-ng-variabel-deel="/Hoofdstuk3/Artikel7/Lid3" label-id="17821694L3">
+    <lidnr status="officieel">3</lidnr>
+    <al>In afwijking van het tweede lid is een incident niet significant als het incident het gevolg is van gepland onderhoud dat door of namens de essentiële entiteit of belangrijke entiteit wordt uitgevoerd, voor zover de onderbreking, opschorting of beëindiging van een door de essentiële entiteit of belangrijke entiteit verleende dienst een voorzien gevolg is van dat onderhoud.</al>
+  <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;lid=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="lid=3"/></jcis></meta-data></lid>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=7&amp;g=2026-08-15" onderdeel="artikel=7" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=7"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=7&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=7" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=7"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel8" stam-id="17926083" versie-id="31712632" id="C45280341" label-id="17821704" inwerking="2026-08-15" label="Artikel 8" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">8</nr>
+    <titel status="officieel">Criteria significant incident bij aanbieder van een openbaar elektronisch communicatienetwerk of aanbieder van een openbare elektronische communicatiedienst</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit die aanbieder is van een openbaar elektronisch communicatienetwerk of van een openbare elektronische communicatiedienst, is een incident in ieder geval een significant incident als:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel8/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>bij een onderbreking van de levering van een openbare elektronische communicatiedienst ten minste 50.000 gebruikers zijn getroffen voor een duur van vier uur of langer;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=8&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel8/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de integriteit, vertrouwelijkheid of authenticiteit van gegevens die in verband met de dienstverlening van het openbare elektronische communicatienetwerk of de openbare elektronische communicatiedienst worden opgeslagen, verzonden of verwerkt, is aangetast, met gevolgen voor ten minste 1% van de gebruikers van het openbare elektronische communicatienetwerk of de openbare elektronische communicatiedienst, met een minimum van 10.000 gebruikers; of</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=8&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel8/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>het alarmnummer niet beschikbaar is.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=8&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=8&amp;g=2026-08-15" onderdeel="artikel=8" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=8"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=8&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=8" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=8"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel9" stam-id="17926093" versie-id="31712642" id="C45280351" label-id="17821714" inwerking="2026-08-15" label="Artikel 9" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">9</nr>
+    <titel status="officieel">Criteria significant incident bij aanbieder van een internetknooppunt</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit die aanbieder is van een internetknooppunt, is een incident in ieder geval een significant incident als:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel9/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>ten minste 25% van het actuele totale verkeer dat door het internetknooppunt wordt verwerkt, gemeten in datavolume in bits per seconde, gedurende ten minste 30 minuten is uitgevallen; of</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=9&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel9/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de integriteit, vertrouwelijkheid of authenticiteit van gegevens die in verband met de dienstverlening van het internetknooppunt worden opgeslagen, verzonden of verwerkt, is aangetast, met gevolgen voor meer dan 5% van de gebruikers.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=9&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=9&amp;g=2026-08-15" onderdeel="artikel=9" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=9"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=9&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=9" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=9"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel10" stam-id="17926103" versie-id="31712652" id="C45280361" label-id="17821724" inwerking="2026-08-15" label="Artikel 10" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">10</nr>
+    <titel status="officieel">Criteria significant incident in de sector ruimtevaart</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit in de sector ruimtevaart is een incident in ieder geval een significant incident als de integriteit, authenticiteit, beschikbaarheid of vertrouwelijkheid van gegevens die noodzakelijk zijn voor telemetrie, tracking of commandovoering van een ruimtevoorwerp is aangetast tijdens een tijdvak waarin volgens de reguliere operationele planning communicatie met dat ruimtevoorwerp mogelijk en voorzien is, waardoor een risico ontstaat voor de besturing of het behoud van dat ruimtevoorwerp.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=10&amp;g=2026-08-15" onderdeel="artikel=10" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=10"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=10&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=10" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=10"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel11" stam-id="17926113" versie-id="31712662" id="C45280371" label-id="17821734" inwerking="2026-08-15" label="Artikel 11" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">11</nr>
+    <titel status="officieel">Criteria significant incident in de sector post- en koerierdiensten</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit in de sector post- en koerierdiensten is een incident in ieder geval een significant incident als:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel11/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>ten minste 30% van de ontvangers van de post- en koerierdienst hun postzending ten minste twee bezorgdagen later ontvangt dan op grond van wettelijke of contractuele verplichtingen zou moeten; of</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=11&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel11/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de integriteit, vertrouwelijkheid of authenticiteit van digitale gegevens die in verband met haar dienstverlening worden opgeslagen, verzonden of verwerkt, is aangetast, waardoor persoonsgegevens en adresgegevens onrechtmatig worden verwerkt of het briefgeheim wordt geschonden.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=11&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=11&amp;g=2026-08-15" onderdeel="artikel=11" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=11"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=11&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=11" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=11"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12" stam-id="17926123" versie-id="31712672" id="C45280381" label-id="17821744" inwerking="2026-08-15" label="Artikel 12" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">12</nr>
+    <titel status="officieel">Criteria significant incident in de sector vervaardiging</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit in de sector vervaardiging is een incident in ieder geval een significant incident als:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>veiligheidsfuncties zijn verloren gegaan;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de beschikbaarheid of integriteit van essentiële besturings- of monitoringsfuncties is verloren gegaan;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>de continuïteit van het productieproces in gevaar is gekomen of kan komen;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12/Onderdeeld">
+      <li.nr>d.</li.nr>
+      <al>milieuschade als bedoeld in <extref doc="jci1.3:c:BWBR0003245&amp;artikel=17.6" label-id="9070204" verwijzing-id="3457637" bwb-id="BWBR0003245">artikel 17.6, eerste lid, van de Wet milieubeheer</extref> is opgetreden; of</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel12/Onderdeele">
+      <li.nr>e.</li.nr>
+      <al>ongeoorloofde toegang tot een industrie-specifiek netwerk- en informatiesysteem heeft plaatsgevonden en zich naar meerdere zones of omgevingen heeft verspreid.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=12&amp;g=2026-08-15" onderdeel="artikel=12" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=12"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=12&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=12" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=12"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk3/Artikel13" stam-id="17926133" versie-id="31712682" id="C45280391" label-id="17821754" inwerking="2026-08-15" label="Artikel 13" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">13</nr>
+    <titel status="officieel">Criteria significant incident in de sector onderzoek</titel>
+  </kop>
+  <al>Voor een essentiële entiteit of een belangrijke entiteit in de sector onderzoek als bedoeld in <extref doc="jci1.3:c:BWBR0052872&amp;bijlage=2" label-id="17818804" verwijzing-id="3457638" bwb-id="BWBR0052872">bijlage 2 bij de wet</extref>, ten aanzien waarvan de Minister ingevolge <extref doc="jci1.3:c:BWBR0052872&amp;artikel=15" label-id="17817454" verwijzing-id="3457639" bwb-id="BWBR0052872">artikel 15, vierde lid, van de wet</extref> de bevoegde autoriteit is, is een incident in ieder geval een significant incident als:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel13/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>het incident heeft geleid of kan leiden tot de ongeoorloofde openbaarmaking van bedrijfsgeheimen als bedoeld in artikel 2, eerste lid, van <extref doc="32016L0943" label="richtlijn" reeks="Celex">Richtlijn (EU) 2016/943</extref> van de essentiële entiteit of belangrijke entiteit; of</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=13&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk3/Artikel13/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de integriteit, vertrouwelijkheid of authenticiteit van onderzoeksgegevens die in verband met het verrichte onderzoek worden opgeslagen, verzonden of verwerkt, is aangetast, waardoor aanzienlijke materiële of immateriële schade ontstaat bij andere entiteiten.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=13&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=13&amp;g=2026-08-15" onderdeel="artikel=13" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=13"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;artikel=13&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=13" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=13"/></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=3&amp;g=2026-08-15" onderdeel="hoofdstuk=3" korte-verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=3"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="hoofdstuk=3" korte-verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=3"/></jcis></meta-data></hoofdstuk>
+      <hoofdstuk bwb-ng-variabel-deel="/Hoofdstuk4" stam-id="17926193" versie-id="31712742" id="C45280451" label-id="17821814" inwerking="2026-08-15" label="Hoofdstuk 4" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Hoofdstuk</label>
+    <nr status="officieel">4</nr>
+    <titel status="officieel">Overige en slotbepalingen</titel>
+  </kop><artikel bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14" stam-id="17926153" versie-id="31712702" id="C45280411" label-id="17821774" inwerking="2026-08-15" label="Artikel 14" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">14</nr>
+    <titel status="officieel">Aanwijzing autoriteiten</titel>
+  </kop>
+  <al>De volgende autoriteiten zijn aangewezen als autoriteiten als bedoeld in <extref doc="jci1.3:c:BWBR0052872&amp;artikel=51" label-id="17817974" verwijzing-id="3457640" bwb-id="BWBR0052872">artikel 51, tweede lid, onderdeel i, van de wet</extref>:</al>
+  <lijst level="single" nr-sluiting="." start="1" type="expliciet">
+    <li bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14/Onderdeela">
+      <li.nr>a.</li.nr>
+      <al>de Minister van Economische Zaken en Klimaat, uit hoofde van de <extref doc="jci1.3:c:BWBR0021418" label-id="8955424" verwijzing-id="3457649" bwb-id="BWBR0021418">Wet ruimtevaartactiviteiten</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;o=a&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=a"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14/Onderdeelb">
+      <li.nr>b.</li.nr>
+      <al>de Minister van Economische Zaken en Klimaat, uit hoofde van <extref doc="32019R0881" label="verordening" reeks="Celex">Verordening (EU) 2019/881</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;o=b&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=b"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14/Onderdeelc">
+      <li.nr>c.</li.nr>
+      <al>de Minister van Economische Zaken en Klimaat, uit hoofde van <extref doc="32024R2847" label="verordening" reeks="Celex">Verordening (EU) 2024/2847</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;o=c&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=c"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14/Onderdeeld">
+      <li.nr>d.</li.nr>
+      <al>de Minister van Economische Zaken en Klimaat, uit hoofde van de <extref doc="jci1.3:c:BWBR0009950" label-id="2781714" verwijzing-id="3457650" bwb-id="BWBR0009950">Telecommunicatiewet</extref>;</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;o=d&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=d"/></jcis></meta-data></li>
+    <li bwb-ng-variabel-deel="/Hoofdstuk4/Artikel14/Onderdeele">
+      <li.nr>e.</li.nr>
+      <al>de Autoriteit Consument en Markt, uit hoofde van de <extref doc="jci1.3:c:BWBR0025572" label-id="9934584" verwijzing-id="3457641" bwb-id="BWBR0025572">Postwet 2009</extref>.</al>
+    <meta-data><jcis><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;o=e&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="o=e"/></jcis></meta-data></li>
+  </lijst>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=14&amp;g=2026-08-15" onderdeel="artikel=14" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=14"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=14&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=14" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=14"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk4/Artikel15" stam-id="17926163" versie-id="31712712" id="C45280421" label-id="17821784" inwerking="2026-08-15" label="Artikel 15" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">15</nr>
+    <titel status="officieel">Intrekking Regeling aanwijzing aanbieders essentiële diensten EZK</titel>
+  </kop>
+  <al>De <extref doc="jci1.3:c:BWBR0045077" label-id="15874384" verwijzing-id="3457642" bwb-id="BWBR0045077">Regeling aanwijzing aanbieders essentiële diensten EZK</extref> wordt ingetrokken.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=15&amp;g=2026-08-15" onderdeel="artikel=15" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=15"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=15&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=15" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=15"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk4/Artikel16" stam-id="17926173" versie-id="31712722" id="C45280431" label-id="17821794" inwerking="2026-08-15" label="Artikel 16" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">16</nr>
+    <titel status="officieel">Inwerkingtreding</titel>
+  </kop>
+  <al>Indien het bij koninklijke boodschap van 2 juni 2025 ingediende voorstel van wet houdende regels ter implementatie van <extref doc="32022L2555" label="richtlijn" reeks="Celex">Richtlijn (EU) 2022/2555</extref> van het Europees Parlement en de Raad van 14 december 2022 betreffende maatregelen voor een hoog gezamenlijk niveau van cyberbeveiliging in de Unie, tot wijziging van <extref doc="32014R0910" label="verordening" reeks="Celex">Verordening (EU) nr. 910/2014</extref> en <extref doc="32018L1972" label="richtlijn" reeks="Celex">Richtlijn (EU) 2018/1972</extref> en tot intrekking van <extref doc="32016L1148" label="richtlijn" reeks="Celex">Richtlijn (EU) 2016/1148</extref> (PbEU 2022, L 333) (<extref doc="jci1.3:c:BWBR0052872" label-id="17818814" verwijzing-id="3457643" bwb-id="BWBR0052872">Cyberbeveiligingswet</extref>) (Kamerstukken <dossierref dossier="36764">36 764</dossierref>) tot wet is of wordt verheven en die wet in werking treedt, treedt deze regeling op hetzelfde tijdstip in werking.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=16&amp;g=2026-08-15" onderdeel="artikel=16" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=16"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=16&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=16" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=16"/></jcis></meta-data></artikel><artikel bwb-ng-variabel-deel="/Hoofdstuk4/Artikel17" stam-id="17926183" versie-id="31712732" id="C45280441" label-id="17821804" inwerking="2026-08-15" label="Artikel 17" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <kop>
+    <label>Artikel</label>
+    <nr status="officieel">17</nr>
+    <titel status="officieel">Citeertitel</titel>
+  </kop>
+  <al>Deze regeling wordt aangehaald als: Regeling cyberbeveiliging EZK.</al>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;artikel=17&amp;g=2026-08-15" onderdeel="artikel=17" korte-verwijzing="1.0:c:BWBR0052884&amp;artikel=17"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;artikel=17&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="artikel=17" korte-verwijzing="jci1.3:c:BWBR0052884&amp;artikel=17"/></jcis></meta-data></artikel><meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=4&amp;g=2026-08-15" onderdeel="hoofdstuk=4" korte-verwijzing="1.0:c:BWBR0052884&amp;hoofdstuk=4"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="hoofdstuk=4" korte-verwijzing="jci1.3:c:BWBR0052884&amp;hoofdstuk=4"/></jcis></meta-data></hoofdstuk>
+    </regeling-tekst>
+    <regeling-sluiting bwb-ng-variabel-deel="/SlotformulierEnOndertekening" stam-id="17926203" versie-id="31712752" id="C45280461" label-id="17821824" inwerking="2026-08-15" bron="Stcrt.2026-25627" effect="nieuwe-regeling" ondertekening_bron="2026-07-05" publicatie_bron="2026-07-21" publicatie_iwt="2026-07-10" status="goed">
+  <slotformulering>
+    <al>Deze regeling zal met de toelichting in de Staatscourant worden geplaatst.</al>
+  </slotformulering>
+  <gegeven>
+    <dagtekening>
+      <plaats>'s-Gravenhage</plaats>
+      <datum isodatum="2026-07-05">5 juli 2026</datum>
+    </dagtekening>
+  </gegeven>
+  <ondertekening>
+    <functie>De Staatssecretaris van Economische Zaken en Klimaat,</functie>
+    <naam>
+      <voornaam>W.J.M.</voornaam>
+      <achternaam>Aerdts</achternaam>
+    </naam>
+  </ondertekening>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata></meta-data></regeling-sluiting>
+  </regeling>
+<meta-data><brondata><oorspronkelijk><publicatie effect="nieuwe-regeling" soort="Stcrt" urlidentifier="stcrt-2026-25627"><publicatiejaar>2026</publicatiejaar><publicatienr>25627</publicatienr><uitgiftedatum isodatum="2026-07-21">21-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-05">05-07-2026</ondertekeningsdatum><kenmerk>WJZ/101446051</kenmerk></publicatie></oorspronkelijk><inwerkingtreding><publicatie effect="nieuwe-regeling" soort="Stb" urlidentifier="stb-2026-189"><publicatiejaar>2026</publicatiejaar><publicatienr>189</publicatienr><uitgiftedatum isodatum="2026-07-10">10-07-2026</uitgiftedatum><ondertekeningsdatum isodatum="2026-07-08">08-07-2026</ondertekeningsdatum></publicatie><inwerkingtreding.datum isodatum="2026-08-15">15-08-2026</inwerkingtreding.datum></inwerkingtreding><opmerkingen-inhoud><al>Treedt in werking op het tijdstip waarop de Cyberbeveiligingswet
+    in werking treedt.</al></opmerkingen-inhoud></brondata><jcis><jci versie="1.0" verwijzing="1.0:c:BWBR0052884&amp;g=2026-08-15" onderdeel="wetgeving" korte-verwijzing="1.0:c:BWBR0052884"/><jci versie="1.3" verwijzing="jci1.3:c:BWBR0052884&amp;z=2026-08-15&amp;g=2026-08-15" onderdeel="wetgeving" korte-verwijzing="jci1.3:c:BWBR0052884"/></jcis></meta-data></wetgeving></toestand>

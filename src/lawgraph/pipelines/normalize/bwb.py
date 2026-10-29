@@ -54,7 +54,7 @@ from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.core.time import dutch_today, iso_timestamp
 from lawgraph.core.validity import ValidityState, instrument_validity
-from lawgraph.db import EdgeWriter, NodeWriter
+from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import state as state_queries
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
@@ -83,23 +83,58 @@ class Written:
 
 
 class BWBNormalizePipeline(NormalizePipelineBase[Records]):
-    """Normalize BWB XML into Instrument and Article nodes, with their short titles."""
+    """Normalize BWB XML into Instrument and Article nodes, with their short titles.
+
+    *after* and *limit*: a slice of a run over all, past that record key, so many
+    toestanden; the log names the last one read. A slice that stops at its limit leaves the
+    WTI pass and the series to the slice that reaches the end (it reads nothing, or fewer
+    than its limit): they read every regulation, not the slice.
+    """
 
     _since: dt.datetime | None = None
 
+    def __init__(
+        self, *, store: GraphStore, after: str | None = None, limit: int | None = None
+    ) -> None:
+        super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self.last_record_read: str | None = None
+        self._read = 0
+
     def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
         self._since = since
-        return super().run(since=since)
+        result = super().run(since=since)
+        if self.after or self.limit is not None:
+            last = self.last_record_read
+            if self._at_the_end():
+                logger.info("The last read was %s: the end, nothing to go on.", last)
+            else:
+                logger.info("The last read was %s (go on with --after %s).", last, last)
+        return result
+
+    def _at_the_end(self) -> bool:
+        """Whether the slice read to the end of the toestanden: it has no limit, or read
+        fewer than that."""
+        return self.limit is None or self._read < self.limit
 
     def fetch_raw(
         self,
         *,
         since: dt.datetime | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """Stream the BWB raw_sources records relevant to instrument/article parsing."""
-        return self._iter_raw_sources(
-            source=SOURCE_BWB, kinds=TOESTAND_KINDS, since=since
-        )
+        """Stream the BWB raw_sources records relevant to instrument/article parsing (of
+        the slice), the key of each kept as the last read."""
+        for record in self._iter_raw_sources(
+            source=SOURCE_BWB,
+            kinds=TOESTAND_KINDS,
+            since=since,
+            after=self.after,
+            limit=self.limit,
+        ):
+            self.last_record_read = record.get("key") or self.last_record_read
+            self._read += 1
+            yield record
 
     def write(self, raw: Records, result: PipelineResult) -> None:
         """The nodes of every toestand and the short titles, then their edges."""
@@ -196,6 +231,9 @@ class BWBNormalizePipeline(NormalizePipelineBase[Records]):
             article_count,
             len(written.instruments),
         )
+        if not self._at_the_end():
+            logger.info("BWB short titles and series: left to the last slice.")
+            return written
         thesauri = self._thesauri()
         digest = _digest(curated_abbreviations(), thesauri, _ministry_names())
         if self._wti_pass_needed(digest):
