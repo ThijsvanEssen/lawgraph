@@ -121,13 +121,13 @@ def first_versions(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]
             GROUP BY bwb_id
         )
         SELECT f.bwb_id, f.first_from,
-               (SELECT array_agg(DISTINCT v.article_number ORDER BY v.article_number)
+               (SELECT array_agg(DISTINCT v.article_number ORDER BY v.article_number NULLS FIRST)
                 FROM article_versions v
                 WHERE v.bwb_id = f.bwb_id AND v.article_number IS NOT NULL
                   AND v.valid_from <= f.first_from
                   AND (v.valid_until IS NULL OR v.valid_until > f.first_from)) AS numbers
         FROM first f
-        ORDER BY f.bwb_id
+        ORDER BY f.bwb_id NULLS FIRST
         """,
         {"bwb_ids": bwb_ids},
     )
