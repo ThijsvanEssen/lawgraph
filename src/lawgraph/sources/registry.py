@@ -840,6 +840,7 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         BWBNormalizePipeline,
         "Instruments and articles; short titles and aliases from the WTI abbreviations.",
+        options=slice_args("toestanden", "record key"),
         fed_by=("tooi",),  # the subjects of the TOOI thesaurus
     ),
     _pipeline(

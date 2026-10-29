@@ -140,9 +140,11 @@ and exits 1 when any of them failed.
 when that one failed (`skipped`, as in `retrieve all`). Every `normalize <source>` accepts `--since DATE`: only raw records
 whose content changed since then (`changed_at`, `data-model.md`); a record fetched again as it
 was is not read again.
-`normalize rechtspraak` also reads every stored judgment in slices: `--after KEY` starts past that record key,
-`--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` runs them at night, each
-under the lock on its own).
+`normalize rechtspraak` and `normalize bwb` also read every stored record in slices: `--after KEY` starts past that
+record key, `--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` and
+`ops/renormalize-bwb.sh` run them at night, each under the lock on its own). A `normalize bwb` slice that stops at
+its limit leaves the WTI pass and the series to the slice that reaches the end (the log says "the end, nothing to
+go on").
 
 ### semantic
 

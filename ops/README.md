@@ -40,6 +40,9 @@ sources `_steps.sh`, so each takes the lock and lets it go: `staatsblad-notes.sh
 `member-death-dates.sh`, `papers-light.sh` and `tk-backfill.sh` (a night of the XML of the Tweede Kamer papers: `TK_LIMIT`, `TK_MINUTES`, `TK_UNTIL`, `DISK_MAX_PCT`). One over every judgment goes in slices, each under the lock on its own,
 going on from `out/<script>.after`, and sources `_night.sh` too: `renormalize-judgments.sh`, `relink-judgments.sh`,
 `relink-citations.sh`. `renormalize-rvs.sh` removes the key of a finished `renormalize-judgments.sh` pass and starts a new one.
+`renormalize-bwb.sh` does `normalize bwb` over every toestand the same way (slices of 15000, about 13 minutes each, four
+in a night; `out/renormalize-bwb.after`), for a field a release added to the instruments (the `props.preamble` of #1053); `bwb-preamble-counts.sql` measures it, `stop-renormalize-bwb.sh` stops the loop (never SIGSTOP; the slice
+that runs goes to its end; the same command goes on). A slice that ends where it started fails.
 
 A script here is a temporary correction: it does once what a complete rebuild plus the regular nightly and weekly
 runs would do too, and it goes once its run on the server is done.
