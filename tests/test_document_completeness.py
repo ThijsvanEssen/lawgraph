@@ -141,6 +141,6 @@ def test_a_paper_of_the_sru_without_an_address_is_not_fetched() -> None:
     assert _parts(props, XmlRetrieval()) == _same("not_fetched")
     # with an address it is a Kamerstuk like any other
     numbered = {**props, "sequence": 3}
-    assert _parts(numbered, XmlRetrieval(missing=FETCHED))["text"]["state"] == (
-        "not_in_source"
+    assert _parts(numbered, XmlRetrieval(missing=FETCHED)) == _same(
+        "not_in_source", FETCHED
     )
