@@ -122,8 +122,11 @@ jobs:
             -U lawgraph -d "${LAWGRAPH_DB_NAME:-lawgraph}" -c "DELETE FROM pipeline_state WHERE key = 'schema'" < /dev/null
           since=$(date '+%Y-%m-%d %H:%M:%S')
           sudo -n systemctl restart lawgraph-api < /dev/null
-          for _ in $(seq 30); do
+          # the start applies the schema, which can wait on locks the old process left in the
+          # database (0.80.27: not up after 30 s, up after a minute); two minutes before a rollback
+          for i in $(seq 120); do
             curl -fsS http://127.0.0.1:8000/api/health > /dev/null 2>&1 && break
+            [ "$((i % 30))" -ne 0 ] || echo "[deploy] the API is not up after $i s; waiting"
             sleep 1
           done
           curl -fsS http://127.0.0.1:8000/api/health
