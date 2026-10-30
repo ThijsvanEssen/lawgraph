@@ -233,10 +233,10 @@ def test_a_common_word_kept_reads_only_the_hits_it_answers(
 
 def test_the_words_are_those_searched_most(tmp_path: Path) -> None:
     """One-word terms asked ``MIN_COUNT`` times or more in the days kept, most asked first;
-    a term of more words, or asked less, is not one."""
+    a term of more words, a phrase in quotes, or asked less, is not one."""
     today = dt.date(2026, 10, 11)
     counts = {"belasting": 9, "huur": 6, "onrechtmatige daad": 40,
-              "jansen": 2, "pacht": 9, "a": 50}  # fmt: skip
+              '"onrechtmatige daad"': 30, "jansen": 2, "pacht": 9, "a": 50}  # fmt: skip
     day = tmp_path / f"search-{today.isoformat()}.json"
     day.write_text(
         json.dumps({search_stats.normalize(k): v for k, v in counts.items()})

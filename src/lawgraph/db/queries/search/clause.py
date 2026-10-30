@@ -11,6 +11,8 @@ it by a term, ``termed_articles`` and ``legislated_dossiers``). Which fields hav
 
 from __future__ import annotations
 
+import itertools
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -30,9 +32,27 @@ def tokenize_search_query(q: str) -> list[str]:
 
     Whitespace is the only separator; punctuation is preserved inside tokens
     so identifiers like ``BWBR0001903`` or ``ECLI:NL:HR:2023:1`` remain intact.
-    Tokens of length 1 are dropped to avoid pathological scans.
+    Tokens of length 1 are dropped to avoid pathological scans. Words in quotes
+    (``"belangen van de staat"``, also ``“…”`` and ``„…”``; an open quote to the end)
+    are one token, a phrase (``is_phrase``): its words one space apart, every one kept.
     """
-    return [t for t in q.strip().lower().split() if len(t) > 1]
+    tokens: list[str] = []
+    for n, part in enumerate(_QUOTES.split(q.lower())):
+        words = part.split()
+        if n % 2 and len(words) > 1:
+            tokens.append(" ".join(words))
+        else:
+            tokens.extend(words)
+    return [t for t in tokens if len(t) > 1]
+
+
+_QUOTES = re.compile('["“”„]')
+
+
+def is_phrase(token: str) -> bool:
+    """Whether *token* is a phrase (``tokenize_search_query``): words that are found in
+    that order, one after the other."""
+    return " " in token
 
 
 # The dictionary whose stop words a search leaves out: PostgreSQL's Dutch snowball stemmer
@@ -45,14 +65,40 @@ _STOP_WORDS_SQL = (
 
 
 @dataclass(frozen=True)
+class Order:
+    """The runs of the words of a query, in its order, that rank a hit higher where it
+    holds them so (``text.order_sql``): each two of its words one after the other, the stop
+    words between them with them (*pairs*: "gewichtige belangen", "belangen van de
+    staat"), and of three words or more all of them, from the first to the last (*whole*:
+    "gewichtige belangen van de staat")."""
+
+    pairs: tuple[str, ...] = ()
+    whole: str | None = None
+
+
+NO_ORDER = Order()
+
+
+def word_order(words: list[str], stop: set[str]) -> Order:
+    """The ``Order`` of *words* (those of a query in its order, its stop words too), the
+    words of *stop* only between two others."""
+    kept = [n for n, word in enumerate(words) if word not in stop]
+    pairs = tuple(" ".join(words[a : b + 1]) for a, b in itertools.pairwise(kept))
+    whole = " ".join(words[kept[0] : kept[-1] + 1]) if len(kept) > 2 else None
+    return Order(pairs, whole)
+
+
+@dataclass(frozen=True)
 class QueryWords:
     """The tokens of a query (``tokenize_search_query``) a search looks for (*words*) and
     the stop words it leaves out of them (*left_out*): "wat is de opzegtermijn van mijn
     huurcontract" looks for "opzegtermijn" and "huurcontract". A query of stop words alone
-    is looked for as it is."""
+    is looked for as it is; a phrase keeps its stop words. *order*: the runs of its words
+    that rank a hit higher (``word_order``)."""
 
     words: list[str]
     left_out: list[str]
+    order: Order = NO_ORDER
 
 
 # What stands between the letters of an abbreviation written loose ("J en V", "j & v").
@@ -74,19 +120,23 @@ def letters_joined(q: str) -> str | None:
 
 def query_words(store: GraphStore, q: str) -> QueryWords:
     """The words *q* is searched by: loose letters as the one abbreviation they write
-    (``letters_joined``), else its tokens without the stop words of ``STOP_WORDS_OF``,
-    unless they are all it has."""
+    (``letters_joined``), else its tokens without the stop words of ``STOP_WORDS_OF``
+    (but those of a phrase), unless they are all it has; and the order of its words."""
     joined = letters_joined(q)
     if joined:
         return QueryWords([joined], [])
     tokens = tokenize_search_query(q)
-    if len(tokens) < 2:
-        return QueryWords(tokens, [])
-    stop = set(store.query(_STOP_WORDS_SQL, {"words": tokens}))
-    words = [t for t in tokens if t not in stop]
+    in_order = [word for token in tokens for word in token.split()]
+    stop = (
+        set(store.query(_STOP_WORDS_SQL, {"words": in_order}))
+        if len(in_order) > 1
+        else set()
+    )
+    order = word_order(in_order, stop)
+    words = [t for t in tokens if is_phrase(t) or t not in stop]
     if not words:
-        return QueryWords(tokens, [])
-    return QueryWords(words, [t for t in tokens if t in stop])
+        return QueryWords(tokens, [], order)
+    return QueryWords(words, [t for t in tokens if t not in words], order)
 
 
 def queries_words(
@@ -145,12 +195,32 @@ NO_PERIOD = Period()
 # ── the words of the fields ───────────────────────────────────────────────────
 
 
+def spaced(column: str) -> str:
+    """SQL: the stems of the ``text`` column *column* (in order, stop words too:
+    ``lg_tokens``) in one string, each a space apart and one at either end (no stem holds
+    one), which ``in_a_row_sql`` finds a run of words in."""
+    return f"(' ' || array_to_string({column}, ' ') || ' ')"
+
+
+def in_a_row_sql(word: str) -> str:
+    """SQL: the pattern of the stems of the words in the parameter *word* one after the
+    other in a string of ``spaced``."""
+    return f"'%% ' || lg_like(array_to_string(lg_tokens(%({word})s), ' ')) || ' %%'"
+
+
+def in_a_row(column: str, word: str) -> str:
+    """SQL: the words in the parameter *word* stand one after the other in the ``text``
+    column *column*."""
+    return f"{spaced(column)} LIKE {in_a_row_sql(word)}"
+
+
 def _field_condition(
-    table: str, field: str, word: str, row: str, forms: list[str]
+    table: str, field: str, word: str, row: str, forms: list[str], phrase: bool
 ) -> list[str]:
     """How *field* of *table* (the row *row*) matches the word in the parameter *word*,
     one condition per analyzer it was indexed with; *forms* the parameters of the forms of
-    the word that stem apart (``word_forms``)."""
+    the word that stem apart (``word_forms``). A *phrase* (``is_phrase``) is matched by its
+    words in a row (``in_a_row``)."""
     analyzers = SEARCH_FIELDS[table][field]
     parts: list[str] = []
     if "text" in analyzers:
@@ -161,7 +231,10 @@ def _field_condition(
         column = f"{row}.{search_column(field, 'text')}"
         parts.extend(
             f"(cardinality(lg_tokens(%({form})s)) > 0"
-            f" AND {column} @> lg_tokens(%({form})s))"
+            f" AND {column} @> lg_tokens(%({form})s)"
+            # a phrase: its words found by the index, then in a row
+            + (f" AND {in_a_row(column, form)}" if phrase else "")
+            + ")"
             for form in forms
         )
     # Each of them an index lookup: GIN on the arrays, trigrams on the strings.
@@ -215,11 +288,15 @@ def build_search_clause(
         word = f"_tok_{i}"
         params[word] = token
         forms = []
-        for j, form in enumerate(word_forms(token).split()):
+        # a phrase is one form: its words together
+        of = [token] if is_phrase(token) else word_forms(token).split()
+        for j, form in enumerate(of):
             forms.append(f"_form_{i}_{j}")
             params[forms[-1]] = form
         per_field = [
-            c for f in fields for c in _field_condition(table, f, word, row, forms)
+            c
+            for f in fields
+            for c in _field_condition(table, f, word, row, forms, is_phrase(token))
         ]
         if termed:
             params[f"_termed_{i}"] = termed[i]
@@ -288,9 +365,11 @@ def live_clause(
             if "text" in analyzers:
                 # every word the token holds (``20/325``: 20 and 325), not any of them;
                 # a token of no word (a stop word) holds none
+                column = f"r.{search_column(field, 'text')}"
+                in_row = f" AND {in_a_row(column, word)}" if is_phrase(token) else ""
                 per_field.append(
                     f"(cardinality(lg_tokens(%({word})s)) > 0"
-                    f" AND r.{search_column(field, 'text')} @> lg_tokens(%({word})s))"
+                    f" AND {column} @> lg_tokens(%({word})s){in_row})"
                 )
             if "norm" in analyzers:
                 per_field.append(
@@ -376,7 +455,8 @@ def termed_articles(store: GraphStore, tokens: list[str]) -> Termed | None:
         store.query(
             _TERMED_SQL,
             {
-                "forms": [word_forms(t) for t in tokens],
+                # a phrase is no term: none of its words alone finds an article
+                "forms": ["" if is_phrase(t) else word_forms(t) for t in tokens],
                 "cap": TERMED,
                 "named": NAMED,
                 "name_lift": NAME_LIFT,

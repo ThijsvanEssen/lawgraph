@@ -8,7 +8,7 @@ from typing import Any
 
 from lawgraph.core.notation import Notation
 from lawgraph.db import GraphStore
-from lawgraph.db.queries.search.clause import Period
+from lawgraph.db.queries.search.clause import NO_ORDER, Order, Period
 from lawgraph.db.queries.search.signers import Signed, signed_sql
 
 Hit = dict[str, Any]
@@ -30,8 +30,9 @@ class Asked:
     """One search: the query and its words (``clause.query_words``), the citation it is
     (``parser.notation``), the kinds of documents and dossiers asked for, the most hits per
     type, the period, the factions it names (``signers.signed_for``), whether a hit holds
-    one of its words at least (*any_word*) instead of every one, and the kinds of motion
-    asked for (*motion_kinds*, ``core.motion_kinds``: of the papers and the votes)."""
+    one of its words at least (*any_word*) instead of every one, the kinds of motion
+    asked for (*motion_kinds*, ``core.motion_kinds``: of the papers and the votes) and the
+    runs of its words that rank a hit higher (*order*, ``clause.word_order``)."""
 
     store: GraphStore
     q: str
@@ -43,6 +44,7 @@ class Asked:
     signed: Signed | None = None
     any_word: bool = False
     motion_kinds: list[str] | None = None
+    order: Order = NO_ORDER
 
     def words(self, kind: SearchType) -> list[str]:
         """The tokens *kind* is searched by: of a type with signatures, without those that
