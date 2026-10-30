@@ -23,6 +23,7 @@ from lawgraph.config.constants import (
 from lawgraph.core.delegations import AMVB_KINDS
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
+from lawgraph.db._sql import sql_text_list
 from lawgraph.db.version_cache import cached_rows
 
 # What the statements below read, for the answers kept per version of these tables.
@@ -152,7 +153,7 @@ SELECT g.id, g.kind,
        json_build_object({", ".join(f"'{f}', g.props -> '{f}'" for f in _NAMES)}) AS props,
        count(*) OVER ()::int AS listed
 FROM regulations g
-ORDER BY CASE WHEN lower(g.kind) IN ({", ".join(f"'{k}'" for k in sorted(AMVB_KINDS))}) THEN 0
+ORDER BY CASE WHEN lower(g.kind) IN ({sql_text_list(sorted(AMVB_KINDS))}) THEN 0
               WHEN lower(g.kind) LIKE 'ministeriele-regeling%%' THEN 1 ELSE 2 END, g.key
 LIMIT %(limit)s
 """
