@@ -5,7 +5,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.schemas.articles import ArticleExplanationDTO
+from lawgraph.api.schemas.articles import ArticleCitedByItem, ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 from lawgraph.db.queries.instruments import LawOnADate
 from tests.api.stubs import stub_route
@@ -366,3 +366,31 @@ def test_the_articles_on_a_date_bound_their_page_and_preview():
     for query in ("limit=0", "limit=2001", "offset=-1", "text_preview_chars=601"):
         assert client.get(f"{path}?{query}").status_code == 422, query
     assert_status(client.get(f"{path.rsplit('/', 1)[0]}/2024-13-01"), 422)
+
+
+def test_a_passage_that_cites_the_article_says_what_names_it() -> None:
+    """``origin`` of the edge the passage is of; null for one linked before it was kept."""
+    row: dict[str, Any] = {
+        "judgment": {
+            "id": "judgments/ecli_nl_hr_2015_1",
+            "key": "ecli_nl_hr_2015_1",
+            "props": {"ecli": "ECLI:NL:HR:2015:1"},
+        },
+        "mention": {
+            "paragraph_id": "rov-3",
+            "start": 4,
+            "end": 16,
+            "raw_match": "artikel 287",
+            "snippet": "Zie artikel 287 Sr.",
+            "confidence": 0.95,
+        },
+    }
+
+    def origin(**more: Any) -> Any:
+        item = ArticleCitedByItem.from_row({**row, **more})
+        assert item is not None
+        return item.origin
+
+    assert origin(origin=["text", "metadata"]) == ["text", "metadata"]
+    assert origin(origin=["text"]) == ["text"]
+    assert origin() is None and origin(origin=None) is None

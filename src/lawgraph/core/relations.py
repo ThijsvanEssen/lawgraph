@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -230,6 +230,20 @@ class Mention(_Parts):
     """The label of the footnote that cites it."""
 
 
+# What names an article a judgment cites (``RefersToMeta.origin``): its text, its metadata.
+CitationOrigin = Literal["text", "metadata"]
+
+
+def citation_origin(meta: Mapping[str, Any]) -> list[CitationOrigin] | None:
+    """``origin`` of the ``meta`` of a REFERS_TO edge from a judgment to an article, in the
+    order of ``CitationOrigin``; None for an edge linked before origin was kept (a gap,
+    not a guess)."""
+    stored = meta.get("origin")
+    if not isinstance(stored, list):
+        return None
+    return [origin for origin in get_args(CitationOrigin) if origin in stored]
+
+
 class RefersToMeta(_Span, _Parts):
     """A citation, with the fields of each way one is read."""
 
@@ -259,7 +273,7 @@ class RefersToMeta(_Span, _Parts):
     """How many places of the judgment cite it."""
     mentions: list[Mention] | None = None
     """The first of those places."""
-    origin: list[Literal["text", "metadata"]] | None = None
+    origin: list[CitationOrigin] | None = None
     """What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`),
     or both; the mentions are those of the text."""
     paragraphs: list[str] | None = None

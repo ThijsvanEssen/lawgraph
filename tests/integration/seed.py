@@ -197,9 +197,17 @@ def judgment_xml(
     *,
     court: str = "Een rechter",
     summary: str | None = None,
+    law_references: tuple[str, ...] = (),
 ) -> str:
     """A judgment of Rechtspraak: its ECLI, court and date, and one section of numbered
-    paragraphs ``(number, text)``, with its *summary* (``inhoudsindicatie``) if any."""
+    paragraphs ``(number, text)``, with its *summary* (``inhoudsindicatie``) if any and
+    a ``Wetsverwijzing`` in its metadata per jci of *law_references*
+    (``jci1.31:c:BWBR0001840&artikel=1``)."""
+    references = "".join(
+        '<dcterms:references rdfs:label="Wetsverwijzing" '
+        f'bwb:resourceIdentifier="{jci.replace("&", "&amp;")}">x</dcterms:references>'
+        for jci in law_references
+    )
     body = "".join(
         f"<paragroup><nr>{number}</nr><para>{text}</para></paragroup>"
         for number, text in paragraphs
@@ -211,10 +219,12 @@ def judgment_xml(
     )
     return (
         '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
-        'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
+        'xmlns:dcterms="http://purl.org/dc/terms/" '
+        'xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" '
+        'xmlns:bwb="bwb-dl"><rdf:RDF><rdf:Description>'
         f"<dcterms:identifier>{ecli}</dcterms:identifier>"
         f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
-        f"</rdf:Description></rdf:RDF>{summary_xml}<uitspraak><section>"
+        f"{references}</rdf:Description></rdf:RDF>{summary_xml}<uitspraak><section>"
         f"<title><nr>1</nr>Overwegingen</title>{body}</section></uitspraak></open>"
     )
 

@@ -2154,5 +2154,13 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/ArticleCitedByItem/properties/origin/anyOf/0/items": [
+  "text",
+  "metadata"
+ ],
+ "/components/schemas/JudgmentCitedArticle/properties/origin/anyOf/0/items": [
+  "text",
+  "metadata"
  ]
 }

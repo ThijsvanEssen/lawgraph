@@ -11,6 +11,7 @@ from lawgraph.api.schemas.common import (
     PARTIAL_COUNTS,
     ArticleCitationSpan,
     ArticleRelationDTO,
+    CitationOriginFields,
     FacetCountDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
@@ -35,6 +36,7 @@ from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_para
 from lawgraph.core.models import Direction, judgment_id
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
+from lawgraph.core.relations import citation_origin
 
 _JUDGMENT_KIND = (
     "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
@@ -535,7 +537,7 @@ class JudgmentFootnote(StrictModel):
     )
 
 
-class JudgmentCitedArticle(QualifierFields, CitationPlaceFields):
+class JudgmentCitedArticle(QualifierFields, CitationPlaceFields, CitationOriginFields):
     """An article a judgment cites, with where and how: the strongest of its mentions."""
 
     article: ArticleRelationDTO
@@ -561,6 +563,7 @@ class JudgmentCitedArticle(QualifierFields, CitationPlaceFields):
             qualifier=strongest.qualifier if strongest else None,
             **(strongest.parts.to_dict() if strongest else {}),
             **place_fields(mentions, meta, confidence, texts),
+            origin=citation_origin(meta),
         )
 
 

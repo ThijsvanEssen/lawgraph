@@ -282,6 +282,39 @@ def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
     assert not failing, show_items(failing)
 
 
+def test_a_cited_article_says_what_names_it_text_metadata_or_neither(monkeypatch):
+    """``origin`` of the edge: the text, the metadata (``Wetsverwijzing``) or both, in that
+    order; null for an edge linked before origin was kept."""
+
+    def origin(meta: dict[str, Any]) -> Any:
+        (cited,) = _detail(monkeypatch, meta)["cited_articles"]
+        return cited["origin"]
+
+    both = {"mention_count": 3, "mentions": _MENTIONS, "origin": ["metadata", "text"]}
+    assert origin(both) == ["text", "metadata"]
+    assert origin({"mention_count": 3, "mentions": _MENTIONS, "origin": ["text"]}) == [
+        "text"
+    ]
+    assert origin({"mentions": [], "mention_count": 0}) is None
+
+
+def test_a_cited_article_only_the_metadata_names_has_no_place(monkeypatch):
+    body = _detail(
+        monkeypatch,
+        {
+            "reason": "bwb_metadata_article",
+            "mention_count": 0,
+            "mentions": [],
+            "origin": ["metadata"],
+        },
+    )
+
+    (cited,) = body["cited_articles"]
+    assert cited["origin"] == ["metadata"]
+    assert cited["paragraph_ids"] == [] and cited["snippet"] is None
+    assert cited["mention_count"] == 0 and cited["confidence"] == 0.95
+
+
 _LIST_ROW = {
     "id": "judgments/ecli_nl_hr_2020_123",
     "key": "ecli_nl_hr_2020_123",

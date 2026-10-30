@@ -16,6 +16,7 @@ from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
     ChangeEffect,
+    CitationOriginFields,
     DefinitionDTO,
     FacetCountDTO,
     InstrumentSummaryDTO,
@@ -72,6 +73,7 @@ from lawgraph.core.official_urls import (
 )
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
+from lawgraph.core.relations import citation_origin
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
@@ -850,7 +852,7 @@ def _count(value: Any) -> int | None:
     return int(value) if isinstance(value, int | float) else None
 
 
-class ArticleCitedByItem(QualifierFields):
+class ArticleCitedByItem(QualifierFields, CitationOriginFields):
     """One passage of a judgment that cites the article. `leden`, `onderdelen` and
     `aanhef` say what the passage names of it."""
 
@@ -874,7 +876,8 @@ class ArticleCitedByItem(QualifierFields):
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleCitedByItem | None:
-        """Build from a `{judgment, mention}` row; None when the mention is malformed."""
+        """Build from a `{judgment, mention, origin}` row; None when the mention is
+        malformed."""
         mention = Mention.from_dict(row.get("mention"))
         if mention is None:
             return None
@@ -903,6 +906,7 @@ class ArticleCitedByItem(QualifierFields):
             text=mention.raw_match,
             snippet=mention.snippet,
             confidence=mention.confidence,
+            origin=citation_origin(row),
             **mention.parts.to_dict(),
         )
 

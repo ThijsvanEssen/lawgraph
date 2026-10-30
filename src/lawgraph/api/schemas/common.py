@@ -28,6 +28,7 @@ from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import instrument_url, publication_url
 from lawgraph.core.readable_paths import path_of
+from lawgraph.core.relations import CitationOrigin
 from lawgraph.core.tk_records.kinds import KindGroup, kind_group
 
 # The description of every ``official_url`` of an instrument.
@@ -230,6 +231,17 @@ class WithKindGroup(StrictModel):
     @property
     def kind_group(self) -> KindGroup | None:
         return kind_group(getattr(self, "kind", None))
+
+
+class CitationOriginFields(StrictModel):
+    """What links a judgment to an article it cites."""
+
+    origin: list[CitationOrigin] | None = Field(
+        default=None,
+        description="What names the article: the judgment's `text`, its `metadata` "
+        "(the `Wetsverwijzing` the court's editors entered), or both. Null for a link "
+        "made before this was kept.",
+    )
 
 
 class QualifierFields(StrictModel):
