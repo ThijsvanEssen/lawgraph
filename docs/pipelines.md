@@ -2225,8 +2225,10 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-mvt` | `bwb-amendments` (`LEGISLATED_IN` and the change edges it walks), `normalize tk-dossiers` (the document-to-dossier `PART_OF` edges) and `tk-dossier-relations` (`SECOND_READING_OF`) |
 | semantic `tk-mvt-articles` | as `tk-mvt`, and the sections of `normalize tk-content` |
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
-| semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `eerstekamer-bills`) |
+| semantic `kst-sru` | `normalize tk-dossiers` and `normalize kst-sru` |
+| semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `kst-sru`, `eerstekamer-bills`) |
 | semantic `tk-dossier-outcomes` | `bwb-amendments`, `normalize staatsblad-laws` and `verdragenbank` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
+| normalize `kst-sru` | `normalize tk-dossiers` (the dossiers it does not write, and the documents of the Tweede Kamer's API its copies give way to) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |
 | normalize `eerstekamer-mutations` | `normalize eerstekamer-composition` (the factions of today and their history) |
 | normalize `eerstekamer-persons` | `normalize eerstekamer-composition` (the members and factions of the Eerste Kamer) and `normalize eerstekamer-mutations` (the changes its periods are checked against) |

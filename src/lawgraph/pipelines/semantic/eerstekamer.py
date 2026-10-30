@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     RELATION_PART_OF,
+    SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult
@@ -33,12 +34,16 @@ DOSSIER_NUMBER_CONFIDENCE = 0.95
 class EerstekamerSemanticPipeline(SemanticPipelineBase):
     """Links EK documents to TK kamerstukdossiers via DossierNummer."""
 
+    # The documents linked (their ``source``) and the source of the edges.
+    papers = SOURCE_EERSTEKAMER
+    edge_source = EDGE_SOURCE
+
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
         documents = chain(
-            semantic_tk.ek_papers_in_tk_dossiers(self.store),
-            semantic_tk.ek_papers_in_other_dossiers(self.store),
+            semantic_tk.ek_papers_in_tk_dossiers(self.store, self.papers),
+            semantic_tk.ek_papers_in_other_dossiers(self.store, self.papers),
         )
         seen: set[tuple[str, str]] = set()
         edges = EdgeWriter(self.store, what=None, remembers=True)
@@ -52,15 +57,16 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
                     from_node=Node.skeleton(COLLECTION_DOCUMENTS, row["document_key"]),
                     to_node=Node.skeleton(COLLECTION_DOSSIERS, row["dossier_key"]),
                     relation=RELATION_PART_OF,
-                    source=EDGE_SOURCE,
+                    source=self.edge_source,
                     confidence=DOSSIER_NUMBER_CONFIDENCE,
                 )
             )
 
         edges.flush_into(result)
-        removed = edges.remove_stale_of_source(RELATION_PART_OF, EDGE_SOURCE)
+        removed = edges.remove_stale_of_source(RELATION_PART_OF, self.edge_source)
         logger.info(
-            "EK dossier link: %d edges; %d no paper supports any more removed.",
+            "%s dossier link: %d edges; %d no paper supports any more removed.",
+            self.papers,
             edges.written(RELATION_PART_OF),
             removed,
         )

@@ -10208,7 +10208,8 @@
                   "dossier",
                   "document",
                   "activiteit",
-                  "eerstekamer"
+                  "eerstekamer",
+                  "kst"
                 ]
               },
               {
@@ -10221,10 +10222,11 @@
             "type": "string",
             "enum": [
               "tk",
-              "eerstekamer"
+              "eerstekamer",
+              "kst"
             ],
             "title": "Source",
-            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer. A dossier without one in the graph (written before this field) is ``tk``: only those of the Eerste Kamer's papers carry ``eerstekamer``.",
+            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer; ``kst`` the same from the Tweede Kamer's papers of 1994-2008 in the official publications (``title_source`` ``kst``). Without one: ``tk``.",
             "default": "tk"
           },
           "kind": {
@@ -21176,7 +21178,8 @@
                   "dossier",
                   "document",
                   "activiteit",
-                  "eerstekamer"
+                  "eerstekamer",
+                  "kst"
                 ]
               },
               {
@@ -21189,10 +21192,11 @@
             "type": "string",
             "enum": [
               "tk",
-              "eerstekamer"
+              "eerstekamer",
+              "kst"
             ],
             "title": "Source",
-            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer. A dossier without one in the graph (written before this field) is ``tk``: only those of the Eerste Kamer's papers carry ``eerstekamer``.",
+            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer; ``kst`` the same from the Tweede Kamer's papers of 1994-2008 in the official publications (``title_source`` ``kst``). Without one: ``tk``.",
             "default": "tk"
           },
           "kind": {
@@ -22988,7 +22992,8 @@
                   "dossier",
                   "document",
                   "activiteit",
-                  "eerstekamer"
+                  "eerstekamer",
+                  "kst"
                 ]
               },
               {
@@ -23001,10 +23006,11 @@
             "type": "string",
             "enum": [
               "tk",
-              "eerstekamer"
+              "eerstekamer",
+              "kst"
             ],
             "title": "Source",
-            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer. A dossier without one in the graph (written before this field) is ``tk``: only those of the Eerste Kamer's papers carry ``eerstekamer``.",
+            "description": "Where the dossier comes from: ``tk`` the Tweede Kamer's data, ``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede Kamer's data has none (its OData begins about 2005), with the title they give (``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede Kamer; ``kst`` the same from the Tweede Kamer's papers of 1994-2008 in the official publications (``title_source`` ``kst``). Without one: ``tk``.",
             "default": "tk"
           },
           "kind": {

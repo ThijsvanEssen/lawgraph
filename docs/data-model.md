@@ -1379,7 +1379,7 @@ replaces it (`REVISES`, rule `vervanging`). The signers of a motion of the Eerst
 | `debate` | `str` | Of such a motion: the debate it was submitted at. |
 | `status` | `str` | Of such a motion: its `behandelstatus` as the Kamer writes it. |
 | `motion_url` | `str` | Of such a motion: its page. |
-| `pdf_url` | `str` | Of such a motion: its PDF. |
+| `pdf_url` | `str` | Of such a motion, and of a Kamerstuk of `normalize kst-sru`: its PDF. |
 | `title` | `str` | `Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of its zaak. |
 | `dossier_title` | `str` | Of a document named by its own subject: its `Titel`, the title of its dossier. |
 | `subject` | `str` | Its `Onderwerp`. |

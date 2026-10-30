@@ -347,17 +347,21 @@ ORDER BY d.key, ds.key
 """
 
 
-def ek_papers_in_other_dossiers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{document_key, dossier_key}`` of the other dossiers
-    an Eerste Kamer document names, past the first that ``ek_papers_in_tk_dossiers`` matches,
-    that are in the graph."""
-    return store.query(_EK_DOCUMENTS_OTHER_SQL, {"source": SOURCE_EERSTEKAMER})
+def ek_papers_in_other_dossiers(
+    store: Store, source: str = SOURCE_EERSTEKAMER
+) -> Iterator[dict[str, Any]]:
+    """``{document_key, dossier_key}`` of the other dossiers a paper of the SRU of *source*
+    (the Eerste Kamer's, the Tweede Kamer's of ``kst``) names, past the first that
+    ``ek_papers_in_tk_dossiers`` matches, that are in the graph."""
+    return store.query(_EK_DOCUMENTS_OTHER_SQL, {"source": source})
 
 
-def ek_papers_in_tk_dossiers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{document_key, dossier_key}`` of the Eerste Kamer
-    documents whose dossier number is a Tweede Kamer dossier in the graph."""
-    return store.query(_EK_DOCUMENTS_SQL, {"source": SOURCE_EERSTEKAMER})
+def ek_papers_in_tk_dossiers(
+    store: Store, source: str = SOURCE_EERSTEKAMER
+) -> Iterator[dict[str, Any]]:
+    """``{document_key, dossier_key}`` of the papers of the SRU of *source* whose dossier
+    number is a dossier in the graph."""
+    return store.query(_EK_DOCUMENTS_SQL, {"source": source})
 
 
 # Per explanatory document ``d``: ``o.own_dossiers``, the dossiers it is PART_OF;
