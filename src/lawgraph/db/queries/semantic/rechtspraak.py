@@ -77,13 +77,23 @@ def judgment_paragraphs(
     after: str | None = None,
     limit: int | None = None,
 ) -> Iterator[dict[str, Any]]:
-    """``{ecli, date, paragraphs, footnotes, unresolved_citations}`` (as a slim document) of every
+    """``{ecli, date, paragraphs, footnotes, unresolved_citations, law_references}`` (as a slim document) of every
     judgment of ``CITING_SOURCES`` in key order, only those of *eclis* when it is given; a
     slice: past the key *after*, *limit* of them."""
     recent = "AND j.ecli = ANY(%(eclis)s::text[])" if eclis is not None else ""
     past = "AND j.key > %(after)s" if after else ""
     sql = f"""
-        SELECT {slim_sql("j", "ecli", "date", "paragraphs", "footnotes", "unresolved_citations")}
+        SELECT {
+        slim_sql(
+            "j",
+            "ecli",
+            "date",
+            "paragraphs",
+            "footnotes",
+            "unresolved_citations",
+            "law_references",
+        )
+    }
         FROM judgments j
         WHERE j.source = ANY(%(sources)s::text[]) {recent} {past}
         ORDER BY j.key

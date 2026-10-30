@@ -938,8 +938,15 @@ One `REFERS_TO` edge per judgment and article, its `confidence` the strongest me
 `meta.mention_count` how many there are: an edge keeps the first 100 and counts the rest. The
 lid, onderdelen and aanhef are read from the qualifier with `core/qualifiers.py`, as `semantic
 bwb` and `semantic tk` do. Text of a judgment outside its `paragraphs` (the `inhoudsindicatie`)
-is not read. The edges of a judgment are derived in full each time it is read: one its text no
-longer makes goes. `--since` takes the judgments retrieved from then on.
+is not read. The articles of the `Wetsverwijzing` in the metadata (`props.law_references`, from
+`dcterms:references` with a `jci` identifier; `normalize rechtspraak`) are edges too: `meta.origin`
+lists what names the article (`text`, `metadata` or both), `confidence` is 1.0 when the metadata
+does, and an article only the metadata lists has `meta.reason` `bwb_metadata_article` and no
+mentions. The source gives the law, an article number (a list is split, `(oud)` kept as `old`)
+and sometimes the date of the version read (`date`), never a lid; a reference to the law only
+names no article, and one to an article the graph cannot hold counts as not linked. The edges
+of a judgment are derived in full each time it is read: one neither its text nor its metadata
+supports goes. `--since` takes the judgments retrieved from then on.
 
 **Semantic `rechtspraak-citations`.** `ECLI:<country>:<court>:<year>:<number>` in the text of
 each judgment, the `<uitspraak>` and `<conclusie>` the court or advocate-general wrote (from

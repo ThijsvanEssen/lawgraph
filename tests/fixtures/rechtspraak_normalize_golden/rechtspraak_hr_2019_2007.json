@@ -1,5 +1,5 @@
 {
- "document": "c64a828bca395576",
+ "document": "c6077e75b8def7fb",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2007",
@@ -28,6 +28,7 @@
   "subjects": [
    "Civiel recht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-9f9b0bd8",

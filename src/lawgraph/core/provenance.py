@@ -53,6 +53,7 @@ Basis = Literal[
 ]
 Reason = Literal[
     "bwb_article",
+    "bwb_metadata_article",
     "celex_article",
     "bwb_instrument",
     "celex_instrument",
@@ -83,6 +84,7 @@ BASIS_FULFILMENT: Final[Basis] = "nakoming"
 BASIS_AGENDA: Final[Basis] = "agenda"
 
 REASON_BWB_ARTICLE: Final[Reason] = "bwb_article"
+REASON_BWB_METADATA_ARTICLE: Final[Reason] = "bwb_metadata_article"
 REASON_CELEX_ARTICLE: Final[Reason] = "celex_article"
 REASON_BWB_INSTRUMENT: Final[Reason] = "bwb_instrument"
 REASON_CELEX_INSTRUMENT: Final[Reason] = "celex_instrument"
@@ -241,6 +243,12 @@ PROVENANCE: tuple[Provenance, ...] = (
         REASON_BWB_ARTICLE,
         (RELATION_REFERS_TO,),
         "The text cites an article of a law (BWB).",
+    ),
+    Provenance(
+        "reason",
+        REASON_BWB_METADATA_ARTICLE,
+        (RELATION_REFERS_TO,),
+        "The metadata of the judgment lists an article of a law (BWB) that its text does not name.",
     ),
     Provenance(
         "reason",

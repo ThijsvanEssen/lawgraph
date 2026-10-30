@@ -1,5 +1,5 @@
 {
- "document": "699fc889a30aea0a",
+ "document": "7309a10523672fdf",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBZWB:2019:1062",
@@ -39,6 +39,32 @@
   ],
   "subjects": [
    "Bestuursrecht; Belastingrecht"
+  ],
+  "law_references": [
+   {
+    "bwb_id": "BWBR0004770",
+    "article": "32",
+    "date": "1998-01-01",
+    "old": false
+   },
+   {
+    "bwb_id": "BWBR0004770",
+    "article": "36",
+    "date": "2010-07-04",
+    "old": false
+   },
+   {
+    "bwb_id": "BWBR0004770",
+    "article": null,
+    "date": "2019-01-01",
+    "old": false
+   },
+   {
+    "bwb_id": "BWBR0017745",
+    "article": "60",
+    "date": "2006-01-01",
+    "old": false
+   }
   ],
   "paragraphs": [
    {
