@@ -316,9 +316,9 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An article (its props, its text too), its law (by its BWB id, else its CELEX
     number, else its law of the Staatsblad), the ``NEIGHBORS`` articles before and after it in its law, the sources of
-    ``ARTICLE_LINKS`` and the judgments that cite it (the most cited first); without those
-    (``judgments`` empty) while they are not kept yet and take past ``CITED_BUDGET``
-    (``cited``)."""
+    ``ARTICLE_LINKS``, what it counts (``counted``) and the judgments that cite it (the
+    most cited first); without those (``judgments`` empty) while they are not kept yet and
+    take past ``CITED_BUDGET`` (``cited``)."""
     row = _first(
         store,
         f"""
@@ -342,11 +342,40 @@ def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     before, after = neighbors(store, row["props"] or {}, NEIGHBORS)
     return {
         **row,
+        "counts": counted(store, node_id),
         "judgments": _light(store, ids),
         "before": before[::-1],
         "after": after,
         "links": grouped(store, node_id, ARTICLE_LINKS),
     }
+
+
+def counted(store: GraphStore, node_id: str) -> dict[str, int]:
+    """How many judgments cite an article, each once (``judgments``), and how many
+    articles and laws it refers to or are referred to it by (``references``), each once:
+    the edges the app counts, by the covering indexes of the edges (a few ms for the
+    thousands that cite 6:162 BW). Not in the budget of ``cited``: the description they
+    are in is the same whether the judgments are kept yet or not."""
+    row = _first(
+        store,
+        f"""
+        SELECT
+          (SELECT count(DISTINCT e.from_id) FROM {COLLECTION_EDGES} e
+           WHERE e.to_id = %(id)s AND e.relation = %(refers)s
+             AND e.from_collection = '{COLLECTION_JUDGMENTS}')::int AS judgments,
+          (SELECT count(DISTINCT r.id) FROM (
+             SELECT e.to_id AS id FROM {COLLECTION_EDGES} e
+             WHERE e.from_id = %(id)s AND e.relation = %(refers)s
+               AND e.to_collection IN ('{COLLECTION_ARTICLES}', '{COLLECTION_INSTRUMENTS}')
+             UNION ALL
+             SELECT e.from_id FROM {COLLECTION_EDGES} e
+             WHERE e.to_id = %(id)s AND e.relation = %(refers)s
+               AND e.from_collection = '{COLLECTION_ARTICLES}'
+           ) r WHERE r.id <> %(id)s)::int AS references
+        """,
+        {"id": node_id, "refers": RELATION_REFERS_TO},
+    )
+    return dict(row) if row else {}
 
 
 def _law(bwb_id: str) -> str:

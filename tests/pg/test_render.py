@@ -161,6 +161,8 @@ def _seed(store: GraphStore) -> None:
         [
             _edge("r1", "judgments/ecli_nl_hr_2019_2006", "articles/bwbr0005289_162",
                   "REFERS_TO"),
+            _edge("ref163", "articles/bwbr0005289_163", "articles/bwbr0005289_162",
+                  "REFERS_TO"),
             _edge("p1", "documents/kst_36496_71", "cases/z_1", "PART_OF"),
             _edge("a1", "decisions/s_1", "cases/z_1", "ABOUT"),
             _edge("v1", "factions/vvd", "decisions/s_1", "VOTED", choice="Voor", seats=24),
@@ -232,8 +234,10 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
-    # the text alone, the same before and after its judgments are kept (no count)
-    assert "uitspraken" not in page["description"]
+    # then what the page has besides, by count: the same before and after its judgments
+    # are kept
+    assert page["description"].endswith("… Met 1 uitspraak en 1 verwijzing.")
+    assert len(page["description"]) <= 155
     assert page["canonical"] == "https://concordans.nl/wetten/BWBR0005289/artikel/6:162"
     assert page["og_image"] == "https://concordans.nl/og/artikel.png"
     assert page["descriptions"] == 1  # the one of the shell replaced
@@ -278,6 +282,7 @@ def test_an_article_whose_judgments_take_too_long_is_its_text(
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
+    assert page["description"].endswith("Met 1 uitspraak en 1 verwijzing.")
     assert "Hij die jegens een ander" in page["main"]
     assert 'href="/wetten/BWBR0005289"' in page["main"]
     assert "/uitspraken/" not in page["main"]
