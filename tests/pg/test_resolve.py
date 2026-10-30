@@ -27,7 +27,11 @@ from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.edges import make_edge_doc
 from lawgraph.db.queries.resolve import ALTERNATIVES, resolve
 from lawgraph.db.queries.search.dispatch import search_all
-from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, SCORE_WORDS
+from lawgraph.db.queries.search.ranking import (
+    SCORE_CONTAINS,
+    SCORE_IDENTIFIER,
+    SCORE_WORDS,
+)
 from lawgraph.pipelines.semantic.tooi_ministries import ministry_props
 from tests.asserts import show_items
 from tests.integration.graph import write_evrm
@@ -535,7 +539,10 @@ def test_search_an_article_without_law_looks_at_every_law_with_that_number(
 
 def test_search_falls_back_to_text_for_free_form_queries(store: GraphStore) -> None:
     hits = search_all(store, q="Tekst", types=["articles"], limit=10)["articles"]
-    assert hits and {h["score"] for h in hits} == {SCORE_WORDS}
+    # on words only, each by its rank (``ranking.words_score``)
+    assert hits
+    scores = [h["score"] for h in hits]
+    assert [s for s in scores if not SCORE_WORDS <= s < SCORE_CONTAINS] == []
 
 
 def test_search_orders_by_score_and_documents_carry_their_dossier(

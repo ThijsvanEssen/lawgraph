@@ -25,7 +25,8 @@ class SearchResultItem(WithPath):
     score: float = Field(
         ge=0,
         le=1,
-        description="Rank tier of the hit for the query: 1, 0.75, 0.5, 0.25 or 0.1",
+        description="Rank tier of the hit for the query: 1, 0.75, 0.5, 0.25, or "
+        "0.1 to 0.2 for a match on words only (by its rank in its type)",
     )
     exact: bool = Field(
         default=False,

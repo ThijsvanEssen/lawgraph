@@ -54,6 +54,12 @@ CITATION_PRIOR = 0.5
 # apart (art. 8 Wiv 2017 for "gewichtige belangen van de staat", above art. 225 Sv).
 PAIR_WEIGHT = 3.0
 WHOLE_WEIGHT = 10.0
+# How much more the case law that cites a hit weighs, per e-fold of its citing judgments,
+# when it holds the whole query in a row (``Order.whole``): of the hits that say what the
+# query says, their words hardly tell which matters (the shorter ranks higher by BM25), the
+# case law does. Art. 8 Wiv 2017 (seven judgments, 1,800 characters) above art. 91a BARD
+# and art. 12e MAW (none or one, a few hundred) for "gewichtige belangen van de staat".
+WHOLE_CITATION = 4.0
 # The best ranked hits that the order of their words ranks again: it reads the words of a
 # hit once more (its search columns: a hit of ``RANK_CANDIDATES`` 10 % more pages, +30 %
 # warm), and a hit that holds the words of the query in its order ranks well by them
@@ -115,23 +121,28 @@ class OrderSql:
 def order_sql(kind: SearchType, order: Order) -> OrderSql:
     """What the *order* of the words of a query adds to the rank of a row of *kind*:
     ``PAIR_WEIGHT`` for each run of it a field of its words holds, ``WHOLE_WEIGHT`` for all
-    of them. Only the ``RERANKED`` best are ranked by it (``text_query``)."""
-    runs = [(run, PAIR_WEIGHT) for run in order.pairs]
-    if order.whole:
-        runs.append((order.whole, WHOLE_WEIGHT))
+    of them, and for those ``WHOLE_CITATION`` per e-fold of the case law that cites it
+    (``SearchType.citations``, passed on as ``cited``). Only the ``RERANKED`` best are
+    ranked by it (``text_query``)."""
+    runs = [(run, str(PAIR_WEIGHT)) for run in order.pairs]
     columns = [
         f"r.{search_column(f, 'text')}"
         for f in kind.fields
         if "text" in SEARCH_FIELDS[kind.table][f]
     ]
-    if not runs or not columns:
+    if not (runs or order.whole) or not columns:
         return OrderSql()
     strings = ", ".join(f"{spaced(column)} AS o{n}" for n, column in enumerate(columns))
+    fields = len(columns)
+    if order.whole and kind.citations:
+        columns.append(f"{kind.citations} AS cited")
+        cited = f"{WHOLE_CITATION} * ln(1 + coalesce(r.cited, 0))"
+        runs.append((order.whole, f"({WHOLE_WEIGHT} + {cited})"))
+    elif order.whole:
+        runs.append((order.whole, str(WHOLE_WEIGHT)))
     bonus = " + ".join(
         f"{weight} * ("
-        + " OR ".join(
-            f"o.o{m} LIKE {in_a_row_sql(f'_run_{n}')}" for m in range(len(columns))
-        )
+        + " OR ".join(f"o.o{m} LIKE {in_a_row_sql(f'_run_{n}')}" for m in range(fields))
         + ")::int"
         for n, (_, weight) in enumerate(runs)
     )
@@ -141,6 +152,20 @@ def order_sql(kind: SearchType, order: Order) -> OrderSql:
         f"({bonus})",
         {f"_run_{n}": run for n, (run, _) in enumerate(runs)},
     )
+
+
+def with_rank(hit: str) -> str:
+    """The SQL *hit* (a ``json_build_object``) with ``rank`` first: the rank of a hit
+    ``top`` of no better tier, else null (``ranking.words_score``); as it is when it builds
+    no object. In the object itself, not merged into it: jsonb would order the keys of
+    ``extra`` anew."""
+    head = "json_build_object("
+    start = hit.find(head)
+    if start < 0:
+        return hit
+    start += len(head)
+    rank = "'rank', CASE WHEN top.tier = 0 THEN top.rank END, "
+    return hit[:start] + rank + hit[start:]
 
 
 def two_phase_search(
@@ -366,7 +391,7 @@ def text_query(
             ({ranked(f"{found} AND NOT {gate}")})
             """
     statement = f"""
-        SELECT {hit}
+        SELECT {with_rank(hit)}
         FROM ({top}) top
         JOIN {table} r ON r.id = top.id {joins}
         ORDER BY top.tier DESC, top.rank DESC, r.key
