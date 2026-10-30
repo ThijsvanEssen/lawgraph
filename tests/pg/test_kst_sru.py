@@ -15,6 +15,7 @@ from lawgraph.api.dependencies import get_store
 from lawgraph.config.constants import RAW_KIND_KST_SRU, SOURCE_KST
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, raw_source_doc
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines.normalize.kst_sru import KstSruNormalizePipeline
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.semantic.kst_sru import KstSruSemanticPipeline
@@ -94,6 +95,10 @@ def test_the_papers_of_the_sru_join_the_graph(store: GraphStore) -> None:
         ("documents/kst_25877_1", "dossiers/25877"),
         ("documents/kst_25877_3", "dossiers/25877"),
     ]
+    # nr. 2 is missing below nr. 3, but the Tweede Kamer's API has no dossier 25877: it is
+    # not asked of it again (``retrieve tk-dossiers --mode gaps``), nor reported
+    assert "25877" in gap_queries.dossiers_missing_documents(store)
+    assert "25877" not in _gaps.tk_dossier_gaps(store)
     # retrieve tk-content fetches their XML
     work = {gap["identifier"]: gap["key"] for gap in _gaps.kamerstuk_gaps(store, [])}
     assert work["kst-25877-3"] == "kst_25877_3"

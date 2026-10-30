@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_KAMERSTUK_XML,
     SOURCE_EURLEX,
+    SOURCE_KST,
     SOURCE_RECHTSPRAAK,
     SOURCE_TK,
 )
@@ -276,7 +277,9 @@ def tk_dossier_gaps(store: Store) -> Gaps:
     by a change in the Grondwet in its second reading (the first), and by the Tweede Kamer
     documents and cases that are part of it. Not in full: a dossier that lacks a document below
     the highest number it has. A number the Tweede Kamer did not have, or had no more
-    documents of, not long ago is left out.
+    documents of, not long ago is left out, and so is a dossier written from the papers of
+    the SRU (``normalize kst-sru``): the Tweede Kamer's API has none of it, its papers are
+    there.
     """
     named = gap_queries.dossiers_named_by_publications(store)
     cited = {
@@ -290,8 +293,11 @@ def tk_dossier_gaps(store: Store) -> Gaps:
         for label in gap_queries.dossiers_named_by_documents(store)
     }
     incomplete = gap_queries.dossiers_missing_documents(store)
+    of_sru = gap_queries.dossier_numbers_of_source(store, SOURCE_KST)
     numbers = sorted(
-        n for n in set(named) | cited | by_documents | set(incomplete) if n.isdigit()
+        n
+        for n in set(named) | cited | by_documents | set(incomplete)
+        if n.isdigit() and n not in of_sru
     )
     candidates = [{"identifier": number} for number in numbers]
     waiting = _with_raw_record(
