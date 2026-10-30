@@ -131,9 +131,10 @@ def test_an_article_is_found_by_its_heading_and_ranks_above_a_judgment(
         (make_node_key(UAVG, "1"), SCORE_TITLE)
     ]
     assert results["articles"][0]["extra"]["heading"] == "Definities"
-    assert [(h["key"], h["score"]) for h in results["judgments"]] == [
-        ("ecli_nl_hr_2021_2", SCORE_WORDS)
-    ]
+    # a match on words, below the heading, scored by its rank (``words_score``)
+    judgments = [(h["key"], h["score"]) for h in results["judgments"]]
+    assert [key for key, _ in judgments] == ["ecli_nl_hr_2021_2"]
+    assert SCORE_WORDS < judgments[0][1] < SCORE_CONTAINS
 
 
 def test_an_article_is_found_by_the_title_of_its_division(store: GraphStore) -> None:

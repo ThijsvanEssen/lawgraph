@@ -193,9 +193,10 @@ def test_the_search_finds_an_article_by_its_terms(store: GraphStore) -> None:
     version_cache.clear()
 
     hits = dispatch.search_all(store, q="noodweer", types=["articles"])["articles"]
-    # art. 41 Sr first, before the article whose text holds the word; a hit on words (0.1)
+    # art. 41 Sr first, before the article whose text holds the word; a hit on words (0.1
+    # and up, by its rank)
     assert [h["id"] for h in hits][:2] == [NOODWEER, "articles/bwbr0005290_1"]
-    assert hits[0]["score"] == ranking.SCORE_WORDS
+    assert ranking.SCORE_WORDS <= hits[0]["score"] < ranking.SCORE_CONTAINS
     assert hits[0]["extra"]["terms"] == ["noodweer"]
     assert "terms" not in hits[1]["extra"]
 
