@@ -41,7 +41,7 @@ collection shares:
 | Prop | Type | Meaning |
 |------|------|---------|
 | `display_name` | `str` | The name to show; a long name is cut with an ellipsis (`core/display.shorten`), the full title stays in `title`. |
-| `source` | `str` | The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`, `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ... |
+| `source` | `str` | The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`, `tk`, `kst`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ... |
 | `stub` | `bool` | `true` for a placeholder made because something referred to it before its own source was loaded. |
 
 <!-- props:common:end -->
@@ -1864,6 +1864,7 @@ record is skipped like one without a payload.
 | `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
 | `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
+| `kst` | `kst-sru-json` (the SRU record of a Kamerstuk of the Tweede Kamer of 1994-1995 to 2007-2008, external id `kst-<dossier>-<n>`; `meta` its session year, dossier and when it was modified) |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` (the SRU record), `verdrag-xml` (the item XML: parties, Tractatenbladen, dossiers, related treaties; `meta.item_url` and `meta.modified`) |
 | `rijksoverheid` | `rijksoverheid-cabinet-html` (the page of one cabinet since 1945, external id its slug, `meta.url` and `meta.read_on`) |

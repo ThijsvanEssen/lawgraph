@@ -14,6 +14,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Staatsblad | `staatsblad` | `staatsblad`, `staatsblad-laws` | `staatsblad`, `staatsblad-law-references` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
 | Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
+| Kamerstukken (KOOP SRU) | `kst-sru` | `kst-sru` | `kst-sru` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
@@ -1616,6 +1617,40 @@ to the publication of the BWB of the same official id (`documents/stb_stb_2019_3
 the one publication, as its own source gives its text and as the BWB names what it introduced,
 amended or repealed (`semantic bwb-amendments`). By the keys alone, confidence 1.0,
 `meta.basis` `official_id`; every run derives them in full and removes those no longer derived.
+
+## Kamerstukken (KOOP SRU)
+
+**Provides.** The Kamerstukken of the Tweede Kamer of 1994-1995 to 2007-2008, about 94,000,
+from the KOOP SRU (`KOOP_SRU`; creator `Tweede Kamer der Staten-Generaal`,
+`w.publicatienaam==Kamerstuk`, `dt.type==Kamerstuk`, one search per `w.vergaderjaar`). The
+Tweede Kamer's OData is nearly complete from 2008-2009 on and holds a few hundred papers of the
+years before; the SRU has them all, from December 1994 (before that only the scans of
+Staten-Generaal Digitaal, not taken in). Per paper: identifier (`kst-25877-3`), title
+(`<dossier>; <own title>`, no kind), its numbers in the dossier (`ondernummer`: `1` and `2` for a
+bill with its royal message), dossier number(s), dossier title, session year, date, `modified`,
+the page and the URL of its XML and PDF. Of 1997-1998 every record has an XML.
+
+**Retrieve `kst-sru`.** `incremental` (default): `--since` on `dt.modified`; `full`: everything.
+`--session-year` (repeatable) narrows a run, `--limit` stops early. A session year holds at
+most some 11,000 papers; the pages go by key, so the HTTP 504 from position 10,000 on is never
+reached. The SRU record is stored as `kst-sru-json` (source `kst`).
+
+**Normalize `kst-sru`.** Document `kst_<dossier>_<number>` (`kst_25877_3`), label `TK`, `source`
+`kst`: `kind` and `title` read from the own title (`core/kst_documents.py`: the first part past
+the dossier's that starts with a kind, in the words of the OData: `Memorie van toelichting`,
+`Amendement`, `Brief regering`; empty when none does), `subject` (dossier title),
+`session_year`, `date`, `url`, `pdf_url`, `dossier_number`, `dossier_suffix`,
+`dossier_numbers`, and `sequence` when the address `kst-<dossier>-<number>` is the identifier,
+so `retrieve tk-content` fetches its XML and `normalize tk-content` reads it like that of any
+paper of the Tweede Kamer. A paper numbered by a letter (`kst-25877-A`) or filed under another
+identifier has no `sequence`: its text is `not_fetched`. A reprint (`-h1`, often in a later
+session year) is the node of its paper. A paper the OData has too (the same dossier, addition
+and number; in 2007-2008 about a third) is the OData's: the copy goes, with its edges. A
+dossier no node holds is written from the papers as `normalize eerstekamer` does (labels `TK`,
+`source` and `title_source` `kst`); `tk_dossier_gaps` leaves it out, so `retrieve tk-dossiers
+--mode gaps` does not ask the OData for it again.
+
+**Semantic `kst-sru`.** `PART_OF` from the paper to its dossier, as `semantic eerstekamer`.
 
 ## Eerste Kamer
 

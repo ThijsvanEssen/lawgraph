@@ -225,3 +225,13 @@ def test_a_budget_chapter_is_split_off_the_dossier_number() -> None:
     props = node.props
     assert (props["dossier_number"], props["dossier_suffix"]) == ("26200", "VII")
     assert props["sequence"] == 5 and props["dossier_numbers"] == ["26200-VII"]
+
+
+def test_a_part_of_a_series_is_numbered_in_it() -> None:
+    node = kst_document(
+        "kst-21501-16-186", {"numbers": ["186"], "dossier_number": "21501-16"}
+    )
+    props = node.props
+    assert (props["dossier_number"], props["dossier_suffix"]) == ("21501", "16")
+    assert props["sequence"] == 186
+    assert document_address(props) == "kst-21501-16-186"
