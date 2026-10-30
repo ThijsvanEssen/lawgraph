@@ -213,6 +213,11 @@ def _summaries(store: GraphStore, words: str, holding: int, others: int) -> None
     )
 
 
+def _on_words(score: float) -> bool:
+    """Whether *score* is that of a hit on words only, by its rank (``words_score``)."""
+    return ranking.SCORE_WORDS <= score < ranking.SCORE_CONTAINS
+
+
 def _search(store: GraphStore, q: str) -> list[tuple[str, float]]:
     for table in ("articles", "judgments"):
         store.execute(f"ANALYZE {table}")
@@ -260,7 +265,8 @@ def test_a_word_of_every_subject_names_no_article(store: GraphStore) -> None:
     _summaries(store, "bestemmingsplan", 60, 4_840)
 
     hits = _search(store, "bestemmingsplan")
-    assert hits == [("bwbr0005537_3_2", ranking.SCORE_WORDS)]
+    assert [key for key, _ in hits] == ["bwbr0005537_3_2"]
+    assert _on_words(hits[0][1])
 
 
 def test_a_word_that_points_elsewhere_names_no_article(store: GraphStore) -> None:
@@ -307,9 +313,9 @@ def test_a_share_of_few_summaries_names_no_article(store: GraphStore) -> None:
     version_cache.clear()
     _cited(store, "bwbr0005289_97", 10, 3, "concurrentiebeding")
     _summaries(store, "concurrentiebeding", 6, 2_000)
-    assert _search(store, "concurrentiebeding") == [
-        ("bwbr0005289_97", ranking.SCORE_WORDS)
-    ]
+    hits = _search(store, "concurrentiebeding")
+    assert [key for key, _ in hits] == ["bwbr0005289_97"]
+    assert _on_words(hits[0][1])
 
     _cited(store, "bwbr0005290_653", 40, 30, "concurrentiebeding")
     store.bulk_insert_or_update_nodes(
@@ -327,4 +333,4 @@ def test_a_share_of_few_summaries_names_no_article(store: GraphStore) -> None:
     )
     hits = _search(store, "concurrentiebeding")
     assert hits[0] == ("bwbr0005290_653", ranking.SCORE_TITLE)
-    assert ("bwbr0005289_97", ranking.SCORE_WORDS) in hits
+    assert _on_words(dict(hits)["bwbr0005289_97"])
