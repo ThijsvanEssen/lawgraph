@@ -675,6 +675,16 @@ RETRIEVE: list[Pipeline] = [
         lane=KOOP_REPOSITORY.lane,
     ),
     _retrieve(
+        commands.retrieve_kst_sru,
+        (
+            "Tweede Kamer Kamerstukken of 1994-1995 to 2007-2008 from the KOOP SRU, the "
+            "years the Tweede Kamer's own API lacks."
+        ),
+        argv_for_all=_windowed_argv,
+        add_args=commands.kst_sru_args,
+        lane=KOOP_REPOSITORY.lane,
+    ),
+    _retrieve(
         commands.retrieve_eerstekamer_votes,
         "The votes of the Eerste Kamer on bills (since June 2015) and the list of the "
         "bills it rejected (since 1996), from eerstekamer.nl.",
