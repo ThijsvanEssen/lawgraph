@@ -60,6 +60,7 @@ from lawgraph.pipelines.retrieve.eerstekamer_votes import (
 )
 from lawgraph.pipelines.retrieve.eurlex import EurlexRetrievePipeline
 from lawgraph.pipelines.retrieve.eurlex_nim import EurlexNimRetrievePipeline
+from lawgraph.pipelines.retrieve.kst_sru import KstSruRetrievePipeline, session_years
 from lawgraph.pipelines.retrieve.rechtspraak import RechtspraakRetrievePipeline
 from lawgraph.pipelines.retrieve.staatsblad import StaatsbladRetrievePipeline
 from lawgraph.pipelines.retrieve.staatscourant import StaatscourantRetrievePipeline
@@ -423,6 +424,27 @@ def eerstekamer_args(parser: argparse.ArgumentParser) -> None:
 def retrieve_eerstekamer(args: argparse.Namespace) -> PipelineResult:
     pipeline = EerstekamerRetrievePipeline(GraphStore())
     return pipeline.run(since=iso_day(_since_unless_full(args)), limit=args.limit)
+
+
+def kst_sru_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--session-year",
+        dest="session_years",
+        action="append",
+        choices=session_years(),
+        help="Session year to fetch (repeatable); default: all of them.",
+    )
+    add_limit_argument(parser, "At most this many papers.")
+    windowed_args(parser)
+
+
+def retrieve_kst_sru(args: argparse.Namespace) -> PipelineResult:
+    pipeline = KstSruRetrievePipeline(GraphStore())
+    return pipeline.run(
+        years=args.session_years or (),
+        since=iso_day(_since_unless_full(args)),
+        limit=args.limit,
+    )
 
 
 def retrieve_eerstekamer_votes(args: argparse.Namespace) -> PipelineResult:

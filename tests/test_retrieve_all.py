@@ -231,6 +231,7 @@ PRODUCING = (
     "rechtspraak",
     "staatscourant",
     "eerstekamer",
+    "kst-sru",
     "eerstekamer-votes",
     "echr",
 )
@@ -330,6 +331,7 @@ def test_sources_on_one_server_share_a_lane() -> None:
         "staatsblad",
         "staatscourant",
         "eerstekamer",
+        "kst-sru",
         "verdragenbank",
         "tk-content",
         "tk-transposition-tables",
@@ -379,6 +381,7 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("staatsblad", koop, ("bwb",)),
         ("staatscourant", koop, ()),
         ("eerstekamer", koop, ()),
+        ("kst-sru", koop, ()),
         ("eerstekamer-votes", sources.EERSTEKAMER_SITE.lane, ()),
         ("eerstekamer-composition-observed", sources.EERSTEKAMER_SITE.lane, ()),
         # after the observed composition in its lane: the versions it covers

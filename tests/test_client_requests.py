@@ -147,6 +147,11 @@ CASES: dict[str, tuple[Callable[..., Any], Callable[[Any], Any], list[Any]]] = {
         [XML],
     ),
     "kamerstuk-tables": (KamerstukClient, lambda c: c.search_tables(), [NO_RECORDS]),
+    "kamerstuk-tk-sru": (
+        KamerstukClient,
+        lambda c: list(c.iter_tk_kamerstukken("1997-1998", since="2026-10-01")),
+        [NO_RECORDS],
+    ),
     "kamerstuk-pdf": (
         KamerstukClient,
         lambda c: c.fetch_pdf(
@@ -460,6 +465,14 @@ EXPECTED: dict[str, list[tuple[str, dict[str, str], Any, bool]]] = {
     "kamerstuk-tables": [
         (
             "https://repository.overheid.nl/sru?operation=searchRetrieve&version=1.2&query=dt.type%3DBijlage+AND+dt.title+any+%22transponeringstabel+transponeringstabellen+concordantietabel+concordantietabellen%22+sortBy+dt.identifier%2Fsort.ascending&maximumRecords=100&startRecord=1&recordSchema=gzd&x-connection=ob",
+            {"Accept": "*/*"},
+            60,
+            False,
+        ),
+    ],
+    "kamerstuk-tk-sru": [
+        (
+            "https://repository.overheid.nl/sru?operation=searchRetrieve&version=1.2&query=dt.creator%3D%3D%22Tweede+Kamer+der+Staten-Generaal%22+AND+w.publicatienaam%3D%3DKamerstuk+AND+dt.type%3D%3DKamerstuk+AND+w.vergaderjaar%3D%3D1997-1998+AND+dt.modified%3E%3D2026-10-01+sortBy+dt.identifier%2Fsort.ascending&maximumRecords=100&startRecord=1&recordSchema=gzd",
             {"Accept": "*/*"},
             60,
             False,

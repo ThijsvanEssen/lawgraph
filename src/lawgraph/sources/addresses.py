@@ -28,6 +28,7 @@ SOURCES: dict[str, str] = {
     "rijksoverheid": "Rijksoverheid (rijksoverheid.nl)",
     "tooi": "TOOI (standaarden.overheid.nl)",
     "kiesraad": "Kiesraad (verkiezingsuitslagen.nl)",
+    "kst": "Kamerstukken (KOOP SRU)",
     GRAPH: "The whole graph",
 }
 

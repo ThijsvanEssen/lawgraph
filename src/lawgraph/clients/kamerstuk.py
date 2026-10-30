@@ -11,11 +11,18 @@ An attachment (``dt.type`` ``Bijlage``, ``blg-1081574``) is published as a PDF, 
 ones as XML too; the SRU lists it with its dossier, the paper it belongs to and the URL of
 each manifestation (``itemUrl``). Its ``url`` is the XML when there is one. The SRU also
 searches the full text of the papers (``cql.textAndIndexes``).
+
+The SRU also lists every Kamerstuk of the Tweede Kamer since December 1994
+(``iter_tk_kamerstukken``), which its own API hardly has before 2008-2009: per paper its
+identifier, the title (``<dossier>; <kind>``), the numbers it has in its dossier (``1`` and
+``2`` for a bill with its royal message), the dossier, the session year, the date and the URL
+of each manifestation.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from collections.abc import Iterator
 from typing import Any
 
 import requests
@@ -25,13 +32,27 @@ from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, Unexpected, Unexpect
 from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import KST_ID_PATTERN
 from lawgraph.core.transposition_xml import TABLE_WORDS
-from lawgraph.core.xml import iter_named
+from lawgraph.core.xml import iter_named, own_texts
 
 _TABLE_FIELDS = {
     "title": "title",
     "dossier": "dossiernummer",
     "main_document": "hoofddocument",
     "modified": "modified",
+}
+_TK_QUERY = (
+    'dt.creator=="Tweede Kamer der Staten-Generaal" '
+    "AND w.publicatienaam==Kamerstuk AND dt.type==Kamerstuk"
+)
+_TK_FIELDS = {
+    "title": "title",
+    "dossier_title": "dossiertitel",
+    "session_year": "vergaderjaar",
+    "dossier_number": "dossiernummer",
+    "date": "date",
+    "modified": "modified",
+    "url": "preferredUrl",
+    "replaced_by": "isReplacedBy",
 }
 _DOCUMENT_FIELDS = {
     "title": "title",
@@ -53,6 +74,30 @@ class KamerstukClient(BaseClient):
             raise UnexpectedAnswer(Unexpected.BAD_ID, f"Kamerstuk {identifier!r}")
         return fetch_publication_xml(
             self, "kst", KST_ID_PATTERN, identifier, group=match.group(1)
+        )
+
+    def iter_tk_kamerstukken(
+        self, session_year: str, *, since: str | None = None, limit: int | None = None
+    ) -> Iterator[dict[str, Any]]:
+        """Yield the Kamerstukken of the Tweede Kamer of *session_year* (``1997-1998``), page
+        by page, ``since`` on ``dt.modified``.
+
+        One session year holds at most some 11,000; ``iter_publications`` pages by key, so
+        the HTTP 504 the SRU answers from position 10,000 on is never reached. *limit* stops
+        early. A failing request or an SRU error raises, after the papers of the earlier
+        pages were yielded.
+        """
+        query = f"{_TK_QUERY} AND w.vergaderjaar=={session_year}"
+        if since:
+            query += f" AND dt.modified>={since}"
+        return iter_publications(
+            self,
+            KOOP_SRU,
+            query=query,
+            parse=self._tk_kamerstukken,
+            context=f"Tweede Kamer {session_year}",
+            connection=None,
+            limit=limit,
         )
 
     def search_tables(self) -> list[dict[str, Any]]:
@@ -100,6 +145,17 @@ class KamerstukClient(BaseClient):
     @staticmethod
     def _tables(root: ET.Element) -> list[dict[str, Any]]:
         return record_dicts(root, _TABLE_FIELDS, pdf_url=lambda r: _item_url(r, "pdf"))
+
+    @staticmethod
+    def _tk_kamerstukken(root: ET.Element) -> list[dict[str, Any]]:
+        return record_dicts(
+            root,
+            _TK_FIELDS,
+            numbers=lambda r: own_texts(r, "ondernummer"),
+            dossier_numbers=lambda r: own_texts(r, "dossiernummer"),
+            xml_url=lambda r: _item_url(r, "xml"),
+            pdf_url=lambda r: _item_url(r, "pdf"),
+        )
 
     @staticmethod
     def _documents(root: ET.Element) -> list[dict[str, Any]]:
