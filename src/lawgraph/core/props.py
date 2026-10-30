@@ -36,7 +36,7 @@ class _CommonProps(_StrictBase):
     the full title stays in `title`."""
     source: str | None = None
     """The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`,
-    `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
+    `tk`, `kst`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
     stub: bool | None = None
     """`true` for a placeholder made because something referred to it before its own source
     was loaded."""
@@ -839,7 +839,7 @@ class DocumentProps(_CommonProps):
     motion_url: str | None = None
     """Of such a motion: its page."""
     pdf_url: str | None = None
-    """Of such a motion: its PDF."""
+    """Of such a motion, and of a Kamerstuk of `normalize kst-sru`: its PDF."""
     title: str | None = None
     """`Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of
     its zaak."""

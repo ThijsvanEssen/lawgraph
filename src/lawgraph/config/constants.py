@@ -228,6 +228,9 @@ SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_TOOI = "tooi"
 SOURCE_KIESRAAD = "kiesraad"
+# The Kamerstukken of the Tweede Kamer as the KOOP SRU lists them: those of 1994-1995 to
+# 2007-2008, which the Tweede Kamer's own API hardly has.
+SOURCE_KST = "kst"
 # The label of a member only Rijksoverheid knows: a bewindspersoon without a Tweede Kamer person.
 LABEL_RIJKSOVERHEID = "Rijksoverheid"
 
@@ -316,6 +319,9 @@ RAW_KIND_ECHR_JUDGMENT = "echr-judgment-json"
 # The ``word/document.xml`` of the DOCX HUDOC serves of a judgment (external id: its item id).
 RAW_KIND_ECHR_TEXT = "echr-judgment-docx-xml"
 RAW_KIND_EERSTEKAMER_KAMERSTUK = "ek-kamerstuk-json"
+# The SRU record of a Kamerstuk of the Tweede Kamer (source ``kst``, external id
+# ``kst-<dossier>-<n>``): ``retrieve kst-sru``.
+RAW_KIND_KST_SRU = "kst-sru-json"
 # One day of the list of votes on bills of eerstekamer.nl (external id: the date), and the list
 # of the bills the Eerste Kamer rejected (external id: its path, both pages in one record).
 RAW_KIND_EERSTEKAMER_VOTES_DAY = "ek-votes-day-html"
@@ -416,6 +422,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
     SOURCE_KIESRAAD: (RAW_KIND_KIESRAAD_EK_RESULT,),
+    SOURCE_KST: (RAW_KIND_KST_SRU,),
 }
 
 # Records of a kind read in one cursor batch: fewer the larger its payload (a whole act
@@ -453,6 +460,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_ECHR_JUDGMENT: 20,
     RAW_KIND_ECHR_TEXT: 20,
     RAW_KIND_EERSTEKAMER_KAMERSTUK: 1000,
+    RAW_KIND_KST_SRU: 1000,
     RAW_KIND_EERSTEKAMER_VOTES_DAY: 50,
     RAW_KIND_EERSTEKAMER_REJECTED: 50,
     RAW_KIND_EERSTEKAMER_COMPOSITION: 20,

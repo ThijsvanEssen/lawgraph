@@ -223,7 +223,10 @@ def test_a_word_of_a_name_alone_comes_after_the_words_of_a_text(
     hits = found["judgments"]
     # in the summary of one; a word of the names of the other two
     assert hits[0]["id"] == "judgments/ecli_nl_rvs_2011_1"
-    assert {h["score"] for h in hits} == {ranking.SCORE_WORDS}
+    # on words only: by its rank, or a word of a name (``ranking.words_score``)
+    scores = [h["score"] for h in hits]
+    low, high = ranking.SCORE_WORDS, ranking.SCORE_CONTAINS
+    assert [s for s in scores if not low <= s < high] == []
 
 
 def test_while_typing_the_last_word_is_the_start_of_one(graph: GraphStore) -> None:

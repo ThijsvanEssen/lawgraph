@@ -51,6 +51,9 @@ FIXTURE = fixture_text("kst_37020_x_1.xml")
         ("35925", "VII", 12, "kst-35925-VII-12"),
         # a Rijkswet: its number is no part of the dossier in the repository
         ("36984", "(R2222)", 4, "kst-36984-4"),
+        # a part of a series, numbered as the repository files it
+        ("21501", "16", 186, "kst-21501-16-186"),
+        ("21501", "02", 229, "kst-21501-02-229"),
     ],
 )
 def test_the_identifier_of_a_paper(number, suffix, sequence, expected) -> None:
@@ -64,6 +67,10 @@ def test_the_dossier_and_number_come_out_of_an_identifier() -> None:
         "2",
     )
     assert present(KST_ID_PATTERN.fullmatch("kst-37020-2")).groups() == ("37020", "2")
+    assert present(KST_ID_PATTERN.fullmatch("kst-21501-16-186")).groups() == (
+        "21501-16",
+        "186",
+    )
     assert KST_ID_PATTERN.fullmatch("kst-1259252") is None  # an Eerste Kamer paper
 
 

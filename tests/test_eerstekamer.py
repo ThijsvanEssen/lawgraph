@@ -258,10 +258,12 @@ def _documents_in_tk_dossiers(
     others: list[dict[str, Any]] | None = None,
 ) -> None:
     monkeypatch.setattr(
-        semantic_tk, "ek_papers_in_tk_dossiers", lambda store: iter(rows)
+        semantic_tk, "ek_papers_in_tk_dossiers", lambda store, source: iter(rows)
     )
     monkeypatch.setattr(
-        semantic_tk, "ek_papers_in_other_dossiers", lambda store: iter(others or [])
+        semantic_tk,
+        "ek_papers_in_other_dossiers",
+        lambda store, source: iter(others or []),
     )
 
 

@@ -22,8 +22,8 @@ from lawgraph.db.queries.search.ranking import (
     SCORE_CONTAINS,
     SCORE_WORDS,
     folded,
+    hit_score,
     rank_hits,
-    score_hit,
 )
 from lawgraph.db.queries.search.spec import JUDGMENT_CITE_PROPS, Hit
 
@@ -161,6 +161,6 @@ def _also_by_person(q: str, hit: Hit, person: Hit | None) -> Hit:
     """*hit*, found by a person too: with that person, and the better of both scores."""
     if person is None:
         return hit
-    score = max(hit.get("score", score_hit(q, hit)), person["score"])
+    score = max(hit_score(q, hit), person["score"])
     extra = {**(hit.get("extra") or {}), "person": person["extra"]["person"]}
     return {**hit, "extra": extra, "score": score}

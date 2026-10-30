@@ -2,41 +2,39 @@
 
 A document names its dossier (the number of the Tweede Kamer's kamerstukdossier, with its suffix
 and title as the SRU record gives them: ``dossiernummer``, ``dossiertitel``). A dossier that no
-node holds, because the Tweede Kamer's data has none (its OData begins about 2005; the documents
-of 1995-2006 name thousands), is written from those documents: ``dossiers/<label>`` with its
-number, suffix and the title its documents give most (of equal counts, that of the newest document),
-``source`` ``eerstekamer``, no kind or phases (those come from the documents of the Tweede Kamer
-it does not have). A dossier the Tweede Kamer has is never written here; one it delivers
-later takes this node over (``source`` ``tk``).
+node holds (the documents of 1995-2006 name thousands) is written from those documents, with
+``source`` ``eerstekamer`` (``_document_dossiers``).
 """
 
 from __future__ import annotations
 
 import datetime as dt
 import re
-from collections import Counter
 from collections.abc import Iterable, Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
     CHAMBER_EK,
     COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
     LABEL_EERSTE_KAMER,
     MAX_TITLE_CHARS,
     RAW_KIND_EERSTEKAMER_KAMERSTUK,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core.display import shorten
-from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.raw_records import payload_json
 from lawgraph.core.time import iso_date
-from lawgraph.core.tk_records.dossiers import dossier_display_name, dossier_label
+from lawgraph.core.tk_records.dossiers import dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
+from lawgraph.pipelines.normalize._document_dossiers import (
+    DossierDocuments,
+    add_document,
+    write_unknown_dossiers,
+)
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
 logger = get_logger(__name__)
@@ -67,31 +65,6 @@ def dossier_labels(payload: dict[str, Any]) -> list[str]:
         if label and label not in labels:
             labels.append(label)
     return labels
-
-
-def _dossier(key: str, documents: list[tuple[str, str, str | None, str]]) -> Node:
-    """The dossier of *documents* (``(date, number, suffix, dossiertitel)``): its title the one
-    its documents give most, of equal counts that of the newest document."""
-    _, number, suffix, _ = documents[0]
-    titles = Counter(title for _, _, _, title in documents if title)
-    newest = {title: date for date, _, _, title in sorted(documents) if title}
-    title = max(titles, key=lambda t: (titles[t], newest[t])) if titles else None
-    label = dossier_label(number, suffix)
-    return Node(
-        collection=COLLECTION_DOSSIERS,
-        key=key,
-        labels=[CHAMBER_EK],
-        props={
-            "number": number,
-            "suffix": suffix or "",
-            "label": label,
-            "order": dossier_order(number, suffix),
-            "title": title,
-            "title_source": "eerstekamer" if title else None,
-            "display_name": dossier_display_name(number, suffix, title or ""),
-            "source": SOURCE_EERSTEKAMER,
-        },
-    )
 
 
 def unique_documents(nodes: Iterable[Node]) -> list[Node]:
@@ -144,25 +117,17 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
         documents); ``EerstekamerSemanticPipeline`` matches the dossier number."""
         count = 0
         writer = NodeWriter(self.store)
-        dossiers: dict[str, list[tuple[str, str, str | None, str]]] = {}
+        dossiers: dict[str, DossierDocuments] = {}
 
         for node in self._unique_documents(raw):
             writer.add(node)
             count += 1
-            number = node.props.get("dossier_number")
-            if number:
-                label = dossier_label(number, node.props.get("dossier_suffix"))
-                dossiers.setdefault(make_node_key(label), []).append(
-                    (
-                        str(node.props.get("date") or ""),
-                        str(number),
-                        node.props.get("dossier_suffix"),
-                        str(node.props.get("subject") or ""),
-                    )
-                )
+            add_document(dossiers, node)
 
         writer.flush()
-        made = self._write_dossiers(dossiers)
+        made = write_unknown_dossiers(
+            self.store, dossiers, CHAMBER_EK, SOURCE_EERSTEKAMER
+        )
         logger.info(
             "Eerste Kamer normalize: %d Kamerstukken; %d dossiers no other source has, "
             "from their papers.",
@@ -210,23 +175,6 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
                 self.progress.skip("no identifier", record.get("key"))
                 continue
             yield self._document(str(identifier), payload)
-
-    def _write_dossiers(
-        self, dossiers: dict[str, list[tuple[str, str, str | None, str]]]
-    ) -> int:
-        """Write each dossier of *dossiers* (key: its documents' ``(date, number, suffix,
-        dossiertitel)``) that no node holds; how many."""
-        if not dossiers:
-            return 0
-        known = self.store.existing_keys(COLLECTION_DOSSIERS, set(dossiers))
-        nodes = [
-            _dossier(key, documents)
-            for key, documents in sorted(dossiers.items())
-            if key not in known
-        ]
-        with NodeWriter(self.store) as writer:
-            writer.add_all(nodes)
-        return len(nodes)
 
     def _document(self, identifier: str, payload: dict[str, Any]) -> Node:
         kind = payload.get("kind") or ""
