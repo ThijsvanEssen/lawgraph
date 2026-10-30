@@ -169,6 +169,8 @@ def law_page(row: dict[str, Any]) -> Page:
 # The changes of an article its page lists, the newest first: all of 99 in 100 (p99 6,
 # lawgraph_small 30 Oct); the rest are counted.
 HISTORY = 10
+# The length the title of a dossier of a change is cut to, without a short title of its own.
+DOSSIER_TITLE_MAX = 80
 # What a version did to the article (``change``), as its line says it.
 _CHANGE_WORDS = {
     "establishes": "vastgesteld",
@@ -180,8 +182,8 @@ _CHANGE_WORDS = {
 
 
 def _publication(publication: PublicationDTO) -> str:
-    """ "Stb. 2023, 123" (to the publication), then each Kamerstukdossier it came from: to
-    its page when the data holds it, else its number alone."""
+    """ "Stb. 2023, 123" (to the publication), then each Kamerstukdossier it came from by
+    its short title: to its page when the data holds it, else its number alone."""
     label = (
         koop_citation(publication.id or "")
         or joined(
@@ -194,7 +196,11 @@ def _publication(publication: PublicationDTO) -> str:
     dossiers = [
         link(
             d.path,
-            joined(" ", f"Kamerstukken {official_number(d.number)}", d.title or ""),
+            joined(
+                ", ",
+                f"Kamerstukken {official_number(d.number)}",
+                d.short_title or cut(d.title or "", DOSSIER_TITLE_MAX),
+            ),
         )
         for d in publication.dossiers
     ]

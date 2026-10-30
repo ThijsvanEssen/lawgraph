@@ -333,8 +333,7 @@ def test_an_article_has_its_regulations_and_its_history(
     history = main[main.index("<h2>Wetsgeschiedenis</h2>") :]
     lines = re.findall(r"<li>(.*?)</li>", history.split("</section>")[0])
     assert [re.sub(r"<[^>]+>", "", line) for line in lines] == [
-        "1 januari 2026: gewijzigd bij Stb. 2025, 263, Kamerstukken 36496 "
-        "Regels over kunstmatige intelligentie (Wet AI-toezicht)",
+        "1 januari 2026: gewijzigd bij Stb. 2025, 263, Kamerstukken 36496, Wet AI-toezicht",
         "1 juli 2020: gewijzigd, publicatie niet bekend",
         "1 januari 1992: vastgesteld bij Stb. 1991, 600, Kamerstukken 17541",
     ]
