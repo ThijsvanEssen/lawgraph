@@ -31,6 +31,8 @@ from lawgraph.api.schemas.instruments import (
     AmendingInstrumentDTO,
     AmendingProposalDTO,
     EuLinkDTO,
+    InstrumentAliasDTO,
+    InstrumentAliasesResponse,
     InstrumentAnnexDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
@@ -65,6 +67,7 @@ from lawgraph.api.schemas.instruments import (
     LinkedInstrumentDTO,
 )
 from lawgraph.api.validity import instrument_validity_dto
+from lawgraph.core.code_families import CODE_FAMILIES, FAMILY_NAMES
 from lawgraph.core.division_anchor import as_anchor
 from lawgraph.core.reference_targets import reference_targets
 from lawgraph.core.staatsblad_laws import is_law
@@ -104,6 +107,7 @@ from lawgraph.db.queries.instruments import (
     get_instruments_list,
 )
 from lawgraph.db.queries.not_found import NotFound, require
+from lawgraph.db.queries.search.parser import load_code_aliases
 from lawgraph.db.queries.unlinked_references import law_reference_counts
 
 Validity = Literal["in_force", "expired", "all"]
@@ -235,6 +239,35 @@ def list_instruments(
         facets=InstrumentFacets(**(data.get("facets") or {})) if facets else None,
         partial=bool(data.get("partial")),
         next_cursor=data.get("next_cursor"),
+    )
+
+
+@router.get(
+    "/aliases",
+    response_model=InstrumentAliasesResponse,
+    summary="The abbreviations of the laws",
+    description=(
+        "The one table of abbreviations the search, the titles and the short addresses "
+        "(`/bw/7/658`) read: every abbreviation that stands for one law, from the BWB "
+        "(the WTI) and, where it gives none, kept by hand; and the codes whose books are "
+        "regulations of their own (`BW`), with their books and names. Changes with the "
+        "data version alone (its `ETag`)."
+    ),
+    tags=["instruments"],
+)
+def get_instrument_aliases(
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> InstrumentAliasesResponse:
+    codes = sorted(
+        load_code_aliases(store).items(), key=lambda item: (item[0].casefold(), item[0])
+    )
+    return InstrumentAliasesResponse(
+        codes=[
+            InstrumentAliasDTO(abbreviation=abbreviation, law_id=law_id.upper())
+            for abbreviation, law_id in codes
+        ],
+        families=CODE_FAMILIES,
+        names=FAMILY_NAMES,
     )
 
 

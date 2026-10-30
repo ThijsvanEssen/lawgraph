@@ -31,6 +31,7 @@ ROUTES = [
     ("GET", "/api/judgments"),
     ("GET", "/api/judgments/{ecli}"),
     ("GET", "/api/instruments"),
+    ("GET", "/api/instruments/aliases"),
     ("GET", "/api/instruments/{identifier}"),
     ("GET", "/api/instruments/{identifier}/definitions"),
     ("GET", "/api/instruments/{identifier}/eu-links"),

@@ -17,6 +17,7 @@ from lawgraph.core.readable_paths import (
     pad_href,
     parse_path,
     path_of,
+    short_law_path,
 )
 
 CASES: dict[str, Any] = json.loads(
@@ -73,3 +74,29 @@ def test_an_address_names_the_key_its_node_is_stored_under(
     assert pad is not None
     key_of = _KEY_OF.get(pad.soort)
     assert (key_of(pad.a) if key_of else None) == case["focus"]
+
+
+@pytest.mark.parametrize(
+    ("path", "pad"),
+    [
+        ("/awb", Pad("wet", "awb")),
+        ("/awb/8:75", Pad("artikel", "awb", "8:75")),
+        ("/Sr/287", Pad("artikel", "Sr", "287")),
+        ("/vw%202000/1", Pad("artikel", "vw 2000", "1")),
+        ("/bw/7", Pad("boek", "bw", "7")),
+        ("/BW/7A", Pad("boek", "BW", "7A")),
+        ("/bw/7/658", Pad("artikel", "bw", "7:658")),
+        ("/bw/6:162", Pad("artikel", "bw", "6:162")),
+    ],
+)
+def test_a_law_at_its_short_address(path: str, pad: Pad) -> None:
+    assert short_law_path(path) == pad
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/", "/bw", "/awb/8/75", "/bw/7/658/1", "/wetten/awb", "/kamerstukken/36496",
+     "/stb/2026", "/leden/x", "/1bw/1", "/%ff", "/awb/%20"],
+)  # fmt: skip
+def test_no_short_address(path: str) -> None:
+    assert short_law_path(path) is None

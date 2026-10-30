@@ -456,7 +456,9 @@ def test_head_is_answered_as_get(client: TestClient, path: str, status: int) -> 
 
 def test_a_law_lists_its_articles(client: TestClient) -> None:
     page = _head(_get(client, "/wetten/BWBR0005289").text)
+    # the title of the API; the form lawyers search a book by, "BW 6", in the description
     assert page["title"] == "Boek 6 BW, Concordans"
+    assert page["description"].startswith("Burgerlijk Wetboek Boek 6 (BW 6), ")
     assert "geldend sinds 1 januari 1992" in page["description"]
     assert 'href="/wetten/BWBR0005289/artikel/6:162"' in page["main"]
     assert 'href="/wetten/BWBR0005289/artikel/6:163"' in page["main"]
@@ -634,6 +636,56 @@ def test_a_law_by_its_abbreviation_redirects_to_its_bwb_id(client: TestClient) -
         gone = _get(client, path)
         assert gone.status_code == 404, path
         assert _head(gone.text)["title"] == "Niet gevonden, Concordans"
+
+
+def test_a_law_at_its_short_address_redirects_to_its_bwb_id(
+    client: TestClient,
+) -> None:
+    """The short address an abbreviation makes (``/sr/287``, ``/bw/6/162``): a 301 to the
+    readable address; a page of the app goes first, an abbreviation of no law is 404."""
+    for path, location in (
+        ("/sr", "/wetten/BWBR0001854"),
+        ("/Sr/287?lezen=1", "/wetten/BWBR0001854/artikel/287?lezen=1"),
+        ("/bw/6", "/wetten/BWBR0005289"),
+        ("/bw/6/162", "/wetten/BWBR0005289/artikel/6:162"),
+        ("/bw/6:162", "/wetten/BWBR0005289/artikel/6:162"),
+    ):
+        moved = _get(client, path)
+        assert (moved.status_code, moved.headers.get("location")) == (301, location), (
+            path
+        )
+    assert_status(_get(client, "/actueel"), 200)
+    for path in ("/xyz", "/xyz/1", "/bw", "/bw/99/1"):
+        assert _get(client, path).status_code == 404, path
+
+
+def test_a_page_of_the_app_goes_before_the_abbreviation_of_a_law(
+    client: TestClient, store: GraphStore
+) -> None:
+    """Every page of the app (``spa-routes.json``) stays itself where a law has its name
+    as abbreviation; an abbreviation two laws share redirects to neither."""
+    names = {r["path"].strip("/").split("/")[0] for r in ROUTES} - {""}
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            *(
+                _node(f"bwbr009000{i}", "instrument", bwb_id=f"BWBR009000{i}",
+                      citation_title=f"Wet {name}", short_title=name.capitalize())
+                for i, name in enumerate(sorted(names))
+            ),
+            *(
+                _node(f"bwbr009100{i}", "instrument", bwb_id=f"BWBR009100{i}",
+                      citation_title=f"Wet {i}", short_title="Dup")
+                for i in range(2)
+            ),
+        ],
+    )  # fmt: skip
+    version_cache.clear()
+    for route in ROUTES:
+        path = route["path"].replace("[id]", "x")
+        assert_status(_get(client, path), 200)
+    assert_status(_get(client, "/actueel/1"), 301)  # no page of the app: the law
+    assert_status(_get(client, "/dup"), 404)
 
 
 def test_a_dossier_lists_its_papers(client: TestClient) -> None:
