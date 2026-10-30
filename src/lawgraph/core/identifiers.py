@@ -133,7 +133,11 @@ def rebuilt_celex(odd: str, link_text: str) -> str | None:
 # Staatsblad / Staatscourant identifiers: ``stb-<year>-<number>``, ``stcrt-...``.
 STB_ID_PATTERN = re.compile(r"stb-(\d{4})-(\d+)", re.IGNORECASE)
 STCRT_ID_PATTERN = re.compile(r"stcrt-(\d{4})-(\d+)", re.IGNORECASE)
-KST_ID_PATTERN = re.compile(r"kst-(\d+(?:-[A-Za-z]+)?)-(\d+[A-Za-z]?)", re.IGNORECASE)
+# A Kamerstuk: ``kst-<dossier>-<number>``, the dossier with its addition: a budget chapter
+# (``37020-X``) or a part of a series (``21501-16``, the councils of the EU).
+KST_ID_PATTERN = re.compile(
+    r"kst-(\d+(?:-[A-Za-z0-9]+)?)-(\d+[A-Za-z]?)", re.IGNORECASE
+)
 
 
 # The addition of a Rijkswet dossier, ``(R2222)``: the number of the Rijkswet, which the

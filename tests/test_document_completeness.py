@@ -132,3 +132,15 @@ def test_a_paper_of_the_eerste_kamer_is_not_fetched() -> None:
 def test_a_paper_of_neither_chamber_says_nothing() -> None:
     """A publication of the Staatsblad or the Staatscourant: its text is what was read."""
     assert _parts(NUMBERED, XmlRetrieval(), labels=("NvT",)) is None
+
+
+def test_a_paper_of_the_sru_without_an_address_is_not_fetched() -> None:
+    """``kst-25877-A``: numbered by a letter, its XML is in the repository; ``retrieve
+    tk-content`` does not ask for it."""
+    props = {"source": "kst", "dossier_number": "25877", "kind": "Advies"}
+    assert _parts(props, XmlRetrieval()) == _same("not_fetched")
+    # with an address it is a Kamerstuk like any other
+    numbered = {**props, "sequence": 3}
+    assert _parts(numbered, XmlRetrieval(missing=FETCHED))["text"]["state"] == (
+        "not_in_source"
+    )

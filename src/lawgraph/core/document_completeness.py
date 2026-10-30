@@ -9,7 +9,10 @@ XML follows, within days and now and then a week or more: such a paper is asked 
 next night, an older one after a month.
 
 A paper of the Eerste Kamer is in the repository too; the graph takes in the Eerste Kamer's
-record of it, not its text.
+record of it, not its text. So it is with a paper of the Tweede Kamer of before 2008 from the
+SRU (``normalize kst-sru``) that has no address: numbered by a letter (``kst-25877-A``), or
+filed under another identifier (``kst-20012002-25877-58b``). One the repository has as a PDF
+only is asked for once, answered HTTP 404, and then not in the source.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK
+from lawgraph.config.constants import CHAMBER_EK, CHAMBER_TK, SOURCE_KST
 from lawgraph.core.completeness import Coverage, Part, Reason
 from lawgraph.core.identifiers import KST_ID_PATTERN, kamerstuk_identifier
 
@@ -89,7 +92,8 @@ def document_text_parts(
 
     With text: ``done``; its paragraphs and tables ``done``, ``none`` when the read found
     none, ``pending`` when it was read before they were kept. Without, all three alike: a
-    paper that is no Kamerstuk is ``not_in_source``; of a Kamerstuk, XML read by a complete
+    paper that is no Kamerstuk is ``not_in_source``, one of the SRU without an address
+    ``not_fetched``; of a Kamerstuk, XML read by a complete
     normalize is ``none`` (it does not read, or holds no text), XML not read yet ``pending``
     as of its fetching (``awaiting_normalize``); a 404 ``pending`` as of the last ask while
     the XML may be on its way (``source_pdf_only``), ``not_in_source`` after; nothing asked
@@ -121,7 +125,9 @@ def _text_part(
     props: Mapping[str, Any], retrieval: XmlRetrieval, today: dt.date
 ) -> dict[str, Any]:
     if document_address(props) is None:
-        return {"state": Coverage.NOT_IN_SOURCE.value}
+        # a paper of the SRU numbered by a letter (``kst-25877-A``) has its XML there
+        state = Coverage.NOT_FETCHED if props.get("source") == SOURCE_KST else None
+        return {"state": (state or Coverage.NOT_IN_SOURCE).value}
     if retrieval.stored is not None:
         read = retrieval.normalized_until is not None and _at(retrieval.stored) < _at(
             retrieval.normalized_until

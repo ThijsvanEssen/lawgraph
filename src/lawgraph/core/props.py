@@ -36,7 +36,7 @@ class _CommonProps(_StrictBase):
     the full title stays in `title`."""
     source: str | None = None
     """The source the node was read from: `bwb`, `eurlex`, `rechtspraak`, `echr`, `cjeu`,
-    `tk`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
+    `tk`, `kst`, `eerstekamer`, `verdragenbank`, `rijksoverheid`, ..."""
     stub: bool | None = None
     """`true` for a placeholder made because something referred to it before its own source
     was loaded."""

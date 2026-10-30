@@ -57,7 +57,8 @@ TKDossiersNormalizePipeline               its class
 LAWGRAPH_NORMALIZE_SKIP_TK_DOSSIERS       its skip variable
 ```
 
-The main pipeline of a source has no part (`normalize bwb`). A pipeline that links two sources
+The main pipeline of a source has no part (`normalize bwb`); a source of one kind of record
+names it (`kst-sru`: the Kamerstukken of the Tweede Kamer of before 2008 from the KOOP SRU). A pipeline that links two sources
 belongs to the one its edges start at, the text that is read (`semantic tk-mvt`, `semantic
 bwb-implements`). A module of a phase package that is no pipeline starts with an underscore.
 
@@ -69,7 +70,7 @@ them, and says what each waits for:
 - `after`: pipelines of the same phase that must have ended first (a retrieve that reads what
   another stored; a normalize that reads nodes another one wrote);
 - `reads`: of a retrieve, the normalized nodes it chooses its work from (`retrieve tk-content`
-  fetches the XML of the documents of `normalize tk-dossiers`);
+  fetches the XML of the documents of `normalize tk-dossiers` and `normalize kst-sru`);
 - `fed_by`: of a normalize, the retrieves whose raw records it reads besides its own;
 - `lane`: that of the host a retrieve talks to (`config/sources.py`), so one host never gets two request streams;
 - `fills_gaps`: the retrieve has `--mode gaps`.
