@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.routes import render
+from lawgraph.api.seo import article as seo_article
 from lawgraph.api.seo import paint, shell
 from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
@@ -161,6 +162,8 @@ def _seed(store: GraphStore) -> None:
         [
             _edge("r1", "judgments/ecli_nl_hr_2019_2006", "articles/bwbr0005289_162",
                   "REFERS_TO"),
+            _edge("ref163", "articles/bwbr0005289_163", "articles/bwbr0005289_162",
+                  "REFERS_TO"),
             _edge("p1", "documents/kst_36496_71", "cases/z_1", "PART_OF"),
             _edge("a1", "decisions/s_1", "cases/z_1", "ABOUT"),
             _edge("v1", "factions/vvd", "decisions/s_1", "VOTED", choice="Voor", seats=24),
@@ -183,6 +186,7 @@ def client(
     # test_an_article_page_reads_its_judgments_once_… and past the render budget in
     # test_a_page_whose_reads_take_too_long_keeps_its_title
     monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
+    monkeypatch.setattr(seo_article, "EXTRA_BUDGET", 5.0)
     monkeypatch.setattr(render, "RENDER_BUDGET", 30.0)
     version_cache.clear()
     shell.forget()
@@ -232,8 +236,10 @@ def test_an_article_has_its_title_text_and_the_judgments_that_cite_it(
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
-    # the text alone, the same before and after its judgments are kept (no count)
-    assert "uitspraken" not in page["description"]
+    # then what the page has besides, by count: the same before and after its judgments
+    # are kept
+    assert page["description"].endswith("… Met 1 uitspraak en 1 verwijzing.")
+    assert len(page["description"]) <= 155
     assert page["canonical"] == "https://concordans.nl/wetten/BWBR0005289/artikel/6:162"
     assert page["og_image"] == "https://concordans.nl/og/artikel.png"
     assert page["descriptions"] == 1  # the one of the shell replaced
@@ -266,6 +272,109 @@ def test_an_article_of_a_law_without_books(client: TestClient) -> None:
     assert "Hij die opzettelijk een ander" in page["main"]
 
 
+def _history_and_chain(store: GraphStore) -> None:
+    """Of 6:162 BW: the version the BWB holds first, a change of it whose dossier the data
+    holds, one without its publication; two regulations based on it, the AMvB first, and
+    one expired."""
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [
+            _node("av_1", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="1992-01-01", text="1. Oud.", effect="nieuwe-regeling",
+                  origin_publication={"id": "stb-1991-600", "kind": "Staatsblad",
+                                      "year": 1991, "number": "600",
+                                      "dossiers": ["17541"]}),
+            _node("av_2", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="2020-07-01", text="1. Tussen.", effect="wijziging"),
+            _node("av_3", "article_version", bwb_id="BWBR0005289", article_number="162",
+                  valid_from="2026-01-01", current=True, text="1. Hij die …",
+                  effect="wijziging",
+                  origin_publication={"id": "stb-2025-263", "kind": "Staatsblad",
+                                      "year": 2025, "number": "263",
+                                      "dossiers": ["36496"]}),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _node("bwbr0099001", "instrument", bwb_id="BWBR0099001", kind="ministeriele-regeling",
+                  citation_title="Regeling schadevergoeding"),
+            _node("bwbr0099002", "instrument", bwb_id="BWBR0099002", kind="AMvB",
+                  citation_title="Besluit schadevergoeding"),
+            _node("bwbr0099003", "instrument", bwb_id="BWBR0099003", kind="AMvB",
+                  citation_title="Besluit van vroeger", date_expired="2000-01-01"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"bo{n}", f"instruments/bwbr009900{n}", "articles/bwbr0005289_162",
+                  "BASED_ON")
+            for n in (1, 2, 3)
+        ]
+    )  # fmt: skip
+
+
+def test_an_article_has_its_regulations_and_its_history(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Uitgewerkt in: the AMvB first, ``CHAIN`` of them, the rest to the app; the expired
+    one left out. Wetsgeschiedenis: newest first, each with its publication and dossier,
+    the gaps said; both as JSON-LD of what changes it and is based on it."""
+    _history_and_chain(store)
+    monkeypatch.setattr(seo_article, "CHAIN", 1)
+    page = _head(_get(client, "/wetten/BWBR0005289/artikel/6:162").text)
+    main = page["main"]
+    chain = main[main.index("<h2>Uitgewerkt in</h2>") :]
+    assert chain.index("Besluit schadevergoeding") < chain.index("En 1 andere regeling")
+    assert "Regeling schadevergoeding" not in main
+    assert "Besluit van vroeger" not in main
+    path = "/wetten/BWBR0005289/artikel/6:162"
+    assert f'href="{path}?relatie=BASED_ON"' in chain
+    history = main[main.index("<h2>Wetsgeschiedenis</h2>") :]
+    lines = re.findall(r"<li>(.*?)</li>", history.split("</section>")[0])
+    assert [re.sub(r"<[^>]+>", "", line) for line in lines] == [
+        "1 januari 2026: gewijzigd bij Stb. 2025, 263, Kamerstukken 36496, Wet AI-toezicht",
+        "1 juli 2020: gewijzigd, publicatie niet bekend",
+        "1 januari 1992: vastgesteld bij Stb. 1991, 600, Kamerstukken 17541",
+    ]
+    assert 'href="/dossiers/36496"' in history
+    assert "/dossiers/17541" not in history  # not in the data: its number alone
+    assert "wetsgeschiedenis" in page["description"]
+    reverse = page["data"]["@graph"][0]["@reverse"]
+    assert [x["name"] for x in reverse["legislationChanges"]] == ["Stb. 2025, 263"]
+    assert [x["name"] for x in reverse["isBasedOn"]] == ["Besluit schadevergoeding"]
+
+
+def test_an_article_without_a_change_or_a_version(
+    client: TestClient, store: GraphStore
+) -> None:
+    """One version: not changed since it; none: no block, no regulations: no block."""
+    store.bulk_insert_or_update_nodes(
+        "article_versions",
+        [_node("av_163", "article_version", bwb_id="BWBR0005289", article_number="163",
+               valid_from="1992-01-01", current=True, text="Geen verplichting …")],
+    )  # fmt: skip
+    one = _head(_get(client, "/wetten/BWBR0005289/artikel/6:163").text)
+    assert "<p>Sinds 1 januari 1992 niet gewijzigd.</p>" in one["main"]
+    assert "Uitgewerkt in" not in one["main"]
+    assert "@reverse" not in one["data"]["@graph"][0]
+    none = _head(_get(client, "/wetten/BWBR0001854/artikel/287").text)
+    assert "Wetsgeschiedenis" not in none["main"]
+
+
+def test_an_article_whose_regulations_take_too_long_goes_without(
+    client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past ``EXTRA_BUDGET`` the page is the article without those blocks."""
+    _history_and_chain(store)
+    monkeypatch.setattr(seo_article, "EXTRA_BUDGET", 0.0)
+    response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    main = _head(response.text)["main"]
+    assert "Hij die jegens een ander" in main
+    assert "Uitgewerkt in" not in main and "Wetsgeschiedenis" not in main
+
+
 def test_an_article_whose_judgments_take_too_long_is_its_text(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -278,6 +387,7 @@ def test_an_article_whose_judgments_take_too_long_is_its_text(
     page = _head(response.text)
     assert page["title"] == "Art. 6:162 BW, Onrechtmatige daad, Concordans"
     assert page["description"].startswith("1. Hij die jegens een ander")
+    assert page["description"].endswith("Met 1 uitspraak en 1 verwijzing.")
     assert "Hij die jegens een ander" in page["main"]
     assert 'href="/wetten/BWBR0005289"' in page["main"]
     assert "/uitspraken/" not in page["main"]

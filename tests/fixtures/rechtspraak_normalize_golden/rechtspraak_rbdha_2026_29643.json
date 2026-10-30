@@ -1,5 +1,5 @@
 {
- "document": "00130124bbccb882",
+ "document": "e7a40db8c575237d",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBDHA:2026:29643",
@@ -28,6 +28,7 @@
   "subjects": [
    "Civiel recht; Intellectueel-eigendomsrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-231154e0",

@@ -67,12 +67,18 @@ def _paragraph(number: str | None, text: str) -> dict[str, Any]:
     return {"id": slug, "number": number, "kind": "body", "text": text}
 
 
-def _judgment_doc(paragraphs: list[dict[str, Any]]) -> dict[str, Any]:
+def _judgment_doc(
+    paragraphs: list[dict[str, Any]],
+    law_references: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    props: dict[str, Any] = {"ecli": "ECLI:NL:HR:2019:793", "paragraphs": paragraphs}
+    if law_references:
+        props["law_references"] = law_references
     return {
         "key": "ecli_nl_hr_2019_793",
         "labels": ["Rechtspraak"],
         "type": NodeType.JUDGMENT.value,
-        "props": {"ecli": "ECLI:NL:HR:2019:793", "paragraphs": paragraphs},
+        "props": props,
     }
 
 
@@ -95,10 +101,11 @@ def _run(
     paragraphs: list[dict[str, Any]],
     instruments: list[dict[str, Any]] | None = None,
     articles: dict[str, dict[str, Any]] | None = None,
+    law_references: list[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     article = _make_article_doc()
     store = _Store(
-        judgments=[_judgment_doc(paragraphs)],
+        judgments=[_judgment_doc(paragraphs, law_references)],
         articles=articles if articles is not None else {article["key"]: article},
         instruments=instruments if instruments is not None else [_SR],
     )
@@ -320,3 +327,59 @@ def test_an_incremental_run_asks_for_the_judgments_retrieved_since(
     assert judgments.recent == ["2025-01-01T00:00:00Z"]
     # a judgment of the Court of Justice retrieved since cites articles as well
     assert judgments.eclis == [["ECLI:NL:HR:2020:1", "ECLI:EU:C:2020:559"]]
+
+
+def _reference(article: str | None, bwb_id: str = "BWBR0001854") -> dict[str, Any]:
+    return {"bwb_id": bwb_id, "article": article, "date": None, "old": False}
+
+
+def test_an_article_the_metadata_lists_and_the_text_names_is_one_edge_with_both_origins() -> (
+    None
+):
+    edges = _run(
+        [_paragraph("2.1", "Art. 287 Sr is van toepassing.")],
+        law_references=[_reference("287")],
+    )
+
+    (edge,) = edges.values()
+    assert edge["meta"]["origin"] == ["text", "metadata"]
+    assert edge["meta"]["mention_count"] == 1 and edge["meta"]["mentions"]
+    assert edge["confidence"] == 1.0
+
+
+def test_an_article_only_the_metadata_lists_is_an_edge_without_mentions() -> None:
+    edges = _run(
+        [_paragraph("2.1", "Het hof overweegt niets over een artikel.")],
+        law_references=[_reference("287")],
+    )
+
+    (edge,) = edges.values()
+    assert edge["to_id"] == "articles/bwbr0001854_287"
+    assert edge["meta"] == {
+        "reason": "bwb_metadata_article",
+        "mention_count": 0,
+        "mentions": [],
+        "origin": ["metadata"],
+    }
+    assert edge["confidence"] == 1.0
+
+
+def test_an_article_only_the_text_names_has_the_origin_text() -> None:
+    edges = _run([_paragraph("2.1", "Art. 287 Sr is van toepassing.")])
+
+    (edge,) = edges.values()
+    assert edge["meta"]["origin"] == ["text"]
+    assert edge["confidence"] == 0.95
+
+
+def test_a_reference_to_the_law_only_names_no_article() -> None:
+    edges = _run([_paragraph("2.1", "Niets.")], law_references=[_reference(None)])
+
+    assert edges == {}
+
+
+def test_a_judgment_without_text_still_has_the_articles_its_metadata_lists() -> None:
+    edges = _run([], law_references=[_reference("287")])
+
+    (edge,) = edges.values()
+    assert edge["meta"]["origin"] == ["metadata"]

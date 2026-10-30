@@ -1,5 +1,5 @@
 {
- "document": "6defb0865541683b",
+ "document": "b2419cb3ae95e0b6",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2026:2707",
@@ -28,6 +28,7 @@
   "subjects": [
    "Civiel recht; Ondernemingsrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-e7efdf65",

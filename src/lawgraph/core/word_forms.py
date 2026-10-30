@@ -14,7 +14,10 @@ _PLURALS = (("s", "zen"), ("f", "ven"))
 
 def word_forms(word: str) -> str:
     """*word* and the forms of it that stem apart, separated by spaces (as ``lg_tokens``
-    reads them: the stems of each)."""
+    reads them: the stems of each); a phrase (its words a space apart) as it is, no form
+    of its last word added."""
+    if " " in word:
+        return word
     forms = [word]
     for singular, plural in _PLURALS:
         if len(word) >= _SINGULAR_MIN and word.endswith(singular):

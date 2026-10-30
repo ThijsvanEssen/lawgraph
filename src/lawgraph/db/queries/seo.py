@@ -65,7 +65,7 @@ from lawgraph.db.queries.activities import get_activity, get_activity_records
 from lawgraph.db.queries.decisions import get_decision_detail, get_document_decisions
 from lawgraph.db.queries.feed import official_short
 from lawgraph.db.queries.instrument_scope import law_column, law_of_article
-from lawgraph.db.queries.seo_links import Link, grouped, neighbors
+from lawgraph.db.queries.seo_links import ARTICLE_COUNTS, Link, grouped, neighbors
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import cached
 
@@ -315,14 +315,14 @@ def law(store: GraphStore, node_id: str) -> dict[str, Any] | None:
 
 def article(store: GraphStore, node_id: str) -> dict[str, Any] | None:
     """An article (its props, its text too), its law (by its BWB id, else its CELEX
-    number, else its law of the Staatsblad), the ``NEIGHBORS`` articles before and after it in its law, the sources of
+    number, else its law of the Staatsblad), its ``ARTICLE_COUNTS``, the ``NEIGHBORS`` articles before and after it in its law, the sources of
     ``ARTICLE_LINKS`` and the judgments that cite it (the most cited first); without those
     (``judgments`` empty) while they are not kept yet and take past ``CITED_BUDGET``
     (``cited``)."""
     row = _first(
         store,
         f"""
-        SELECT a.id, a.key, a.props,
+        SELECT a.id, a.key, a.props, {ARTICLE_COUNTS},
                coalesce(
                    (SELECT i.props FROM {COLLECTION_INSTRUMENTS} i
                     WHERE i.bwb_id = a.bwb_id ORDER BY i.key LIMIT 1),

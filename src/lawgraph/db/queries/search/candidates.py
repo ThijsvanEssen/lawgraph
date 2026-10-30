@@ -25,6 +25,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.search.clause import (
     abbreviated_laws,
     build_search_clause,
+    is_phrase,
     termed_articles,
     tokenize_search_query,
 )
@@ -54,12 +55,17 @@ class Written:
 
 def searched_words(directory: Path, today: dt.date, most: int = WORDS) -> list[str]:
     """The one-word terms asked at least ``MIN_COUNT`` times in the last ``KEEP_DAYS``
-    days, the *most* asked most (ties by the word)."""
+    days, the *most* asked most (ties by the word); not a phrase in quotes, whose hits are
+    never kept (``text.text_query``)."""
     counts = search_stats.totals(directory, today, search_stats.KEEP_DAYS)
     words: dict[str, int] = {}
     for term, n in counts.items():
         tokens = tokenize_search_query(term)
-        if n >= search_stats.MIN_COUNT and len(tokens) == 1:
+        if (
+            n >= search_stats.MIN_COUNT
+            and len(tokens) == 1
+            and not is_phrase(tokens[0])
+        ):
             words[tokens[0]] = words.get(tokens[0], 0) + n
     return sorted(words, key=lambda w: (-words[w], w))[:most]
 

@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from lawgraph.api.seo.article import article
 from lawgraph.api.seo.pages.base import SITE_IMAGE, Page
 from lawgraph.api.seo.pages.government import (
     cabinet_page,
@@ -56,7 +57,7 @@ class SourcePage:
 SOURCE_PAGES: dict[str, SourcePage] = {
     "wet": SourcePage(seo.law, law_page, "/og/wet.png", paint=law_paint),
     "artikel": SourcePage(
-        seo.article, article_page, "/og/artikel.png", paint=article_paint
+        article, article_page, "/og/artikel.png", paint=article_paint
     ),
     "uitspraak": SourcePage(
         seo.judgment, judgment_page, "/og/uitspraak.png", paint=judgment_paint

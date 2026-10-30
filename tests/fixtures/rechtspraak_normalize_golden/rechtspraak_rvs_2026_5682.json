@@ -1,5 +1,5 @@
 {
- "document": "0241ecbb6251c71c",
+ "document": "c3422da6602ecde5",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2026:5682",
@@ -28,6 +28,7 @@
   "subjects": [
    "Bestuursrecht; Omgevingsrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-0645e8bc",

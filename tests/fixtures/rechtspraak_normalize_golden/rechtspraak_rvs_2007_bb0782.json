@@ -1,5 +1,5 @@
 {
- "document": "f26372d9cce076af",
+ "document": "a4ed1d173c785380",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2007:BB0782",
@@ -27,6 +27,26 @@
   ],
   "subjects": [
    "Bestuursrecht"
+  ],
+  "law_references": [
+   {
+    "bwb_id": "BWBR0002375",
+    "article": null,
+    "date": null,
+    "old": false
+   },
+   {
+    "bwb_id": "BWBR0002375",
+    "article": "28",
+    "date": null,
+    "old": false
+   },
+   {
+    "bwb_id": "BWBR0003391",
+    "article": null,
+    "date": null,
+    "old": false
+   }
   ],
   "paragraphs": [
    {

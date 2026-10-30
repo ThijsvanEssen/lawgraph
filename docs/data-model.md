@@ -202,6 +202,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `bases` | `national_implementing_measure` | `IMPLEMENTS` | EUR-Lex lists the publication as a national implementing measure of the act. |
 | `bases` | `considerans` | `IMPLEMENTS` | The considerans of the regulation says it implements the act. |
 | `reason` | `bwb_article` | `REFERS_TO` | The text cites an article of a law (BWB). |
+| `reason` | `bwb_metadata_article` | `REFERS_TO` | The metadata of the judgment lists an article of a law (BWB) that its text does not name. |
 | `reason` | `celex_article` | `REFERS_TO` | The text cites an article of an EU act. |
 | `reason` | `bwb_instrument` | `REFERS_TO` | The text cites a law (BWB) as a whole. |
 | `reason` | `celex_instrument` | `REFERS_TO` | The text cites an EU act as a whole. |
@@ -350,6 +351,7 @@ its keys to the model of `REFERS_TO`.
 |  | `mentions[].confidence` | `float` | How sure the reading is. |
 |  | `mentions[].qualifier` | `str` | The leden or onderdelen as written: `derde lid`. |
 |  | `mentions[].footnote` | `str` | The label of the footnote that cites it. |
+|  | `origin` | `list["text" \| "metadata"]` | What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`), or both; the mentions are those of the text. |
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
@@ -1189,6 +1191,11 @@ next (the text read joins them with a line break).
 | `related_eclis` | `list[str]` | The earlier instances the metadata names (`dcterms:relation`). |
 | `later_eclis` | `list[str]` | The later instances it names (`psi:aanleg` latereAanleg): the courts that ruled on appeal of it, in cassation or after it. |
 | `conclusion_eclis` | `list[str]` | The conclusion of a judgment, or the judgment of a conclusion (`psi:type` conclusie). |
+| `law_references` | `list[object]` | The laws and articles the metadata names (`dcterms:references`, `Wetsverwijzing`), as the court's editors entered them; null when it names none. The articles are `REFERS_TO` edges with `origin` `metadata` (`semantic rechtspraak`). |
+| `law_references[].bwb_id` | `str` | The law (`BWBR0001854`; a treaty is `BWBV…`). |
+| `law_references[].article` | `str` | One article number as the source writes it; null for a reference to the law only. |
+| `law_references[].date` | `str` | The date of the version the court read (`g=`), when the source gives it. |
+| `law_references[].old` | `bool` | The source writes `(oud)` after the number. |
 | `unresolved_appeal_targets` | `list[object]` | The decisions an appeal names in its text that are not loaded (`semantic rechtspraak-appeal`); null when there are none. |
 | `unresolved_appeal_targets[].court` | `str` | As the text writes it: "rechtbank Gelderland". |
 | `unresolved_appeal_targets[].date` | `str` | ISO. |
@@ -1972,7 +1979,10 @@ GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` column
 ranked by BM25 over the words it matches (`queries/_bm25.py`, each field weighed by its
 boost); until the statistics of a table are kept (after a start, before the warm-up
 computed them) a search does not wait for them: it ranks on the rows the planner counts and
-weighs no length. The columns are written with the row, so a fresh
+weighs no length. A `t` column holds the stems in order, stop words included: a phrase in
+quotes is found by its stems one after the other (`clause.in_a_row`), and the 200 best
+ranked hits rank higher where a field holds words of the query in its order
+(`text.order_sql`). The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names
 (`search_names`, a trigram index); `cabinets` by their name, `commitments` by their text and
 number, and `decisions` by their subject and kind, each through a trigram index on those

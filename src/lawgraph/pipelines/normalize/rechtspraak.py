@@ -21,6 +21,7 @@ from lawgraph.core.judgment_metadata import (
     compose_display_name,
     derive_court,
     extract_judgment_text,
+    extract_law_references,
     extract_rdf_metadata,
     is_english,
     parse_judgment,
@@ -61,6 +62,8 @@ def _metadata_props(root: ET.Element) -> dict[str, Any]:
             props["case_number_keys"] = keys
     if subjects:
         props["subjects"] = subjects
+    # the laws the court names; null clears a list an earlier read kept
+    props["law_references"] = extract_law_references(root) or None
     return props
 
 

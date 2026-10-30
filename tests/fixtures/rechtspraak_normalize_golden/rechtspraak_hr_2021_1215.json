@@ -1,5 +1,5 @@
 {
- "document": "4c7def3cd3eaedf9",
+ "document": "c699cec5a447cf2e",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2021:1215",
@@ -28,6 +28,7 @@
   "subjects": [
    "Bestuursrecht; Belastingrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-1a143bb7",

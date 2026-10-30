@@ -10,12 +10,21 @@ import contextvars
 import hashlib
 import json
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
-from lawgraph.db.queries.search.clause import Query, build_search_clause, live_clause
+from lawgraph.db.queries.search.clause import (
+    NO_ORDER,
+    Order,
+    Query,
+    build_search_clause,
+    in_a_row_sql,
+    is_phrase,
+    live_clause,
+    spaced,
+)
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER
 from lawgraph.db.queries.search.spec import Hit, SearchType
 from lawgraph.db.request_context import Budget, read_budget, read_time_left
@@ -37,6 +46,19 @@ RANK_CANDIDATES = 1000
 # runs to some 30, a term ``TERM_WEIGHT``), and never lifts one past a better tier
 # (``tier_sql``), which orders first.
 CITATION_PRIOR = 0.5
+# How much the rank of a hit rises for each two words of the query it holds one after the
+# other (``clause.Order.pairs``: "gewichtige belangen", "belangen van de staat"), and for
+# all of them in a row (``Order.whole``), in a field of its words: about as much as a
+# rare word, and more than the case law that cites it (``CITATION_PRIOR``) can add, so
+# that the article that says what the query says ranks above those that hold its words
+# apart (art. 8 Wiv 2017 for "gewichtige belangen van de staat", above art. 225 Sv).
+PAIR_WEIGHT = 3.0
+WHOLE_WEIGHT = 10.0
+# The best ranked hits that the order of their words ranks again: it reads the words of a
+# hit once more (its search columns: a hit of ``RANK_CANDIDATES`` 10 % more pages, +30 %
+# warm), and a hit that holds the words of the query in its order ranks well by them
+# already.
+RERANKED = 200
 # The rows a live search orders at most: a common word is in far more, and the first found
 # stand for them (the full search after Enter ranks them all).
 LIVE_CANDIDATES = 2_000
@@ -74,6 +96,50 @@ def titled_sql(kind: SearchType, words: list[str], row: str = "r") -> str:
     return " AND ".join(
         f"(cardinality(lg_tokens(%({word})s)) > 0 AND ({held.format(word=word)}))"
         for word in words
+    )
+
+
+@dataclass(frozen=True)
+class OrderSql:
+    """SQL of what the order of the words of a query adds to the rank of a row ``r``
+    (``order_sql``): the *columns* of its words it reads, the *lateral* to follow ``FROM
+    ... r`` (each of them in one string, read once), the *bonus* over that and its
+    *params*; all empty when the query has no runs of words."""
+
+    columns: str = ""
+    lateral: str = ""
+    bonus: str = ""
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+def order_sql(kind: SearchType, order: Order) -> OrderSql:
+    """What the *order* of the words of a query adds to the rank of a row of *kind*:
+    ``PAIR_WEIGHT`` for each run of it a field of its words holds, ``WHOLE_WEIGHT`` for all
+    of them. Only the ``RERANKED`` best are ranked by it (``text_query``)."""
+    runs = [(run, PAIR_WEIGHT) for run in order.pairs]
+    if order.whole:
+        runs.append((order.whole, WHOLE_WEIGHT))
+    columns = [
+        f"r.{search_column(f, 'text')}"
+        for f in kind.fields
+        if "text" in SEARCH_FIELDS[kind.table][f]
+    ]
+    if not runs or not columns:
+        return OrderSql()
+    strings = ", ".join(f"{spaced(column)} AS o{n}" for n, column in enumerate(columns))
+    bonus = " + ".join(
+        f"{weight} * ("
+        + " OR ".join(
+            f"o.o{m} LIKE {in_a_row_sql(f'_run_{n}')}" for m in range(len(columns))
+        )
+        + ")::int"
+        for n, (_, weight) in enumerate(runs)
+    )
+    return OrderSql(
+        ", ".join(columns),
+        f"CROSS JOIN LATERAL (SELECT {strings} OFFSET 0) o",
+        f"({bonus})",
+        {f"_run_{n}": run for n, (run, _) in enumerate(runs)},
     )
 
 
@@ -165,15 +231,17 @@ def text_query(
     laws: list[list[str]] | None = None,
     named: set[str] | None = None,
     any_word: bool = False,
+    order: Order = NO_ORDER,
 ) -> Query:
     """The hits of *kind* that hold every token in its fields (with *any_word*: one at
     least, ranked by those they hold), the best ranked first (the key settles ties); *live*
     as ``live_query``. *termed*: per token the rows that have
     it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher, those
     it *named* in a tier above (``tier_sql``); *laws*:
-    per token the laws whose articles it matches (``abbreviated_laws``). One word
-    without a further condition ranks the hits kept of it (``kept_candidates``) while they
-    are those of now: the same, without reading them.
+    per token the laws whose articles it matches (``abbreviated_laws``); *order*: the runs
+    of the words of the query that rank a hit higher where it holds them (``order_sql``).
+    One word without a further condition ranks the hits kept of it (``kept_candidates``)
+    while they are those of now: the same, without reading them.
 
     Run it with ``store.query(..., indexes_only=True)``: its conditions and its rank read
     the large search columns, whose detoasting the planner does not count, so for a
@@ -220,6 +288,7 @@ def text_query(
         rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
     if kind.citations:
         rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce({kind.citations}, 0)))"
+    in_order = order_sql(kind, order)
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
     # The matches are found first, on their own, from the indexes of the words (OFFSET 0
@@ -235,10 +304,21 @@ def text_query(
     found = f"SELECT * FROM {table} r WHERE {clause} {where}"
 
     def ranked(found: str) -> str:
-        return f"""
+        # with the order of the words: of the best, their columns of words passed on, not
+        # read (a TOAST pointer each), ranked again by it, those of these alone read
+        best = f"""
             SELECT r.id, {tier} AS tier, {rank} AS rank
+                   {", r.key, " + in_order.columns if in_order.bonus else ""}
             FROM (SELECT * FROM ({found} OFFSET 0) r {candidates}) r
             {bm25.lateral}
+            ORDER BY tier DESC, rank DESC, r.key
+            LIMIT %({"_reranked" if in_order.bonus else "limit"})s
+            """
+        if not in_order.bonus:
+            return best
+        return f"""
+            SELECT r.id, r.tier, r.rank + {in_order.bonus} AS rank
+            FROM ({best}) r {in_order.lateral}
             ORDER BY tier DESC, rank DESC, r.key
             LIMIT %(limit)s
             """
@@ -246,14 +326,21 @@ def text_query(
     statement_params = {
         **clause_params,
         **bm25.params,
+        **in_order.params,
         **(params or {}),
         **({"_named": sorted(named)} if named else {}),
         "_whole": " ".join(tokens),
+        "_reranked": max(limit, RERANKED),
         "limit": limit,
     }
+    # (not of a phrase, nor with a run of words to rank by: what is kept is of one word)
     kept = (
         None
-        if where or len(tokens) != 1 or not kind.candidate_order
+        if where
+        or len(tokens) != 1
+        or not kind.candidate_order
+        or is_phrase(tokens[0])
+        or in_order.bonus
         else kept_candidates(store, kind, tokens[0], clause, clause_params)
     )
     if kept is None:
