@@ -139,13 +139,8 @@ def _articles_match(kind: SearchType, asked: Asked) -> Match:
 
 
 def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
-    store, tokens, notation, limit = (
-        asked.store,
-        asked.tokens,
-        asked.notation,
-        asked.limit,
-    )
-    period = asked.period
+    store, tokens, limit = asked.store, asked.tokens, asked.limit
+    notation, period = asked.notation, asked.period
     termed = termed_articles(store, tokens)
     laws = abbreviated_laws(store, tokens)
     in_period = period.where(kind.period_date)
@@ -660,7 +655,6 @@ def _search_committees(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         asked.limit,
         live=live,
         any_word=asked.any_word,
-        order=asked.order,
     )
     return list(asked.store.query(*query, indexes_only=True))
 
