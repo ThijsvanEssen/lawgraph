@@ -163,14 +163,43 @@ def law_page(row: dict[str, Any]) -> Page:
     )
 
 
+def _counted(count: int, one: str, more: str) -> str:
+    """ "312 uitspraken", "1.194 uitspraken", "1 uitspraak"; empty for none."""
+    if not count:
+        return ""
+    return f"{count:,}".replace(",", ".") + " " + (one if count == 1 else more)
+
+
+def _article_description(text: str, counts: dict[str, Any], explained: bool) -> str:
+    """The description of an article: the start of its text, then what the page has
+    besides (``Met 312 uitspraken, wetsgeschiedenis en 45 verwijzingen.``), together at
+    most ``DESCRIPTION_MAX``; only what there is (*counts*: ``seo_links.ARTICLE_COUNTS``)."""
+    besides = [
+        part
+        for part in (
+            _counted(counts.get("judgments_counted") or 0, "uitspraak", "uitspraken"),
+            "wetsgeschiedenis" if explained else "",
+            _counted(
+                counts.get("references_counted") or 0, "verwijzing", "verwijzingen"
+            ),
+        )
+        if part
+    ]
+    if not besides:
+        return cut(text, DESCRIPTION_MAX)
+    listed = (
+        ", ".join(besides[:-1]) + " en " + besides[-1] if besides[1:] else besides[0]
+    )
+    tail = f"Met {listed}."
+    return f"{cut(text, DESCRIPTION_MAX - len(tail) - 1)} {tail}"
+
+
 def article_page(row: dict[str, Any]) -> Page:
     props = row["props"] or {}
     law = row.get("law") or {}
     title = article_title(props, law)
     path = path_of(row["id"], props) or ""
     text = text_of(props.get("text"))
-    # its text alone: the same whether the judgments citing it are kept yet or not
-    description = text or title
     law_id, jurisdiction = _law_id(law or props)
     law_path = path_of(_law_node(law_id), law) if law else None
     law_label = law_name(law) if law else ""
@@ -200,6 +229,9 @@ def article_page(row: dict[str, Any]) -> Page:
         )
 
     links = row.get("links") or {}
+    description = _article_description(
+        text or title, row, bool(links.get("explained_by"))
+    )
     body = (
         f"<h1>{escape(title)}</h1>"
         + (f"<p>{link(law_path, law_label)}</p>" if law_label else "")
@@ -216,7 +248,7 @@ def article_page(row: dict[str, Any]) -> Page:
     )
     return Page(
         title=title,
-        description=cut(description, DESCRIPTION_MAX),
+        description=description,
         path=path,
         crumbs=trail(law_label, law_path, title, path),
         data={

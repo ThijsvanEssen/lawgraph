@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
     RELATION_MADE_IN,
+    RELATION_REFERS_TO,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT, KIND_MOTION
@@ -42,6 +43,26 @@ DOCUMENT_INDEXED = f"""(lg_bool(l.props -> 'has_text')
     OR ((starts_with(lower(coalesce(d.kind, '')), '{KIND_MOTION.lower()}')
          OR starts_with(lower(coalesce(d.kind, '')), '{KIND_AMENDMENT.lower()}'))
         AND nullif(btrim(lg_str(l.props -> 'dictum')), '') IS NOT NULL))"""
+
+
+# Of an article ``a``: the judgments that cite it, each once (``judgments``, as the app
+# counts them), and the articles and laws it refers to or that refer to it, each once
+# (``references``): by the covering indexes of the edges, a few ms for the thousand that cite
+# an article. Not within the budget of the judgments a page lists: the description that
+# names them is the same whether those are kept yet or not.
+ARTICLE_COUNTS = f"""
+    (SELECT count(DISTINCT e.from_id) FROM {COLLECTION_EDGES} e
+     WHERE e.to_id = a.id AND e.relation = '{RELATION_REFERS_TO}'
+       AND e.from_collection = '{COLLECTION_JUDGMENTS}')::int AS judgments_counted,
+    (SELECT count(DISTINCT r.id) FROM (
+       SELECT e.to_id AS id FROM {COLLECTION_EDGES} e
+       WHERE e.from_id = a.id AND e.relation = '{RELATION_REFERS_TO}'
+         AND e.to_collection IN ('{COLLECTION_ARTICLES}', '{COLLECTION_INSTRUMENTS}')
+       UNION ALL
+       SELECT e.from_id FROM {COLLECTION_EDGES} e
+       WHERE e.to_id = a.id AND e.relation = '{RELATION_REFERS_TO}'
+         AND e.from_collection = '{COLLECTION_ARTICLES}'
+     ) r WHERE r.id <> a.id)::int AS references_counted"""
 
 
 @dataclass(frozen=True)
