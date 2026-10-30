@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -259,6 +259,9 @@ class RefersToMeta(_Span, _Parts):
     """How many places of the judgment cite it."""
     mentions: list[Mention] | None = None
     """The first of those places."""
+    origin: list[Literal["text", "metadata"]] | None = None
+    """What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`),
+    or both; the mentions are those of the text."""
     paragraphs: list[str] | None = None
     """The numbers of the paragraphs that cite it, each once."""
     cited_ecli: str | None = None

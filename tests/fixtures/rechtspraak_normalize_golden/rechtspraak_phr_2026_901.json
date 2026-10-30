@@ -1,5 +1,5 @@
 {
- "document": "57acb75b2ef0f80e",
+ "document": "50a2ce4f5bf7f022",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:PHR:2026:901",
@@ -33,6 +33,7 @@
   "subjects": [
    "Strafrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-8d99ad3b",

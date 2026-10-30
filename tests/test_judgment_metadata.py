@@ -176,3 +176,26 @@ def test_the_earlier_instance_is_read_from_the_attribute_and_nothing_else_is() -
         judgment_metadata.parse_judgment(_RELATIONS_XML)
     )
     assert meta["related_eclis"] == ["ECLI:NL:GHAMS:2024:3036"]
+
+
+def test_rechtspraak_extract_law_references() -> None:
+    ids = [
+        "jci1.31:c:BWBR0001854",
+        "jci1.31:c:BWBR0001854&amp;artikel=98&amp;g=2015-06-12",
+        "jci1.31:c:BWBR0003045&amp;artikel=349a, 355 (oud)",
+        "jci1.31:c:BWBR0001854&amp;artikel=98",
+        "niet-een-jci",
+    ]
+    refs = "".join(f'<dcterms:references bwb:resourceIdentifier="{i}"/>' for i in ids)
+    xml = (
+        '<open xmlns:dcterms="http://purl.org/dc/terms/" xmlns:bwb="http://x/bwb">'
+        f"{refs}<dcterms:references/></open>"
+    )
+    found = judgment_metadata.extract_law_references(ET.fromstring(xml))
+    assert found == [
+        {"bwb_id": "BWBR0001854", "article": None, "date": None, "old": False},
+        {"bwb_id": "BWBR0001854", "article": "98", "date": "2015-06-12", "old": False},
+        {"bwb_id": "BWBR0003045", "article": "349a", "date": None, "old": False},
+        {"bwb_id": "BWBR0003045", "article": "355", "date": None, "old": True},
+    ]
+    assert judgment_metadata.extract_law_references(ET.fromstring("<r/>")) == []

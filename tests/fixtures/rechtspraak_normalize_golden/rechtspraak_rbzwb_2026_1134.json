@@ -1,5 +1,5 @@
 {
- "document": "cdc81faed6841f12",
+ "document": "dcd2b8a0683b8f73",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBZWB:2026:1134",
@@ -28,6 +28,7 @@
   "subjects": [
    "Civiel recht; Personen- en familierecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-d939a582",

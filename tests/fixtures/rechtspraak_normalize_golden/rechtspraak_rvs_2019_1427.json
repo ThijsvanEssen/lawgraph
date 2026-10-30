@@ -1,5 +1,5 @@
 {
- "document": "741d32e37ebaa08e",
+ "document": "7a756fac0f72d7c0",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2019:1427",
@@ -28,6 +28,7 @@
   "subjects": [
    "Bestuursrecht"
   ],
+  "law_references": null,
   "paragraphs": [
    {
     "id": "p-b2516bad",

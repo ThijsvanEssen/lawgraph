@@ -604,6 +604,20 @@ class JudgmentUnresolvedCitationProps(_StrictBase):
     """How often the judgment cites it."""
 
 
+class JudgmentLawReferenceProps(_StrictBase):
+    """A `Wetsverwijzing` of the metadata: a `jci` link to a law or one of its articles
+    (``core.judgment_metadata.extract_law_references``)."""
+
+    bwb_id: str
+    """The law (`BWBR0001854`; a treaty is `BWBV…`)."""
+    article: str | None = None
+    """One article number as the source writes it; null for a reference to the law only."""
+    date: str | None = None
+    """The date of the version the court read (`g=`), when the source gives it."""
+    old: bool = False
+    """The source writes `(oud)` after the number."""
+
+
 class JudgmentProps(_CommonProps):
     ecli: str | None = None
     """Its ECLI."""
@@ -660,6 +674,10 @@ class JudgmentProps(_CommonProps):
     conclusion_eclis: list[str] | None = None
     """The conclusion of a judgment, or the judgment of a conclusion (`psi:type`
     conclusie)."""
+    law_references: list[JudgmentLawReferenceProps] | None = None
+    """The laws and articles the metadata names (`dcterms:references`, `Wetsverwijzing`), as
+    the court's editors entered them; null when it names none. The articles are
+    `REFERS_TO` edges with `origin` `metadata` (`semantic rechtspraak`)."""
     unresolved_appeal_targets: list[JudgmentAppealTargetProps] | None = None
     """The decisions an appeal names in its text that are not loaded (`semantic
     rechtspraak-appeal`); null when there are none."""

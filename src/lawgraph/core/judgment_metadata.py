@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 import xml.etree.ElementTree as ET
 from typing import Any
+from urllib.parse import parse_qs
 
 from lawgraph.core.courts import court_of
 from lawgraph.core.ecli import court_code
@@ -213,6 +214,49 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
     if conclusion_eclis:
         meta["conclusion_eclis"] = conclusion_eclis
     return meta, subjects
+
+
+# ── the laws a judgment names ────────────────────────────────────────────────
+
+# ``jci1.31:c:BWBR0001854&artikel=98&g=2015-06-12``: the law, optionally an article (or a
+# list of them) and the date of the version the court looked at.
+_JCI = re.compile(r"^jci\d+(?:\.\d+)?:c:([A-Z0-9]+)((?:&.*)?)$")
+_OLD_ARTICLE = re.compile(r"\s*\(oud\)\s*$", re.IGNORECASE)
+
+
+def extract_law_references(root: ET.Element) -> list[dict[str, Any]]:
+    """The ``Wetsverwijzing`` of the metadata (``dcterms:references`` with a ``jci``
+    ``bwb:resourceIdentifier``), each once, in order: ``{bwb_id, article, date, old}``.
+
+    *article* is one article number as the source writes it (a list ``349a, 355`` is split),
+    ``None`` for a reference to the law only; *date* the ``g=`` of the version the court
+    read, *old* a ``(oud)`` after the number. The court's own list: the articles it
+    cites, which its text need not name.
+    """
+    found: dict[tuple[str, str | None], dict[str, Any]] = {}
+    for element in root.iter():
+        if local_name(element.tag) != "references":
+            continue
+        attributes = {local_name(n): v for n, v in element.attrib.items()}
+        match = _JCI.match((attributes.get("resourceIdentifier") or "").strip())
+        if not match:
+            continue
+        bwb_id, rest = match.groups()
+        query = parse_qs(rest.lstrip("&"))
+        date = (query.get("g") or [None])[0]
+        numbers = re.split(r"\s*,\s*", (query.get("artikel") or [""])[0].strip())
+        for number in numbers if numbers != [""] else [None]:
+            article = _OLD_ARTICLE.sub("", number).strip() if number else None
+            found.setdefault(
+                (bwb_id, article or None),
+                {
+                    "bwb_id": bwb_id,
+                    "article": article or None,
+                    "date": date,
+                    "old": bool(number and _OLD_ARTICLE.search(number)),
+                },
+            )
+    return list(found.values())
 
 
 _RDF_ABOUT = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about"

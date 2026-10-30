@@ -231,8 +231,9 @@ class SemanticPipelineBase(PipelineBase):
             # with or without paragraphs: where a slice ends
             self.last_judgment_read = node.key
             paragraphs = node.props.get("paragraphs")
-            if paragraphs:
-                yield node, paragraphs
+            # a judgment with only the court's list of laws has no text to read
+            if paragraphs or node.props.get("law_references"):
+                yield node, paragraphs or []
 
     def _recent_eclis(self, since_iso: str) -> list[str]:
         """The ECLIs of the judgments retrieved at or after *since_iso*."""
