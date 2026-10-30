@@ -205,6 +205,9 @@ def test_a_singular_finds_its_plural_and_back(store: GraphStore) -> None:
 
 def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
     hits = dispatch.search_all(graph, q="strafbaar", types=["articles"])["articles"]
+    # a match on words, scored by its rank (``ranking.words_score``)
+    score = hits[0].pop("score") if hits else None
+    assert score is not None and ranking.SCORE_WORDS < score < ranking.SCORE_CONTAINS
     assert hits == [
         {
             "id": "articles/bwbr0001854_1",
@@ -226,7 +229,6 @@ def test_a_hit_has_the_shape_of_before(graph: GraphStore) -> None:
                 "instrument_abbreviation": None,
                 "expired_on": None,
             },
-            "score": ranking.SCORE_WORDS,
         }
     ]
 

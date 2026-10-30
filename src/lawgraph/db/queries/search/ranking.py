@@ -1,5 +1,6 @@
-"""The score of a hit: the tier of the best way it matches the query. Ties keep the order of
-the database (the rank within a type)."""
+"""The score of a hit: the tier of the best way it matches the query; of a hit that matched on
+words only, its rank in the database too (``words_score``). Ties keep the order of the
+database (the rank within a type)."""
 
 from __future__ import annotations
 
@@ -17,6 +18,11 @@ SCORE_TITLE = 0.75  # the query is the whole of its name
 SCORE_PREFIX = 0.5  # its name starts with the query
 SCORE_CONTAINS = 0.25  # every word of the query is in its name
 SCORE_WORDS = 0.1  # it matched on stems or text only
+# A hit that matched on words only scores by its rank (``words_score``): from SCORE_WORDS
+# up to SCORE_WORDS + WORDS_SPAN, half of it at the rank WORDS_HALF (BM25 of a rare word
+# or two). Below SCORE_CONTAINS: never above a hit of a better tier.
+WORDS_SPAN = 0.1
+WORDS_HALF = 10.0
 
 # What identifies a hit, besides its key: the fields of ``extra`` that are identifiers. Not
 # the dossier of a paper: every paper of the dossier holds its number.
@@ -169,6 +175,37 @@ def expired(hit: Mapping[str, Any], today: str) -> bool:
     return isinstance(ended, str) and bool(ended) and ended[:10] <= today
 
 
+def words_score(hit: Mapping[str, Any]) -> float:
+    """The score of *hit* that matched on words only, by its ``rank`` in the database (its
+    BM25, terms, case law and the order of its words: ``text.text_query``), rising with it
+    and below ``SCORE_WORDS + WORDS_SPAN``, so the scores keep the order of the database.
+    A hit of a better tier there (``text.tier_sql``: rank null) scores that top; one
+    without a rank (a live search, a precise lookup) ``SCORE_WORDS``."""
+    if "rank" not in hit:
+        return SCORE_WORDS
+    rank = hit["rank"]
+    if rank is None:
+        return SCORE_WORDS + WORDS_SPAN
+    rank = max(float(rank), 0.0)
+    return round(SCORE_WORDS + WORDS_SPAN * rank / (rank + WORDS_HALF), 3)
+
+
+def hit_score(query: str, hit: Mapping[str, Any]) -> float:
+    """The score of *hit* for *query*: the one it has, else its tier (``score_hit``), of a
+    match on words only by its rank (``words_score``)."""
+    if "score" in hit:
+        return float(hit["score"])
+    score = score_hit(query, hit)
+    return words_score(hit) if score == SCORE_WORDS else score
+
+
+def _scored(query: str, hit: Mapping[str, Any]) -> dict[str, Any]:
+    """*hit* with its ``score`` (``hit_score``), without its ``rank``."""
+    scored = {k: v for k, v in hit.items() if k != "rank"}
+    scored["score"] = hit_score(query, hit)
+    return scored
+
+
 def rank_hits(
     query: str, hits: list[dict[str, Any]], today: str | None = None
 ) -> list[dict[str, Any]]:
@@ -178,7 +215,7 @@ def rank_hits(
     that does, whatever its score, not left out: what the query identifies or names
     exactly (``exact_hit``) goes first still."""
     day = today or dutch_today().isoformat()
-    scored = [{**h, "score": h.get("score", score_hit(query, h))} for h in hits]
+    scored = [_scored(query, h) for h in hits]
     return sorted(
         scored,
         key=lambda h: (
