@@ -1,0 +1,46 @@
+{
+  "limits": {
+    "lines_per_file": 800
+  },
+  "counts": {
+    "cached": 25,
+    "lasting": 19,
+    "cached_rows": 4,
+    "lasting_rows": 4,
+    "warm_parts": 28,
+    "warm_hourly": 2,
+    "count_functions": 69
+  },
+  "lines_per_file": {
+    "src/lawgraph/api/routes/instruments.py": 851,
+    "src/lawgraph/api/routes/nodes.py": 972,
+    "src/lawgraph/api/schemas/articles.py": 1457,
+    "src/lawgraph/api/schemas/dossiers.py": 1354,
+    "src/lawgraph/api/schemas/feed.py": 1335,
+    "src/lawgraph/api/schemas/instruments.py": 2097,
+    "src/lawgraph/api/schemas/judgments.py": 866,
+    "src/lawgraph/core/bwb_xml.py": 2092,
+    "src/lawgraph/core/citations.py": 1023,
+    "src/lawgraph/core/document_xml.py": 962,
+    "src/lawgraph/core/ek_mutations.py": 1032,
+    "src/lawgraph/core/judgment_paragraphs.py": 875,
+    "src/lawgraph/core/judgment_parties.py": 1004,
+    "src/lawgraph/core/props.py": 1749,
+    "src/lawgraph/core/relations.py": 1081,
+    "src/lawgraph/core/transposition_xml.py": 927,
+    "src/lawgraph/db/queries/articles.py": 1106,
+    "src/lawgraph/db/queries/chains.py": 885,
+    "src/lawgraph/db/queries/decisions.py": 916,
+    "src/lawgraph/db/queries/dossiers.py": 1510,
+    "src/lawgraph/db/queries/feed.py": 1054,
+    "src/lawgraph/db/queries/feed_sql.py": 1132,
+    "src/lawgraph/db/queries/instruments.py": 1507,
+    "src/lawgraph/db/queries/nodes.py": 928,
+    "src/lawgraph/db/queries/search/types.py": 1267,
+    "src/lawgraph/db/queries/semantic/tk.py": 1100,
+    "src/lawgraph/db/queries/seo.py": 1258,
+    "src/lawgraph/db/schema.py": 2907,
+    "src/lawgraph/db/store.py": 1235,
+    "src/lawgraph/sources/registry.py": 1223
+  }
+}

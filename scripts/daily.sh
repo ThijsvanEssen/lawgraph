@@ -13,4 +13,6 @@ step search-candidates
 # The sitemaps read the graph and write files: outside the lock, so the polls need not wait.
 unlock
 step sitemaps
+# Last, so what the nightly run read does not push it out: what the search reads, into memory.
+step prewarm
 finish
