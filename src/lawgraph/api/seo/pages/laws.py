@@ -170,17 +170,18 @@ def _counted(count: int, one: str, more: str) -> str:
     return f"{count:,}".replace(",", ".") + " " + (one if count == 1 else more)
 
 
-def _article_description(text: str, counts: dict[str, int], explained: bool) -> str:
+def _article_description(text: str, counts: dict[str, Any], explained: bool) -> str:
     """The description of an article: the start of its text, then what the page has
     besides (``Met 312 uitspraken, wetsgeschiedenis en 45 verwijzingen.``), together at
-    most ``DESCRIPTION_MAX``; only what there is. Not the judgments the page lists (they
-    wait for ``CITED_BUDGET``) but their count, the same whether they are kept yet or not."""
+    most ``DESCRIPTION_MAX``; only what there is (*counts*: ``seo_links.ARTICLE_COUNTS``)."""
     besides = [
         part
         for part in (
-            _counted(counts.get("judgments") or 0, "uitspraak", "uitspraken"),
+            _counted(counts.get("judgments_counted") or 0, "uitspraak", "uitspraken"),
             "wetsgeschiedenis" if explained else "",
-            _counted(counts.get("references") or 0, "verwijzing", "verwijzingen"),
+            _counted(
+                counts.get("references_counted") or 0, "verwijzing", "verwijzingen"
+            ),
         )
         if part
     ]
@@ -229,7 +230,7 @@ def article_page(row: dict[str, Any]) -> Page:
 
     links = row.get("links") or {}
     description = _article_description(
-        text or title, row.get("counts") or {}, bool(links.get("explained_by"))
+        text or title, row, bool(links.get("explained_by"))
     )
     body = (
         f"<h1>{escape(title)}</h1>"
