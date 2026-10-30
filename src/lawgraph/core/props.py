@@ -839,7 +839,7 @@ class DocumentProps(_CommonProps):
     motion_url: str | None = None
     """Of such a motion: its page."""
     pdf_url: str | None = None
-    """Of such a motion: its PDF."""
+    """Of such a motion, and of a Kamerstuk of `normalize kst-sru`: its PDF."""
     title: str | None = None
     """`Titel`; of a motie, amendement, letter or report its own `Onderwerp`, else that of
     its zaak."""

@@ -39,6 +39,7 @@ LABELS: dict[str, dict[str, str]] = {
     "semantic.echr": {"EDGE_SOURCE": "echr-citation-linker"},
     "semantic.echr_versions": {"EDGE_SOURCE": "echr-version-linker"},
     "semantic.eerstekamer": {"EDGE_SOURCE": "ek-dossier-linker"},
+    "semantic.kst_sru": {"EDGE_SOURCE": "kst-sru"},
     "semantic.eurlex": {"EDGE_SOURCE": "eu-article-linker"},
     "semantic.eurlex_cjeu": {"EDGE_SOURCE": "eurlex-cjeu"},
     "semantic.rechtspraak": {"EDGE_SOURCE": "rechtspraak-article-linker"},

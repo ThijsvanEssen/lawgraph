@@ -44,13 +44,15 @@
  ],
  "/components/schemas/ActorDossierDTO/properties/source": [
   "tk",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/ActorDossierDTO/properties/title_source/anyOf/0": [
   "dossier",
   "document",
   "activiteit",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/AmendingProposalDTO/properties/kind_group/anyOf/0": [
   "motie",
@@ -444,13 +446,15 @@
  ],
  "/components/schemas/DossierDetailResponse/properties/source": [
   "tk",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/DossierDetailResponse/properties/title_source/anyOf/0": [
   "dossier",
   "document",
   "activiteit",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/DossierDocumentDTO/properties/chamber/anyOf/0": [
   "TK",
@@ -601,13 +605,15 @@
  ],
  "/components/schemas/DossierSummaryDTO/properties/source": [
   "tk",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/DossierSummaryDTO/properties/title_source/anyOf/0": [
   "dossier",
   "document",
   "activiteit",
-  "eerstekamer"
+  "eerstekamer",
+  "kst"
  ],
  "/components/schemas/EchrFindingDTO/properties/aspect/anyOf/0": [
   "materieel",

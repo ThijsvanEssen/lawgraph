@@ -83,6 +83,7 @@ from lawgraph.pipelines.normalize.eerstekamer_votes import (
     EerstekamerVotesNormalizePipeline,
 )
 from lawgraph.pipelines.normalize.eurlex import EurlexNormalizePipeline
+from lawgraph.pipelines.normalize.kst_sru import KstSruNormalizePipeline
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from lawgraph.pipelines.normalize.rijksoverheid import RijksoverheidNormalizePipeline
 from lawgraph.pipelines.normalize.staatsblad import StaatsbladNormalizePipeline
@@ -164,6 +165,7 @@ from lawgraph.pipelines.semantic.graph_heat import GraphHeatSemanticPipeline
 from lawgraph.pipelines.semantic.graph_light import GraphLightSemanticPipeline
 from lawgraph.pipelines.semantic.graph_list_stats import GraphListStatsSemanticPipeline
 from lawgraph.pipelines.semantic.graph_steps import GraphStepsSemanticPipeline
+from lawgraph.pipelines.semantic.kst_sru import KstSruSemanticPipeline
 from lawgraph.pipelines.semantic.rechtspraak import (
     RechtspraakSemanticPipeline,
 )
@@ -876,6 +878,11 @@ NORMALIZE: list[Pipeline] = [
         "Kamerstukken as documents, with the dossier number and its addition.",
     ),
     _pipeline(
+        KstSruNormalizePipeline,
+        "Tweede Kamer Kamerstukken of the SRU as documents numbered in their dossier.",
+        after=("tk-dossiers",),  # the dossiers and documents of the API, which win
+    ),
+    _pipeline(
         EerstekamerCompositionNormalizePipeline,
         "The factions, committees and members of the Eerste Kamer as its pages show them "
         "on each day they changed; periods as observed.",
@@ -1013,6 +1020,10 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         EerstekamerSemanticPipeline,
         "PART_OF: links each paper to its Tweede Kamer dossier.",
+    ),
+    _pipeline(
+        KstSruSemanticPipeline,
+        "PART_OF: links each Tweede Kamer paper of the SRU to its dossier.",
     ),
     _pipeline(
         ECHRSemanticPipeline,

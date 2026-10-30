@@ -51,8 +51,8 @@ from lawgraph.core.tk_records.actors import SigningCapacity
 from lawgraph.core.tk_records.commitments import due_date
 from lawgraph.core.votes import DossierEnd
 
-TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer"]
-DossierSource = Literal["tk", "eerstekamer"]
+TitleSource = Literal["dossier", "document", "activiteit", "eerstekamer", "kst"]
+DossierSource = Literal["tk", "eerstekamer", "kst"]
 
 KindBasis = Literal["case"]
 
@@ -548,8 +548,8 @@ class DossierSummaryDTO(WithMinistry, WithPath):
         "``eerstekamer`` written from the papers of the Eerste Kamer because the Tweede "
         "Kamer's data has none (its OData begins about 2005), with the title they give "
         "(``title_source`` ``eerstekamer``) and no kind, phases or procedure of the Tweede "
-        "Kamer. A dossier without one in the graph (written before this field) is ``tk``: "
-        "only those of the Eerste Kamer's papers carry ``eerstekamer``.",
+        "Kamer; ``kst`` the same from the Tweede Kamer's papers of 1994-2008 in the "
+        "official publications (``title_source`` ``kst``). Without one: ``tk``.",
     )
     kind: str | None = Field(
         None,

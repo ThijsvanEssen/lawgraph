@@ -266,6 +266,15 @@ def dossiers_with_numbers(store: Store, numbers: list[str]) -> set[str]:
     return set(rows)
 
 
+def dossier_numbers_of_source(store: Store, source: str) -> set[str]:
+    """The numbers of the dossiers *source* wrote (``props.source``)."""
+    rows = store.query(
+        "SELECT DISTINCT number FROM dossiers WHERE lg_str(props -> 'source') = %(source)s",
+        {"source": source},
+    )
+    return {str(number) for number in rows if number}
+
+
 def dossiers_named_by_documents(store: Store) -> list[str]:
     """The dossier labels (``36996``, ``31700-VI``) that a Tweede Kamer document or case is part
     of and that no dossier has."""
