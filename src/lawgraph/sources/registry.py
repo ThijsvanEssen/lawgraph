@@ -676,10 +676,7 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_kst_sru,
-        (
-            "Tweede Kamer Kamerstukken of 1994-1995 to 2007-2008 from the KOOP SRU, the "
-            "years the Tweede Kamer's own API lacks."
-        ),
+        "Tweede Kamer Kamerstukken of 1994-1995 to 2007-2008 from the KOOP SRU.",
         argv_for_all=_windowed_argv,
         add_args=commands.kst_sru_args,
         lane=KOOP_REPOSITORY.lane,
