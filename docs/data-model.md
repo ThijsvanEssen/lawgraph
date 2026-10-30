@@ -1972,7 +1972,10 @@ GIN indexes back the `t` and `n` columns, trigram indexes the `g` and `p` column
 ranked by BM25 over the words it matches (`queries/_bm25.py`, each field weighed by its
 boost); until the statistics of a table are kept (after a start, before the warm-up
 computed them) a search does not wait for them: it ranks on the rows the planner counts and
-weighs no length. The columns are written with the row, so a fresh
+weighs no length. A `t` column holds the stems in order, stop words included: a phrase in
+quotes is found by its stems one after the other (`clause.in_a_row`), and the 200 best
+ranked hits rank higher where a field holds words of the query in its order
+(`text.order_sql`). The columns are written with the row, so a fresh
 insert is found at once. `members` and `factions` are searched by their names
 (`search_names`, a trigram index); `cabinets` by their name, `commitments` by their text and
 number, and `decisions` by their subject and kind, each through a trigram index on those

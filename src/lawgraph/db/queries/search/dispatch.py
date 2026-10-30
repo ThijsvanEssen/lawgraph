@@ -98,6 +98,7 @@ def _asked(
         signed or signed_of(store, q, types, words),
         any_word,
         motion_kinds,
+        words.order,
     )
 
 

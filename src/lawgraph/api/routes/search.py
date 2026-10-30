@@ -233,7 +233,15 @@ OFFSET_MAX = 500
         "The stop words of `q` (the Dutch stop words of PostgreSQL's Snowball dictionary: "
         "`wat`, `is`, `de`, `van`, `mijn`) are no words of the search, unless they are all of "
         "it: `words` are those searched, `left_out` the others (`wat is de opzegtermijn van "
-        "mijn huurcontract` searches `opzegtermijn huurcontract`). When no hit of any type "
+        "mijn huurcontract` searches `opzegtermijn huurcontract`). Words in double quotes "
+        '(`"belangen van de staat"`, also `„…”` and `“…”`; an open quote to the end) are '
+        "a phrase, one of `words`: a hit holds them one after the other, stop words "
+        "included, by their stems as any word (any case, without accents; "
+        '`"belang van de staat"` finds `belangen van de Staat` too); no article is '
+        "found by its case law for a phrase. Of the 200 best ranked hits of a type, those "
+        "that hold two words of `q` one after the other in a field (the stop words between "
+        "them too: `belangen van de staat`) rank higher, and higher still with all of its "
+        "words in a row (`gewichtige belangen van de staat`). When no hit of any type "
         "holds every word of two or more, the full search (not `mode=live`) is asked again for "
         "the hits that hold one at least (of a ranked type those with more first; not of a "
         "citation, `Kamerstuk 35925 VI nr. 5`) and `matched` is `any`, else `all`. `toezegging`"

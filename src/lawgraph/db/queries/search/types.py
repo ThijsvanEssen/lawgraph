@@ -165,6 +165,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
             laws=laws,
             named=termed.named if termed else None,
             any_word=asked.any_word,
+            order=asked.order,
         )
 
     if notation is None or notation.kind != "article":
@@ -292,6 +293,7 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
         params=period.params(),
         live=live,
         any_word=asked.any_word,
+        order=asked.order,
     )
     # a law whose abbreviation or short title is the query is the one it names
     return two_phase_search(store, precise, text, limit, precise_score=None, exact=True)
@@ -392,6 +394,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         where=period.where(kind.period_date),
         params=period.params(),
         any_word=asked.any_word,
+        order=asked.order,
     )
     identified = _identified_judgments(kind, asked)
     if identified is not None:
@@ -625,6 +628,7 @@ def _search_dossiers(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         live=live,
         termed=match.termed,
         any_word=asked.any_word,
+        order=asked.order,
     )
     hits = list(asked.store.query(*query, indexes_only=True))
     for hit in hits:
@@ -656,6 +660,7 @@ def _search_committees(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         asked.limit,
         live=live,
         any_word=asked.any_word,
+        order=asked.order,
     )
     return list(asked.store.query(*query, indexes_only=True))
 
@@ -739,6 +744,7 @@ def _search_documents(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         live=live,
         termed=match.termed,
         any_word=asked.any_word,
+        order=asked.order,
     )
     return list(asked.store.query(*query, indexes_only=True))
 
