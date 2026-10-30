@@ -103,6 +103,8 @@ act and a law of the Staatsblad too; `bwb_id` in their response then holds the C
 `articles/at` are about BWB toestanden: for a CELEX number they are empty. An identifier that names nothing
 gives an empty list on these routes, and 404 on the detail and on `eu-links`.
 
+`GET /api/aliases` is the one table of abbreviations the search, the titles and the short addresses of `/render` read (`load_code_aliases`): every abbreviation that stands for one law, from the WTI of the BWB and, where the source gives none, kept by hand (`curated instrument-abbreviations`: AVG); one that several laws share is left out. Beside it the codes whose books are regulations of their own (`families`: `BW` → book → BWB id) and their names. A law without an abbreviation in its source has none here.
+
 ### Judgments
 
 Every judgment the API names (the detail, its `conclusions`, `same_as`, `series` and

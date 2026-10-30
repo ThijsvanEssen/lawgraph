@@ -52,7 +52,7 @@ SHELL = """<!doctype html>
 # static shell (~0.1 s) and waits no longer than this for its judgments.
 CITED_BUDGET = seo.CITED_BUDGET
 
-ROUTES = [
+ROUTES: list[dict[str, Any]] = [
     {"path": "/", "title": "Concordans", "description": "Wetten en Kamerstukken."},
     {"path": "/actueel", "title": "Actueel, Concordans", "description": "Het nieuws."},
     {"path": "/explore", "title": "Verkenner, Concordans", "description": "De graaf."},

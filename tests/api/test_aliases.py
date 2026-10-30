@@ -1,4 +1,4 @@
-"""GET /api/instruments/aliases: the one table of abbreviations, and the codes with books."""
+"""GET /api/aliases: the one table of abbreviations, and the codes with books."""
 
 from __future__ import annotations
 
@@ -6,17 +6,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.routes import instruments
+from lawgraph.api.routes import aliases
 from tests.asserts import assert_status
 
 
 def test_the_abbreviations_and_the_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        instruments,
+        aliases,
         "load_code_aliases",
         lambda store: {"Sr": "BWBR0001854", "AVG": "32016r0679", "awb": "BWBR0005537"},
     )
-    response = TestClient(app).get("/api/instruments/aliases")
+    response = TestClient(app).get("/api/aliases")
     assert_status(response, 200)
     body = response.json()
     assert body["codes"] == [

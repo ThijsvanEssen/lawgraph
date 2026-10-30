@@ -23,6 +23,7 @@ from lawgraph.api.middleware import (
 )
 from lawgraph.api.routes import (
     activities,
+    aliases,
     annexes,
     articles,
     cabinets,
@@ -210,6 +211,7 @@ for _module in (
     paths,
     chains,
     lookup,
+    aliases,
 ):
     _name = _module.__name__.rsplit(".", 1)[1]
     app.include_router(_module.router, prefix=f"/api/{_name}", tags=[_name])
