@@ -91,7 +91,13 @@ real corpus does on the real one; a measurement without a database does not repl
   `src/lawgraph/sources/registry.py` (`docs/architecture.md`).
 - Logic without I/O (text in, hits out) lives in `core/` or in a detector module without store
   access, and is tested without fakes. `api/` and `pipelines/` never import each other.
-- McCabe complexity at most 15 (ruff C901).
+- McCabe complexity at most 15 (ruff C901), at most 50 statements per function in `src`
+  (ruff PLR0915).
+- The simplicity budget, `eenvoud-budget.json`, is a ratchet: `.github/scripts/eenvoud.sh`
+  (a CI job) counts the calls of the cache APIs (`cached`, `lasting`, `*_rows`), the parts of
+  the warm-up, the count functions of `db/queries` and the lines of each file of `src` over 800,
+  and fails when one rose above its budget. One that fell is written down with `--write`.
+  Raising a budget is a hand edit of the file, which the pull request then shows.
 - Log with `get_logger(__name__)`; no `print()` in library code.
 - Where a source has structure, test with small real fixtures (`tests/fixtures/`).
 

@@ -45,6 +45,28 @@ jobs:
             echo "tested=true" >> "$GITHUB_OUTPUT"
           fi
 
+  # The simplicity budget (.github/scripts/eenvoud.sh, eenvoud-budget.json): red when a measure
+  # rose above its budget or fell without the budget following it. A pull request that raises
+  # the budget is green, with a warning per raise (eenvoud-toets) for the orchestrator.
+  eenvoud:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # the Python of src, which ast parses
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Budget
+        run: .github/scripts/eenvoud.sh
+
+      - name: Raises of the budget
+        if: github.event_name == 'pull_request'
+        run: .github/scripts/eenvoud.sh --raised "origin/${{ github.base_ref }}"
+
   test:
     needs: reuse
     if: ${{ !cancelled() }}
