@@ -3,7 +3,7 @@
 A document names its dossier (the number of the Tweede Kamer's kamerstukdossier, with its suffix
 and title as the SRU record gives them: ``dossiernummer``, ``dossiertitel``). A dossier that no
 node holds (the documents of 1995-2006 name thousands) is written from those documents, with
-``source`` ``eerstekamer`` (``_paper_dossiers``).
+``source`` ``eerstekamer`` (``_document_dossiers``).
 """
 
 from __future__ import annotations
@@ -30,9 +30,9 @@ from lawgraph.core.tk_records.dossiers import dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
-from lawgraph.pipelines.normalize._paper_dossiers import (
-    Papers,
-    add_paper,
+from lawgraph.pipelines.normalize._document_dossiers import (
+    DossierDocuments,
+    add_document,
     write_unknown_dossiers,
 )
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -117,12 +117,12 @@ class EerstekamerNormalizePipeline(NormalizePipelineBase[Records]):
         documents); ``EerstekamerSemanticPipeline`` matches the dossier number."""
         count = 0
         writer = NodeWriter(self.store)
-        dossiers: dict[str, Papers] = {}
+        dossiers: dict[str, DossierDocuments] = {}
 
         for node in self._unique_documents(raw):
             writer.add(node)
             count += 1
-            add_paper(dossiers, node)
+            add_document(dossiers, node)
 
         writer.flush()
         made = write_unknown_dossiers(

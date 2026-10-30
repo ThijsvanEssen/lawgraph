@@ -1,7 +1,7 @@
 """The Kamerstukken of the Tweede Kamer of 1994-1995 to 2007-2008 from the KOOP SRU, on a real
 PostgreSQL: documents of the Tweede Kamer numbered in their dossier (``normalize kst-sru``),
 the dossiers no other source has written from them, the papers PART_OF them (``semantic
-kst-sru``), a copy of a paper of the Tweede Kamer's API removed, and the papers in the work
+kst-sru``), a copy of a paper of the Tweede Kamer's API removed, and the documents in the work
 list of ``retrieve tk-content``."""
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from lawgraph.pipelines.semantic.kst_sru import KstSruSemanticPipeline
 DOSSIER = "Regels met betrekking tot de inlichtingen- en veiligheidsdiensten"
 
 
-def _paper(identifier: str, title: str, dossier: str, date: str) -> dict[str, Any]:
+def _document(identifier: str, title: str, dossier: str, date: str) -> dict[str, Any]:
     return raw_source_doc(
         source=SOURCE_KST,
         kind=RAW_KIND_KST_SRU,
@@ -53,7 +53,7 @@ def _get(store: GraphStore, path: str) -> dict[str, Any]:
         app.dependency_overrides.pop(get_store, None)
 
 
-def test_the_papers_of_the_sru_join_the_graph(store: GraphStore) -> None:
+def test_the_documents_of_the_sru_join_the_graph(store: GraphStore) -> None:
     # a paper of 2007-2008 the Tweede Kamer's API has too
     with NodeWriter(store) as writer:
         writer.add(
@@ -72,9 +72,9 @@ def test_the_papers_of_the_sru_join_the_graph(store: GraphStore) -> None:
         )
     store.insert_raw_sources(
         [
-            _paper("kst-25877-1", "Voorstel van wet", "25877", "1998-02-07"),
-            _paper("kst-25877-3", "Memorie van toelichting", "25877", "1998-02-18"),
-            _paper("kst-31200-5", "Brief minister over iets", "31200", "2007-10-01"),
+            _document("kst-25877-1", "Voorstel van wet", "25877", "1998-02-07"),
+            _document("kst-25877-3", "Memorie van toelichting", "25877", "1998-02-18"),
+            _document("kst-31200-5", "Brief minister over iets", "31200", "2007-10-01"),
         ]
     )
     KstSruNormalizePipeline(store=store).run()

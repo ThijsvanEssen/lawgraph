@@ -20,5 +20,5 @@ EDGE_SOURCE = edge_source(__name__)
 class KstSruSemanticPipeline(EerstekamerSemanticPipeline):
     """Links the Tweede Kamer papers of the SRU to their dossiers via their number."""
 
-    papers = SOURCE_KST
+    documents_of = SOURCE_KST
     edge_source = EDGE_SOURCE

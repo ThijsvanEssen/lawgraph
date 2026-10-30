@@ -35,15 +35,15 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
     """Links EK documents to TK kamerstukdossiers via DossierNummer."""
 
     # The documents linked (their ``source``) and the source of the edges.
-    papers = SOURCE_EERSTEKAMER
+    documents_of = SOURCE_EERSTEKAMER
     edge_source = EDGE_SOURCE
 
     def run(self) -> PipelineResult:
         result = PipelineResult()
 
         documents = chain(
-            semantic_tk.ek_papers_in_tk_dossiers(self.store, self.papers),
-            semantic_tk.ek_papers_in_other_dossiers(self.store, self.papers),
+            semantic_tk.ek_papers_in_tk_dossiers(self.store, self.documents_of),
+            semantic_tk.ek_papers_in_other_dossiers(self.store, self.documents_of),
         )
         seen: set[tuple[str, str]] = set()
         edges = EdgeWriter(self.store, what=None, remembers=True)
@@ -66,7 +66,7 @@ class EerstekamerSemanticPipeline(SemanticPipelineBase):
         removed = edges.remove_stale_of_source(RELATION_PART_OF, self.edge_source)
         logger.info(
             "%s dossier link: %d edges; %d no paper supports any more removed.",
-            self.papers,
+            self.documents_of,
             edges.written(RELATION_PART_OF),
             removed,
         )

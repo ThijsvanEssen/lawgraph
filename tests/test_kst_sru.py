@@ -9,7 +9,7 @@ import requests
 
 from lawgraph.clients.kamerstuk import KamerstukClient
 from lawgraph.core.document_completeness import document_address
-from lawgraph.core.kst_papers import kind_and_title
+from lawgraph.core.kst_documents import kind_and_title
 from lawgraph.pipelines.normalize.kst_sru import kst_document
 from lawgraph.pipelines.retrieve.kst_sru import KstSruRetrievePipeline, session_years
 from tests.fakes import InMemoryStore, ScriptedSession, external_ids
@@ -33,17 +33,17 @@ def _client(responses: list[Any], calls: list[dict]) -> KamerstukClient:
 # ── the client ───────────────────────────────────────────────────────────────
 
 
-def test_the_papers_of_a_real_page_are_parsed() -> None:
-    papers = list(_client([PAGE], []).iter_tk_kamerstukken("1997-1998"))
+def test_the_documents_of_a_real_page_are_parsed() -> None:
+    documents = list(_client([PAGE], []).iter_tk_kamerstukken("1997-1998"))
 
-    assert [p["identifier"] for p in papers] == [
+    assert [p["identifier"] for p in documents] == [
         "kst-25877-1",
         "kst-25877-3",
         "kst-25877-4",
         "kst-25877-5",
         "kst-25877-A",
     ]
-    mvt = papers[1]
+    mvt = documents[1]
     assert mvt["title"].endswith("; Memorie van toelichting")
     assert mvt["numbers"] == ["3"]
     assert mvt["dossier_number"] == "25877" and mvt["dossier_numbers"] == ["25877"]
@@ -54,7 +54,7 @@ def test_the_papers_of_a_real_page_are_parsed() -> None:
     assert mvt["xml_url"].endswith("/kst/25877/kst-25877-3/1/xml/kst-25877-3.xml")
     assert mvt["pdf_url"].endswith("/kst-25877-3/1/pdf/kst-25877-3.pdf")
     # a bill and its royal message are one publication
-    assert papers[0]["numbers"] == ["1", "2"]
+    assert documents[0]["numbers"] == ["1", "2"]
 
 
 def test_only_tweede_kamer_kamerstukken_of_the_session_year_are_asked_for() -> None:
@@ -75,7 +75,7 @@ def test_session_years() -> None:
 # ── retrieve ─────────────────────────────────────────────────────────────────
 
 
-def test_every_paper_of_each_year_becomes_a_raw_record() -> None:
+def test_every_document_of_each_year_becomes_a_raw_record() -> None:
     calls: list[dict] = []
     store = InMemoryStore()
     pipeline = KstSruRetrievePipeline(store, _client([EMPTY, PAGE], calls))
@@ -105,7 +105,7 @@ def test_limit_counts_over_the_years() -> None:
 
 
 @pytest.mark.usefixtures("raw_reads")
-def test_papers_are_stored_as_they_come() -> None:
+def test_documents_are_stored_as_they_come() -> None:
     class Failing(KamerstukClient):
         def __init__(self) -> None:
             pass
@@ -167,11 +167,11 @@ def test_the_kind_and_own_title_are_read_from_the_sru_title(title, expected) -> 
 
 
 def _payloads() -> dict[str, dict[str, Any]]:
-    papers = _client([PAGE], []).iter_tk_kamerstukken("1997-1998")
-    return {p["identifier"]: p for p in papers}
+    documents = _client([PAGE], []).iter_tk_kamerstukken("1997-1998")
+    return {p["identifier"]: p for p in documents}
 
 
-def test_a_paper_becomes_a_document_of_the_tweede_kamer_numbered_in_its_dossier() -> (
+def test_an_sru_record_becomes_a_document_of_the_tweede_kamer_numbered_in_its_dossier() -> (
     None
 ):
     node = kst_document("kst-25877-3", _payloads()["kst-25877-3"])
@@ -191,7 +191,7 @@ def test_a_paper_becomes_a_document_of_the_tweede_kamer_numbered_in_its_dossier(
     assert document_address(props) == "kst-25877-3"
 
 
-def test_a_paper_with_two_numbers_is_numbered_by_the_first() -> None:
+def test_a_document_with_two_numbers_is_numbered_by_the_first() -> None:
     bill = kst_document("kst-25877-1", _payloads()["kst-25877-1"])
     assert bill.props["sequence"] == 1 and bill.props["kind"] == "Voorstel van wet"
     joined = kst_document(
@@ -200,7 +200,7 @@ def test_a_paper_with_two_numbers_is_numbered_by_the_first() -> None:
     assert joined.props["sequence"] == 199
 
 
-def test_a_paper_without_an_address_has_no_sequence() -> None:
+def test_a_document_without_an_address_has_no_sequence() -> None:
     advice = kst_document("kst-25877-A", _payloads()["kst-25877-A"])
     assert "sequence" not in advice.props
     assert advice.props["kind"] == "Advies Afdeling advisering Raad van State"

@@ -4,15 +4,15 @@ Each SRU record becomes a document of the Tweede Kamer (label ``TK``, ``source``
 ``kst_25877_3`` of ``kst-25877-3``), numbered in its dossier as a document of the Tweede
 Kamer's API is (``dossier_number``, ``dossier_suffix``, ``sequence``), so ``retrieve
 tk-content`` fetches its XML and ``normalize tk-content`` reads it. Its kind and own title are
-read from the SRU title (``core.kst_papers``). A paper whose address is not its identifier,
+read from the SRU title (``core.kst_documents``). A paper whose address is not its identifier,
 or whose number is not a number (``kst-20012002-25877-58b``, a letter ``kst-25877-A``), has
 no ``sequence``: its XML is not asked for. A reprint (``kst-17050-309-h1``, often in a later
 session year) is the paper: its node is that of the paper (``kst_17050_309``), whichever comes
 last.
 
 A paper the Tweede Kamer's API holds too (in 2007-2008 a third) is its document: the copy of
-the SRU goes, with its edges. The dossiers no other source has are written from the papers
-(``_paper_dossiers``, ``source`` ``kst``); ``semantic kst-sru`` links each paper to its dossier.
+the SRU goes, with its edges. The dossiers no other source has are written from the documents
+(``_document_dossiers``, ``source`` ``kst``); ``semantic kst-sru`` links each paper to its dossier.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.document_completeness import kamerstuk_address
-from lawgraph.core.kst_papers import kind_and_title
+from lawgraph.core.kst_documents import kind_and_title
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.raw_records import payload_json
@@ -41,9 +41,9 @@ from lawgraph.core.tk_records.dossiers import dossier_label
 from lawgraph.db import NodeWriter
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import kst_sru as normalize_kst
-from lawgraph.pipelines.normalize._paper_dossiers import (
-    Papers,
-    add_paper,
+from lawgraph.pipelines.normalize._document_dossiers import (
+    DossierDocuments,
+    add_document,
     write_unknown_dossiers,
 )
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
@@ -59,14 +59,14 @@ _REPRINT_RE = re.compile(r"-h\d+$")
 
 def kst_document(identifier: str, payload: dict[str, Any]) -> Node:
     """The document of the SRU record *payload* of the paper *identifier*."""
-    paper = _REPRINT_RE.sub("", identifier)
+    base_id = _REPRINT_RE.sub("", identifier)
     number, suffix = split_dossier_number(payload.get("dossier_number"))
     numbers = payload.get("numbers") or []
     # "1;2": a bill with its royal message; "199;7f": the paper is also nr. 7f of another
     first = re.split(r"[;,\s]+", str(numbers[0]))[0] if numbers else ""
     address = kamerstuk_address(number, suffix, first)
     sequence = None
-    if first.isdigit() and address and address.lower() == paper.lower():
+    if first.isdigit() and address and address.lower() == base_id.lower():
         sequence = int(first)
     kind, title = kind_and_title(payload.get("title") or "")
     label = dossier_label(number, suffix) if number else None
@@ -97,7 +97,7 @@ def kst_document(identifier: str, payload: dict[str, Any]) -> Node:
 
     return Node(
         collection=COLLECTION_DOCUMENTS,
-        key=make_node_key(paper),
+        key=make_node_key(base_id),
         labels=[CHAMBER_TK],
         props=props,
     )
@@ -116,12 +116,12 @@ class KstSruNormalizePipeline(NormalizePipelineBase[Records]):
     def write(self, raw: Records, result: PipelineResult) -> None:
         """The documents, the dossiers of their own, and no copy of a paper of the API."""
         count = 0
-        dossiers: dict[str, Papers] = {}
+        dossiers: dict[str, DossierDocuments] = {}
         with NodeWriter(self.store) as writer:
             for node in self._documents(raw):
                 writer.add(node)
                 count += 1
-                add_paper(dossiers, node)
+                add_document(dossiers, node)
         made = write_unknown_dossiers(self.store, dossiers, CHAMBER_TK, SOURCE_KST)
         copies = normalize_kst.kst_copies_of_tk_documents(self.store)
         removed = removals.remove_nodes(self.store, COLLECTION_DOCUMENTS, copies)
