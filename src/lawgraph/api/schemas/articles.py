@@ -7,6 +7,7 @@ from typing import Any, Literal, NamedTuple
 
 from pydantic import Field, computed_field
 
+from lawgraph.api.schemas.citation_origin import CitationOriginFields
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_ID,
@@ -16,7 +17,6 @@ from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     ArticleRelationDTO,
     ChangeEffect,
-    CitationOriginFields,
     DefinitionDTO,
     FacetCountDTO,
     InstrumentSummaryDTO,
@@ -73,7 +73,6 @@ from lawgraph.core.official_urls import (
 )
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import ReferenceCollection, reference_target
-from lawgraph.core.relations import citation_origin
 from lawgraph.core.time import strip_time_component
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.xml import collapse_ws
@@ -848,10 +847,6 @@ class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
     )
 
 
-def _count(value: Any) -> int | None:
-    return int(value) if isinstance(value, int | float) else None
-
-
 class ArticleCitedByItem(QualifierFields, CitationOriginFields):
     """One passage of a judgment that cites the article. `leden`, `onderdelen` and
     `aanhef` say what the passage names of it."""
@@ -876,8 +871,7 @@ class ArticleCitedByItem(QualifierFields, CitationOriginFields):
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> ArticleCitedByItem | None:
-        """Build from a `{judgment, mention, origin}` row; None when the mention is
-        malformed."""
+        """Build from a `{judgment, mention, origin}` row; None for a malformed mention."""
         mention = Mention.from_dict(row.get("mention"))
         if mention is None:
             return None
@@ -893,7 +887,7 @@ class ArticleCitedByItem(QualifierFields, CitationOriginFields):
                 court_kind=props.get("court_kind"),
                 date=props.get("date_eff"),
                 display_name=props.get("display_name"),
-                inbound_citation_count=_count(props.get("inbound_citation_count")),
+                inbound_citation_count=props.get("inbound_citation_count"),
                 subject_areas=subject_areas(props.get("subjects")),
                 cite=judgment_cite_dto(props),
                 **judgment_outcome_fields(props),
@@ -906,7 +900,7 @@ class ArticleCitedByItem(QualifierFields, CitationOriginFields):
             text=mention.raw_match,
             snippet=mention.snippet,
             confidence=mention.confidence,
-            origin=citation_origin(row),
+            origin=row.get("origin"),
             **mention.parts.to_dict(),
         )
 

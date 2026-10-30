@@ -283,14 +283,14 @@ def test_a_cited_article_without_mentions_keeps_the_confidence_of_its_edge(
 
 
 def test_a_cited_article_says_what_names_it_text_metadata_or_neither(monkeypatch):
-    """``origin`` of the edge: the text, the metadata (``Wetsverwijzing``) or both, in that
-    order; null for an edge linked before origin was kept."""
+    """``origin`` of the edge: the text, the metadata (``Wetsverwijzing``) or both; null
+    for an edge linked before origin was kept."""
 
     def origin(meta: dict[str, Any]) -> Any:
         (cited,) = _detail(monkeypatch, meta)["cited_articles"]
         return cited["origin"]
 
-    both = {"mention_count": 3, "mentions": _MENTIONS, "origin": ["metadata", "text"]}
+    both = {"mention_count": 3, "mentions": _MENTIONS, "origin": ["text", "metadata"]}
     assert origin(both) == ["text", "metadata"]
     assert origin({"mention_count": 3, "mentions": _MENTIONS, "origin": ["text"]}) == [
         "text"

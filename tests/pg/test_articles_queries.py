@@ -1185,8 +1185,9 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
             },
         },
         "mention": {"snippet": "d"},
+        "origin": None,  # an edge without ``meta.origin``
     }
-    assert list(cited.rows[0]) == ["judgment", "mention"]
+    assert list(cited.rows[0]) == ["judgment", "mention", "origin"]
     assert list(cited.rows[0]["judgment"]["props"]) == [
         "ecli",
         "display_name",

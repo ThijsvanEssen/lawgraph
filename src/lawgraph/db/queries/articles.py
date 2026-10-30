@@ -842,10 +842,9 @@ def get_article_explanation_passages(
 
 @dataclass(frozen=True)
 class CitedBy:
-    """A page of the passages that cite an article: ``{judgment, mention, origin}`` rows
-    (``origin`` of the edge), the passages that match the filters and the judgments they
-    are in, and ``facets``: per ``year``, ``tier`` and ``subject_area`` the judgments
-    under the other filters (``{value, count}``)."""
+    """A page of the passages that cite an article: ``{judgment, mention, origin}`` rows, the
+    passages that match the filters and the judgments they are in, and ``facets``: per ``year``,
+    ``tier`` and ``subject_area`` the judgments under the other filters (``{value, count}``)."""
 
     rows: list[dict[str, Any]]
     total: int

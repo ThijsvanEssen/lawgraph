@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, get_args
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -54,6 +54,7 @@ from lawgraph.config.constants import (
     COLLECTION_MINISTRIES,
 )
 from lawgraph.core.logging import get_logger
+from lawgraph.core.mentions import CitationOrigin
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.props import GovernmentFunctionProps
 from lawgraph.core.props_catalogue import field_rows
@@ -230,20 +231,6 @@ class Mention(_Parts):
     """The label of the footnote that cites it."""
 
 
-# What names an article a judgment cites (``RefersToMeta.origin``): its text, its metadata.
-CitationOrigin = Literal["text", "metadata"]
-
-
-def citation_origin(meta: Mapping[str, Any]) -> list[CitationOrigin] | None:
-    """``origin`` of the ``meta`` of a REFERS_TO edge from a judgment to an article, in the
-    order of ``CitationOrigin``; None for an edge linked before origin was kept (a gap,
-    not a guess)."""
-    stored = meta.get("origin")
-    if not isinstance(stored, list):
-        return None
-    return [origin for origin in get_args(CitationOrigin) if origin in stored]
-
-
 class RefersToMeta(_Span, _Parts):
     """A citation, with the fields of each way one is read."""
 
@@ -274,8 +261,7 @@ class RefersToMeta(_Span, _Parts):
     mentions: list[Mention] | None = None
     """The first of those places."""
     origin: list[CitationOrigin] | None = None
-    """What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`),
-    or both; the mentions are those of the text."""
+    """What names the article: its `text`, its `metadata` (`Wetsverwijzing`) or both."""
     paragraphs: list[str] | None = None
     """The numbers of the paragraphs that cite it, each once."""
     cited_ecli: str | None = None

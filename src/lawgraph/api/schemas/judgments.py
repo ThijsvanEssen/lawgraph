@@ -7,11 +7,11 @@ from typing import Any
 
 from pydantic import Field, computed_field
 
+from lawgraph.api.schemas.citation_origin import CitationOriginFields
 from lawgraph.api.schemas.common import (
     PARTIAL_COUNTS,
     ArticleCitationSpan,
     ArticleRelationDTO,
-    CitationOriginFields,
     FacetCountDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
@@ -36,7 +36,6 @@ from lawgraph.core.mentions import MAX_MENTIONS_PER_EDGE, Mention, footnote_para
 from lawgraph.core.models import Direction, judgment_id
 from lawgraph.core.official_urls import judgment_url
 from lawgraph.core.props import CounselRole, PartySide
-from lawgraph.core.relations import citation_origin
 
 _JUDGMENT_KIND = (
     "What the decision is: `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing` "
@@ -485,13 +484,13 @@ class CitationPlaceFields(StrictModel):
 
 
 def place_fields(
-    mentions: list[Mention],
     meta: dict[str, Any],
     confidence: float | None,
     texts: Mapping[tuple[str, str | None], str],
 ) -> dict[str, Any]:
-    """The ``CitationPlaceFields`` of the stored *mentions* of an edge; *texts*: the
-    paragraphs and footnotes of the judgment (``mention_texts``)."""
+    """The ``CitationPlaceFields`` of the stored mentions of an edge (its *meta*);
+    *texts*: the paragraphs and footnotes of the judgment (``mention_texts``)."""
+    mentions = mentions_of(meta)
     strongest = max(mentions, key=lambda m: m.confidence, default=None)
     numbers = [m.paragraph_number for m in mentions if m.paragraph_number]
     span = None
@@ -556,14 +555,13 @@ class JudgmentCitedArticle(QualifierFields, CitationPlaceFields, CitationOriginF
         texts: Mapping[tuple[str, str | None], str],
     ) -> JudgmentCitedArticle:
         """*texts*: the paragraphs and footnotes of the judgment (``mention_texts``)."""
-        mentions = mentions_of(meta)
-        strongest = max(mentions, key=lambda m: m.confidence, default=None)
+        strongest = max(mentions_of(meta), key=lambda m: m.confidence, default=None)
         return cls(
             article=article,
             qualifier=strongest.qualifier if strongest else None,
             **(strongest.parts.to_dict() if strongest else {}),
-            **place_fields(mentions, meta, confidence, texts),
-            origin=citation_origin(meta),
+            **place_fields(meta, confidence, texts),
+            origin=meta.get("origin"),
         )
 
 
@@ -580,7 +578,6 @@ class JudgmentCitedJudgment(JudgmentSummaryDTO, CitationPlaceFields):
         return cls(
             **JudgmentSummaryDTO.fields_of(doc),
             **place_fields(
-                mentions_of(meta),
                 meta,
                 confidence if isinstance(confidence, (int, float)) else None,
                 texts,

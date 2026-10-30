@@ -351,7 +351,7 @@ its keys to the model of `REFERS_TO`.
 |  | `mentions[].confidence` | `float` | How sure the reading is. |
 |  | `mentions[].qualifier` | `str` | The leden or onderdelen as written: `derde lid`. |
 |  | `mentions[].footnote` | `str` | The label of the footnote that cites it. |
-|  | `origin` | `list["text" \| "metadata"]` | What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`), or both; the mentions are those of the text. |
+|  | `origin` | `list["text" \| "metadata"]` | What names the article: its `text`, its `metadata` (`Wetsverwijzing`) or both. |
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |

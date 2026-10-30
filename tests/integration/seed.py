@@ -204,7 +204,7 @@ def judgment_xml(
     a ``Wetsverwijzing`` in its metadata per jci of *law_references*
     (``jci1.31:c:BWBR0001840&artikel=1``)."""
     references = "".join(
-        '<dcterms:references rdfs:label="Wetsverwijzing" '
+        '<dcterms:references xmlns:bwb="bwb-dl" '
         f'bwb:resourceIdentifier="{jci.replace("&", "&amp;")}">x</dcterms:references>'
         for jci in law_references
     )
@@ -219,9 +219,7 @@ def judgment_xml(
     )
     return (
         '<open xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" '
-        'xmlns:dcterms="http://purl.org/dc/terms/" '
-        'xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" '
-        'xmlns:bwb="bwb-dl"><rdf:RDF><rdf:Description>'
+        'xmlns:dcterms="http://purl.org/dc/terms/"><rdf:RDF><rdf:Description>'
         f"<dcterms:identifier>{ecli}</dcterms:identifier>"
         f"<dcterms:creator>{court}</dcterms:creator><dcterms:date>{date}</dcterms:date>"
         f"{references}</rdf:Description></rdf:RDF>{summary_xml}<uitspraak><section>"
