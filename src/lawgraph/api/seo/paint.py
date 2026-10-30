@@ -33,6 +33,7 @@ from lawgraph.api.routes.nodes import get_node_graph
 from lawgraph.api.schemas.articles import (
     ArticleExplanationDTO,
     ArticleSummaryDTO,
+    ArticleVersionListedDTO,
     listed_versions,
 )
 from lawgraph.api.schemas.common import InstrumentSummaryDTO
@@ -138,9 +139,24 @@ def law_id_of(props: dict[str, Any]) -> str:
     )
 
 
+def article_versions(
+    store: GraphStore, row: dict[str, Any]
+) -> list[ArticleVersionListedDTO]:
+    """The versions of the article of *row* as its history lists them (oldest first), a
+    light read (``/history``); none of one without a law or a number."""
+    props = row["props"] or {}
+    law_id, number = law_id_of(props), text_of(props.get("article_number"))
+    if not law_id or not number:
+        return []
+    article = {"id": row["id"], "key": row["key"], "props": props}
+    history = get_article_versions_light(store, article, law_id, number)
+    return listed_versions(history.versions, history.dossier_titles)
+
+
 def article_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | None:
-    """The article of *row* (``db.queries.seo.article``) as its first paint reads it; None
-    for one without text, or whose head the paint does not set as the app does."""
+    """The article of *row* (``api.seo.article``) as its first paint reads it, its versions
+    as the page read them already; None for one without text, or whose head the paint
+    does not set as the app does."""
     props = row["props"] or {}
     law_id, number = law_id_of(props), text_of(props.get("article_number"))
     if not text_of(props.get("text")) or not law_id or not number:
@@ -159,8 +175,9 @@ def article_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | No
         (completeness.get(part) or {}).get("state") == "pending" for part in _COUNTED
     ):
         return None
-    history = get_article_versions_light(store, article, law_id, number)
-    versions = listed_versions(history.versions, history.dossier_titles)
+    versions = row.get("versions")
+    if versions is None:
+        versions = article_versions(store, row)
     page = get_article_explanations(store, law_id, number, limit=100, offset=0)
     names = load_dossier_names(store) if page["items"] else {}
     summary = ArticleSummaryDTO.from_document(

@@ -109,7 +109,7 @@ _ARTICLE_RANGE = re.compile(
 
 # BWB types (``props.kind``, the ``soort`` of the toestand) per formula, folded to lower case:
 # the source writes ``amvb`` and ``AMvB`` alike.
-_AMVB_KINDS = frozenset({"amvb", "rijksamvb", "amvb-bes"})
+AMVB_KINDS = frozenset({"amvb", "rijksamvb", "amvb-bes"})
 _REGELING_KINDS = frozenset(
     {
         "ministeriele-regeling",
@@ -172,7 +172,7 @@ def fills(clause: DelegationClause, kind: str | None, leden: Iterable[str]) -> b
     """Whether a regulation of BWB type *kind*, issued under the article of *clause* with
     *leden* named in its preamble (none: the whole article), fills the clause."""
     if clause.kind == "amvb":
-        kinds = _AMVB_KINDS | _REGELING_KINDS if clause.krachtens else _AMVB_KINDS
+        kinds = AMVB_KINDS | _REGELING_KINDS if clause.krachtens else AMVB_KINDS
     else:
         kinds = _REGELING_KINDS
     if (kind or "").lower() not in kinds:
@@ -185,7 +185,7 @@ def kind_rank(kind: str | None) -> int:
     """The order of regulations of BWB type *kind* under an article: AMvBs, then ministerial
     regulations, then the others."""
     folded = (kind or "").lower()
-    if folded in _AMVB_KINDS:
+    if folded in AMVB_KINDS:
         return 0
     return 1 if folded in _REGELING_KINDS else 2
 
