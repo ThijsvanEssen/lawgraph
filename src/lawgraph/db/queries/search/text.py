@@ -307,8 +307,8 @@ def text_query(
         # with the order of the words: of the best, their columns of words passed on, not
         # read (a TOAST pointer each), ranked again by it, those of these alone read
         best = f"""
-            SELECT r.id, r.key, {tier} AS tier, {rank} AS rank
-                   {", " + in_order.columns if in_order.bonus else ""}
+            SELECT r.id, {tier} AS tier, {rank} AS rank
+                   {", r.key, " + in_order.columns if in_order.bonus else ""}
             FROM (SELECT * FROM ({found} OFFSET 0) r {candidates}) r
             {bm25.lateral}
             ORDER BY tier DESC, rank DESC, r.key
