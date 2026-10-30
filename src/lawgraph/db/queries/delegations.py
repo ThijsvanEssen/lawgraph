@@ -20,6 +20,7 @@ from lawgraph.config.constants import (
     RELATION_BASED_ON,
     RELATION_REFERS_TO,
 )
+from lawgraph.core.delegations import AMVB_KINDS
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.version_cache import cached_rows
@@ -39,6 +40,10 @@ def validity_clause(alias: str, param: str = "validity") -> str:
     """The condition on the instrument *alias* for the validity asked for (``in_force``,
     ``expired`` or ``all``, as the list of instruments has it), in ``%(param)s``."""
     return f"(%({param})s = 'all' OR {expired(alias)} = (%({param})s = 'expired'))"
+
+
+# What names a regulation (``core.names.law_name``) and gives its address (``path_of``).
+_NAMES = ("bwb_id", "citation_title", "title", "short_title", "display_name", "kind")
 
 
 def summary_json(alias: str) -> str:
@@ -126,6 +131,47 @@ def get_delegated_regulations(
                 "based_on": RELATION_BASED_ON,
                 "refers_to": RELATION_REFERS_TO,
                 "today": dutch_today().isoformat(),
+            },
+        )
+    )
+
+
+# The first ``%(limit)s`` regulations in force ``BASED_ON`` the article: the AMvB's first,
+# then the ministerial regulations, then the rest, each by key; ``listed`` how many there
+# are in all. Their names only, not their props whole (``basis`` of a large regulation).
+_DELEGATED_FIRST_SQL = f"""
+WITH regulations AS (
+    SELECT i.id, i.key, i.kind, i.props
+    FROM {COLLECTION_INSTRUMENTS} i
+    WHERE i.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e
+                   WHERE e.to_id = %(article_id)s AND e.relation = %(based_on)s
+                     AND e.from_collection = '{COLLECTION_INSTRUMENTS}')
+      AND NOT {expired("i")}
+)
+SELECT g.id, g.kind,
+       json_build_object({", ".join(f"'{f}', g.props -> '{f}'" for f in _NAMES)}) AS props,
+       count(*) OVER ()::int AS listed
+FROM regulations g
+ORDER BY CASE WHEN lower(g.kind) IN ({", ".join(f"'{k}'" for k in sorted(AMVB_KINDS))}) THEN 0
+              WHEN lower(g.kind) LIKE 'ministeriele-regeling%%' THEN 1 ELSE 2 END, g.key
+LIMIT %(limit)s
+"""
+
+
+def delegated_first(
+    store: GraphStore, article_id: str, limit: int
+) -> list[dict[str, Any]]:
+    """The first *limit* regulations in force ``BASED_ON`` the article, the AMvB's first:
+    ``{id, kind, props, listed}``, ``props`` what names it, ``listed`` how many there are
+    in all. One query."""
+    return list(
+        store.query(
+            _DELEGATED_FIRST_SQL,
+            {
+                "article_id": article_id,
+                "based_on": RELATION_BASED_ON,
+                "today": dutch_today().isoformat(),
+                "limit": limit,
             },
         )
     )
