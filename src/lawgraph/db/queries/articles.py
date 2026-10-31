@@ -842,10 +842,9 @@ def get_article_explanation_passages(
 
 @dataclass(frozen=True)
 class CitedBy:
-    """A page of the passages that cite an article: ``{judgment, mention}`` rows, the
-    passages that match the filters and the judgments they are in, and ``facets``: per
-    ``year``, ``tier`` and ``subject_area`` the judgments under the other filters
-    (``{value, count}``)."""
+    """A page of the passages that cite an article: ``{judgment, mention, origin}`` rows, the
+    passages that match the filters and the judgments they are in, and ``facets``: per ``year``,
+    ``tier`` and ``subject_area`` the judgments under the other filters (``{value, count}``)."""
 
     rows: list[dict[str, Any]]
     total: int
@@ -955,7 +954,8 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
             "'subjects', j.subjects",
         )
     },
-                'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int
+                'mention', (e.doc -> 'meta' -> 'mentions') -> r.position::int,
+                'origin', e.doc -> 'meta' -> 'origin'
             ) ORDER BY r.n), '[]'::json)
             FROM page r
             JOIN {COLLECTION_EDGES} e ON e.key = r.edge

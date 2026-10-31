@@ -14,7 +14,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from lawgraph.core.citations import (
     CitationHit,
@@ -29,6 +29,9 @@ MAX_MENTIONS_PER_EDGE = 100
 
 # (bwb_id, celex, article_number, unknown_law): one article a judgment cites.
 MentionKey = tuple[str | None, str | None, str | None, str | None]
+
+# What names an article a judgment cites (``origin`` of the edge): its text, its metadata.
+CitationOrigin = Literal["text", "metadata"]
 
 # Between two paragraphs of the text the detector reads: it is read as one text, so that
 # "die wet" and "(hierna: de Awb)" reach across paragraphs as they do in the judgment.

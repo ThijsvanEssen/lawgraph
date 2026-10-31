@@ -14,7 +14,7 @@
   "lines_per_file": {
     "src/lawgraph/api/routes/instruments.py": 851,
     "src/lawgraph/api/routes/nodes.py": 972,
-    "src/lawgraph/api/schemas/articles.py": 1457,
+    "src/lawgraph/api/schemas/articles.py": 1455,
     "src/lawgraph/api/schemas/dossiers.py": 1354,
     "src/lawgraph/api/schemas/feed.py": 1335,
     "src/lawgraph/api/schemas/instruments.py": 2097,
