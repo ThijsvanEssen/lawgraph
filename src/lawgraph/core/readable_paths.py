@@ -52,7 +52,7 @@ from lawgraph.config.constants import (
     COLLECTION_MEMBERS,
     COLLECTION_MINISTRIES,
 )
-from lawgraph.core.code_families import cited_number
+from lawgraph.core.code_families import cited_number, code_of
 from lawgraph.core.ecli import PATH_ECLI, ecli_of_key
 from lawgraph.core.identifiers import BWB_ID, CELEX_MATCH_LETTERS, COMMITMENT_NUMBER
 from lawgraph.core.models import parse_node_id
@@ -160,6 +160,37 @@ def law_by_name(pathname: str) -> Pad | None:
     except UnicodeDecodeError:
         return None
     return None
+
+
+# The first segment of a short address: a law as it is abbreviated (``awb``, ``bw``,
+# ``Vw 2000``), never one of the prefixes above.
+_SHORT_LAW = re.compile(r"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9. ]{0,19}$")
+_PREFIXES = {*_ONE_PART, *SERIES, "kamerstukken"}
+
+
+def short_law_path(pathname: str) -> Pad | None:
+    """A law, or an article of it, at the short address its abbreviation makes, as
+    ``law_by_name`` reads it: ``/awb`` the law, ``/awb/8:75`` and ``/sr/287`` an article;
+    a code by its book, ``/bw/7`` the book and ``/bw/7/658`` (or ``/bw/7:658``) its
+    article. None for any other path; whether the abbreviation is one is for the caller."""
+    try:
+        parts = [unquote(p, errors="strict") for p in pathname.split("/") if p]
+    except UnicodeDecodeError:
+        return None
+    if not 1 <= len(parts) <= 3 or parts[0] in _PREFIXES:
+        return None
+    name, rest = parts[0], parts[1:]
+    if not _SHORT_LAW.match(name) or any(not part.strip() for part in rest):
+        return None
+    if code_of(name) is not None:
+        if len(rest) == 2:
+            return Pad("artikel", name, f"{rest[0]}:{rest[1]}")
+        if len(rest) == 1:
+            return Pad("artikel" if ":" in rest[0] else "boek", name, rest[0])
+        return None
+    if len(rest) == 2:
+        return None
+    return Pad("artikel", name, rest[0]) if rest else Pad("wet", name)
 
 
 def _e(part: str) -> str:
