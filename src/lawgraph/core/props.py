@@ -229,6 +229,9 @@ class InstrumentProps(_CommonProps):
     treaty_number: str | None = None
     """The six-digit Verdragenbank id, which a BWB treaty names in
     `wetgeving@verdragnummer`."""
+    same_as: str | None = None
+    """Of a Verdragenbank treaty whose BWB text is in the graph: the id of that text
+    (`semantic verdragenbank`), which is `SAME_AS` it. The list has the text alone."""
     treaty_type: str | None = None
     """Of a Verdragenbank treaty: its type as the register gives it."""
     status: str | None = None

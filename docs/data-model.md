@@ -605,6 +605,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `title_nl` | `str` | Of a Verdragenbank treaty: its Dutch title. |
 | `title_en` | `str` | Of a Verdragenbank treaty: its English title. |
 | `treaty_number` | `str` | The six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`. |
+| `same_as` | `str` | Of a Verdragenbank treaty whose BWB text is in the graph: the id of that text (`semantic verdragenbank`), which is `SAME_AS` it. The list has the text alone. |
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
 | `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
 | `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |

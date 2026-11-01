@@ -155,7 +155,7 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                     meta=meta,
                 )
         read = [node_id(COLLECTION_INSTRUMENTS, t["key"]) for t in treaties]
-        self._same_as(edges)
+        self._same_as(edges, treaties, result)
         edges.flush_into(result)
         removed = sum(
             edges.remove_stale(relation, EDGE_SOURCE, read) for relation in _RELATIONS
@@ -170,11 +170,20 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _same_as(self, edges: EdgeWriter) -> None:
+    def _same_as(
+        self,
+        edges: EdgeWriter,
+        treaties: list[dict[str, Any]],
+        result: PipelineResult,
+    ) -> None:
         """Queue SAME_AS from the BWB text of a treaty to its Verdragenbank treaty, by
-        treaty number. Derived in full: an edge whose number no longer matches goes."""
+        treaty number, and write ``props.same_as`` of that treaty, which the list reads
+        (null without a text; only what changes). Derived in full: an edge whose number no
+        longer matches goes."""
+        texts: dict[str, str] = {}
         for row in semantic_verdragenbank.same_treaties(self.store):
             text_id, register_id = row["text_id"], row["register_id"]
+            texts.setdefault(key_of(register_id), text_id)
             edges.add(
                 text_id,
                 register_id,
@@ -182,6 +191,19 @@ class VerdragenbankSemanticPipeline(SemanticPipelineBase):
                 source=EDGE_SOURCE,
                 confidence=EXACT_CONFIDENCE,
             )
+        with NodeWriter(self.store) as nodes:
+            for treaty in treaties:
+                same_as = texts.get(treaty["key"])
+                if treaty["same_as"] == same_as:
+                    continue
+                nodes.add(
+                    Node(
+                        collection=COLLECTION_INSTRUMENTS,
+                        key=treaty["key"],
+                        props={"same_as": same_as},
+                    )
+                )
+                result.updated += 1
 
     @staticmethod
     def _wanted(

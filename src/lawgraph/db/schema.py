@@ -571,6 +571,8 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date_published"),
         # the ministry first responsible for a BWB regulation (its WTI)
         Column("ministry", "text", "lg_str(props -> 'ministry')", added=True),
+        # the BWB text of a Verdragenbank treaty: the list has that text alone
+        Column("same_as", "text", "lg_str(props -> 'same_as')", added=True),
     ),
     COLLECTION_ARTICLES: (
         _str("bwb_id"),
