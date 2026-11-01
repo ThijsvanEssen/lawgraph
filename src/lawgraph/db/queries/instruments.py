@@ -20,7 +20,6 @@ from lawgraph.config.constants import (
     RELATION_LEGISLATED_IN,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
-    RELATION_SAME_AS,
 )
 from lawgraph.core.bwb_xml import KIND_PUBLICATION
 from lawgraph.core.division_anchor import breadcrumb_on, division_path
@@ -1100,11 +1099,9 @@ def get_instruments_list(
         f" AND kind IS DISTINCT FROM '{KIND_PROPOSAL}'"
     )
     conditions = [
-        # a treaty of the Verdragenbank whose BWB text is in the graph (``SAME_AS`` into it)
-        # is that text, which has the articles: listed once, as the text
-        f"NOT EXISTS (SELECT 1 FROM edges e WHERE e.to_id = instruments.id"
-        f" AND e.relation = '{RELATION_SAME_AS}'"
-        f" AND e.from_collection = '{COLLECTION_INSTRUMENTS}')",
+        # a treaty of the Verdragenbank whose BWB text is in the graph is that text, which
+        # has the articles: listed once, as the text
+        "same_as IS NULL",
     ]
     if jurisdiction:
         conditions.append("jurisdiction = %(jurisdiction)s")
@@ -1250,7 +1247,7 @@ def _kept(
         store,
         sql,
         counted,
-        tables=(COLLECTION_INSTRUMENTS, COLLECTION_EDGES),
+        tables=(COLLECTION_INSTRUMENTS,),
         inline=searched,
     )
 
@@ -1259,8 +1256,7 @@ def _instrument_total(
     store: GraphStore, matched: str, counted: dict[str, Any], searched: bool
 ) -> int:
     """How many instruments the filters let through. The same for every page and visitor:
-    kept per data version (every instrument tested for a SAME_AS edge: 2.7 s on prod,
-    10 Oct, when it was read per request), and warmed with the facets."""
+    kept while the instruments stand still, and warmed with the facets."""
     rows = _kept(
         store, f"SELECT count(*)::int AS total FROM {matched}", counted, searched
     )

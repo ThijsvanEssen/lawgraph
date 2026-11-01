@@ -605,6 +605,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `title_nl` | `str` | Of a Verdragenbank treaty: its Dutch title. |
 | `title_en` | `str` | Of a Verdragenbank treaty: its English title. |
 | `treaty_number` | `str` | The six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`. |
+| `same_as` | `str` | Of a Verdragenbank treaty whose BWB text is in the graph: the id of that text (`semantic verdragenbank`), which is `SAME_AS` it. The list has the text alone. |
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
 | `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
 | `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |
@@ -618,23 +619,23 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `tractatenblad[].text` | `str` | As the register writes it: "1951, 154". |
 | `tractatenblad[].description` | `str` | What it publishes: "goedkeuring, inwerkingtreding". |
 | `parties` | `list[object]` | Of a Verdragenbank treaty: its state parties. |
+| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
+| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
+| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
+| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].name` | `str` | The state. |
 | `parties[].signed` | `str` | `DatumOndertekenning`. |
 | `parties[].ratified` | `str` | `DatumRatificatie`. |
 | `parties[].consent` | `str` | `TypeInstemming`: `R`, `T` (toetreding), `A`, ... |
-| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
-| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
-| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `parties[].denounced` | `str` | `DatumOpzegging`. |
-| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].reservation` | `bool` | `IsVoorbehoud`: it made a reservation. |
 | `parties[].objection` | `bool` | `IsBezwaar`: it made an objection. |
 | `kingdom_parts` | `list[object]` | Of a Verdragenbank treaty: the parts of the Kingdom it applies to. |
-| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kingdom_parts[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
 | `kingdom_parts[].in_force` | `str` | `DatumInwerkingtreding`. |
 | `kingdom_parts[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `kingdom_parts[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
+| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kamerstukken` | `list[object]` | Of a Verdragenbank treaty: the dossiers of its approval, each once. |
 | `kamerstukken[].dossier` | `str` | The dossier number. |
 | `kamerstukken[].rijks_number` | `str` | The number of a rijkswet (`R2188`), as the register writes it. |
