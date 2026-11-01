@@ -441,6 +441,7 @@ def _items(filters: FeedFilters) -> str:
                 'key', d.key,
                 'number', d.props -> 'label',
                 'title', d.props -> 'title',
+                'ek_name', d.props -> 'ek_name',
                 'official_short', {_official_short("pg.dossier")}
             ) AS value
             FROM {COLLECTION_DOSSIERS} d
@@ -602,6 +603,7 @@ def _summary(dimensions: str, items: str) -> str:
             'number', nums.number,
             'key', d.key,
             'title', d.props -> 'title',
+            'ek_name', d.props -> 'ek_name',
             'official_short', {_official_short("nums.number")}
         ) ORDER BY nums.number ASC), {EMPTY_ARRAY}) AS value
         FROM (SELECT DISTINCT dossier AS number FROM matching WHERE dossier IS NOT NULL) nums

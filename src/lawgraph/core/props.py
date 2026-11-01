@@ -1082,6 +1082,9 @@ class DossierProps(_CommonProps):
     """Its outcome in the Eerste Kamer."""
     ek_bill: EkBillProps | None = None
     """The page of its bill on eerstekamer.nl (`normalize eerstekamer-bills`)."""
+    ek_name: str | None = None
+    """The name the Eerste Kamer gives its bill, on its list of every bill (`normalize
+    eerstekamer-bill-names`): `Ontwerpen voor bewegwijzering`."""
     ministry: str | None = None
     """Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who
     first signed its earliest signed document."""

@@ -269,10 +269,11 @@ CANVAS_PROPS: dict[str, tuple[str, ...]] = {
         # how a motion or an amendment ended (``aangenomen``), which marks it on the canvas
         "outcome",
     ),
-    # its ``short_title`` is the API's, from its title (``schemas/nodes.py``)
+    # its ``short_title`` is the API's, from its title or ``ek_name`` (``schemas/nodes.py``)
     "dossiers": (
         "label",
         "title",
+        "ek_name",
         "name",
         "number",
         "suffix",

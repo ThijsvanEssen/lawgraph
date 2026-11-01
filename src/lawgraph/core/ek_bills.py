@@ -24,14 +24,17 @@ import re
 from dataclasses import dataclass, field
 
 from lawgraph.core.dutch_dates import dutch_day
-from lawgraph.core.xml import collapse_ws, html_text
+from lawgraph.core.xml import XML_TAG_RE, collapse_ws, html_text
 
 _BILL_LIST = re.compile(r"/wetsvoorstellen_bij_commissie\?key=[a-z0-9]+")
 _HEADING = re.compile(r'<h2><a id="p\d+"></a>([^<]+)</h2>')
 _LISTED = re.compile(
-    r'<a href="(/wetsvoorstel/[^"#?]+)"[^>]*>.*?<span>\s*([0-9.]+(?:\s+[^<\s]+)?)\s*<br',
+    r'<a href="(/wetsvoorstel/[^"#?]+)"[^>]*>(?:(?!</a>).)*?'
+    r"<span>\s*([0-9.]+(?:\s+[^<\s]+)?)\s*<br[^>]*>(.*?)</span>",
     re.S,
 )
+# What the form of the Kamer's list of every bill needs to answer (``index_path``).
+_INDEX_FORM = re.compile(r'name="dlgid" value="([^"]+)"')
 _NEXT = re.compile(r'<li class="plus volgende">\s*<a href="([^"]+)"')
 # The number in a bill's title, with the addition it may have: a chapter (``36.600 VII``) or,
 # of a Rijkswet, its R-number in parentheses (``36.455 (R2188)``).
@@ -53,6 +56,9 @@ _DOC = re.compile(
 _DOC_NUMBER = re.compile(r"</a>\s*((?:TK|EK), [^<&\s]+)")
 
 
+# The form of the list of every bill.
+INDEX_FORM_PATH = "/wetsvoorstellen_2"
+
 # The heading of a committee's list over the bills it finished: their pages no longer change.
 FINISHED = "Plenaire behandeling Eerste Kamer afgerond"
 
@@ -64,6 +70,9 @@ class ListedBill:
     path: str  # /wetsvoorstel/36791_wet_toekomstbestendige
     label: str | None  # 36791, 36945-XXII
     status: str  # the heading it is under, in the Kamer's words
+    name: str | None = (
+        None  # the name the Kamer gives it: Ontwerpen voor bewegwijzering
+    )
 
 
 @dataclass(frozen=True)
@@ -111,6 +120,14 @@ def bill_lists(committee_page: str) -> list[str]:
     return sorted(set(_BILL_LIST.findall(committee_page)))
 
 
+def index_path(form_page: str) -> str | None:
+    """The list of every bill the Eerste Kamer holds, since 1995, those still at the Tweede
+    Kamer too: its form (``INDEX_FORM_PATH``) asked for nothing (the highest numbers come
+    first, after a few old ones); None when the page has no such form."""
+    form = _INDEX_FORM.search(form_page)
+    return f"{INDEX_FORM_PATH}?dlgid={form[1]}&modus=selecteer" if form else None
+
+
 def listed_bills(page: str) -> tuple[list[ListedBill], str | None]:
     """The bills of a list, each under its heading, and the page of the older ones."""
     found: list[ListedBill] = []
@@ -118,7 +135,13 @@ def listed_bills(page: str) -> tuple[list[ListedBill], str | None]:
     for match in _LISTED.finditer(page):
         status = next((h for at, h in reversed(headings) if at < match.start()), "")
         found.append(
-            ListedBill(match[1], ek_dossier_label(html_text(match[2])), status)
+            ListedBill(
+                match[1],
+                ek_dossier_label(html_text(match[2])),
+                status,
+                # no space for a tag: ``<abbr>PIE</abbr>-verordening``
+                collapse_ws(html_lib.unescape(XML_TAG_RE.sub("", match[3]))) or None,
+            )
         )
     following = _NEXT.search(page)
     return found, html_lib.unescape(following[1]) if following else None

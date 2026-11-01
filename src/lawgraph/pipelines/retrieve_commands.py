@@ -52,6 +52,9 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer_agenda import (
     EerstekamerAgendaRetrievePipeline,
 )
+from lawgraph.pipelines.retrieve.eerstekamer_bill_names import (
+    EerstekamerBillNamesRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_bills import (
     EerstekamerBillsRetrievePipeline,
 )
@@ -459,6 +462,11 @@ def retrieve_eerstekamer_agenda(args: argparse.Namespace) -> PipelineResult:
 
 def retrieve_eerstekamer_bills(args: argparse.Namespace) -> PipelineResult:
     pipeline = EerstekamerBillsRetrievePipeline(GraphStore())
+    return pipeline.run(since=_day(_since_unless_full(args)))
+
+
+def retrieve_eerstekamer_bill_names(args: argparse.Namespace) -> PipelineResult:
+    pipeline = EerstekamerBillNamesRetrievePipeline(GraphStore())
     return pipeline.run(since=_day(_since_unless_full(args)))
 
 

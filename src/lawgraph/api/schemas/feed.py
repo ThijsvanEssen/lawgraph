@@ -106,14 +106,15 @@ class FeedDossierDTO(WithPath):
     short_title: str | None = Field(
         None,
         description="The name it goes by: of a budget its chapter and year, else the "
-        "parentheses that end its title, else the citation title its bill gives itself, "
-        "the Kamer gives the bill's case, or of the one law the bill changes; null "
-        "without.",
+        "parentheses that end its title, else the citation title its bill gives itself "
+        "or the Kamer gives the bill's case, else the name the Eerste Kamer gives the "
+        "bill, else the citation title of the one law the bill changes; null without.",
     )
     short_title_basis: ShortTitleBasis | None = Field(
         None,
-        description="Where ``short_title`` comes from: ``title``, ``citation``, ``case`` "
-        "or ``amended_law`` (then it names the law changed, not the bill).",
+        description="Where ``short_title`` comes from: ``title``, ``citation``, ``case``, "
+        "``eerstekamer`` (the name the Eerste Kamer gives the bill) or ``amended_law`` "
+        "(then it names the law changed, not the bill).",
     )
     changes_articles: bool | None = Field(None, description=CHANGES_ARTICLES)
 

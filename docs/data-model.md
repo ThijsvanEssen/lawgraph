@@ -1312,6 +1312,7 @@ so. Its schema does not name it.
 | `ek_bill.progress[].papers[].date` | `str` | Its date. |
 | `ek_bill.progress[].papers[].number` | `str` | Its number. |
 | `ek_bill.progress[].papers[].url` | `str` | Its link. |
+| `ek_name` | `str` | The name the Eerste Kamer gives its bill, on its list of every bill (`normalize eerstekamer-bill-names`): `Ontwerpen voor bewegwijzering`. |
 | `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
 | `initiative` | `bool` | `true` when a Kamerlid signed first. |
 | `cabinet` | `str` | The cabinet in office that day. |
@@ -1863,7 +1864,7 @@ record is skipped like one without a payload.
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
-| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
+| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-bill-name-json`, `ek-plenary-html`, `ek-committee-day-html` |
 | `kst` | `kst-sru-json` (the SRU record of a Kamerstuk of the Tweede Kamer of 1994-1995 to 2007-2008, external id `kst-<dossier>-<n>`; `meta` its session year, dossier and when it was modified) |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` (the SRU record), `verdrag-xml` (the item XML: parties, Tractatenbladen, dossiers, related treaties; `meta.item_url` and `meta.modified`) |

@@ -336,6 +336,8 @@ RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED = "ek-composition-observed"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
 RAW_KIND_EERSTEKAMER_BILL = "ek-bill-html"
+# A bill as the list of every bill names it (``retrieve eerstekamer-bill-names``).
+RAW_KIND_EERSTEKAMER_BILL_NAME = "ek-bill-name-json"
 # The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
 # committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
 RAW_KIND_EERSTEKAMER_PLENARY = "ek-plenary-html"
@@ -411,6 +413,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EERSTEKAMER_COMPOSITION,
         RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED,
         RAW_KIND_EERSTEKAMER_BILL,
+        RAW_KIND_EERSTEKAMER_BILL_NAME,
         RAW_KIND_EERSTEKAMER_PLENARY,
         RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
         RAW_KIND_EERSTEKAMER_MUTATIONS,
@@ -473,6 +476,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_EERSTEKAMER_COMPOSITION: 20,
     RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED: 1,
     RAW_KIND_EERSTEKAMER_BILL: 50,
+    RAW_KIND_EERSTEKAMER_BILL_NAME: 1000,
     RAW_KIND_EERSTEKAMER_PLENARY: 50,
     RAW_KIND_EERSTEKAMER_COMMITTEE_DAY: 50,
     RAW_KIND_EERSTEKAMER_MUTATIONS: 50,

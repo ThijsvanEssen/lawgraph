@@ -1011,6 +1011,7 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
         "key",
         "number",
         "title",
+        "ek_name",
         "official_short",
     ]
     # the props the item shows
@@ -1083,7 +1084,7 @@ def test_a_summary_keeps_its_keys_in_order(store: GraphStore) -> None:
             assert list(row) == ["chamber", "subkind", "passed", "count"]
     assert [d["number"] for d in summary["dossiers"]] == ["37000", "37001-VII"]
     for row in summary["dossiers"]:
-        assert list(row) == ["number", "key", "title", "official_short"]
+        assert list(row) == ["number", "key", "title", "ek_name", "official_short"]
     for item in summary["items"]:
         assert list(item) == ITEM_KEYS
 
