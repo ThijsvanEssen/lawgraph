@@ -14,7 +14,7 @@
   "lines_per_file": {
     "src/lawgraph/api/routes/instruments.py": 851,
     "src/lawgraph/api/routes/nodes.py": 972,
-    "src/lawgraph/api/schemas/articles.py": 1455,
+    "src/lawgraph/api/schemas/articles.py": 1315,
     "src/lawgraph/api/schemas/dossiers.py": 1354,
     "src/lawgraph/api/schemas/feed.py": 1335,
     "src/lawgraph/api/schemas/instruments.py": 2097,
@@ -28,7 +28,7 @@
     "src/lawgraph/core/props.py": 1767,
     "src/lawgraph/core/relations.py": 1084,
     "src/lawgraph/core/transposition_xml.py": 927,
-    "src/lawgraph/db/queries/articles.py": 1106,
+    "src/lawgraph/db/queries/articles.py": 1101,
     "src/lawgraph/db/queries/chains.py": 885,
     "src/lawgraph/db/queries/decisions.py": 916,
     "src/lawgraph/db/queries/dossiers.py": 1510,

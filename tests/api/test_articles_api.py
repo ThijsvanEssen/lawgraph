@@ -5,7 +5,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.schemas.articles import ArticleCitedByItem, ArticleExplanationDTO
+from lawgraph.api.schemas.article_cited_by import ArticleCitedByItem
+from lawgraph.api.schemas.articles import ArticleExplanationDTO
 from lawgraph.db.queries.articles import ArticleCitationEntry, ArticleDetailData
 from lawgraph.db.queries.instruments import LawOnADate
 from tests.api.stubs import stub_route
@@ -394,3 +395,23 @@ def test_a_passage_that_cites_the_article_says_what_names_it() -> None:
     assert origin(origin=["text", "metadata"]) == ["text", "metadata"]
     assert origin(origin=["text"]) == ["text"]
     assert origin() is None and origin(origin=None) is None
+
+
+def test_a_cited_by_row_without_a_mention_has_no_passage() -> None:
+    row = {
+        "judgment": {"id": "judgments/j", "key": "j", "props": {"tier": "hoge_raad"}},
+        "mention": None,
+        "origin": ["metadata"],
+    }
+    item = ArticleCitedByItem.from_row(row)
+    assert item is not None
+    assert item.origin == ["metadata"] and item.judgment.tier == "hoge_raad"
+    assert (item.paragraph_id, item.start, item.text, item.confidence) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert (item.leden, item.onderdelen, item.aanhef) == ([], [], False)
+    # a mention that is no mention is still left out
+    assert ArticleCitedByItem.from_row({**row, "mention": {"start": 1}}) is None
