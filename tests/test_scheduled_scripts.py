@@ -518,6 +518,7 @@ def test_past_its_time_the_weekly_run_starts_no_step_and_tells_what_is_left(
         CLOCK_ON="semantic graph-heat",
         CLOCK_TO=clock,
         LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+        args=None,
         **_a_clock(checkout, "2026-11-01 2300"),
     )
     assert done.returncode == 0
@@ -537,6 +538,7 @@ def test_a_run_in_slices_past_the_time_says_where_it_stopped(checkout: Path) -> 
         "weekly.sh",
         CLOCK_ON="semantic rechtspraak --limit",
         CLOCK_TO="2026-11-01 2345",
+        args=None,
         **_a_clock(checkout, "2026-11-01 2300"),
     )
     assert done.returncode == 0
@@ -553,7 +555,7 @@ def test_the_nightly_run_given_up_says_so_every_time(checkout: Path) -> None:
     (checkout / "lawgraph-scheduled.lock").mkdir()
     alert = {"LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}'}
     for _ in range(2):
-        assert _run(checkout, "daily.sh", **alert).returncode == 75
+        assert _run(checkout, "daily.sh", args=None, **alert).returncode == 75
     assert alerts.read_text().splitlines() == [
         "Dag: 1x overgeslagen, lock-bezet [actie]",
         "Dag: 2x overgeslagen, lock-bezet [actie]",
