@@ -712,7 +712,7 @@ def test_the_nightly_reads_leave_the_props_alone(
     calls = recorded(store, monkeypatch)
     list(read(store))
     assert calls
-    assert all("props" not in call.text for call in calls)
+    assert not [call.text for call in calls if "props" in call.text]
 
 
 @pytest.mark.parametrize(
@@ -730,8 +730,8 @@ def test_the_nightly_reads_go_through_an_index(
     nodes = list(plan_nodes(explain(store, calls[0].statement, disable=("seqscan",))))
     scans = [node for node in nodes if "Index Name" in node]
     assert scans
-    assert all("Index Cond" in node for node in scans)
-    assert not any(node["Node Type"] == "Seq Scan" for node in nodes)
+    assert not [node for node in scans if "Index Cond" not in node]
+    assert not [node for node in nodes if node["Node Type"] == "Seq Scan"]
 
 
 def _day(ecli: str, **props: Any) -> dict[str, Any]:
