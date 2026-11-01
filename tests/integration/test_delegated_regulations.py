@@ -589,6 +589,7 @@ def test_a_law_says_the_laws_whose_text_leaves_a_matter_to_it(
     database: str, cli: Any
 ) -> None:
     store = GraphStore()
+    _seed(store)
     _seed_chain(store)
     store.bulk_insert_or_update_edges(
         [
