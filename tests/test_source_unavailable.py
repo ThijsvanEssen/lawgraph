@@ -193,3 +193,17 @@ def test_check_notes_a_source_that_is_off_and_finds_no_problem_in_it(
     check._check_raw({}, report)
     assert not [p for p in report.problems if p.startswith("raw echr/")]
     assert "echr: off (LAWGRAPH_SOURCES_OFF), its records not checked" in report.notes
+
+
+def test_check_notes_a_kind_that_a_full_retrieve_fills_once_and_keeps_other_gaps_a_problem() -> (
+    None
+):
+    from lawgraph.commands import check
+
+    report = check.Report()
+    check._check_raw({}, report)
+    assert [
+        n for n in report.notes if n.startswith("raw kst/kst-sru-json: no records yet")
+    ]
+    assert not [p for p in report.problems if p.startswith("raw kst/")]
+    assert [p for p in report.problems if p.startswith("raw tk/")]

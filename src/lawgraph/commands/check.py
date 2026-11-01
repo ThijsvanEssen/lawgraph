@@ -43,6 +43,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_KAMERSTUK_XML,
     RAW_KIND_TK_ZAAK,
     RAW_KIND_VERDRAGENBANK_JSON,
+    RAW_KINDS_FILLED_ONCE,
     RAW_SOURCE_KINDS,
     SOURCE_BWB,
     SOURCE_CJEU,
@@ -189,6 +190,11 @@ def _check_raw(raw: dict[tuple[str, str], int], report: Report) -> None:
             count = raw.get((source, kind), 0)
             if count:
                 report.note(f"raw {source}/{kind}: {count:,}")
+            elif (source, kind) in RAW_KINDS_FILLED_ONCE:
+                report.note(
+                    f"raw {source}/{kind}: no records yet, a gap: the nightly retrieves only "
+                    f"what changed; `lawgraph retrieve kst-sru` (without --since) fills it"
+                )
             else:
                 report.problem(
                     f"raw {source}/{kind}: no records. Was it retrieved, and did the source "
