@@ -367,7 +367,7 @@ def test_the_laws_above_a_law(store: GraphStore) -> None:
     _seed(store)
     article = _id(OTHER, 5)
     leaving = _edge("up", article, _id(LAW), RELATION_REFERS_TO, "Algemene wet")
-    leaving["meta"]["leaves_to"] = True
+    leaving["meta"]["reason"] = "leaves_to"
     naming = _edge("no", _id(LAW, 1), _id(OTHER), RELATION_REFERS_TO, "Andere wet")
     store.bulk_insert_or_update_edges([leaving, naming])
 

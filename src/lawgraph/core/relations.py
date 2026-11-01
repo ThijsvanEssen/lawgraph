@@ -241,8 +241,6 @@ class RefersToMeta(_Span, _Parts):
     `tk-cited-papers`)."""
     reference_kind: str | None = None
     """`intref` or `extref`, as the BWB XML writes the link."""
-    leaves_to: bool | None = None
-    """A link to a whole law whose sentence leaves a matter to it (`core.delegations.leaves_to`)."""
     footnote: int | None = None
     """The footnote of the citing article it stands in, its place in `footnotes`
     (`bwb-article-references`); it then has no `start` and `end` in the text."""

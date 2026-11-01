@@ -59,6 +59,7 @@ Reason = Literal[
     "celex_instrument",
     "unknown",
     "bwb_xml_ref",
+    "leaves_to",
     "amendment_text",
     "ingediend",
     "verplaatst",
@@ -90,6 +91,7 @@ REASON_BWB_INSTRUMENT: Final[Reason] = "bwb_instrument"
 REASON_CELEX_INSTRUMENT: Final[Reason] = "celex_instrument"
 REASON_UNKNOWN: Final[Reason] = "unknown"
 REASON_XML_REF: Final[Reason] = "bwb_xml_ref"
+REASON_LEAVES_TO: Final[Reason] = "leaves_to"
 REASON_AMENDMENT_TEXT: Final[Reason] = "amendment_text"
 REASON_SUBMITTED: Final[Reason] = "ingediend"
 REASON_MOVED: Final[Reason] = "verplaatst"
@@ -273,6 +275,12 @@ PROVENANCE: tuple[Provenance, ...] = (
         REASON_UNKNOWN,
         (RELATION_REFERS_TO,),
         "A citation that names neither a law nor an EU act.",
+    ),
+    Provenance(
+        "reason",
+        REASON_LEAVES_TO,
+        (RELATION_REFERS_TO,),
+        "A link to a whole law whose sentence leaves a matter to it (`delegations.leaves_to`).",
     ),
     Provenance(
         "reason",

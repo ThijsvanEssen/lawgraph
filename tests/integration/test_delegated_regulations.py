@@ -581,7 +581,6 @@ def test_a_regulation_gives_its_own_basis(database: str, cli: Any) -> None:
             "total": 0,
             "expired_total": 0,
             "items": [],
-            "above": [],
         }
 
 
@@ -601,21 +600,21 @@ def test_a_law_says_the_laws_whose_text_leaves_a_matter_to_it(
                 "source": "bwb-article-references",
                 "status": "canoniek",
                 "confidence": 1.0,
-                "meta": {"leaves_to": True},
+                "meta": {"reason": "leaves_to"},
             }
         ]
     )
 
-    body = _get(store, f"/api/instruments/{WET}/basis")
+    body = _get(store, f"/api/instruments/{WET}/above")
 
-    assert body["items"] == []
+    assert body["total"] == 1
     assert [
         (
             a["instrument"]["bwb_id"],
             a["kind"],
             [x["article_number"] for x in a["articles"]],
         )
-        for a in body["above"]
+        for a in body["items"]
     ] == [(BESLUIT, "amvb", ["2"])]
 
 

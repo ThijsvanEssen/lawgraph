@@ -207,6 +207,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `reason` | `bwb_instrument` | `REFERS_TO` | The text cites a law (BWB) as a whole. |
 | `reason` | `celex_instrument` | `REFERS_TO` | The text cites an EU act as a whole. |
 | `reason` | `unknown` | `REFERS_TO` | A citation that names neither a law nor an EU act. |
+| `reason` | `leaves_to` | `REFERS_TO` | A link to a whole law whose sentence leaves a matter to it (`core.delegations.leaves_to`). |
 | `reason` | `bwb_xml_ref` | `REFERS_TO` | A reference the BWB XML of the article records (`intref`, `extref`). |
 | `reason` | `amendment_text` | `AMENDS`, `INTRODUCES`, `REPEALS` | The text of the amendment names the article it changes (`meta.snippet`). |
 | `reason` | `ingediend` | `MADE_IN` | The motion was submitted in the debate held on the day its case started. |
@@ -323,7 +324,6 @@ its keys to the model of `REFERS_TO`.
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
 |  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`, `tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
-|  | `leaves_to` | `bool` | A link to a whole law whose sentence leaves a matter to it (`core.delegations.leaves_to`). |
 |  | `footnote` | `int` | The footnote of the citing article it stands in, its place in `footnotes` (`bwb-article-references`); it then has no `start` and `end` in the text. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |

@@ -1365,8 +1365,8 @@ link inside a range the words name ("395a tot en met 397") stands; a book the wo
 ("van Boek 4", `6:162`) counts for a link into a book of a code. When the graph has no article
 the words name, the link counts. A link to a whole law is an edge only where its sentence leaves
 a matter to that law ("worden geregeld in de Grondwet", "vindt regeling in", "wordt in de
-Grondwet voorzien"; `core.delegations.leaves_to`): to the instrument, with `meta.leaves_to`. That
-is what `above` of `/basis` reads.
+Grondwet voorzien"; `core.delegations.leaves_to`): to the instrument, with `reason = leaves_to`.
+That is what `/api/instruments/{bwb_id}/above` reads.
 An edge is keyed by its two articles, so an article that refers to another twice keeps the span
 of one; `props.references` keeps both. Self references are dropped and targets must exist —
 nothing is stubbed. The edges of an article are derived in full: one its references no longer

@@ -7,7 +7,7 @@ references are the only source. An article without them produces no edges.
 The edges are derived in full: a full run removes every edge of the step it did not write
 (also of an article whose references are gone, which it does not read); a run under
 ``--since`` those of the articles it read. A link to a whole law whose sentence leaves a matter
-to that law (``core.delegations.leaves_to``) is an edge to the instrument, ``meta.leaves_to``;
+to that law (``core.delegations.leaves_to``) is an edge to the instrument, reason ``leaves_to``;
 other links to a whole law are none. Each article read keeps how many of its references
 name an article the graph does not hold (``lg_unlinked_references``): what
 ``completeness.references`` of the API says.
@@ -29,7 +29,7 @@ from lawgraph.core.batching import chunked
 from lawgraph.core.delegations import leaves_to
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.provenance import REASON_XML_REF
+from lawgraph.core.provenance import REASON_LEAVES_TO
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -218,9 +218,8 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                         "start": ref["start"],
                         "end": ref["end"],
                         "text": ref.get("text"),
-                        "reason": REASON_XML_REF,
+                        "reason": REASON_LEAVES_TO,
                         "reference_kind": ref.get("kind"),
-                        "leaves_to": True,
                     },
                 )
             )

@@ -31,7 +31,6 @@ from lawgraph.api.schemas.instruments import (
     AmendingInstrumentDTO,
     AmendingProposalDTO,
     EuLinkDTO,
-    InstrumentAboveItem,
     InstrumentAnnexDTO,
     InstrumentArticleNodeDTO,
     InstrumentArticlesAtResponse,
@@ -76,7 +75,6 @@ from lawgraph.db.queries.articles import get_current_references, present_targets
 from lawgraph.db.queries.definitions import definitions_of
 from lawgraph.db.queries.delegations import (
     count_expired_delegated,
-    get_above,
     get_basis,
     get_delegated_by_law,
 )
@@ -717,9 +715,8 @@ def get_instrument_delegated_route(
         "the articles of the regulation that refer to each (`referring`). By `validity` "
         "the laws in force (the default), those no longer in force or all, each with its "
         "`expired_on`; `expired_total` counts the ones no longer in force whatever was "
-        "asked for. `above`: the laws whose text leaves a matter to this one, no basis. "
-        "Empty for a law without a preamble basis and for an unknown instrument. The "
-        "other way: `.../delegated`."
+        "asked for. Empty for a law without a preamble basis and for an unknown "
+        "instrument. The other way: `.../delegated`."
     ),
     tags=["instruments"],
 )
@@ -730,7 +727,6 @@ def get_instrument_basis_route(
 ) -> InstrumentBasisResponse:
     instrument = resolve_instrument(store, bwb_id)
     rows = get_basis(store, instrument["id"]) if instrument else []
-    above = get_above(store, instrument["id"]) if instrument else []
     kept = [
         r for r in rows if validity == "all" or r["expired"] == (validity == "expired")
     ]
@@ -740,7 +736,6 @@ def get_instrument_basis_route(
         total=len(items),
         expired_total=sum(1 for r in rows if r["expired"]),
         items=items,
-        above=[InstrumentAboveItem.from_row(r) for r in above],
     )
 
 

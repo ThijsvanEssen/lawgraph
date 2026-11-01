@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.delegations import AMVB_KINDS
+from lawgraph.core.provenance import REASON_LEAVES_TO
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._sql import sql_text_list
@@ -465,7 +466,7 @@ ORDER BY {_LAW_ORDER}
 
 
 # The laws in force above *instrument_id*: those with an article in force whose text leaves a
-# matter to it (``meta.leaves_to``, ``semantic bwb``), by the ``(to_id, relation,
+# matter to it (reason ``leaves_to``, ``semantic bwb``), by the ``(to_id, relation,
 # from_collection)`` index of its edges.
 _ABOVE_SQL = f"""
 SELECT {summary_json("li")} AS instrument, l.articles
@@ -479,7 +480,7 @@ FROM (
         JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
         WHERE e.to_id = %(instrument_id)s AND e.relation = %(refers_to)s
           AND e.from_collection = '{COLLECTION_ARTICLES}'
-          AND (e.doc -> 'meta' ->> 'leaves_to')::boolean IS TRUE
+          AND e.doc -> 'meta' ->> 'reason' = %(leaves_to)s
           AND a.repealed IS NOT TRUE
         ORDER BY a.id
     ) x
@@ -501,6 +502,7 @@ def get_above(store: GraphStore, instrument_id: str) -> list[dict[str, Any]]:
             {
                 "instrument_id": instrument_id,
                 "refers_to": RELATION_REFERS_TO,
+                "leaves_to": REASON_LEAVES_TO,
                 "today": dutch_today().isoformat(),
             },
         )

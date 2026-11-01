@@ -339,6 +339,6 @@ def test_a_link_to_a_whole_law_is_an_edge_where_its_sentence_leaves_a_matter_to_
     _create_pipeline(store).run()
 
     edges = [e for e in store.edges.values() if e["to_id"].startswith("instruments/")]
-    assert [(e["to_id"], e["meta"]["leaves_to"]) for e in edges] == [
-        ("instruments/bwbr0001840", True)
+    assert [(e["to_id"], e["meta"]["reason"]) for e in edges] == [
+        ("instruments/bwbr0001840", "leaves_to")
     ]

@@ -2001,41 +2001,6 @@ class InstrumentBasisItem(StrictModel):
         )
 
 
-class AboveArticleDTO(StrictModel):
-    """An article of a law above: its text leaves a matter to the instrument asked for."""
-
-    id: str
-    key: str
-    article_number: str | None
-    display_name: str | None
-
-
-class InstrumentAboveItem(StrictModel):
-    """A law whose text leaves a matter to this one, with the articles that say so."""
-
-    instrument: InstrumentSummaryDTO
-    kind: str | None = Field(description="Its BWB type, lower case.")
-    articles: list[AboveArticleDTO]
-
-    @classmethod
-    def from_row(cls, row: dict[str, Any]) -> InstrumentAboveItem:
-        """From a row of ``get_above``."""
-        law = row["instrument"]
-        return cls(
-            instrument=InstrumentSummaryDTO.from_document(law),
-            kind=regulation_kind(law.get("props") or {}),
-            articles=[
-                AboveArticleDTO(
-                    id=a["id"],
-                    key=a["key"],
-                    article_number=a.get("article_number"),
-                    display_name=a.get("display_name"),
-                )
-                for a in row.get("articles") or []
-            ],
-        )
-
-
 class InstrumentBasisResponse(StrictModel):
     """Response for GET /api/instruments/{bwb_id}/basis."""
 
@@ -2050,13 +2015,6 @@ class InstrumentBasisResponse(StrictModel):
         default_factory=list,
         description="Every law of the `validity` asked for its preamble names an article "
         "in force of, by title.",
-    )
-    above: list[InstrumentAboveItem] = Field(
-        default_factory=list,
-        description="The laws in force, by title, with an article in force whose text "
-        "leaves a matter to this one with a link to it (`geregeld in`, `vindt regeling in`, "
-        "`in … voorzien`): it names it, no basis in the source (art. 5, 42, 50 and 51 of "
-        "the Statuut for the Grondwet).",
     )
 
 
