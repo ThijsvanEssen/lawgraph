@@ -322,3 +322,9 @@ def test_what_the_coalition_did_on_each_vote(database: str, cli: Any) -> None:
     assert len(list(store.query("SELECT id FROM lg_decision_coalition"))) == 3
     cli("semantic", "tk-coalition-votes")
     assert len(list(store.query("SELECT id FROM lg_decision_coalition"))) == 2
+
+    # a run that finds what the last one found leaves every row
+    written = "SELECT id, xmin::text AS at FROM lg_decision_coalition ORDER BY id"
+    before = [dict(row) for row in store.query(written)]
+    cli("semantic", "tk-coalition-votes")
+    assert [dict(row) for row in store.query(written)] == before
