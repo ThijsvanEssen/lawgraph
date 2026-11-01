@@ -1,4 +1,5 @@
-"""The laws above an instrument, under ``/api/instruments``."""
+"""The laws above an instrument, under ``/api/instruments``: apart from ``routes.instruments``,
+which is full (the simplicity budget)."""
 
 from __future__ import annotations
 
