@@ -12,6 +12,7 @@ from lawgraph.db.queries.delegations import (
     _DELEGATED_BY_LAW_SQL,
     _DELEGATED_SUMMARY_SQL,
     count_expired_delegated,
+    get_above,
     get_basis,
     get_delegated_by_law,
 )
@@ -360,3 +361,20 @@ def test_the_basis_marks_the_laws_no_longer_in_force(store: GraphStore) -> None:
         (LAW, False),
         (OLD_LAW, True),
     ]
+
+
+def test_the_laws_above_a_law(store: GraphStore) -> None:
+    _seed(store)
+    article = _id(OTHER, 5)
+    leaving = _edge("up", article, _id(LAW), RELATION_REFERS_TO, "Algemene wet")
+    leaving["meta"]["leaves_to"] = True
+    naming = _edge("no", _id(LAW, 1), _id(OTHER), RELATION_REFERS_TO, "Andere wet")
+    store.bulk_insert_or_update_edges([leaving, naming])
+
+    rows = get_above(store, _id(LAW))
+
+    assert [
+        (r["instrument"]["props"]["bwb_id"], [a["id"] for a in r["articles"]])
+        for r in rows
+    ] == [(OTHER, [article])]
+    assert get_above(store, _id(OTHER)) == []

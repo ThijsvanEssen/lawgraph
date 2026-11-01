@@ -323,6 +323,7 @@ its keys to the model of `REFERS_TO`.
 |  | `reason` | `Reason` | What the citation names or how it was read (core/provenance.py). |
 |  | `text` | `str` | The reference as written (`bwb-article-references`, `staatsblad-law-references`, `tk-cited-papers`). |
 |  | `reference_kind` | `str` | `intref` or `extref`, as the BWB XML writes the link. |
+|  | `leaves_to` | `bool` | A link to a whole law whose sentence leaves a matter to it (`core.delegations.leaves_to`). |
 |  | `footnote` | `int` | The footnote of the citing article it stands in, its place in `footnotes` (`bwb-article-references`); it then has no `start` and `end` in the text. |
 |  | `semantic_pattern` | `str` | The pattern that typed the reference (`semantic_type`). |
 |  | `semantic_confidence` | `float` | How sure that typing is. |

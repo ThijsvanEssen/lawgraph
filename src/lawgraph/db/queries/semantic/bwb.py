@@ -213,6 +213,15 @@ def articles_with_references(
     return store.query(_WITH_REFERENCES_SQL, {"bwb_ids": bwb_ids})
 
 
+def article_texts(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:
+    """``{key, text}`` of the articles *keys*: the text apart, for the few that need it."""
+    return store.query(
+        "SELECT a.key, lg_str(a.props -> 'text') AS text FROM articles a "
+        "WHERE a.key = ANY(%(keys)s)",
+        {"keys": keys},
+    )
+
+
 def annex_keys(store: Store) -> Iterator[Any]:
     """The key of every annex."""
     return store.query("SELECT key FROM annexes ORDER BY key")

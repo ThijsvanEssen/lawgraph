@@ -6,7 +6,9 @@ references are the only source. An article without them produces no edges.
 
 The edges are derived in full: a full run removes every edge of the step it did not write
 (also of an article whose references are gone, which it does not read); a run under
-``--since`` those of the articles it read. Each article read keeps how many of its references
+``--since`` those of the articles it read. A link to a whole law whose sentence leaves a matter
+to that law (``core.delegations.leaves_to``) is an edge to the instrument, ``meta.leaves_to``;
+other links to a whole law are none. Each article read keeps how many of its references
 name an article the graph does not hold (``lg_unlinked_references``): what
 ``completeness.references`` of the API says.
 """
@@ -20,11 +22,14 @@ from typing import Any
 
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
     RELATION_REFERS_TO,
 )
 from lawgraph.core.batching import chunked
+from lawgraph.core.delegations import leaves_to
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.provenance import REASON_XML_REF
 from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries import raw as raw_queries
@@ -35,7 +40,7 @@ from lawgraph.pipelines.semantic._bwb_references import (
     hits_from_references,
 )
 
-from .base import SemanticPipelineBase
+from .base import EXACT_CONFIDENCE, SemanticPipelineBase
 
 logger = get_logger(__name__)
 EDGE_SOURCE = "bwb-article-references"
@@ -45,6 +50,20 @@ def _target_keys(hit: ArticleReferenceHit) -> list[str]:
     """The keys of the article a reference names and of the one its link points at."""
     targets = [(hit.bwb_id, hit.article_number), *([hit.linked] if hit.linked else [])]
     return [make_node_key(law, number) for law, number in targets if law and number]
+
+
+def _whole_law_links(article: Node) -> list[dict[str, Any]]:
+    """The links in the text of *article* to another law as a whole."""
+    references = article.props.get("references")
+    own = article.props.get("bwb_id")
+    return [
+        ref
+        for ref in (references if isinstance(references, list) else [])
+        if ref.get("kind") == "extref"
+        and ref.get("bwb_id") not in (None, own)
+        and not ref.get("article")
+        and ref.get("footnote") is None
+    ]
 
 
 class BWBSemanticPipeline(SemanticPipelineBase):
@@ -100,8 +119,10 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                     for key in _target_keys(hit)
                 },
             )
+            leaving = self._leaving_in([article for article, _ in scanned])
             for article, hits in scanned:
                 missed = self._link(article, hits, edges)
+                self._link_leaving(article, leaving.get(article.key or "", []), edges)
                 if article.node_id:
                     unlinked[article.node_id] = missed
 
@@ -150,6 +171,59 @@ class BWBSemanticPipeline(SemanticPipelineBase):
                 )
             )
         return missed
+
+    def _leaving_in(self, articles: list[Node]) -> dict[str, list[dict[str, Any]]]:
+        """Per article the links to a whole law whose sentence leaves a matter to it, the
+        laws looked up in bulk. The text is read only for an article with such a link."""
+        links = {
+            a.key: found for a in articles if a.key and (found := _whole_law_links(a))
+        }
+        if not links:
+            return {}
+        texts = {
+            row["key"]: row["text"] or ""
+            for row in semantic_bwb.article_texts(self.store, list(links))
+        }
+        leaving = {
+            key: [
+                ref
+                for ref in refs
+                if leaves_to(texts.get(key, ""), ref["start"], ref["end"])
+            ]
+            for key, refs in links.items()
+        }
+        laws = {str(r["bwb_id"]).lower() for refs in leaving.values() for r in refs}
+        if laws:
+            self._prefetch_nodes(COLLECTION_INSTRUMENTS, laws)
+        return leaving
+
+    def _link_leaving(
+        self, article: Node, leaving: list[dict[str, Any]], edges: EdgeWriter
+    ) -> None:
+        """Queue the edges to the laws the text of *article* leaves a matter to."""
+        for ref in leaving:
+            target = self._lookup_node(
+                COLLECTION_INSTRUMENTS, str(ref["bwb_id"]).lower()
+            )
+            if target is None:
+                continue
+            edges.add_doc(
+                self._make_edge_doc(
+                    from_node=article,
+                    to_node=target,
+                    relation=RELATION_REFERS_TO,
+                    source=EDGE_SOURCE,
+                    confidence=EXACT_CONFIDENCE,
+                    meta={
+                        "start": ref["start"],
+                        "end": ref["end"],
+                        "text": ref.get("text"),
+                        "reason": REASON_XML_REF,
+                        "reference_kind": ref.get("kind"),
+                        "leaves_to": True,
+                    },
+                )
+            )
 
     @staticmethod
     def _hits_for(article: Node, bwb_id: str) -> list[ArticleReferenceHit]:

@@ -21,7 +21,8 @@ beleidsregels vaststellen"), or a formula of the law as the maker of rules, the 
 the Grondwet ("de wet regelt", "de wet stelt regels", "bij of krachtens de wet"), else
 ``mentioned``. :func:`basis_text`, :func:`basis_range_end`
 and :func:`basis_qualifier` read the text of one reference of a preamble ("artikelen 26 tot
-en met 30 van de wet").
+en met 30 van de wet"). :func:`leaves_to` tells a law that leaves a matter to another law by
+the words around its link.
 """
 
 from __future__ import annotations
@@ -254,3 +255,27 @@ def basis_qualifier(text: str | None) -> Qualifier:
     if not text:
         return Qualifier()
     return parse_qualifier(_ARTICLE_HEAD.sub("", basis_text(text)))
+
+
+# A law that leaves a matter to another law, in the sentence of the link to it: "worden … geregeld
+# in de Grondwet", "vindt … regeling in de Grondwet", "wordt … in de Grondwet voorzien". Not a
+# rule that is there already ("zoals geregeld in de wet", "de in de wet geregelde").
+_LEAVES_BEFORE = re.compile(
+    r"\b(?:wordt|worden)\b[^.;:\n]*(?<!zoals )\bgeregeld\s+in\s+(?:de\s+|het\s+)?$"
+    r"|\b(?:vindt|vinden)\b[^.;:\n]*\bregeling\s+in\s+(?:de\s+|het\s+)?$",
+    re.IGNORECASE,
+)
+_PROVIDED_BEFORE = re.compile(
+    r"\b(?:wordt|worden)\b[^.;:\n]*\bin\s+(?:de\s+|het\s+)?$", re.IGNORECASE
+)
+_PROVIDED_AFTER = re.compile(r"\s*voorzien\b", re.IGNORECASE)
+
+
+def leaves_to(text: str, start: int, end: int) -> bool:
+    """Whether the sentence of the link at ``text[start:end]``, to a whole law, leaves a matter
+    of the article to that law: the law above it says where the rule is to be found (art. 5, 42,
+    50 and 51 of the Statuut, of the Grondwet), though no preamble says it rests on it."""
+    before = text[:start]
+    return bool(_LEAVES_BEFORE.search(before)) or (
+        bool(_PROVIDED_BEFORE.search(before)) and bool(_PROVIDED_AFTER.match(text, end))
+    )

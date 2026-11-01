@@ -464,6 +464,49 @@ ORDER BY {_LAW_ORDER}
 """
 
 
+# The laws in force above *instrument_id*: those with an article in force whose text leaves a
+# matter to it (``meta.leaves_to``, ``semantic bwb``), by the ``(to_id, relation,
+# from_collection)`` index of its edges.
+_ABOVE_SQL = f"""
+SELECT {summary_json("li")} AS instrument, l.articles
+FROM (
+    SELECT x.bwb_id AS law,
+           json_agg({_article("x", "NULL::json", "x.props -> 'display_name'")}
+                    ORDER BY x.position NULLS LAST, x.key) AS articles
+    FROM (
+        SELECT DISTINCT ON (a.id) a.id, a.key, a.bwb_id, a.article_number, a.position, a.props
+        FROM {COLLECTION_EDGES} e
+        JOIN {COLLECTION_ARTICLES} a ON a.id = e.from_id
+        WHERE e.to_id = %(instrument_id)s AND e.relation = %(refers_to)s
+          AND e.from_collection = '{COLLECTION_ARTICLES}'
+          AND (e.doc -> 'meta' ->> 'leaves_to')::boolean IS TRUE
+          AND a.repealed IS NOT TRUE
+        ORDER BY a.id
+    ) x
+    GROUP BY x.bwb_id
+) l
+JOIN LATERAL {_LAW.format(alias="l")} li ON true
+WHERE NOT {expired("li")}
+ORDER BY {_LAW_ORDER}
+"""
+
+
+def get_above(store: GraphStore, instrument_id: str) -> list[dict[str, Any]]:
+    """The laws in force whose text leaves a matter to *instrument_id*, by title:
+    ``{instrument, articles}``, the articles that say so in the order of the law. No basis:
+    the bron gives none, only the words around a link. One query."""
+    return list(
+        store.query(
+            _ABOVE_SQL,
+            {
+                "instrument_id": instrument_id,
+                "refers_to": RELATION_REFERS_TO,
+                "today": dutch_today().isoformat(),
+            },
+        )
+    )
+
+
 def get_basis(store: GraphStore, instrument_id: str) -> list[dict[str, Any]]:
     """The basis of the regulation *instrument_id* (``instruments/…``): per law its
     preamble names, by title, ``{instrument, articles, expired}`` (``expired``: the law is no
