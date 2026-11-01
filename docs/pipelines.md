@@ -1989,7 +1989,8 @@ in the graph (the leading digits of `DossierNummer`: "8689 (R542)" is 8689, whic
 dossier `8689-(R542)` as `queries/dossier_keys` resolves it);
 `PART_OF` to the treaty it belongs to (`Moederverdrag`) when that treaty is in the graph, which
 the article count and the citation count of that treaty leave out; `SAME_AS` into it from the BWB
-text of the treaty (`BWBV…`) whose `treaty_number` it has. Derived in full on every run.
+text of the treaty (`BWBV…`) whose `treaty_number` it has, and `same_as` on it, the id of that
+text, by which `/api/instruments` lists the treaty once. Derived in full on every run.
 
 **Joined to the BWB by number.** The toestand of a BWB treaty names its Verdragenbank id
 (`<wetgeving soort="verdrag" verdragnummer="005132">`, the EVRM), which `normalize bwb` writes
