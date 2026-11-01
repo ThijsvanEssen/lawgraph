@@ -12,6 +12,8 @@
 # A failing step does not stop the run; at the end the failures, and the steps skipped because a poll held the lock
 # past LAWGRAPH_LOCK_WAIT, are told through one alert. Each step adds what did not end well, with its reason, to the
 # record of the run (LAWGRAPH_RUN_RECORD, see _run.sh); a skip and a slice that goes no further are added here.
+# The nightly run comes at 00:00 UTC and waits an hour for the lock: from LAWGRAPH_WEEKLY_UNTIL (HHMM UTC, default 2330,
+# on the day this run began) no step starts. What is left waits for next week and is told through that one alert.
 cd "$(dirname "$0")/.." || exit 1
 . scripts/_alert.sh
 LOG_DIR="${LAWGRAPH_LOG_DIR:-$HOME/Library/Logs/lawgraph}"
@@ -22,6 +24,8 @@ export LAWGRAPH_RUN_RECORD
 trap 'rm -f "$LAWGRAPH_RUN_RECORD"' EXIT
 failures=""
 skipped=""
+left=""
+began_on=$(date -u +%F)
 # what a step that ended so is remembered by: a failure, or a skip (75: it waited its hour for the lock)
 ended() {  # ended <rc> <what>
   case $1 in
@@ -37,7 +41,18 @@ stuck() {  # stuck <semantic step> <why>: a run in slices that goes no further
   failures="${failures:+$failures; }lawgraph semantic $1: $2"
   printf 'stuck\tlawgraph semantic %s\t%s\n' "$1" "$2" >> "$LAWGRAPH_RUN_RECORD"
 }
+too_late() {  # whether the time for a new step is over
+  [ "$(date -u +%F)" != "$began_on" ] || [ "$(date -u +%H%M)" -ge "${LAWGRAPH_WEEKLY_UNTIL:-2330}" ]
+}
+left_for_next_week() {  # left_for_next_week <the step>
+  left="${left:+$left; }$1"
+  printf 'late\t%s\t\n' "$1" >> "$LAWGRAPH_RUN_RECORD"
+}
 run() {  # run <lawgraph args...>: one step under the lock
+  if too_late; then
+    left_for_next_week "lawgraph $*"
+    return 0
+  fi
   sh scripts/step.sh "$@"
   rc=$?
   ended $rc "lawgraph $*"
@@ -51,6 +66,10 @@ slices() {  # slices <semantic step> <size>: its run over all, slice by slice, u
     if [ "$n" -gt "${MAX_SLICES:-200}" ]; then  # a run over all is far fewer slices
       stuck "$1" "more than ${MAX_SLICES:-200} slices"
       return 1
+    fi
+    if too_late; then
+      left_for_next_week "lawgraph semantic $1${after:+ --after $after}"
+      return 0
     fi
     # the output is read for where to go on: in this shell, not in the subshell of $(…)
     out=$(sh scripts/step.sh semantic "$1" ${after:+--after "$after"} --limit "$2" 2>&1)
@@ -98,7 +117,7 @@ run search-candidates
 
 [ ! -s "$LAWGRAPH_RUN_RECORD" ] || tell weekly < "$LAWGRAPH_RUN_RECORD"
 if [ -n "$failures" ]; then
-  echo "$(date '+%F %T') weekly.sh: FAILED: $failures${skipped:+; skipped: $skipped}" >> "$LOG_DIR/runs.log"
+  echo "$(date '+%F %T') weekly.sh: FAILED: $failures${skipped:+; skipped: $skipped}${left:+; left for next week: $left}" >> "$LOG_DIR/runs.log"
   exit 1
 fi
-echo "$(date '+%F %T') weekly.sh: ok${skipped:+, skipped: $skipped}" >> "$LOG_DIR/runs.log"
+echo "$(date '+%F %T') weekly.sh: ok${skipped:+, skipped: $skipped}${left:+, left for next week: $left}" >> "$LOG_DIR/runs.log"

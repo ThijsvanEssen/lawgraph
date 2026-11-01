@@ -24,6 +24,8 @@ case "$*" in "$HOLD_ON"*) touch "$TMPDIR/lawgraph-scheduled.lock/held";; esac
 held=free
 [ ! -d "$TMPDIR/lawgraph-scheduled.lock" ] || held=locked
 echo "$held $*" >> "$TMPDIR/locks"
+# the clock moves on while this step runs
+case "$*" in "$CLOCK_ON"*) echo "$CLOCK_TO" > "$TMPDIR/clock";; esac
 # a poll that takes the lock while this step runs
 case "$*" in "$TAKEN_ON"*) mkdir "$TMPDIR/lawgraph-scheduled.lock";; esac
 # the steps of `semantic all`, and a slice that names where to go on, then that it is done
@@ -68,6 +70,9 @@ def _run(
         "UNAVAILABLE_ON": "-",
         "HOLD_ON": "-",
         "TAKEN_ON": "-",
+        "CLOCK_ON": "-",
+        # the time of the weekly run is the test's own, never the hour the suite runs at
+        "LAWGRAPH_WEEKLY_UNTIL": "2400",
         **extra,
         "CALLS": str(checkout / "calls"),
         "FAIL_ON": fail_on,
@@ -476,4 +481,80 @@ def test_a_skipped_weekly_step_is_in_its_alert(checkout: Path) -> None:
     )
     assert alerts.read_text().splitlines() == [
         "Week search-candidates: overgeslagen, lock-bezet [herhaalt]"
+    ]
+
+
+def _a_clock(checkout: Path, now: str) -> dict[str, str]:
+    """A `date` whose ``-u`` answers from the file ``clock`` (``day HHMM``), first *now*."""
+    shim = checkout / "bin" / "date"
+    shim.parent.mkdir()
+    shim.write_text(f"""#!/bin/sh
+if [ "$1" = -u ]; then
+  case "$2" in
+    +%F) cut -d' ' -f1 "$TMPDIR/clock";;
+    *) cut -d' ' -f2 "$TMPDIR/clock";;
+  esac
+  exit 0
+fi
+exec {shutil.which("date")} "$@"
+""")
+    shim.chmod(0o755)
+    (checkout / "clock").write_text(now + "\n")
+    return {
+        "PATH": f"{shim.parent}{os.pathsep}{os.environ['PATH']}",
+        "LAWGRAPH_WEEKLY_UNTIL": "2330",
+    }
+
+
+@pytest.mark.parametrize("clock", ["2026-11-01 2330", "2026-11-02 0010"])
+def test_past_its_time_the_weekly_run_starts_no_step_and_tells_what_is_left(
+    checkout: Path, clock: str
+) -> None:
+    """The nightly run comes at 00:00: the step that runs ends, the next ones wait a week."""
+    alerts = checkout / "alerts"
+    done = _run(
+        checkout,
+        "weekly.sh",
+        CLOCK_ON="semantic graph-heat",
+        CLOCK_TO=clock,
+        LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+        **_a_clock(checkout, "2026-11-01 2300"),
+    )
+    assert done.returncode == 0
+    assert _calls(checkout)[-1] == "semantic graph-heat"
+    assert (
+        "weekly.sh: ok, left for next week: lawgraph expand-graph --no-final-pass; "
+        "lawgraph check; lawgraph search-candidates"
+    ) in (checkout / "logs" / "runs.log").read_text()
+    assert alerts.read_text().splitlines() == [
+        "Week expand-graph +2: blijft-liggen, te-laat [herhaalt]"
+    ]
+
+
+def test_a_run_in_slices_past_the_time_says_where_it_stopped(checkout: Path) -> None:
+    done = _run(
+        checkout,
+        "weekly.sh",
+        CLOCK_ON="semantic rechtspraak --limit",
+        CLOCK_TO="2026-11-01 2345",
+        **_a_clock(checkout, "2026-11-01 2300"),
+    )
+    assert done.returncode == 0
+    assert _calls(checkout)[-1].startswith("semantic rechtspraak --limit")
+    assert (
+        "lawgraph semantic rechtspraak --after k1; "
+        in (checkout / "logs" / "runs.log").read_text()
+    )
+
+
+def test_the_nightly_run_given_up_says_so_every_time(checkout: Path) -> None:
+    """A night without its run is told at once; a poll waits for its third (above)."""
+    alerts = checkout / "alerts"
+    (checkout / "lawgraph-scheduled.lock").mkdir()
+    alert = {"LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}'}
+    for _ in range(2):
+        assert _run(checkout, "daily.sh", **alert).returncode == 75
+    assert alerts.read_text().splitlines() == [
+        "Dag: 1x overgeslagen, lock-bezet [actie]",
+        "Dag: 2x overgeslagen, lock-bezet [actie]",
     ]

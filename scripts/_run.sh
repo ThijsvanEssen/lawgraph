@@ -20,7 +20,7 @@ told() {  # told <script...> < record: the alert, and a line in runs.log when it
 # waits out a poll that hangs, a poll gives its turn up at once.
 LOCK="${TMPDIR:-/tmp}/lawgraph-scheduled.lock"
 # Runs given up in a row, per script and chain (`poll.sh tk` apart from `poll.sh rechtspraak`): the
-# third says so through the alert, once; a run that starts sets the count back.
+# third says so through the alert, once, or each one with TELL_EVERY_SKIP; a run that starts sets the count back.
 RUN_NAME="$(basename "$0" .sh)${1:+ $1}"
 SKIPPED="$LOG_DIR/skipped-$(basename "$0" .sh)${1:+-$1}"
 waited=0
@@ -30,7 +30,7 @@ until mkdir "$LOCK" 2>/dev/null; do
     skipped=$(( $(cat "$SKIPPED" 2>/dev/null || echo 0) + 1 ))
     echo "$skipped" > "$SKIPPED"
     # shellcheck disable=SC2086  # the script and its chain, two words
-    [ "$skipped" -ne 3 ] || printf 'held\t\t%s\n' "$skipped" | told $RUN_NAME
+    [ -z "$TELL_EVERY_SKIP" ] && [ "$skipped" -ne 3 ] || printf 'held\t\t%s\n' "$skipped" | told $RUN_NAME
     exit 75
   fi
   sleep 1
