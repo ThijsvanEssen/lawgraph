@@ -416,9 +416,11 @@ _warmed_parts: dict[tuple[str, str], str] = {}
 
 
 def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool:
-    """*parts* in their order; whether every one was reached before newer data arrived."""
+    """*parts* in their order; whether every one was reached before newer data arrived. The
+    first warm-up of the process goes on whatever arrives: during a run the data never
+    stands still, and until then the API has no earlier answer to give."""
     for part in parts:
-        if version_cache.superseded(store, version):
+        if version_cache.superseded(store, version) and _warmed is not None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", part.name)
             return False
@@ -490,6 +492,8 @@ def _due(part: str, database: str, every: float) -> bool:
 def forget() -> None:
     """Forget which parts were warmed and when the parts of every hour began (the
     tests)."""
+    global _warmed
+    _warmed = None
     _warmed_parts.clear()
     _last_begun.clear()
 

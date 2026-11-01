@@ -220,7 +220,11 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         """Write the edges; the writer, which remembers them."""
         ids = self._resolve_eclis({link.to_ecli for link in links})
         edges = EdgeWriter(self.store, what=None, remembers=True)
-        for from_id, relation, ecli, basis, procedure_type in links:
+        # one edge per pair, the last link naming it: a pair that names each other, written
+        # in batches apart, took the one basis and then the other, on every run (133,000
+        # edges each week on prod)
+        once = {(link.from_id, link.relation, link.to_ecli): link for link in links}
+        for from_id, relation, ecli, basis, procedure_type in once.values():
             to_id = ids.get(ecli)
             if not to_id:
                 continue
