@@ -207,6 +207,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `reason` | `bwb_instrument` | `REFERS_TO` | The text cites a law (BWB) as a whole. |
 | `reason` | `celex_instrument` | `REFERS_TO` | The text cites an EU act as a whole. |
 | `reason` | `unknown` | `REFERS_TO` | A citation that names neither a law nor an EU act. |
+| `reason` | `leaves_to` | `REFERS_TO` | A link to a whole law whose sentence leaves a matter to it (`delegations.leaves_to`). |
 | `reason` | `bwb_xml_ref` | `REFERS_TO` | A reference the BWB XML of the article records (`intref`, `extref`). |
 | `reason` | `amendment_text` | `AMENDS`, `INTRODUCES`, `REPEALS` | The text of the amendment names the article it changes (`meta.snippet`). |
 | `reason` | `ingediend` | `MADE_IN` | The motion was submitted in the debate held on the day its case started. |

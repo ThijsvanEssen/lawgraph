@@ -1048,3 +1048,28 @@ def test_the_series_goes_to_the_instruments_and_their_articles(
     assert normalize_bwb.update_instrument_series(store, gone) == 2
     assert "series_id" not in _props(store, "instruments", "bwbr2")
     assert "instrument_series_id" not in _props(store, "articles", "bwbr2_1")
+
+
+def test_article_texts_reads_the_text_of_the_articles_asked_for(
+    store: GraphStore,
+) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            {
+                "key": f"bwbr0000001_{n}",
+                "type": "article",
+                "labels": [],
+                "props": {
+                    "bwb_id": "BWBR0000001",
+                    "article_number": n,
+                    "text": f"Tekst {n}",
+                },
+            }
+            for n in ("1", "2")
+        ],
+    )
+
+    assert list(semantic_bwb.article_texts(store, ["bwbr0000001_2"])) == [
+        {"key": "bwbr0000001_2", "text": "Tekst 2"}
+    ]

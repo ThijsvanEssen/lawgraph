@@ -584,6 +584,40 @@ def test_a_regulation_gives_its_own_basis(database: str, cli: Any) -> None:
         }
 
 
+def test_a_law_says_the_laws_whose_text_leaves_a_matter_to_it(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    _seed(store)
+    _seed_chain(store)
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                "key": "boven",
+                "from_id": f"articles/{BESLUIT.lower()}_2",
+                "to_id": f"instruments/{WET.lower()}",
+                "relation": RELATION_REFERS_TO,
+                "source": "bwb-article-references",
+                "status": "canoniek",
+                "confidence": 1.0,
+                "meta": {"reason": "leaves_to"},
+            }
+        ]
+    )
+
+    body = _get(store, f"/api/instruments/{WET}/above")
+
+    assert body["total"] == 1
+    assert [
+        (
+            a["instrument"]["bwb_id"],
+            a["kind"],
+            [x["article_number"] for x in a["articles"]],
+        )
+        for a in body["items"]
+    ] == [(BESLUIT, "amvb", ["2"])]
+
+
 def test_related_laws_say_their_direction_and_basis(database: str, cli: Any) -> None:
     store = GraphStore()
     _seed(store)

@@ -8872,6 +8872,49 @@
         }
       }
     },
+    "/api/instruments/{bwb_id}/above": {
+      "get": {
+        "tags": [
+          "instruments"
+        ],
+        "summary": "The laws whose text leaves a matter to this one",
+        "description": "The laws in force, by title, with an article in force whose text leaves a matter to this one with a link to it (`geregeld in`, `vindt regeling in`, `in … voorzien`), and those articles. It names it: the source gives no basis (art. 5, 42, 50 and 51 of the Statuut for the Grondwet). Empty for an unknown instrument. A basis in the preamble: `.../basis`.",
+        "operationId": "get_instrument_above_route_api_instruments__bwb_id__above_get",
+        "parameters": [
+          {
+            "name": "bwb_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bwb Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentAboveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feed.atom": {
       "get": {
         "tags": [
@@ -9315,6 +9358,50 @@
   },
   "components": {
     "schemas": {
+      "AboveArticleDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "article_number",
+          "display_name"
+        ],
+        "title": "AboveArticleDTO",
+        "description": "An article of a law above that says so."
+      },
       "ActingOtherSeatDTO": {
         "properties": {
           "seat": {
@@ -28441,6 +28528,71 @@
         ],
         "title": "InFluxNodeDTO",
         "description": "A node with open changes, and the dossiers that propose them."
+      },
+      "InstrumentAboveItem": {
+        "properties": {
+          "instrument": {
+            "$ref": "#/components/schemas/InstrumentSummaryDTO"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "Its BWB type, lower case."
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/AboveArticleDTO"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instrument",
+          "kind",
+          "articles"
+        ],
+        "title": "InstrumentAboveItem",
+        "description": "A law whose text leaves a matter to this one, with the articles that say so."
+      },
+      "InstrumentAboveResponse": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id",
+            "description": "The identifier as asked for."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentAboveItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "The laws in force, by title."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "total",
+          "items"
+        ],
+        "title": "InstrumentAboveResponse",
+        "description": "Response for GET /api/instruments/{bwb_id}/above."
       },
       "InstrumentAnnexDTO": {
         "properties": {
