@@ -44,7 +44,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.documents import document_sender, number_in_dossier, numbered_in
-from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.dossier_names import dossier_name
 from lawgraph.core.models import key_of, node_id, parse_node_id
 from lawgraph.core.tk_links import tk_url
 from lawgraph.core.tk_records.actors import SigningCapacity
@@ -538,8 +538,8 @@ class DossierSummaryDTO(WithMinistry, WithPath):
     title: str | None = None
     short_title: str | None = Field(
         None,
-        description="The name a bill goes by, from the parentheses that end its title: "
-        "``Verzamelwet gegevensbescherming``; null when the title has none.",
+        description="The name a bill goes by: the parentheses that end its title, else "
+        "what the Eerste Kamer calls it (``Ontwerpen voor bewegwijzering``); null without.",
     )
     title_source: TitleSource | None = None
     source: DossierSource = Field(
@@ -1252,7 +1252,7 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "suffix": props.get("suffix") or None,
         "same_number_count": int(props.get("same_number_count") or 0),
         "title": props.get("title"),
-        "short_title": short_title(props.get("title")),
+        "short_title": dossier_name(props)[0],
         "title_source": props.get("title_source"),
         # only a dossier written from the papers of the Eerste Kamer names its source
         "source": props.get("source") or "tk",

@@ -10,7 +10,11 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
-from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL, SOURCE_EERSTEKAMER
+from lawgraph.config.constants import (
+    RAW_KIND_EERSTEKAMER_BILL,
+    RAW_KIND_EERSTEKAMER_BILL_NAME,
+    SOURCE_EERSTEKAMER,
+)
 from lawgraph.config.settings import EK_ATTRIBUTION
 from lawgraph.core.models import Node
 from lawgraph.db import GraphStore, NodeWriter, RawSourceWriter, raw_source_doc
@@ -78,3 +82,47 @@ def test_a_bill_page_tells_its_dossier_where_the_bill_is(
         "read_on": "2026-10-03",
         "attribution": EK_ATTRIBUTION,
     }
+
+
+def test_the_name_the_eerste_kamer_gives_a_bill_names_its_dossier(
+    database: str, cli: Any
+) -> None:
+    store = GraphStore()
+    title = "Wijziging van de Wegenverkeerswet 1994 in verband met de bewegwijzering"
+    with NodeWriter(store) as writer:
+        writer.add(
+            Node(
+                collection="dossiers",
+                key="33899",
+                labels=["TK"],
+                props={"number": "33899", "label": "33899", "title": title},
+            )
+        )
+    with RawSourceWriter(store) as writer:
+        for label, name in (
+            ("33899", "Ontwerpen voor bewegwijzering"),
+            ("9999", "Een dossier dat de graaf niet heeft"),
+        ):
+            writer.add(
+                raw_source_doc(
+                    source=SOURCE_EERSTEKAMER,
+                    kind=RAW_KIND_EERSTEKAMER_BILL_NAME,
+                    external_id=f"/wetsvoorstel/{label}_x",
+                    payload_json={"label": label, "name": name},
+                )
+            )
+    cli("normalize", "eerstekamer-bills")
+
+    assert store.get_document("dossiers", "9999") is None
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        listed = client.get("/api/dossiers", params={"number": "33899"}).json()
+        one = client.get("/api/dossiers/33899").json()
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert [d["short_title"] for d in listed["items"]] == [
+        "Ontwerpen voor bewegwijzering"
+    ]
+    assert one["title"] == title
+    assert one["short_title"] == "Ontwerpen voor bewegwijzering"

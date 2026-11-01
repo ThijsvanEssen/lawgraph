@@ -1070,18 +1070,18 @@ class DossierProps(_CommonProps):
     when a chamber voted the bill down, `ingetrokken` when the government withdrew it by
     letter (`semantic tk-dossier-outcomes`)."""
     withdrawal_letter: str | None = None
-    """Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose
-    `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel`
-    (``core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT``)."""
+    """Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` with
+    the fixed `Onderwerp` of ``core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT``."""
     tk_decision: TkDecisionProps | None = None
     """The last decision of the Tweede Kamer on its bill."""
     ek_rejected: EkRejectedProps | None = None
-    """The Eerste Kamer's list of rejected bills names it (`normalize
-    eerstekamer-votes`)."""
+    """On the Eerste Kamer's list of rejected bills (`normalize eerstekamer-votes`)."""
     ek_outcome: EkOutcomeProps | None = None
     """Its outcome in the Eerste Kamer."""
     ek_bill: EkBillProps | None = None
     """The page of its bill on eerstekamer.nl (`normalize eerstekamer-bills`)."""
+    ek_name: str | None = None
+    """The name the Eerste Kamer gives its bill (`normalize eerstekamer-bills`)."""
     ministry: str | None = None
     """Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who
     first signed its earliest signed document."""

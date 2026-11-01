@@ -40,6 +40,12 @@ def test_a_committee_lists_its_bills_under_the_kamers_headings() -> None:
         "/wetsvoorstel/36879_implementatie_herziening",
         "36879",
         "In schriftelijke voorbereiding",
+        "Implementatie herziening richtlijn luchtkwaliteit",
+    )
+    # an abbreviation in its name, without the markup
+    assert bills[1].name == (
+        "Implementatie herziening Richtlijn industriële emissies en de uitvoering van de "
+        "PIE-verordening"
     )
     budget = next(b for b in bills if b.path.startswith("/wetsvoorstel/36945_xxii"))
     assert (budget.label, budget.status) == (
@@ -95,3 +101,27 @@ def test_a_rijkswet_is_numbered_with_its_r_number() -> None:
         "<html><title>Rijkswet Caribisch orgaan (36.455 (R2188)) - Eerste Kamer</title>"
     )
     assert eb.bill(page).label == "36455-(R2188)"
+
+
+def test_the_list_of_every_bill_is_asked_with_the_id_of_its_form() -> None:
+    form = '<input type="hidden" name="dlgid" value="n29okkelj2o1f" />'
+    assert eb.index_path(form) == (
+        "/wetsvoorstellen_2?dlgid=n29okkelj2o1f&modus=selecteer"
+    )
+    assert eb.index_path("<p>geen formulier</p>") is None
+
+
+def test_the_list_of_every_bill_names_them_with_the_newest_numbers_first() -> None:
+    bills, older = eb.listed_bills(fixture_text("ek_bill_index.html"))
+    # 8310 (R 498) and 8603 (R 530) are no numbers it reads: passed over, and no other bill
+    # takes their address
+    assert len(bills) == 18
+    assert "/wetsvoorstel/8310_toestemming_tot_het_aangaan" not in [
+        b.path for b in bills
+    ]
+    # an old bill without a dossier number of today, then the highest numbers
+    assert bills[0].label is None
+    assert bills[0].path == "/wetsvoorstel/9_toestemmingswet_huwelijk_prins"
+    newest = next(b for b in bills if b.label == "37048")
+    assert newest.name and newest.name.startswith("Wijziging van de Wet milieubeheer")
+    assert older is not None and older.endswith("start_00k=20#p1")

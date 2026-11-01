@@ -716,12 +716,14 @@
   "title",
   "citation",
   "case",
+  "eerstekamer",
   "amended_law"
  ],
  "/components/schemas/FeedDossierDTO/properties/short_title_basis/anyOf/0": [
   "title",
   "citation",
   "case",
+  "eerstekamer",
   "amended_law"
  ],
  "/components/schemas/FeedItemDTO/properties/kind": [

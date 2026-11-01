@@ -1284,12 +1284,12 @@ so. Its schema does not name it.
 | `phases[].date` | `str` | The first date of the records that mark it. |
 | `current_phase` | `str` | The furthest done phase. |
 | `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down, `ingetrokken` when the government withdrew it by letter (`semantic tk-dossier-outcomes`). |
-| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel` (`core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`). |
+| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` with the fixed `Onderwerp` of `core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`. |
 | `tk_decision` | `object` | The last decision of the Tweede Kamer on its bill. |
 | `tk_decision.kind` | `str` | Its `BesluitSoort`. |
 | `tk_decision.text` | `str` | Its text. |
 | `tk_decision.date` | `str` | Its day. |
-| `ek_rejected` | `object` | The Eerste Kamer's list of rejected bills names it (`normalize eerstekamer-votes`). |
+| `ek_rejected` | `object` | On the Eerste Kamer's list of rejected bills (`normalize eerstekamer-votes`). |
 | `ek_rejected.date` | `str` | The day. |
 | `ek_rejected.source_url` | `str` | The list. |
 | `ek_rejected.retrieved_on` | `str` | The day it was read. |
@@ -1313,6 +1313,7 @@ so. Its schema does not name it.
 | `ek_bill.progress[].papers[].date` | `str` | Its date. |
 | `ek_bill.progress[].papers[].number` | `str` | Its number. |
 | `ek_bill.progress[].papers[].url` | `str` | Its link. |
+| `ek_name` | `str` | The name the Eerste Kamer gives its bill (`normalize eerstekamer-bills`). |
 | `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
 | `initiative` | `bool` | `true` when a Kamerlid signed first. |
 | `cabinet` | `str` | The cabinet in office that day. |
@@ -1864,7 +1865,7 @@ record is skipped like one without a payload.
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
-| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
+| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-bill-name-json`, `ek-plenary-html`, `ek-committee-day-html` |
 | `kst` | `kst-sru-json` (the SRU record of a Kamerstuk of the Tweede Kamer of 1994-1995 to 2007-2008, external id `kst-<dossier>-<n>`; `meta` its session year, dossier and when it was modified) |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` (the SRU record), `verdrag-xml` (the item XML: parties, Tractatenbladen, dossiers, related treaties; `meta.item_url` and `meta.modified`) |

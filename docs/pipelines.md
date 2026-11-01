@@ -1750,13 +1750,21 @@ committee (`/wetsvoorstellen_bij_commissie?key=…`, linked from its page; `robo
 it, `/zoeken` it does not) and in the list of votes (`bill_url` of the decisions of `normalize
 eerstekamer-votes`). A run over a window reads the bills a committee still handles and those
 voted on since `--since`; a run without it every listed bill, the older pages of the lists
-too. Pages are read one at a time on the lane of eerstekamer.nl.
+too. Pages are read one at a time on the lane of eerstekamer.nl. It also stores the name the
+Kamer gives each bill, from its list of every bill since 1995 (`/wetsvoorstellen_2`, about 400
+pages of 20; those still at the Tweede Kamer are on it too): one record per bill
+(`ek-bill-name-json`, external id its path). A window reads the first 10 pages, which hold the
+highest numbers; a run without it the whole list. `--names-only` reads that list and no page.
 
 **Normalize `eerstekamer-bills`.** `core/ek_bills.py` reads the page's structure:
 its number from the title (`(36.945 XXII)` is dossier `36945-XXII`), `ingediend` under
 `Kerngegevens`, and the progress module block by block (phase, house, the state class the
 page gives it, and its papers with kind, date and number); never a sentence. The result is
 `ek_bill` on the dossier of that number, when the graph holds it (else the page is skipped).
+A name becomes `ek_name` on its dossier. `core/dossier_names.py` names a dossier by it where
+neither its title nor the citation title of its bill gives a short title (`short_title_basis`
+`eerstekamer`). The name is the Kamer's, not cut or changed; one that is the dossier's whole
+title names nothing.
 
 **Retrieve `eerstekamer-composition`.** The pages of eerstekamer.nl on who sits where today:
 `/fracties` (every faction with its seats), `/commissies` (every committee), and the page of each
