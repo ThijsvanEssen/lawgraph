@@ -425,6 +425,13 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_KST: (RAW_KIND_KST_SRU,),
 }
 
+# Raw kinds a full retrieve fills once: the nightly asks only what changed in its window, and
+# a source of closed years (the SRU papers of 1994 to 2008) changes nothing, so before that
+# first full retrieve the kind is empty by design and ``check`` notes it as a gap.
+RAW_KINDS_FILLED_ONCE: frozenset[tuple[str, str]] = frozenset(
+    {(SOURCE_KST, RAW_KIND_KST_SRU)}
+)
+
 # Records of a kind read in one cursor batch: fewer the larger its payload (a whole act
 # or judgment), more for the small JSON of a TK record.
 RAW_BATCH_SIZE: dict[str, int] = {
