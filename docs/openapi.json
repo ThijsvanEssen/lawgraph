@@ -24563,6 +24563,19 @@
               }
             ],
             "title": "Article Number"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -24572,7 +24585,8 @@
           "key",
           "collection",
           "bwb_id",
-          "article_number"
+          "article_number",
+          "path"
         ],
         "title": "ExplainedTargetDTO",
         "description": "What an explanatory document explains: an article, or a law as a whole.\n\nA version of an article resolves to the article itself; a law the document\nexplains without naming articles is an instrument with ``article_number`` null."

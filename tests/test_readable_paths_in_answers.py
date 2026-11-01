@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from lawgraph.api.schemas.common import DossierRefDTO, JudgmentSummaryDTO
 from lawgraph.api.schemas.decisions import VoteDTO
-from lawgraph.api.schemas.documents import SubmitterDTO
+from lawgraph.api.schemas.documents import ExplainedTargetDTO, SubmitterDTO
 from lawgraph.api.schemas.dossiers import (
     DossierCommitteeDTO,
     NextActivityDTO,
@@ -192,3 +192,15 @@ def test_every_source_with_a_path_says_where_it_is_read_from() -> None:
             source.key_field in fields or source.collection == "judgments"
         )
         assert by_id or by_key, cls.__name__
+
+
+def test_an_explained_target_has_its_address() -> None:
+    article = ExplainedTargetDTO(
+        id="articles/BWBR0005289_6:162", key="BWBR0005289_6:162", collection="articles",
+        bwb_id="BWBR0005289", article_number="6:162",
+    )  # fmt: skip
+    assert article.path == "/wetten/BWBR0005289/artikel/6:162"
+    law = ExplainedTargetDTO(
+        id="instruments/BWBR0005289", key="BWBR0005289", collection="instruments"
+    )
+    assert law.path == "/wetten/BWBR0005289"
