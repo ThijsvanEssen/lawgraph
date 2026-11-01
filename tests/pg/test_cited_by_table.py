@@ -104,6 +104,58 @@ def test_a_citation_is_kept_with_its_mentions_and_its_judgment(
     assert _kept(store) == {}
 
 
+def test_an_edge_without_a_mention_is_kept_and_read_as_one_row(
+    store: GraphStore,
+) -> None:
+    """A link of the metadata: kept as the triggers keep any edge, one row among the
+    passages, in the counts and the facets; the fill gives the same. It follows its
+    mentions when the text comes to name the article, or stops naming it. An ECHR judgment
+    has no passage either: counted apart."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("j1", ecli="ECLI:NL:HR:2021:1", date_eff="2021-01-01",
+                      tier="hoge_raad", court_code="HR"),
+            _judgment("j2", ecli="ECLI:NL:HR:2020:2", date_eff="2020-01-01",
+                      tier="hoge_raad", court_code="HR"),
+            _judgment("h1", ecli="ECLI:CE:ECHR:2019:1", date_eff="2019-01-01",
+                      tier="ehrm", court_code="ECHR"),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_edges(
+        [
+            _citation("j1", [["1"], ["2"]]),
+            _citation("j2", []),
+            _citation("h1", []),
+        ]
+    )
+    assert _kept(store)["j2"][1:3] == (0, [])
+
+    def read() -> Any:
+        version_cache.clear()
+        return get_article_cited_by(store, ARTICLE)
+
+    cited = read()
+    assert [r["mention"] is None for r in cited.rows] == [False, False, True]
+    assert (cited.total, cited.judgment_total) == (3, 2)
+    assert cited.echr_judgment_total == 1
+    assert cited.facets["year"] == [
+        {"value": "2020", "count": 1},
+        {"value": "2021", "count": 1},
+    ]
+    assert cited.facets["tier"] == [{"value": "hoge_raad", "count": 2}]
+
+    store.execute(f"DELETE FROM {schema.CITED_BY_TABLE}")
+    assert cited_by_table.fill_cited_by(store) == 3
+    assert read() == cited
+
+    store.bulk_insert_or_update_edges([_citation("j2", [["3"]])])
+    assert (read().total, read().judgment_total) == (3, 2)
+    assert [r["mention"] is None for r in read().rows] == [False, False, False]
+    store.bulk_insert_or_update_edges([_citation("j2", [])])
+    assert read() == cited
+
+
 def _pages(store: GraphStore) -> list[Any]:
     version_cache.clear()
     return [

@@ -78,9 +78,45 @@ def test_a_passage_that_cites_the_article_carries_the_origin_of_its_edge(
     body = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by")
 
     origins = {i["judgment"]["ecli"]: i["origin"] for i in body["items"]}
-    assert origins == {TEXT: ["text"], BOTH: ["text", "metadata"]}
-    # a judgment only the metadata links has no passage to list
-    assert (body["total"], body["judgment_total"]) == (2, 2)
+    assert origins == {
+        TEXT: ["text"],
+        BOTH: ["text", "metadata"],
+        METADATA: ["metadata"],
+    }
+    assert (body["total"], body["judgment_total"]) == (3, 3)
+    assert {f["value"]: f["count"] for f in body["facets"]["year"]} == {
+        "2015": 1,
+        "2016": 1,
+        "2020": 1,
+    }
+
+
+def test_a_judgment_only_the_metadata_links_is_one_row_without_a_passage(
+    api: Api,
+) -> None:
+    body = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by")
+
+    (row,) = [i for i in body["items"] if i["judgment"]["ecli"] == METADATA]
+    assert row["judgment"]["date"] == "2016-03-01"
+    for field in (
+        "paragraph_id",
+        "paragraph_number",
+        "qualifier",
+        "start",
+        "end",
+        "text",
+        "snippet",
+        "confidence",
+    ):
+        assert row[field] is None, field
+    assert (row["leden"], row["onderdelen"], row["aanhef"]) == ([], [], False)
+
+    # a lid is named by a passage, the year filter keeps the row
+    by_lid = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by", lid="1")
+    assert METADATA not in {i["judgment"]["ecli"] for i in by_lid["items"]}
+    in_year = api.get_json(f"/api/articles/{GRONDWET}/1/cited-by", year="2016")
+    assert [i["paragraph_id"] for i in in_year["items"]] == [None]
+    assert (in_year["total"], in_year["judgment_total"]) == (1, 1)
 
 
 def test_the_canvas_edge_of_a_citing_judgment_keeps_its_origin(api: Api) -> None:

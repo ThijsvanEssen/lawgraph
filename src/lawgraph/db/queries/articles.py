@@ -842,9 +842,10 @@ def get_article_explanation_passages(
 
 @dataclass(frozen=True)
 class CitedBy:
-    """A page of the passages that cite an article: ``{judgment, mention, origin}`` rows, the
-    passages that match the filters and the judgments they are in, and ``facets``: per ``year``,
-    ``tier`` and ``subject_area`` the judgments under the other filters (``{value, count}``)."""
+    """A page of the passages that cite an article: ``{judgment, mention, origin}`` rows (a
+    null ``mention`` without a passage), the rows that match the filters and their judgments,
+    and ``facets``: per ``year``, ``tier`` and ``subject_area`` the judgments under the other
+    filters (``{value, count}``)."""
 
     rows: list[dict[str, Any]]
     total: int
@@ -856,11 +857,12 @@ class CitedBy:
 
 
 # ``hits``: per judgment that cites the article (a row of ``lg_cited_by``), one row per
-# mention that passes the court and lid filters, with only what sorts and counts it; ``kept``:
-# those of the tiers, the year and the main area of law asked for; ``page``: those of the page, cut by a limit (so
-# the planner reads their edges by key, not every edge). The mentions of the page are read
-# whole from their edges after the cut. Each facet counts the judgments of ``hits`` under
-# the other filter.
+# mention that passes the court and lid filters (one for an edge without one, a link of the
+# metadata; none of an ECHR judgment, counted apart), with only what sorts and counts it;
+# ``kept``: those of the tiers, the year and the main area of law asked for; ``page``: those
+# of the page, cut by a limit (so the planner reads their edges by key, not every edge). The
+# mentions of the page are read whole from their edges after the cut. Each facet counts the
+# judgments of ``hits`` under the other filter.
 _TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR h.tier = ANY(%(tiers)s::text[]))"
 _YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
 _AREA_KEPT = "(%(area)s::text IS NULL OR h.areas @> ARRAY[%(area)s::text])"
@@ -884,9 +886,9 @@ def _cited_by_facet(value: str, where: str, order: str, *, many: bool = False) -
 
 
 # The mentions of a row ``c`` of ``lg_cited_by`` as ``m.position`` (from 0): every one by
-# its number, read from the index alone; under a ``lid`` those that name it, read from the
-# leden kept with the row.
-_EVERY_MENTION = "generate_series(0, c.mentions - 1) AS m(position)"
+# its number, read from the index alone, and position 0 of an edge without one (its mention
+# reads as null); under a ``lid`` those that name it, read from the leden kept with the row.
+_EVERY_MENTION = "generate_series(0, greatest(c.mentions - 1, 0)) AS m(position)"
 _MENTIONS_OF_LID = """(
             SELECT x.n - 1 AS position
             FROM json_array_elements(c.leden) WITH ORDINALITY AS x(leden, n)
@@ -905,6 +907,7 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         CROSS JOIN LATERAL {_MENTIONS_OF_LID if lid else _EVERY_MENTION}
         WHERE c.article_id = %(article_id)s
           AND (%(court)s::text IS NULL OR c.court_code = %(court)s::text)
+          AND (c.mentions > 0 OR c.court_code IS DISTINCT FROM '{CODE_ECHR}')
     ),
     kept AS (
         SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
@@ -991,8 +994,8 @@ def most_cited_articles(store: GraphStore, at_least: int) -> list[dict[str, Any]
 
 
 # How long the passages citing an article are kept per request (seconds), whatever the data
-# does: of a much cited article (6:162 BW, Awb 1:3) they are thousands; a poll adds a handful. A newer answer computes in the background while the kept one is
-# served.
+# does: of a much cited article (6:162 BW, Awb 1:3) they are thousands; a poll adds a handful.
+# A newer answer computes in the background while the kept one is served.
 CITED_BY_MAX_AGE = 3600.0
 
 # The orders of the passages: the newest judgment first, or the most cited one (a
@@ -1042,9 +1045,10 @@ def get_article_cited_by(
     offset: int = 0,
     inline: bool = False,
 ) -> CitedBy:
-    """The passages of judgments that cite an article: one row per mention, newest first.
+    """The passages of judgments that cite an article: one row per mention (none: one row,
+    its ``mention`` null), newest first.
 
-    ``total`` counts every mention that passes the filters, whatever the page, and
+    ``total`` counts every row that passes the filters, whatever the page, and
     ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
     judgments that cite the article, whatever the filters: HUDOC names the article they
     apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code),
@@ -1076,20 +1080,11 @@ def get_article_cited_by(
         "offset": offset,
     }
     key = {**bind, "tiers": chosen}
+    statement = _cited_by_sql(CITED_BY_SORTS[sort], lid=bool(lid))
     answer = lasting(
         store,
         ("cited-by", sort, *sorted(key.items())),
-        lambda: (
-            next(
-                iter(
-                    store.query(
-                        _cited_by_sql(CITED_BY_SORTS[sort], lid=bool(lid)), bind
-                    )
-                ),
-                None,
-            )
-            or {}
-        ),
+        lambda: next(iter(store.query(statement, bind)), None) or {},
         CITED_BY_MAX_AGE,
         inline=inline,
     )
