@@ -111,7 +111,7 @@ def test_the_name_the_eerste_kamer_gives_a_bill_names_its_dossier(
                     payload_json={"label": label, "name": name},
                 )
             )
-    cli("normalize", "eerstekamer-bill-names")
+    cli("normalize", "eerstekamer-bills")
 
     assert store.get_document("dossiers", "9999") is None
     app.dependency_overrides[get_store] = lambda: store

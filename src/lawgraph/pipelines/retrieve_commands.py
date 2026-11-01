@@ -52,9 +52,6 @@ from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer_agenda import (
     EerstekamerAgendaRetrievePipeline,
 )
-from lawgraph.pipelines.retrieve.eerstekamer_bill_names import (
-    EerstekamerBillNamesRetrievePipeline,
-)
 from lawgraph.pipelines.retrieve.eerstekamer_bills import (
     EerstekamerBillsRetrievePipeline,
 )
@@ -231,6 +228,15 @@ def windowed_args(parser: argparse.ArgumentParser) -> None:
     """``--since`` without a default, and incremental or full."""
     add_since_argument(parser)
     _add_incremental_or_full(parser)
+
+
+def eerstekamer_bills_args(parser: argparse.ArgumentParser) -> None:
+    windowed_args(parser)
+    parser.add_argument(
+        "--names-only",
+        action="store_true",
+        help="Only the names of the bills, from the list of every bill: not their pages.",
+    )
 
 
 def windowed_from_a_day_args(parser: argparse.ArgumentParser) -> None:
@@ -462,12 +468,9 @@ def retrieve_eerstekamer_agenda(args: argparse.Namespace) -> PipelineResult:
 
 def retrieve_eerstekamer_bills(args: argparse.Namespace) -> PipelineResult:
     pipeline = EerstekamerBillsRetrievePipeline(GraphStore())
-    return pipeline.run(since=_day(_since_unless_full(args)))
-
-
-def retrieve_eerstekamer_bill_names(args: argparse.Namespace) -> PipelineResult:
-    pipeline = EerstekamerBillNamesRetrievePipeline(GraphStore())
-    return pipeline.run(since=_day(_since_unless_full(args)))
+    return pipeline.run(
+        since=_day(_since_unless_full(args)), names_only=args.names_only
+    )
 
 
 def eerstekamer_persons_args(parser: argparse.ArgumentParser) -> None:

@@ -1283,12 +1283,12 @@ so. Its schema does not name it.
 | `phases[].date` | `str` | The first date of the records that mark it. |
 | `current_phase` | `str` | The furthest done phase. |
 | `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down, `ingetrokken` when the government withdrew it by letter (`semantic tk-dossier-outcomes`). |
-| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel` (`core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`). |
+| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` with the fixed `Onderwerp` of `core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`. |
 | `tk_decision` | `object` | The last decision of the Tweede Kamer on its bill. |
 | `tk_decision.kind` | `str` | Its `BesluitSoort`. |
 | `tk_decision.text` | `str` | Its text. |
 | `tk_decision.date` | `str` | Its day. |
-| `ek_rejected` | `object` | The Eerste Kamer's list of rejected bills names it (`normalize eerstekamer-votes`). |
+| `ek_rejected` | `object` | On the Eerste Kamer's list of rejected bills (`normalize eerstekamer-votes`). |
 | `ek_rejected.date` | `str` | The day. |
 | `ek_rejected.source_url` | `str` | The list. |
 | `ek_rejected.retrieved_on` | `str` | The day it was read. |
@@ -1312,7 +1312,7 @@ so. Its schema does not name it.
 | `ek_bill.progress[].papers[].date` | `str` | Its date. |
 | `ek_bill.progress[].papers[].number` | `str` | Its number. |
 | `ek_bill.progress[].papers[].url` | `str` | Its link. |
-| `ek_name` | `str` | The name the Eerste Kamer gives its bill, on its list of every bill (`normalize eerstekamer-bill-names`): `Ontwerpen voor bewegwijzering`. |
+| `ek_name` | `str` | The name the Eerste Kamer gives its bill (`normalize eerstekamer-bills`). |
 | `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
 | `initiative` | `bool` | `true` when a Kamerlid signed first. |
 | `cabinet` | `str` | The cabinet in office that day. |

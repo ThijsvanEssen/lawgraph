@@ -113,8 +113,7 @@ class FeedDossierDTO(WithPath):
     short_title_basis: ShortTitleBasis | None = Field(
         None,
         description="Where ``short_title`` comes from: ``title``, ``citation``, ``case``, "
-        "``eerstekamer`` (the name the Eerste Kamer gives the bill) or ``amended_law`` "
-        "(then it names the law changed, not the bill).",
+        "``eerstekamer`` or ``amended_law`` (then it names the law changed, not the bill).",
     )
     changes_articles: bool | None = Field(None, description=CHANGES_ARTICLES)
 

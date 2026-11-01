@@ -538,9 +538,8 @@ class DossierSummaryDTO(WithMinistry, WithPath):
     title: str | None = None
     short_title: str | None = Field(
         None,
-        description="The name a bill goes by: from the parentheses that end its title "
-        "(``Verzamelwet gegevensbescherming``), else the one the Eerste Kamer gives it "
-        "(``Ontwerpen voor bewegwijzering``); null without either.",
+        description="The name a bill goes by: the parentheses that end its title, else "
+        "what the Eerste Kamer calls it (``Ontwerpen voor bewegwijzering``); null without.",
     )
     title_source: TitleSource | None = None
     source: DossierSource = Field(

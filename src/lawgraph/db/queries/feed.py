@@ -268,8 +268,7 @@ _SIGNATURES = f"""CASE pg.kind
 # key is its TK GUID made a node key) and its faction, set over what the signature has
 # (``lg_update``).
 # The key of the member of a signature's TK GUID: the GUID in lower case with ``_`` for
-# ``-`` (what ``lg_node_key`` makes of a GUID; in its place the planner turns the join of
-# the page).
+# ``-`` (what ``lg_node_key`` makes of it; in its place the planner turns the page's join).
 _PERSON_KEY = "replace(lower(s.p ->> 'person_id'), '-', '_')"
 # The member's name is the expression of ``members.list_name`` on its props: read as the
 # column, the planner turns the join of the page.
@@ -363,8 +362,7 @@ _MATCHED_TITLE = f"""lower(CASE pg.kind
                 ELSE {as_text(truthy_or("n.props -> 'subject'", "n.props -> 'title'"))} END)"""
 # Per word of ``q`` that an item holds, where it holds it (``{term, field}``): its ``title``,
 # else the ``dossier_title`` of its first dossier, else the names of its ``laws`` (of a
-# publication, as ``lawgraph feed-events`` wrote them with its title); read for the items
-# of the page alone.
+# publication, as ``lawgraph feed-events`` wrote them with its title); of the page alone.
 _MATCHED = f"""(
                 SELECT coalesce(json_agg(json_build_object('term', w.term, 'field', w.field)
                                          ORDER BY w.n), {EMPTY_ARRAY})

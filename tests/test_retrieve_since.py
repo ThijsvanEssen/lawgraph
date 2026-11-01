@@ -74,8 +74,11 @@ def _run(name: str, *argv: str) -> None:
         ),
         ("eerstekamer-votes", ("run", {"since": DAY}), ("run", {"since": None})),
         ("eerstekamer-agenda", ("run", {"since": DAY}), ("run", {"since": None})),
-        ("eerstekamer-bills", ("run", {"since": DAY}), ("run", {"since": None})),
-        ("eerstekamer-bill-names", ("run", {"since": DAY}), ("run", {"since": None})),
+        (
+            "eerstekamer-bills",
+            ("run", {"since": DAY, "names_only": False}),
+            ("run", {"since": None, "names_only": False}),
+        ),
         ("staatscourant", ("run", {"since": "2024-09-20"}), ("run_full", {})),
         ("tk-document-links", ("run", {"since": MOMENT}), ("run", {"since": None})),
         ("tk-case-actors", ("run", {"since": MOMENT}), ("run", {"since": None})),

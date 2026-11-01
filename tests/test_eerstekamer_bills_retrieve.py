@@ -7,6 +7,7 @@ import datetime as dt
 from typing import Any, cast
 
 from lawgraph.clients.eerstekamer_site import EerstekamerSiteClient
+from lawgraph.config.constants import RAW_KIND_EERSTEKAMER_BILL
 from lawgraph.core.ek_bills import FINISHED, ListedBill
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.normalize import eerstekamer as normalize_ek
@@ -18,6 +19,14 @@ SITE = "https://www.eerstekamer.nl"
 class _Client:
     def __init__(self) -> None:
         self.older: list[bool] = []
+        self.pages: list[int | None] = []
+
+    def indexed_bills(self, *, pages: int | None) -> list[ListedBill]:
+        self.pages.append(pages)
+        return [
+            ListedBill("/wetsvoorstel/9_oud", None, "", "Een oud voorstel"),
+            ListedBill("/wetsvoorstel/33899_o", "33899", "", "Ontwerpen"),
+        ]
 
     def listed_bills(self, *, older: bool) -> list[ListedBill]:
         self.older.append(older)
@@ -46,7 +55,9 @@ def _fetch(monkeypatch: Any, since: dt.date | None) -> tuple[list[Any], _Client,
     client = _Client()
     pipeline.client = cast(EerstekamerSiteClient, client)
     pipeline.store = cast(GraphStore, None)
-    return list(pipeline.fetch(since=since)), client, asked
+    records = list(pipeline.fetch(since=since))
+    pages = [r for r in records if r.kind == RAW_KIND_EERSTEKAMER_BILL]
+    return pages, client, asked
 
 
 def test_the_bills_listed_and_voted_on_each_once(monkeypatch: Any) -> None:
@@ -68,3 +79,23 @@ def test_a_run_over_everything_reads_the_older_pages(monkeypatch: Any) -> None:
         ("/wetsvoorstel/2_b", "In schriftelijke voorbereiding"),
         ("/wetsvoorstel/3_c", FINISHED),
     ]
+
+
+def _names(since: dt.date | None) -> tuple[list[Any], _Client]:
+    pipeline = object.__new__(retrieve.EerstekamerBillsRetrievePipeline)
+    client = _Client()
+    pipeline.client = cast(EerstekamerSiteClient, client)
+    return list(pipeline.fetch(since=since, names_only=True)), client
+
+
+def test_names_only_stores_the_names_of_the_first_pages_of_a_window() -> None:
+    records, client = _names(dt.date(2026, 11, 1))
+    assert (client.pages, client.older) == ([retrieve.WINDOW_PAGES], [])
+    # an old number names no dossier
+    assert [(r.external_id, r.payload_json) for r in records] == [
+        ("/wetsvoorstel/33899_o", {"label": "33899", "name": "Ontwerpen"})
+    ]
+
+
+def test_a_run_over_everything_reads_the_names_of_the_whole_list() -> None:
+    assert _names(None)[1].pages == [None]

@@ -5,6 +5,7 @@ dossier, as the page gives it (``core.ek_bills``): the day it was submitted
 (``Kerngegevens``: ``ingediend``), its progress block by block (phase, house, state as the
 page marks it, and its documents with kind, date and number), the heading of the list of its
 committee it was found under, and the page it was taken over from with the day it was read.
+Every name the Kamer's list of every bill gives a bill (``ek-bill-name-json``) gets ``ek_name``.
 A bill whose dossier the graph does not hold is skipped.
 """
 
@@ -18,13 +19,14 @@ from typing import Any
 from lawgraph.config.constants import (
     COLLECTION_DOSSIERS,
     RAW_KIND_EERSTEKAMER_BILL,
+    RAW_KIND_EERSTEKAMER_BILL_NAME,
     SOURCE_EERSTEKAMER,
 )
 from lawgraph.core import ek_bills
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.core.raw_records import meta, payload_json, payload_text
 from lawgraph.db import NodeWriter
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -52,26 +54,33 @@ def ek_bill(bill: ek_bills.Bill, meta: dict[str, Any]) -> dict[str, Any]:
 
 
 class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
-    """``ek_bill`` on the dossier of every bill page of the Eerste Kamer."""
+    """``ek_bill`` and ``ek_name`` on the dossier of every bill of the Eerste Kamer."""
 
     def fetch_raw(
         self, *, since: dt.datetime | None = None
     ) -> Iterator[dict[str, Any]]:
         return self._iter_raw_sources(
             source=SOURCE_EERSTEKAMER,
-            kinds=[RAW_KIND_EERSTEKAMER_BILL],
+            kinds=[RAW_KIND_EERSTEKAMER_BILL, RAW_KIND_EERSTEKAMER_BILL_NAME],
             since=since,
         )
 
     def write(self, raw: Records, result: PipelineResult) -> None:
-        """``ek_bill`` on the dossiers. No edges: a bill page adds to its dossier only."""
+        """``ek_bill`` and ``ek_name`` on the dossiers. No edges: a bill adds to its dossier
+        only."""
         found: dict[str, dict[str, Any]] = {}
         for record in raw:
+            if record.get("kind") == RAW_KIND_EERSTEKAMER_BILL_NAME:
+                named = payload_json(record)
+                key = make_node_key(str(named.get("label")))
+                found.setdefault(key, {})["ek_name"] = named.get("name")
+                continue
             bill = ek_bills.bill(payload_text(record) or "")
             if not bill.label:
                 self.progress.skip("no dossier on the page", record.get("external_id"))
                 continue
-            found[make_node_key(bill.label)] = ek_bill(bill, meta(record))
+            props = found.setdefault(make_node_key(bill.label), {})
+            props["ek_bill"] = ek_bill(bill, meta(record))
         known = self.store.existing_keys(COLLECTION_DOSSIERS, set(found))
         for key in sorted(set(found) - known):
             self.progress.skip("dossier not in the graph", key)
@@ -80,14 +89,14 @@ class EerstekamerBillsNormalizePipeline(NormalizePipelineBase[Records]):
                 collection=COLLECTION_DOSSIERS,
                 key=key,
                 labels=[],
-                props={"ek_bill": found[key]},
+                props=found[key],
             )
             for key in sorted(known)
         ]
         with NodeWriter(self.store) as writer:
             writer.add_all(nodes)
         logger.info(
-            "Eerste Kamer: %d bill pages, %d on a dossier the graph holds.",
+            "Eerste Kamer: %d bills, %d on a dossier the graph holds.",
             len(found),
             len(nodes),
         )

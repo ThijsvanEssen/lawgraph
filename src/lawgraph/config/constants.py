@@ -336,7 +336,7 @@ RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED = "ek-composition-observed"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
 RAW_KIND_EERSTEKAMER_BILL = "ek-bill-html"
-# A bill as the list of every bill names it (``retrieve eerstekamer-bill-names``).
+# A bill as the list of every bill names it (``retrieve eerstekamer-bills``).
 RAW_KIND_EERSTEKAMER_BILL_NAME = "ek-bill-name-json"
 # The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
 # committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
