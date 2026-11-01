@@ -39,8 +39,8 @@ def test_a_warm_up_stops_when_newer_data_arrives(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Between its parts the warm-up asks whether the data changed; it stops then, and is
-    not done for the old version."""
-    monkeypatch.setattr(warm, "_warmed", None)
+    not done for the old version. Not the first of a process, which goes on."""
+    monkeypatch.setattr(warm, "_warmed", "earlier")
     asked: list[str] = []
 
     def stats_while_a_pipeline_writes(store_: GraphStore) -> None:
@@ -103,11 +103,11 @@ def test_the_tail_is_warmed_after_the_rest_and_warm_waits_for_it(
         warm, "TAIL", (warm.Part("t1", writes), warm.Part("t2", part("t2")))
     )
     monkeypatch.setattr(warm, "PARTS", ())
-    monkeypatch.setattr(warm, "_warmed", None)
+    monkeypatch.setattr(warm, "_warmed", "earlier")
     ran.clear()
     warm.warm_up(store)
     assert "t2" not in ran  # the tail stopped: the data changed
-    assert warm.warmed_version() is None
+    assert warm.warmed_version() == "earlier"
 
 
 def test_the_warm_up_counts_the_largest_areas_of_law(

@@ -545,7 +545,7 @@ def test_during_a_run_one_computation_serves_the_versions_that_pass(
         target=lambda: answers.append(version_cache.cached(store, ("first",), slow))
     )
     asked.start()
-    until(lambda: computed)
+    until(lambda: bool(computed))
     run.write()
     token = request_context.set_read_deadline(0.2)
     try:

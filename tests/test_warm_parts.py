@@ -39,10 +39,11 @@ def test_the_first_warm_up_goes_on_while_the_data_moves(
             return str(self.reads)
 
     ran: list[str] = []
-    parts = tuple(
-        warm.Part(name, lambda _store, name=name: ran.append(name))
-        for name in ("a", "b")
-    )
+
+    def part(name: str) -> warm.Part:
+        return warm.Part(name, lambda _store: ran.append(name))
+
+    parts = (part("a"), part("b"))
     monkeypatch.setattr(warm, "_warmed", None)
     assert warm._warm_lane(Moving(), "0", parts)  # type: ignore[arg-type]
     assert ran == ["a", "b"]
