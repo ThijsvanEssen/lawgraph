@@ -622,6 +622,118 @@ def test_generic_summaries(store: GraphStore) -> None:
     assert list(queries.generic_summaries(store, min_dates=4)) == []
 
 
+# What these queries read before they read the columns: the same rows must come back.
+_REPLACED_FROM_PROPS = """
+    SELECT j.id, j.key, j.props -> 'ecli' AS ecli, j.props -> 'replaced_by' AS replaced_by,
+           j.props -> 'same_as' AS same_as
+    FROM judgments j
+    WHERE coalesce(json_typeof(j.props -> 'replaced_by'), 'null') <> 'null'
+       OR coalesce(json_typeof(j.props -> 'same_as'), 'null') <> 'null'
+    ORDER BY j.key
+"""
+_IN_SERIES_FROM_PROPS = """
+    SELECT j.props -> 'ecli' FROM judgments j
+    WHERE coalesce(json_typeof(j.props -> 'series_id'), 'null') <> 'null'
+    ORDER BY j.key
+"""
+_GENERIC_FROM_PROPS = """
+    SELECT md5(j.props -> 'summary' #>> '{}') AS fingerprint
+    FROM judgments j
+    WHERE j.source = 'rechtspraak'
+      AND coalesce(json_typeof(j.props -> 'summary'), 'null') <> 'null'
+    GROUP BY fingerprint
+    HAVING count(DISTINCT coalesce((j.props -> 'date_eff')::jsonb, 'null')) >= %(min_dates)s
+    ORDER BY fingerprint
+"""
+
+
+def test_the_columns_give_what_the_props_give(store: GraphStore) -> None:
+    """Null, missing and empty values, a judgment without an ECLI, another source: the
+    queries on the columns return what those on the props returned, after a rewrite too."""
+    template = "Uitspraak in de zaak van"
+    _seed(
+        store,
+        _rs(
+            HR1,
+            series_id="s1",
+            replaced_by=HR2,
+            summary=template,
+            date_eff="2020-01-01",
+        ),
+        _rs(HR2, series_id=None, same_as=HR3, summary=template, date_eff="2020-01-02"),
+        _rs(HR3, replaced_by=None, same_as=None, summary=template),
+        _rs(PHR, replaced_by="", series_id="", summary="", date_eff="2020-01-03"),
+        _rs(GH, summary=None, date_eff=None),
+        _rs(RB),
+        _judgment(
+            ECHR, source="echr", series_id="s2", summary=template, date_eff="2021-01-01"
+        ),
+        {
+            "key": "zonder_ecli",
+            "type": "judgment",
+            "labels": ["Judgment"],
+            "props": {"source": "rechtspraak", "replaced_by": HR1, "series_id": "s3"},
+        },
+    )
+
+    def same() -> None:
+        assert list(queries.replaced_judgments(store)) == list(
+            store.query(_REPLACED_FROM_PROPS)
+        )
+        assert list(queries.judgments_in_series(store)) == list(
+            store.query(_IN_SERIES_FROM_PROPS)
+        )
+        for min_dates in (1, 2, 3, 4):
+            assert list(queries.generic_summaries(store, min_dates=min_dates)) == list(
+                store.query(_GENERIC_FROM_PROPS, {"min_dates": min_dates})
+            )
+
+    same()
+    assert len(list(queries.replaced_judgments(store))) == 4
+    # a later write clears them, as the steps do
+    _seed(store, _rs(HR1, series_id=None, replaced_by=None), _rs(HR2, same_as=None))
+    same()
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        queries.replaced_judgments,
+        queries.judgments_in_series,
+        lambda store: queries.generic_summaries(store, min_dates=3),
+    ],
+    ids=["replaced_judgments", "judgments_in_series", "generic_summaries"],
+)
+def test_the_nightly_reads_leave_the_props_alone(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, read: Any
+) -> None:
+    """The props of a judgment hold its text: reading them for every judgment took these
+    steps 20 minutes a night."""
+    calls = recorded(store, monkeypatch)
+    list(read(store))
+    assert calls
+    assert not [call.text for call in calls if "props" in call.text]
+
+
+@pytest.mark.parametrize(
+    "read",
+    [queries.replaced_judgments, queries.judgments_in_series],
+    ids=["replaced_judgments", "judgments_in_series"],
+)
+def test_the_nightly_reads_go_through_an_index(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch, read: Any
+) -> None:
+    """As ``ops/nightly-explain.sql`` A2 and B2 plan them: an index finds the rows, no walk
+    over every judgment in key order (A1 and B1)."""
+    calls = recorded(store, monkeypatch)
+    list(read(store))
+    nodes = list(plan_nodes(explain(store, calls[0].statement, disable=("seqscan",))))
+    scans = [node for node in nodes if "Index Name" in node]
+    assert scans
+    assert not [node for node in scans if "Index Cond" not in node]
+    assert not [node for node in nodes if node["Node Type"] == "Seq Scan"]
+
+
 def _day(ecli: str, **props: Any) -> dict[str, Any]:
     return _rs(ecli, court_code="RBAMS", date_eff="2020-01-01", **props)
 
