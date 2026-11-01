@@ -10,9 +10,11 @@ request waits for it no longer than its own deadline, then answers 503, and the
 computation goes on for the next. Once the data changed a request waits ``STALE_WAIT`` for
 the new answer at most, then takes the last one (of the version before): a facet count or
 the statistics of the search minutes old is good, a search that hangs on every write of the
-pipelines is not. ``on_new_version`` functions (the API's warm-up) run in
-the background when a store shows a version it did not have. A store without
-``data_version`` (a fake) keeps nothing.
+pipelines is not. During a run of the pipelines (``_in_run``: the data keeps moving) a request
+that has an earlier answer takes it at once, and nothing is computed for it until it is
+``MAX_AGE`` old: what is computed now is out of date before it is done. ``on_new_version``
+functions (the API's warm-up) run in the background when a store shows a version it did not
+have. A store without ``data_version`` (a fake) keeps nothing.
 """
 
 from __future__ import annotations
@@ -147,7 +149,7 @@ _values: OrderedDict[Hashable, Any] = OrderedDict()
 _running: dict[tuple[tuple[str, str], Hashable], concurrent.futures.Future[Any]] = {}
 # The last answer per (database, key), of whatever version: what a request takes while the
 # answer of a new version computes.
-_latest: OrderedDict[Hashable, Any] = OrderedDict()
+_latest: OrderedDict[Hashable, tuple[Any, float]] = OrderedDict()  # with when computed
 _NONE = object()
 # The answers of ``lasting``, with the moment each was computed (``time.monotonic``), the
 # least recently used going first.
@@ -185,6 +187,12 @@ class WarmUpClock:
 
 _clock = WarmUpClock()
 _warm_started: dict[str, float] = {}  # database -> when its last warm-up began
+# A run of the pipelines is data that moves for this many seconds at least...
+RUN_AFTER = 60.0
+# ...and is over when it stood still this long (a step can read for minutes between writes).
+RUN_QUIET = 300.0
+# database -> (the data version last seen, when it began to move, when it last moved)
+_moves: dict[str, tuple[str, float, float]] = {}
 _warmers: list[Callable[[Any], None]] = []
 _wanted: dict[
     str, tuple[Any, float, str | None]
@@ -195,6 +203,24 @@ _warming: set[str] = set()  # the databases a warm-up runs for now
 _polled: dict[
     str, Any
 ] = {}  # database -> the store its version is read with while idle
+
+
+def _seen(name: str, version: str) -> None:
+    """Note the data version of database *name* as just read."""
+    now = _clock.now()
+    with _lock:
+        known, began, moved = _moves.get(name, (version, now, -RUN_QUIET))
+        if version != known:
+            began = now if now - moved > RUN_QUIET else began
+            moved = now
+        _moves[name] = (version, began, moved)
+
+
+def _in_run(name: str) -> bool:
+    """Whether the pipelines are writing database *name* now, as far as its versions tell
+    (``RUN_AFTER``, ``RUN_QUIET``); one change alone, as of a short poll, is no run."""
+    _, began, moved = _moves.get(name, ("", 0.0, -RUN_QUIET))
+    return moved - began >= RUN_AFTER and _clock.now() - moved <= RUN_QUIET
 
 
 def on_new_version(warm: Callable[[Any], None]) -> None:
@@ -216,6 +242,8 @@ def warm(store: VersionedStore, *, settle: float | None = None) -> None:
     except Exception as exc:  # noqa: BLE001 — the worker reads it again when it is due
         _unread(exc)
         known = None
+    if known:
+        _seen(name, known)
     with _lock:
         _polled[name] = store
         _wanted[name] = (store, _clock.now() + wait, known)
@@ -231,10 +259,12 @@ def superseded(store: VersionedStore, version: str | None) -> bool:
     """Whether *store* holds newer data than *version* (read now): a warm-up of *version*
     stops between its parts."""
     try:
-        return bool(store.data_version() != version)
+        now = store.data_version()
     except Exception as exc:  # noqa: BLE001 — no answer is no reason to stop
         _unread(exc)
         return False
+    _seen(_database(store), now)
+    return bool(now != version)
 
 
 def _warm_forever() -> None:
@@ -339,6 +369,8 @@ def _version(
         known, per_table = _read_versions(store)
         with _lock:
             _versions[name] = (known, per_table, now)
+        if known:
+            _seen(name, known)
         if known and known != before and before is not None:
             warm(store)
     if not known:
@@ -399,7 +431,8 @@ def cached[T](
     """The answer for *key* of the current data version of *store*: kept, or computed once
     in the background while this request waits for it no longer than its deadline
     (``ReadTimedOut`` then, and the computation goes on). A request that has the answer of
-    an earlier version waits ``STALE_WAIT`` at most, then takes that one.
+    an earlier version waits ``STALE_WAIT`` at most, then takes that one; during a run of
+    the pipelines it takes that one at once.
 
     With *tables*, the tables the computation reads, the answer is kept while those tables
     stand still, whatever is written to others, and ``MAX_AGE`` at most;
@@ -419,7 +452,13 @@ def cached[T](
             _values.move_to_end(entry_key)
             request_timing.hit()
             return _values[entry_key]  # type: ignore[no-any-return]
-        last = _latest.get((version[0], key), _NONE)
+        last, last_at = _latest.get((version[0], key), (_NONE, 0.0))
+        in_run = (
+            last is not _NONE and read_time_left() is not None and _in_run(version[0])
+        )
+        if in_run and time.monotonic() - last_at <= MAX_AGE:
+            request_timing.hit()
+            return last  # type: ignore[no-any-return]
     started = time.perf_counter()
     if inline:
         value = _keep(entry_key, compute())
@@ -453,9 +492,9 @@ def lasting[T](
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     Once older, it is computed again in the background, and a request waits for that
-    ``STALE_WAIT`` at most, then takes the one it had. From ``REFRESH_AHEAD`` of its age on
-    a request takes the kept one at once while the new one computes, and the warm-up (no
-    deadline) waits for the new one; *inline* as ``cached``."""
+    ``STALE_WAIT`` at most (not at all during a run), then takes the one it had. From
+    ``REFRESH_AHEAD`` of its age on a request takes the kept one at once while the new one
+    computes, and the warm-up (no deadline) waits for the new one; *inline* as ``cached``."""
     if not isinstance(store, VersionedStore):
         return compute()
     entry_key = ((_database(store), "lasting"), key)
@@ -506,10 +545,22 @@ def _compute_or_wait[T](
 ) -> T:
     """The answer *run* computes and keeps for *entry_key*: computed once on the pool
     while this request waits for it (``_answer``, with *last* the answer it had), or here
-    when a computation of the cache asked for it (``_nested``)."""
+    when a computation of the cache asked for it (``_nested``). During a run one computation
+    of *key* that goes on for an earlier version will do: a new one per version, each behind
+    the last on the pool, is how a first answer ran past its deadline."""
     with _lock:
         nested = _in_cache_worker()
+        in_run = _in_run(entry_key[0][0])
         future = _running.get(entry_key)
+        if future is None and in_run:
+            future = next(
+                (
+                    f
+                    for (v, k), f in _running.items()
+                    if v[0] == entry_key[0][0] and k == key
+                ),
+                None,
+            )
         if future is None and not nested:
             future = _pool.submit(run)
             _running[entry_key] = future
@@ -517,7 +568,7 @@ def _compute_or_wait[T](
         _nested(key)
         return run()
     assert future is not None
-    return _answer(future, last, key)  # type: ignore[no-any-return]
+    return _answer(future, last, key, in_run)  # type: ignore[no-any-return]
 
 
 def _in_cache_worker() -> bool:
@@ -537,13 +588,16 @@ def _nested(key: Hashable) -> None:
     )
 
 
-def _answer(future: concurrent.futures.Future[Any], last: Any, key: Hashable) -> Any:
+def _answer(
+    future: concurrent.futures.Future[Any], last: Any, key: Hashable, in_run: bool
+) -> Any:
     """The answer *future* computes, waited for no longer than the deadline of the request;
-    with an earlier answer (*last*) a request waits ``STALE_WAIT`` at most, then takes that."""
+    with an earlier answer (*last*) a request waits ``STALE_WAIT`` at most (nothing during a
+    run), then takes that."""
     wait = read_time_left()
     if last is not _NONE and wait is not None:
         # only a request takes an old answer; the warm-up waits for the new one
-        limit = _stale_wait.get()
+        limit = 0.0 if in_run else _stale_wait.get()
         limit = STALE_WAIT if limit is None else limit
         budget = _stale_budget.get()
         wait = min(wait, limit if budget is None else budget.wait(limit))
@@ -659,7 +713,7 @@ def _keep[T](entry_key: tuple[tuple[str, str], Hashable], value: T) -> T:
         while len(_values) > MAX_ENTRIES:
             dropped, _ = _values.popitem(last=False)
             _computed_at.pop(dropped, None)
-        _latest[(database, key)] = value
+        _latest[(database, key)] = (value, time.monotonic())
         _latest.move_to_end((database, key))
         while len(_latest) > MAX_ENTRIES:
             _latest.popitem(last=False)
@@ -730,6 +784,7 @@ def clear() -> None:
         _running.clear()
         _wanted.clear()
         _warm_started.clear()
+        _moves.clear()
         _polled.clear()
     _unread(None)
 

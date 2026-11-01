@@ -6,6 +6,8 @@ from __future__ import annotations
 import threading
 import time
 
+import pytest
+
 from lawgraph.db import GraphStore, request_context, request_timing, version_cache
 from tests.fakes import PATIENCE, ManualClock, until
 
@@ -457,3 +459,127 @@ def test_a_request_sees_whether_the_cache_held_its_answer(store: GraphStore) -> 
         assert timing.hits == 1
     finally:
         request_timing.stop(token)
+
+
+class _Run:
+    """A run of the pipelines on a clock the test moves: the data has been moving for
+    ``RUN_AFTER`` seconds when it begins, and each ``write`` moves it again."""
+
+    def __init__(self, store: GraphStore, monkeypatch) -> None:
+        self.store = store
+        self.clock = ManualClock()
+        monkeypatch.setattr(version_cache, "_clock", self.clock)
+        self.writes = 0
+        version_cache.current_version(store)
+        self.write()
+        self.clock.advance(version_cache.RUN_AFTER)
+        self.write()
+
+    def write(self) -> None:
+        self.writes += 1
+        self.store.bulk_insert_or_update_nodes(
+            "instruments", [_instrument(f"run{self.writes}")]
+        )
+        version_cache.current_version(self.store)
+
+
+def test_during_a_run_a_request_takes_the_last_answer_and_nothing_computes(
+    store: GraphStore, monkeypatch
+) -> None:
+    """Every request of a list waited 2 s during a run (``STALE_WAIT``), for an answer out of
+    date before it was done."""
+    run = _Run(store, monkeypatch)
+    assert version_cache.cached(store, ("run",), lambda: "old") == "old"
+    run.write()
+    computed: list[int] = []
+    token = request_context.set_read_deadline(30)
+    try:
+        assert (
+            version_cache.cached(store, ("run",), lambda: computed.append(1)) == "old"
+        )
+    finally:
+        request_context.reset_read_deadline(token)
+    assert computed == []
+    # the warm-up, without a deadline, does compute
+    assert version_cache.cached(store, ("run",), lambda: "new") == "new"
+
+
+def test_during_a_run_an_answer_too_old_is_computed_behind_it(
+    store: GraphStore, monkeypatch
+) -> None:
+    run = _Run(store, monkeypatch)
+    assert version_cache.cached(store, ("run",), lambda: "old") == "old"
+    run.write()
+    monkeypatch.setattr(version_cache, "MAX_AGE", -1.0)
+    release = threading.Event()
+
+    def slow() -> str:
+        release.wait(PATIENCE)
+        return "new"
+
+    token = request_context.set_read_deadline(30)
+    try:
+        assert version_cache.cached(store, ("run",), slow) == "old"
+        assert not release.is_set()
+    finally:
+        request_context.reset_read_deadline(token)
+        release.set()
+
+
+def test_during_a_run_one_computation_serves_the_versions_that_pass(
+    store: GraphStore, monkeypatch
+) -> None:
+    """A computation per version, each behind the last on the pool, and ``/api/stats`` gave 503
+    after 30 s for an answer it never had."""
+    run = _Run(store, monkeypatch)
+    release = threading.Event()
+    computed: list[int] = []
+
+    def slow() -> str:
+        computed.append(1)
+        release.wait(PATIENCE)
+        return "first"
+
+    answers: list[str] = []
+    asked = threading.Thread(
+        target=lambda: answers.append(version_cache.cached(store, ("first",), slow))
+    )
+    asked.start()
+    until(lambda: bool(computed))
+    run.write()
+    token = request_context.set_read_deadline(0.2)
+    try:
+        with pytest.raises(request_context.ReadTimedOut):
+            version_cache.cached(store, ("first",), slow)
+    finally:
+        request_context.reset_read_deadline(token)
+        release.set()
+    asked.join(PATIENCE)
+    assert answers == ["first"]
+    assert computed == [1]
+
+
+def test_one_change_is_no_run(store: GraphStore, monkeypatch) -> None:
+    """A write and a read, as after a short poll: the new answer is waited for as ever."""
+    clock = ManualClock()
+    monkeypatch.setattr(version_cache, "_clock", clock)
+    assert version_cache.cached(store, ("one",), lambda: "old") == "old"
+    clock.advance(version_cache.RUN_AFTER * 2)
+    store.bulk_insert_or_update_nodes("instruments", [_instrument("a")])
+    token = request_context.set_read_deadline(30)
+    try:
+        assert version_cache.cached(store, ("one",), lambda: "new") == "new"
+    finally:
+        request_context.reset_read_deadline(token)
+
+
+def test_a_run_ends_when_the_data_stands_still(store: GraphStore, monkeypatch) -> None:
+    run = _Run(store, monkeypatch)
+    assert version_cache.cached(store, ("end",), lambda: "old") == "old"
+    run.write()
+    run.clock.advance(version_cache.RUN_QUIET + 1)
+    token = request_context.set_read_deadline(30)
+    try:
+        assert version_cache.cached(store, ("end",), lambda: "new") == "new"
+    finally:
+        request_context.reset_read_deadline(token)

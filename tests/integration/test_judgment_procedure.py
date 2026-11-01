@@ -27,6 +27,9 @@ from lawgraph.db import EdgeWriter, GraphStore
 from lawgraph.pipelines.semantic.rechtspraak_appeal import (
     EDGE_SOURCE as APPEAL_SOURCE,
 )
+from lawgraph.pipelines.semantic.rechtspraak_appeal import (
+    RechtspraakAppealSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.rechtspraak_conclusions import (
     EDGE_SOURCE as CONCLUSION_SOURCE,
 )
@@ -541,3 +544,38 @@ def test_a_procedural_link_is_not_also_a_citation(database: str, cli: Any) -> No
         ("ADVISES_ON", "inbound"): ["ecli_nl_phr_2026_202"],
         ("REFERS_TO", "outbound"): ["ecli_nl_hr_2015_1"],
     }
+
+
+def test_a_pair_that_names_each_other_is_written_once(
+    database: str, cli: Any, monkeypatch: Any
+) -> None:
+    """Written in batches apart, its edge took the basis of the later judgment and then that
+    of the earlier on every run: a run that finds nothing new changed 133,000 edges on prod."""
+    later, earlier = "ECLI:NL:GHAMS:2026:100", "ECLI:NL:RBAMS:2024:200"
+    store = GraphStore()
+    write_judgments(
+        store,
+        {
+            later: rechtspraak_xml(
+                later,
+                "Gerechtshof Amsterdam",
+                "2026-03-01",
+                "200.1/01",
+                procedure="Hoger beroep",
+                relations=_earlier(earlier),
+            ),
+            earlier: rechtspraak_xml(
+                earlier,
+                "Rechtbank Amsterdam",
+                "2024-03-01",
+                "C/13/1",
+                relations=_later(later),
+            ),
+        },
+    )
+    cli("normalize", "rechtspraak")
+    monkeypatch.setitem(EdgeWriter.__init__.__kwdefaults__, "batch_size", 1)
+    first = RechtspraakAppealSemanticPipeline(store=store).run()
+    again = RechtspraakAppealSemanticPipeline(store=store).run()
+    assert (first.created, again.created, again.updated) == (1, 0, 0)
+    assert again.unchanged == 1

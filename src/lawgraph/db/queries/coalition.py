@@ -291,10 +291,16 @@ _COLUMNS = (
 
 
 def keep_decision_coalition(store: Store, rows: list[dict[str, Any]]) -> None:
-    """Write the rows of ``lg_decision_coalition``, replacing those of the same decision."""
+    """Write the rows of ``lg_decision_coalition``, replacing those of the same decision; a
+    row that holds them already is left."""
     if not rows:
         return
     names = ", ".join(_COLUMNS)
+    # ``factions`` is json, which has no equality
+    stored, written = (
+        ", ".join(f"{side}.{c}{'::text' if c == 'factions' else ''}" for c in _COLUMNS)
+        for side in ("lg_decision_coalition", "EXCLUDED")
+    )
     store.execute(
         f"""
         INSERT INTO lg_decision_coalition ({names})
@@ -303,6 +309,7 @@ def keep_decision_coalition(store: Store, rows: list[dict[str, Any]]) -> None:
         )
         ON CONFLICT (id) DO UPDATE SET
         {", ".join(f"{c} = EXCLUDED.{c}" for c in _COLUMNS[1:])}
+        WHERE ({stored}) IS DISTINCT FROM ({written})
         """,
         {"rows": json.dumps([{c: row[c] for c in _COLUMNS} for row in rows])},
     )
