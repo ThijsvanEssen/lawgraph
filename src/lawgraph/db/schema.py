@@ -571,7 +571,6 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         _str("date_published"),
         # the ministry first responsible for a BWB regulation (its WTI)
         Column("ministry", "text", "lg_str(props -> 'ministry')", added=True),
-        # the BWB text of a Verdragenbank treaty: the list has that text alone
         Column("same_as", "text", "lg_str(props -> 'same_as')", added=True),
     ),
     COLLECTION_ARTICLES: (
@@ -2631,9 +2630,8 @@ def statements() -> list[str]:
         EK_SEATS,
         nodes_view(),
     ]
-    found += data_version_triggers(COLLECTION_EDGES)
-    found += data_version_triggers(DEFINITIONS_TABLE)
-    found += data_version_triggers(UNLINKED_TABLE)
+    for table in (COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE):
+        found += data_version_triggers(table)
     return found
 
 

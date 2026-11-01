@@ -93,7 +93,20 @@ class TreatyPublicationProps(_StrictBase):
     """What it publishes: "goedkeuring, inwerkingtreding"."""
 
 
-class TreatyPartyProps(_StrictBase):
+class _TreatyDatesProps(_StrictBase):
+    """The dates a party or part has, as the register gives them."""
+
+    provisional: str | None = None
+    """`DatumVoorlopigeToepassing`."""
+    in_force: str | None = None
+    """`DatumInwerkingtreding`."""
+    retroactive: str | None = None
+    """`DatumTerugwerkendeKracht`."""
+    terminated: str | None = None
+    """`DatumBuitenwerkingtreding`."""
+
+
+class TreatyPartyProps(_TreatyDatesProps):
     """A state party to a treaty, with its dates as the register gives them."""
 
     name: str
@@ -104,36 +117,20 @@ class TreatyPartyProps(_StrictBase):
     """`DatumRatificatie`."""
     consent: str | None = None
     """`TypeInstemming`: `R`, `T` (toetreding), `A`, ..."""
-    provisional: str | None = None
-    """`DatumVoorlopigeToepassing`."""
-    in_force: str | None = None
-    """`DatumInwerkingtreding`."""
-    retroactive: str | None = None
-    """`DatumTerugwerkendeKracht`."""
     denounced: str | None = None
     """`DatumOpzegging`."""
-    terminated: str | None = None
-    """`DatumBuitenwerkingtreding`."""
     reservation: bool | None = None
     """`IsVoorbehoud`: it made a reservation."""
     objection: bool | None = None
     """`IsBezwaar`: it made an objection."""
 
 
-class TreatyKingdomPartProps(_StrictBase):
+class TreatyKingdomPartProps(_TreatyDatesProps):
     """A part of the Kingdom a treaty applies to, with its dates as the register gives
     them."""
 
     part: str | None = None
     """"Nederland (in Europa)", "Aruba"."""
-    provisional: str | None = None
-    """`DatumVoorlopigeToepassing`."""
-    in_force: str | None = None
-    """`DatumInwerkingtreding`."""
-    retroactive: str | None = None
-    """`DatumTerugwerkendeKracht`."""
-    terminated: str | None = None
-    """`DatumBuitenwerkingtreding`."""
 
 
 class TreatyDossierProps(_StrictBase):

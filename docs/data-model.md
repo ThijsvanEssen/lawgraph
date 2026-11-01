@@ -619,23 +619,23 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `tractatenblad[].text` | `str` | As the register writes it: "1951, 154". |
 | `tractatenblad[].description` | `str` | What it publishes: "goedkeuring, inwerkingtreding". |
 | `parties` | `list[object]` | Of a Verdragenbank treaty: its state parties. |
+| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
+| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
+| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
+| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].name` | `str` | The state. |
 | `parties[].signed` | `str` | `DatumOndertekenning`. |
 | `parties[].ratified` | `str` | `DatumRatificatie`. |
 | `parties[].consent` | `str` | `TypeInstemming`: `R`, `T` (toetreding), `A`, ... |
-| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
-| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
-| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `parties[].denounced` | `str` | `DatumOpzegging`. |
-| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].reservation` | `bool` | `IsVoorbehoud`: it made a reservation. |
 | `parties[].objection` | `bool` | `IsBezwaar`: it made an objection. |
 | `kingdom_parts` | `list[object]` | Of a Verdragenbank treaty: the parts of the Kingdom it applies to. |
-| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kingdom_parts[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
 | `kingdom_parts[].in_force` | `str` | `DatumInwerkingtreding`. |
 | `kingdom_parts[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `kingdom_parts[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
+| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kamerstukken` | `list[object]` | Of a Verdragenbank treaty: the dossiers of its approval, each once. |
 | `kamerstukken[].dossier` | `str` | The dossier number. |
 | `kamerstukken[].rijks_number` | `str` | The number of a rijkswet (`R2188`), as the register writes it. |
