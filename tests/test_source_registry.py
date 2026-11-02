@@ -255,12 +255,17 @@ def test_a_semantic_run_since_a_date_leaves_the_weekly_steps_out() -> None:
     from lawgraph.sources.registry import PIPELINES
 
     every = [p.name for p in PIPELINES["semantic"]]
-    since = argparse.Namespace(since=dt.datetime(2026, 10, 28, tzinfo=dt.UTC))
+    moment = dt.datetime(2026, 10, 28, tzinfo=dt.UTC)
+    since = argparse.Namespace(since=moment, only_since=False)
     daily = [p.name for p in _pipelines_of("semantic", since)]
     assert [n for n in every if n not in daily] == ["graph-light"]
     assert daily == [n for n in every if n != "graph-light"]
     full = [p.name for p in _pipelines_of("semantic", argparse.Namespace(since=None))]
     assert full == every
+    only = argparse.Namespace(since=moment, only_since=True)
+    assert [p.name for p in _pipelines_of("semantic", only)] == [
+        p.name for p in PIPELINES["semantic"] if p.command.accepts_since
+    ]
 
 
 # ── the description and the options of a command ────────────────────────────

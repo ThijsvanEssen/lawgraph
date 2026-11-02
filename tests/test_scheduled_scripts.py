@@ -134,7 +134,7 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         "semantic bwb-definitions --limit 5000",
         "semantic bwb-definitions --after k1 --limit 5000",
         "semantic graph-heat",
-        "expand-graph --no-final-pass",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -160,7 +160,7 @@ def test_a_failing_weekly_step_is_told_and_the_rest_still_runs(checkout: Path) -
         "Week semantic tk: mislukt, db-weg [herhaalt]"
     ]
     assert _calls(checkout)[-3:] == [
-        "expand-graph --no-final-pass",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -393,7 +393,7 @@ def test_a_slice_that_does_not_go_on_stops_with_a_failure(
     assert done.returncode == 1
     assert failure in (checkout / "logs" / "runs.log").read_text()
     assert _calls(checkout)[-3:] == [
-        "expand-graph --no-final-pass",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -524,7 +524,7 @@ def test_past_its_time_the_weekly_run_starts_no_step_and_tells_what_is_left(
     assert done.returncode == 0
     assert _calls(checkout)[-1] == "semantic graph-heat"
     assert (
-        "weekly.sh: ok, left for next week: lawgraph expand-graph --no-final-pass; "
+        "weekly.sh: ok, left for next week: lawgraph expand-graph --light; "
         "lawgraph check; lawgraph search-candidates"
     ) in (checkout / "logs" / "runs.log").read_text()
     assert alerts.read_text().splitlines() == [
