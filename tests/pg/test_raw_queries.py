@@ -188,6 +188,14 @@ def test_the_names_the_votes_of_a_faction_give_it(store: GraphStore) -> None:
     assert [(r["faction_id"], r["label"]) for r in rows] == [("f-nsc", "NSC")]
 
 
+def test_no_faction_asks_the_database_nothing(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = recorded(store, monkeypatch)
+    assert list(raw_queries.vote_labels_of_factions(store, [])) == []
+    assert calls == []
+
+
 def test_judgments_with_payloads(store: GraphStore) -> None:
     _fill(store)
     refs = list(raw_queries.judgment_payload_refs(store, since_iso=None, batch_size=10))
