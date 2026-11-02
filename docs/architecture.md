@@ -130,7 +130,7 @@ left out: `expand-graph` fetches those acts. A step that ends `ok` is marked in
 `--plan` prints the plan and what is done.
 
 **Scheduled runs.** `scripts/daily.sh` runs each phase `--since last`, then `check
---skip-edges`; `scripts/weekly.sh` runs a full `semantic all`, `expand-graph` and `check`. They share one
+--skip-edges`; `scripts/weekly.sh` runs in full the semantic steps that differ from the daily run, `expand-graph` and `check`. They share one
 lock (`scripts/_run.sh`), so two never write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
 
 **Release.** A push to the branch `release` deploys that commit once `tests.yaml` is green on it:
