@@ -5,6 +5,8 @@
 #
 # Step by step, each under the lock on its own (scripts/step.sh), so the polls run in between: the run as a whole
 # takes hours, one step minutes. The steps are those of `semantic all`, in its order (`semantic all --list`), but:
+# - the steps with no --since that are named below are left to the daily run: it ran them with the same arguments
+#   this same day, and runs them again at 00:00 UTC. What the steps of this run change reaches them then;
 # - rechtspraak-citations is left to the daily run: a judgment cited by ECLI that is not loaded yet is a stub the
 #   edge already reaches, and fills when it comes; the run over all (1h58m) adds nothing new each week;
 # - rechtspraak (the article citations: a law loaded this week takes its citations over) and bwb-definitions go
@@ -104,6 +106,11 @@ run retrieve bwb-history
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;
+    bwb-amendments | bwb-annexes | bwb-publications | bwb-relation-types | \
+    eerstekamer | echr | eurlex-cjeu | graph-heat | graph-list-stats | graph-steps | kst-sru | \
+    rechtspraak-conclusions | rechtspraak-duplicates | staatsblad | staatsblad-law-references | \
+    tk-amendment-articles | tk-dictum | tk-dossier-outcomes | tk-dossier-relations | tk-government | \
+    tk-mvt | tk-mvt-articles | tk-paper-outcomes | tk-transposition-tables | tooi-ministries | verdragenbank) ;;
     rechtspraak) slices rechtspraak "${RECHTSPRAAK_SLICE:-100000}" ;;
     bwb-definitions) slices bwb-definitions "${DEFINITIONS_SLICE:-5000}" ;;
     *) run semantic "$name" ;;
