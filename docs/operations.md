@@ -403,7 +403,7 @@ scheduler runs; nothing is installed for you.
 | Script | Runs | Why |
 |--------|------|-----|
 | `daily.sh` | `retrieve all`, `normalize all`, `semantic all` (without `graph-light`), each `--since last`; `feed-events`; `check --skip-edges`; `search-stats prune`; `search-candidates`; `sitemaps` and then `prewarm`, after the run gave the lock up (`unlock` in `_run.sh`: they write files or only read, so a poll may run beside them) | what the sources changed; a day without a run is caught up by the next |
-| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), `retrieve eerstekamer-persons --sitting` and `normalize eerstekamer-persons` (the pages of the sitting members of the Eerste Kamer and their periods), `retrieve bwb-history` (the SRU listing of every toestand, which the daily run skips with `--since`), then the steps of `semantic all` in its order (`semantic all --list`, the order of the registry: what a step reads comes before it, the linkers before `graph-light`, `bwb` before `bwb-amendments`) in full, `expand-graph --no-final-pass` (the steps ran in full just before; a link from an older text to what it fetches comes the next week), `check`, `search-candidates`. Step by step, each under the lock on its own (`scripts/step.sh`, which waits up to an hour, `LAWGRAPH_LOCK_WAIT`, for a running poll), so the polls run in between. `rechtspraak` and `bwb-definitions` go in slices (`RECHTSPRAAK_SLICE`, default 100000 judgments; `DEFINITIONS_SLICE`, default 5000 regulations); a slice that does not go on (the same key again) or more than `MAX_SLICES` (200) of them stops the step as a failure. `rechtspraak-citations` is left to the daily run: a judgment cited by an ECLI that is not loaded yet is a stub the edge already reaches, and fills when it comes. A failing step does not stop the others; the failures are told at the end | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
+| `weekly.sh` | `retrieve tk-dossiers --since 1d --skip-decisions --skip-documents` and `normalize tk-dossiers --since 1d` (the members, factions, seats and vacant seats, which `daily.sh` skips with `--skip-members`), `retrieve eerstekamer-persons --sitting` and `normalize eerstekamer-persons` (the pages of the sitting members of the Eerste Kamer and their periods), `retrieve bwb-history` (the SRU listing of every toestand, which the daily run skips with `--since`), then the steps of `semantic all` in its order (`semantic all --list`, the order of the registry: what a step reads comes before it, the linkers before `graph-light`, `bwb` before `bwb-amendments`) in full, `expand-graph --no-final-pass` (the steps ran in full just before; a link from an older text to what it fetches comes the next week), `check`, `search-candidates`. Step by step, each under the lock on its own (`scripts/step.sh`, which waits up to an hour, `LAWGRAPH_LOCK_WAIT`, for a running poll), so the polls run in between. `rechtspraak` and `bwb-definitions` go in slices (`RECHTSPRAAK_SLICE`, default 100000 judgments; `DEFINITIONS_SLICE`, default 5000 regulations); a slice that does not go on (the same key again) or more than `MAX_SLICES` (200) of them stops the step as a failure. `rechtspraak-citations` is left to the daily run: a judgment cited by an ECLI that is not loaded yet is a stub the edge already reaches, and fills when it comes. A failing step does not stop the others; the failures are told at the end. From `LAWGRAPH_WEEKLY_UNTIL` (HHMM UTC, default 2330) on the day it began no step starts, so the nightly run of 00:00 gets the lock: what is left waits for next week and is told too | a new seat or vacancy shows within a week; a text loaded long ago can name a law loaded this week; what is named and missing is then fetched |
 | `poll.sh CHAIN [WINDOW]` | `poll CHAIN --since WINDOW`, then `feed-events --days 14` and `search-candidates`; the window by default `4h` (`tk`, `ek`), `6h` (`rechtspraak`), `1d` (`echr`) | between the nightly runs, what one source published, up to the feed; the window reaches back past the poll before it, and the first poll of a day past the nightly run |
 
 One run at a time (a lock directory in `$TMPDIR`; a second run exits 75 and says so, after
@@ -417,10 +417,10 @@ A failed run runs `LAWGRAPH_ALERT_COMMAND` (with `sh -c`, the message in
 `LAWGRAPH_ALERT_MESSAGE`) when it is set in the environment of the scheduler, for example
 `curl -s -d "$LAWGRAPH_ALERT_MESSAGE" https://ntfy.sh/<topic>`; a failing alert command is
 noted in `runs.log` and changes nothing else. A run given up three times in a row (per script, and per
-chain for `poll.sh`) runs the alert too, once; the count (`skipped-<script>[-<chain>]` in the log directory)
-goes back to nothing when the run starts. A command that exits 3 (a source refused us, the rest went on) does not
-fail the run, but is alerted. `weekly.sh` alerts once, at its end: its failed steps and those it skipped because a
-poll held the lock past `LAWGRAPH_LOCK_WAIT`.
+chain for `poll.sh`) runs the alert too, once, and `daily.sh` every time it is given up; the count
+(`skipped-<script>[-<chain>]` in the log directory) goes back to nothing when the run starts. A command that exits 3 (a source refused us, the rest went on) does not
+fail the run, but is alerted. `weekly.sh` alerts once, at its end: its failed steps, those it skipped because a
+poll held the lock past `LAWGRAPH_LOCK_WAIT`, and those left for next week because its time was over.
 
 The alert is one line of fixed form ("Alerts" below). With cron:
 
@@ -509,6 +509,7 @@ Outcomes:
 | `bron-weg` | a source refused us; the rest went on |
 | `overgeslagen` | not run, another run held the lock (`3x`: the run, so often in a row) |
 | `vast` | a step in slices went no further |
+| `blijft-liggen` | not run, the time of the weekly run was over; next week it runs |
 | `herstart` | the API was restarted and answers again |
 
 Causes:
@@ -526,6 +527,7 @@ Causes:
 | `challenge` | the source answered with a challenge page |
 | `geweigerd` | the source refused us otherwise |
 | `geen-voortgang` | a slice named the same key again, or there were too many |
+| `te-laat` | past `LAWGRAPH_WEEKLY_UNTIL`, so the nightly run gets the lock |
 | `download <oorzaak>` | downloads failed; the cause of the first in fixed words (`download http-500`, `download time-out`, `download geen-pdf`) |
 | `exit-<N>` | the command ended with this exit code without saying why |
 | `onverwacht <Type> <tekst>` | any other failure: its exception and its first 60 characters |

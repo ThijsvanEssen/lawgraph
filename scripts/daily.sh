@@ -1,6 +1,8 @@
 #!/bin/sh
 # Every day: what the sources changed since the last complete run of each phase.
 # `--since last` goes on where that run began, so a day without a run is caught up.
+# Given up, it says so every time: what the night misses (the feed, the check, the sitemaps) nothing else runs.
+TELL_EVERY_SKIP=1
 . "$(dirname "$0")/_run.sh"
 
 step retrieve all --since last
