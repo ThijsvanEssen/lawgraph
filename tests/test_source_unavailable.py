@@ -125,7 +125,7 @@ def test_expand_graph_is_not_failed_by_an_unavailable_source(monkeypatch) -> Non
         return Outcome(label, State.OK)
 
     monkeypatch.setattr(expand_graph, "run_command", run)
-    total = combined_result(expand_graph._expand(max_iterations=3, final_pass=False))
+    total = combined_result(expand_graph._expand(max_iterations=3, light=True))
     assert total.errors == []
     assert total.unavailable == ["retrieve all: retrieve echr: HUDOC: HTTP 403"] * 2
 

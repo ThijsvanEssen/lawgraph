@@ -109,9 +109,10 @@ for name in $(.venv/bin/lawgraph semantic all --list); do
     *) run semantic "$name" ;;
   esac
 done
-# Without its full semantic pass at the end: the steps above ran in full just now. A link from an older text to
-# what the rounds fetch comes with next week's run.
-run expand-graph --no-final-pass
+# One round, without its full semantic pass and without the steps that have no --since: the steps above ran in full
+# just now and the nightly run does those again within a day. A link from an older text to what the round fetches,
+# and what that round newly names, come with next week's run.
+run expand-graph --light
 run check
 run search-candidates
 

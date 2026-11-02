@@ -7,8 +7,10 @@ A round is the three phases for what the graph lacks::
     semantic all --since <round>    and get their edges, which may name new things
 
 It repeats while a round retrieved records. When the loop ends one full ``semantic all``
-follows (not with ``--no-final-pass``): a text that was loaded long ago can name a law that
-was loaded just now.
+follows: a text that was loaded long ago can name a law that was loaded just now.
+
+``--light`` is one round whose ``semantic all`` leaves out the steps that have no ``--since``,
+and no full pass: for a run whose nightly run does those steps within a day (scripts/weekly.sh).
 """
 
 from __future__ import annotations
@@ -40,9 +42,9 @@ def _count_records(store: GraphStore) -> int:
     return sum(raw_queries.record_counts(store, RAW_KIND_MISSING_SUFFIX))
 
 
-def _expand(max_iterations: int, final_pass: bool = True) -> list[Outcome]:
-    """Run the loop, and one full ``semantic all`` after it with *final_pass*; how every
-    step ended.
+def _expand(max_iterations: int, light: bool = False) -> list[Outcome]:
+    """Run the loop, and one full ``semantic all`` after it unless *light*; how every step
+    ended.
 
     A round is worth repeating when it retrieved something. The number of stubs
     does not tell: loading a judgment closes one stub and opens one for every judgment it
@@ -69,10 +71,11 @@ def _expand(max_iterations: int, final_pass: bool = True) -> list[Outcome]:
         logger.info("expand-graph: %d new record(s) retrieved.", retrieved)
         since = ["--since", began]
         outcomes.append(run_command("normalize all", normalize_all, since))
-        outcomes.append(run_command("semantic all", semantic_all, since))
+        only = ["--only-since"] if light else []
+        outcomes.append(run_command("semantic all", semantic_all, since + only))
 
     logger.info("expand-graph: %d record(s) retrieved in total.", total)
-    if total and final_pass:
+    if total and not light:
         outcomes.append(run_command("semantic all", semantic_all, []))
     return outcomes
 
@@ -85,12 +88,13 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         ),
     )
     parser.add_argument(
-        "--no-final-pass",
-        dest="final_pass",
-        action="store_false",
-        help="Leave out the full semantic all after the rounds: for a run that did every "
-        "semantic step in full just before (scripts/weekly.sh); a link from an older text "
-        "to what the rounds fetched then comes with the next full run.",
+        "--light",
+        action="store_true",
+        help="One round, without the semantic steps that have no --since and without the "
+        "full semantic all: for a run that did every semantic step in full just before "
+        "(scripts/weekly.sh). Those steps come with the next nightly run, a link from an "
+        "older text to what the round fetched with the next full run, and what the round "
+        "newly names with the next week.",
     )
     parser.add_argument(
         "--max-iterations",
@@ -100,4 +104,6 @@ def main(argv: list[str] | None = None) -> PipelineResult:
         help="At most this many rounds (default: %(default)s).",
     )
     args = parser.parse_args(argv)
-    return combined_result(_expand(args.max_iterations, args.final_pass))
+    return combined_result(
+        _expand(1 if args.light else args.max_iterations, args.light)
+    )

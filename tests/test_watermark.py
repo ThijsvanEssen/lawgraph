@@ -90,6 +90,24 @@ def test_a_run_with_a_skipped_step_does_not_move_the_mark(
     assert watermark.covered_until(phase["store"], "semantic") == MONDAY
 
 
+@pytest.mark.parametrize("on_record", [MONDAY, None])
+def test_a_run_that_leaves_out_the_steps_without_since_does_not_move_the_mark(
+    phase: dict[str, Any], on_record: dt.datetime | None
+) -> None:
+    """Also not with no mark to compare with, or a ``--since`` before the mark: the next
+    ``--since last`` has to run those steps and read what this run read."""
+    if on_record:
+        watermark.advance(phase["store"], "semantic", began=on_record, since=None)
+    since = MONDAY - dt.timedelta(days=1)
+    orchestration.semantic_all(["--since", since.isoformat(), "--only-since"])
+    assert watermark.covered_until(phase["store"], "semantic") == on_record
+
+
+def test_only_since_needs_a_since(phase: dict[str, Any]) -> None:
+    with pytest.raises(SystemExit):
+        orchestration.semantic_all(["--only-since"])
+
+
 def test_retrieve_all_in_full_mode_covers_everything(phase: dict[str, Any]) -> None:
     orchestration.retrieve_all(["--mode", "full", "--jobs", "1"])
     assert watermark.covered_until(phase["store"], "retrieve") is not None
