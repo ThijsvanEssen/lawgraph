@@ -435,7 +435,8 @@ def cached[T](
     the pipelines it takes that one at once.
 
     With *tables*, the tables the computation reads, the answer is kept while those tables
-    stand still, whatever is written to others, and ``MAX_AGE`` at most;
+    stand still, whatever is written to others; past ``MAX_AGE`` it is computed again behind
+    the kept one (``_refreshed``);
     ``tests/pg/test_cached_tables.py`` checks every such declaration against the tables
     the plans of its statements read.
 
@@ -448,7 +449,9 @@ def cached[T](
         return compute()
     entry_key = (version, key)
     with _lock:
-        if entry_key in _values and not _too_old(entry_key, tables):
+        if entry_key in _values and (
+            not _too_old(entry_key, tables) or _refreshed(entry_key, compute, inline)
+        ):
             _values.move_to_end(entry_key)
             request_timing.hit()
             return _values[entry_key]  # type: ignore[no-any-return]
@@ -473,6 +476,22 @@ def cached[T](
     return value
 
 
+def _refreshed(
+    entry_key: tuple[tuple[str, str], Hashable],
+    compute: Callable[[], Any],
+    inline: bool,
+) -> bool:
+    """Whether a request takes an answer past ``MAX_AGE`` as it is (``_lock`` held): its tables
+    stand still, so a visitor does not wait for the safety net (every law's first visit an hour
+    after the warm-up waited ``STALE_WAIT``, prod 2 Nov); the new one computes behind it. The
+    warm-up, without a deadline, computes it."""
+    if inline or read_time_left() is None or _in_cache_worker():
+        return False
+    if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
+        _running[entry_key] = _pool.submit(_compute, entry_key, compute)
+    return True
+
+
 def _too_old(entry_key: Hashable, tables: tuple[str, ...] | None) -> bool:
     """Whether a kept answer for *tables* is past ``MAX_AGE`` (one for the whole data
     version never is); the caller holds the lock."""
@@ -491,10 +510,9 @@ def lasting[T](
 ) -> T:
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
-    Once older, it is computed again in the background, and a request waits for that
-    ``STALE_WAIT`` at most (not at all during a run), then takes the one it had. From
-    ``REFRESH_AHEAD`` of its age on a request takes the kept one at once while the new one
-    computes, and the warm-up (no deadline) waits for the new one; *inline* as ``cached``."""
+    From ``REFRESH_AHEAD`` of its age on a request takes the kept one at once while the new one
+    computes, also once it is older, and the warm-up (no deadline) waits for the new one;
+    *inline* as ``cached``."""
     if not isinstance(store, VersionedStore):
         return compute()
     entry_key = ((_database(store), "lasting"), key)
@@ -506,12 +524,7 @@ def lasting[T](
         if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
             request_timing.hit()
             return kept[0]  # type: ignore[no-any-return]
-        ahead = (
-            kept is not None
-            and age is not None
-            and age < max_age
-            and read_time_left() is not None
-        )
+        ahead = kept is not None and read_time_left() is not None
         if ahead and not inline and not _in_cache_worker():
             if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
                 _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)

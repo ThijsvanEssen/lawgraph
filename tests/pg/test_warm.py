@@ -272,6 +272,12 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     warm.warm_up(store)
     assert "instruments" in ran and "coverage" not in ran
 
+    # the next day: an answer that names today is gone at midnight (``get_delegated_by_law``)
+    ran.clear()
+    monkeypatch.setattr(warm, "dutch_today", lambda: dt.date(2099, 1, 1))
+    warm.warm_up(store)
+    assert "regulations under a law" in ran
+
 
 def test_the_most_cited_articles_are_warmed_in_full_then_until_newer_data(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch

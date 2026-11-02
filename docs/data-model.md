@@ -1931,8 +1931,8 @@ graph-article-terms` raises the counter of `articles` once, at the end of a run 
 terms (`raise_articles_version`), since the search finds an article by them; a trigger would
 raise it with every batch and empty the cached search answers that often during a run. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads
-(`version_cache.cached(tables=...)`) and is kept while their counters stand still, an hour at
-most; one that names none is kept until any counter moves.
+(`version_cache.cached(tables=...)`) and is kept while their counters stand still; after an hour
+it is computed again behind the kept one. One that names none is kept until any counter moves.
 
 ### Derived columns
 
