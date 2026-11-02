@@ -424,6 +424,20 @@ def test_a_request_takes_a_lasting_answer_past_its_age_while_the_new_one_compute
     try:
         assert version_cache.lasting(store, ("past lasting",), slow, max_age) == 1
         assert not release.is_set()  # not waited for
+        # computed in the caller's thread: past its age nothing computes it behind the kept one
+        assert (
+            version_cache.lasting(
+                store, ("past inline",), lambda: 1, max_age, inline=True
+            )
+            == 1
+        )
+        time.sleep(max_age * 2)
+        assert (
+            version_cache.lasting(
+                store, ("past inline",), lambda: 2, max_age, inline=True
+            )
+            == 2
+        )
     finally:
         request_context.reset_read_deadline(token)
         release.set()

@@ -123,10 +123,9 @@ def stale_wait(seconds: float) -> Iterator[None]:
         _stale_wait.reset(token)
 
 
-# From this part of its ``max_age`` on, an answer of ``lasting`` is computed again ahead of
-# time: a request takes the kept one at once and the new one computes in the background, so
-# that a visitor seldom finds it expired (and waits ``STALE_WAIT`` for it: 3.7 s for the feed
-# on 10 Oct); the warm-up, after every change of the data, waits for the new one.
+# From this part of its ``max_age`` on, an answer of ``lasting`` is computed again: a request
+# takes the kept one at once and the new one computes in the background; the warm-up, after
+# every change of the data, waits for the new one.
 REFRESH_AHEAD = 0.75
 
 
@@ -134,8 +133,7 @@ REFRESH_AHEAD = 0.75
 WORKERS = 3
 # A refresh ahead of time is started only while fewer computations than this run or wait in
 # the pool (``_running``, one per key): many answers passing ``REFRESH_AHEAD`` at once never
-# queue before what a request waits for. One left out is started by a later request, by the
-# warm-up, or computed when it expires.
+# queue before what a request waits for. A later request starts one left out.
 REFRESH_AHEAD_MAX_RUNNING = WORKERS
 
 _lock = threading.Lock()
@@ -436,7 +434,7 @@ def cached[T](
 
     With *tables*, the tables the computation reads, the answer is kept while those tables
     stand still, whatever is written to others; past ``MAX_AGE`` it is computed again behind
-    the kept one (``_refreshed``);
+    the kept one (``_kept_now``);
     ``tests/pg/test_cached_tables.py`` checks every such declaration against the tables
     the plans of its statements read.
 
@@ -450,7 +448,8 @@ def cached[T](
     entry_key = (version, key)
     with _lock:
         if entry_key in _values and (
-            not _too_old(entry_key, tables) or _refreshed(entry_key, compute, inline)
+            not _too_old(entry_key, tables)
+            or _kept_now(entry_key, _compute, compute, inline)
         ):
             _values.move_to_end(entry_key)
             request_timing.hit()
@@ -476,19 +475,13 @@ def cached[T](
     return value
 
 
-def _refreshed(
-    entry_key: tuple[tuple[str, str], Hashable],
-    compute: Callable[[], Any],
-    inline: bool,
-) -> bool:
-    """Whether a request takes an answer past ``MAX_AGE`` as it is (``_lock`` held): its tables
-    stand still, so a visitor does not wait for the safety net (every law's first visit an hour
-    after the warm-up waited ``STALE_WAIT``, prod 2 Nov); the new one computes behind it. The
-    warm-up, without a deadline, computes it."""
+def _kept_now(entry_key: Hashable, run: Any, compute: Any, inline: bool) -> bool:
+    """Whether a request takes the kept answer, *run* computing the new one behind it (``_lock``
+    held); not the warm-up (no deadline), *inline* or a worker of the pool."""
     if inline or read_time_left() is None or _in_cache_worker():
         return False
     if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
-        _running[entry_key] = _pool.submit(_compute, entry_key, compute)
+        _running[entry_key] = _pool.submit(run, entry_key, compute)  # type: ignore[index]
     return True
 
 
@@ -520,20 +513,15 @@ def lasting[T](
         kept = _lasting.get(entry_key)
         if kept is not None:
             _lasting.move_to_end(entry_key)
-        age = None if kept is None else time.monotonic() - kept[1]
-        if kept is not None and age is not None and age < max_age * REFRESH_AHEAD:
+        age = time.monotonic() - kept[1] if kept is not None else 0.0
+        if kept is not None and (
+            age < max_age * REFRESH_AHEAD
+            or _kept_now(entry_key, _compute_lasting, compute, inline)
+            # computed here (inline, or in a worker of the pool): the kept one until its age
+            or (age < max_age and read_time_left() is not None)
+        ):
             request_timing.hit()
             return kept[0]  # type: ignore[no-any-return]
-        ahead = kept is not None and read_time_left() is not None
-        if ahead and not inline and not _in_cache_worker():
-            if entry_key not in _running and len(_running) < REFRESH_AHEAD_MAX_RUNNING:
-                _running[entry_key] = _pool.submit(_compute_lasting, entry_key, compute)
-            request_timing.hit()
-            return kept[0]  # type: ignore[index, no-any-return]
-        if ahead:
-            # computed here (inline, or in a worker of the pool): the kept one now
-            request_timing.hit()
-            return kept[0]  # type: ignore[index, no-any-return]
     started = time.perf_counter()
     if inline:
         value = compute()
