@@ -6,6 +6,7 @@ from __future__ import annotations
 import datetime as dt
 from functools import partial
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -152,7 +153,7 @@ def test_the_common_filters_are_kept_as_the_explorer_asks_them(
     with request_context.in_background():
         warm.warm_up(store)
     calls = recorded(store, monkeypatch)
-    answers = [
+    answers: list[Any] = [
         judgments.list_judgments(store=store, limit=1, tier=[Tier("hoge_raad")]),
         judgments.list_judgments(store=store, limit=1, subject_area="Strafrecht"),
         judgments.list_judgments(

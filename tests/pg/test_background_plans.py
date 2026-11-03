@@ -54,16 +54,18 @@ WHOLE_BY_DESIGN = [
         " per data version in the background",
     ),
     (
-        "facets and total of the list of judgments and of an area of law",
+        "facets and total of the list of judgments and of a common filter",
         re.compile(
             r"FROM judgments j .*WHERE \(j\.stub IS NOT TRUE\) AND \(j\.same_as IS NULL\)"
+            r"( AND \(j\.tier = ANY\(%\(tiers\)s\)\))?"
             r"( AND \(j\.source = %\(source\)s\))?"
             r"( AND \(lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\]\))?"
+            r"( AND \(j\.date_eff >= %\(from\)s\) AND \(j\.date_eff <= %\(to\)s\))?"
             r"( GROUP BY| \) subjects|$)"
         ),
-        "the counts of the list the front end shows first (the judgments of Rechtspraak)"
-        " and of its largest areas of law cover every judgment of them; kept an hour,"
-        " computed in the background",
+        "the counts of the list as it opens and under a court, an area of law, a source or"
+        " a year (``warm_lists``) cover every judgment under them, of which the data here"
+        " has one court and one year; computed in the background at most every 6 hours",
     ),
 ]
 
