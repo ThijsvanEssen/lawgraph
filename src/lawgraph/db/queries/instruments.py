@@ -644,14 +644,14 @@ def _amending_item(row: dict[str, Any]) -> dict[str, Any]:
 def _reference_bucket(identity: str, own: str, other: str) -> str:
     """REFERS_TO edges between an article in force of the focal instrument (*own* end) and
     an article in force outside it (*other* end), per *identity* of the other article: the
-    articles at each end (``own_n``, ``other_n``), not the edges. Only the edges whose other
+    articles at each end (``own_ids``, ``other_n``), not the edges. Only the edges whose other
     end is an article: a range of the covering index of the own end by relation and the
     other end's collection (``edges_from_cover``, ``edges_to_cover``), not every citation of
     the law's articles by a judgment (hundreds of thousands of the Awb's, 7.2 s cold on prod)
     probed for an article."""
     other_collection = f"{other.split('_')[0]}_collection"
     return f"""
-        SELECT {identity} AS b, count(DISTINCT f.id)::int AS own_n,
+        SELECT {identity} AS b, array_agg(DISTINCT f.id) AS own_ids,
                count(DISTINCT x.id)::int AS other_n
         FROM focal f
         -- per article of the law its own edges: a probe of the covering index by its id,
@@ -676,15 +676,16 @@ def get_instrument_related_instruments(
     the articles not repealed, the other instrument not expired (``props.date_expired``).
 
     Returns ``{instrument, outbound_count, outbound_cited_count, inbound_count,
-    inbound_cited_count, basis}`` per related instrument, the most articles first:
-    ``outbound_count`` articles of this one refer to ``outbound_cited_count`` articles of the
-    other, ``inbound_count`` articles of the other to ``inbound_cited_count`` of this one.
-    ``basis`` (:func:`_pair_bases`) says whether one is issued under the other. The
-    counterpart of a BWB regulation is a BWB regulation; the counterpart of an EU act is a
-    BWB regulation or another EU act. With the page: the total and how many of the total
-    have a ``basis``. The whole list is kept per data version of what it reads and per day,
-    whatever the ``limit``: a law's Verbonden asks it on every visit, and each "Meer laden"
-    asks a longer page of the same list.
+    inbound_cited_count, inbound_cited_articles, basis}`` per related instrument, the most
+    articles first: ``outbound_count`` articles of this one refer to ``outbound_cited_count``
+    articles of the other, ``inbound_count`` articles of the other to ``inbound_cited_count``
+    of this one, which ``inbound_cited_articles`` names (``{key, article_number}``) in the
+    order of the law. ``basis`` (:func:`_pair_bases`) says whether one is issued under the
+    other. The counterpart of a BWB regulation is a BWB regulation; the counterpart of an
+    EU act is a BWB regulation or another EU act. With the page: the total and how many of
+    the total have a ``basis``. The whole list is kept per data version of what it reads
+    and per day, whatever the ``limit``: a law's Verbonden asks it on every visit, and each
+    "Meer laden" asks a longer page of the same list.
     """
     today = dutch_today().isoformat()
     items, based_on = cached(
@@ -715,10 +716,11 @@ def _related_instruments(
         outbound AS ({_reference_bucket(identity, "from_id", "to_id")}),
         inbound AS ({_reference_bucket(identity, "to_id", "from_id")}),
         counts AS (
-            SELECT b, coalesce(o.own_n, 0) AS outbound_count,
+            SELECT b, coalesce(cardinality(o.own_ids), 0) AS outbound_count,
                    coalesce(o.other_n, 0) AS outbound_cited_count,
                    coalesce(i.other_n, 0) AS inbound_count,
-                   coalesce(i.own_n, 0) AS inbound_cited_count
+                   coalesce(cardinality(i.own_ids), 0) AS inbound_cited_count,
+                   i.own_ids AS inbound_cited_ids
             FROM outbound o FULL JOIN inbound i USING (b)
             WHERE b IS NOT NULL AND b <> %(bwb)s
         ),
@@ -738,7 +740,13 @@ def _related_instruments(
     rows = list(
         store.query(
             f"""{ctes}
-        SELECT r.* FROM resolved r
+        SELECT r.*, (
+            SELECT json_agg(json_build_object(
+                'key', a.key, 'article_number', a.article_number
+            ) ORDER BY a.position NULLS LAST, a.key)
+            FROM articles a WHERE a.id = ANY(r.inbound_cited_ids)
+        ) AS inbound_cited_articles
+        FROM resolved r
         ORDER BY r.outbound_count + r.inbound_count DESC, r.key, r.b
         """,
             {"bwb": scope.value, "refers_to": RELATION_REFERS_TO, "today": today},
@@ -757,6 +765,7 @@ def _related_instruments(
             "outbound_cited_count": row["outbound_cited_count"],
             "inbound_count": row["inbound_count"],
             "inbound_cited_count": row["inbound_cited_count"],
+            "inbound_cited_articles": row["inbound_cited_articles"] or [],
             "basis": bases.get(row["id"]),
         }
         for row in rows

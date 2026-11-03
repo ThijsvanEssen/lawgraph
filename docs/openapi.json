@@ -1992,7 +1992,7 @@
           "instruments"
         ],
         "summary": "Instruments referring to this one, or referred to by it",
-        "description": "The other laws in force whose articles in force refer to articles in force of this law, or the other way (`REFERS_TO` between articles), the most articles first; an expired law (`date_expired` passed) is left out. Each carries its `kind` and `date_in_force`, the `direction`, the articles at both ends (`outbound_count` articles of this law refer to `outbound_cited_count` of it; `inbound_count` of its articles refer to `inbound_cited_count` of this law) and `basis`: whether one is issued under the other as well (`BASED_ON`), with the articles its preamble names. ``total`` is the absolute count, independent of ``limit``; ``based_on_total`` how many of those have a `basis`. The articles between the two: `.../references/{other}`.",
+        "description": "The other laws in force whose articles in force refer to articles in force of this law, or the other way (`REFERS_TO` between articles), the most articles first; an expired law (`date_expired` passed) is left out. Each carries its `kind` and `date_in_force`, the `direction`, the articles at both ends (`outbound_count` articles of this law refer to `outbound_cited_count` of it; `inbound_count` of its articles refer to `inbound_cited_count` of this law, named in `inbound_cited_articles`) and `basis`: whether one is issued under the other as well (`BASED_ON`), with the articles its preamble names. ``total`` is the absolute count, independent of ``limit``; ``based_on_total`` how many of those have a `basis`. The articles between the two: `.../references/{other}`.",
         "operationId": "get_instrument_related_route_api_instruments__bwb_id__related_instruments_get",
         "parameters": [
           {
@@ -31449,6 +31449,34 @@
         "title": "InstrumentReferencesResponse",
         "description": "Response for GET /api/instruments/{bwb_id}/references/{other}."
       },
+      "InstrumentRelatedArticleDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Node key of the article, to open it."
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "article_number"
+        ],
+        "title": "InstrumentRelatedArticleDTO",
+        "description": "An article of this law that a related instrument refers to."
+      },
       "InstrumentRelatedBasisDTO": {
         "properties": {
           "direction": {
@@ -31599,6 +31627,14 @@
             "title": "Inbound Cited Count",
             "description": "Articles in force of this law that those refer to."
           },
+          "inbound_cited_articles": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentRelatedArticleDTO"
+            },
+            "type": "array",
+            "title": "Inbound Cited Articles",
+            "description": "Those articles, each once, in the order of this law: `inbound_cited_count` of them."
+          },
           "based_on": {
             "type": "boolean",
             "title": "Based On",
@@ -31633,6 +31669,7 @@
           "outbound_cited_count",
           "inbound_count",
           "inbound_cited_count",
+          "inbound_cited_articles",
           "based_on",
           "basis"
         ],

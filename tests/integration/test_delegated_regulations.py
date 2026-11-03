@@ -640,6 +640,9 @@ def test_related_laws_say_their_direction_and_basis(database: str, cli: Any) -> 
         besluit["inbound_cited_count"],
         besluit["outbound_count"],
     ) == ("inbound", 2, 1, 0)
+    # the one it refers to, as a link: its number and its key
+    (cited,) = besluit["inbound_cited_articles"]
+    assert cited == {"key": f"{WET.lower()}_16", "article_number": "16"}
     assert (besluit["kind"], besluit["date_in_force"]) == ("amvb", "2026-08-15")
     assert besluit["based_on"] is True
     assert besluit["basis"]["direction"] == "inbound"
