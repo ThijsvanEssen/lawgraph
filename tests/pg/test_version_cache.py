@@ -379,6 +379,70 @@ def test_an_answer_kept_per_table_is_computed_again_after_its_age(
     assert version_cache.cached(store, ("age",), count, tables=("instruments",)) == 2
 
 
+def test_a_request_takes_an_answer_past_its_age_while_the_new_one_computes(
+    store: GraphStore, monkeypatch
+) -> None:
+    """Its tables stand still: no visitor waits for the safety net, and the next gets the new
+    answer."""
+    tables = ("instruments",)
+    assert version_cache.cached(store, ("past",), lambda: 1, tables=tables) == 1
+    monkeypatch.setattr(version_cache, "MAX_AGE", 0.0)
+    time.sleep(0.01)
+    release = threading.Event()
+
+    def slow() -> int:
+        release.wait(PATIENCE)
+        return 2
+
+    token = request_context.set_read_deadline(5.0)
+    try:
+        assert version_cache.cached(store, ("past",), slow, tables=tables) == 1
+        assert not release.is_set()  # not waited for
+        release.set()
+        monkeypatch.setattr(version_cache, "MAX_AGE", 3600.0)
+        assert until(
+            lambda: version_cache.cached(store, ("past",), slow, tables=tables) == 2
+        )
+    finally:
+        request_context.reset_read_deadline(token)
+        release.set()
+
+
+def test_a_request_takes_a_lasting_answer_past_its_age_while_the_new_one_computes(
+    store: GraphStore,
+) -> None:
+    max_age = 0.01
+    assert version_cache.lasting(store, ("past lasting",), lambda: 1, max_age) == 1
+    time.sleep(max_age * 2)
+    release = threading.Event()
+
+    def slow() -> int:
+        release.wait(PATIENCE)
+        return 2
+
+    token = request_context.set_read_deadline(5.0)
+    try:
+        assert version_cache.lasting(store, ("past lasting",), slow, max_age) == 1
+        assert not release.is_set()  # not waited for
+        # computed in the caller's thread: past its age nothing computes it behind the kept one
+        assert (
+            version_cache.lasting(
+                store, ("past inline",), lambda: 1, max_age, inline=True
+            )
+            == 1
+        )
+        time.sleep(max_age * 2)
+        assert (
+            version_cache.lasting(
+                store, ("past inline",), lambda: 2, max_age, inline=True
+            )
+            == 2
+        )
+    finally:
+        request_context.reset_read_deadline(token)
+        release.set()
+
+
 def test_a_stamp_of_tables_moves_with_them_alone(store: GraphStore) -> None:
     whole, instruments = store.data_version(), store.data_version(["instruments"])
     store.bulk_insert_or_update_nodes("judgments", [_judgment("j")])

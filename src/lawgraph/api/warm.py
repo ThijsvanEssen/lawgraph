@@ -423,7 +423,8 @@ def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool
         if part.tables is None:
             _run(part.name, run)
             continue
-        stamp = store.data_version(part.tables)
+        # per day too: an answer that names today (``get_delegated_by_law``) is gone at midnight
+        stamp = f"{store.data_version(part.tables)}@{dutch_today()}"
         if _warmed_parts.get((store.name, part.name)) == stamp:
             logger.info(
                 "Warm-up of %s left: %s did not change.",
