@@ -797,8 +797,10 @@ def get_node_neighborhood(
 ) -> dict[str, Any]:
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
-    ``cap`` bounds the number of nodes so a hub cannot flood the response. ``filters``
-    shape the walk itself: it follows only edges of the given relations and status, in the
+    ``cap`` bounds the number of nodes so a hub cannot flood the response; a walk that does
+    not fit it shares it out (``lg_walk``): each level but the last takes at most half of
+    the room left, and in a level each relation, direction and collection has its share.
+    ``filters`` shape the walk itself: it follows only edges of the given relations and status, in the
     given direction, and goes through nodes of the given types (the focal node is always
     kept). A node of a collection in *stop_at* but the focal one is kept but not walked
     through, but for the step to the faction or cabinet it sits in (``WALK_SEATS``), so the
@@ -813,8 +815,8 @@ def get_node_neighborhood(
     props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
-    # One statement: the walk in the database (breadth first: a level is kept in id
-    # order until the cap; a node of a type the filter leaves out is seen but neither kept
+    # One statement: the walk in the database (the cap shared over the levels and, in a
+    # level, per relation; a node of a type the filter leaves out is seen but neither kept
     # nor walked through), the nodes it kept, and the edges between them and the focal
     # node.
     found = next(
