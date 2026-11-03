@@ -484,7 +484,8 @@ def get_judgments_list(
     facets: bool = True,
 ) -> dict[str, Any]:
     """Paginated, filterable list of judgments, with facets (``facets=False``: the page and
-    the total alone, ``facets`` None).
+    the total alone, ``facets`` None). The page never waits for its counts past
+    ``COUNTS_BUDGET``: ``total`` is None and ``partial`` set while they are counted.
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
@@ -509,7 +510,7 @@ def get_judgments_list(
         found = get_judgments_list(
             store, exact, sort=sort, limit=limit, offset=offset, facets=facets
         )
-        if found["total"]:
+        if found["total"] or found["items"]:
             return found
     tokens = tokenize_search_query(filters.q) if filters.q else []
 
@@ -559,11 +560,11 @@ def get_judgments_list(
     def items() -> list[Any]:
         return _page(store, order, chosen.where(), params, hits_first=hits_first)
 
-    if not facets:
-        page, total = run_together(
-            items, lambda: _total(store, filtered, chosen.where(), params)
-        )
-        return {"total": total, "items": page, "facets": None}
+    def without_facets() -> dict[str, Any]:
+        return {
+            "total": _total(store, filtered, chosen.where(), params),
+            "facets": None,
+        }
 
     # Under no filter but the stubs and the replaced publications every facet leaves out
     # the same filters: the five by a column are counted in one read of the table.
@@ -587,7 +588,9 @@ def get_judgments_list(
         counted["subject_area"] = _with_narrower(counted["subject_area"], subjects)
         return {"total": total, "facets": counted}
 
-    shown, counted = page_with_counts(items, counts, "The counts of the judgments")
+    shown, counted = page_with_counts(
+        items, counts if facets else without_facets, "The counts of the judgments"
+    )
     return with_counts(shown, counted)
 
 

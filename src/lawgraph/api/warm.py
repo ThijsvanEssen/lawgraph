@@ -2,16 +2,16 @@
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search, the lower courts of Actueel, the pages of the newest cabinets,
-the dossiers of the active factions, the first page of the judgments of the largest areas
-of law, the pages of the most cited laws (judgments, related laws, EU links) and the
-dossiers of the homepage. Off with ``LAWGRAPH_API_WARM_UP=false``."""
+the dossiers of the active factions, the pages of the most cited laws (judgments, related
+laws, EU links) and the dossiers of the homepage; after those the lists under the filters
+visitors choose most (``warm_lists``). Off with ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
 import datetime as dt
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
@@ -23,6 +23,7 @@ from lawgraph.api.routes.instruments import (
     get_instrument_related_route,
 )
 from lawgraph.api.routes.stats import coverage_data, stats_data
+from lawgraph.api.warm_lists import common_filters
 from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
@@ -115,32 +116,6 @@ WARM_CABINETS = 4
 def _warm_cabinets(store: GraphStore) -> None:
     for item in get_cabinets(store)[:WARM_CABINETS]:
         get_cabinet(store, item["cabinet"]["key"])
-
-
-# The main areas of law with the most judgments, whose first page with facets is warmed
-# (each counts the facets over every judgment of the area).
-WARM_SUBJECT_AREAS = 5
-
-
-# What the front end asks of a list first (its ``Bladeren``): the judgments of Rechtspraak,
-# the instruments with articles and the papers of the Tweede Kamer. The facets and totals
-# are kept per filter, so the warm-up asks with the same filters.
-FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
-# The judgments of every source, as the list shows them once its source is cleared: its
-# counts over every judgment took 20 s cold on prod (10 Oct), kept but never warmed.
-EVERY_JUDGMENT = JudgmentFilters()
-
-
-def _warm_subject_areas(store: GraphStore) -> None:
-    listed = get_judgments_list(store, FIRST_JUDGMENTS, limit=1)
-    areas = (listed.get("facets") or {}).get("subject_area") or []
-    for area in areas[:WARM_SUBJECT_AREAS]:
-        if area.get("value"):
-            get_judgments_list(
-                store,
-                replace(FIRST_JUDGMENTS, subject_area=area["value"]),
-                limit=LISTS["judgments"],
-            )
 
 
 # The laws with the most citations whose pages are warmed. The Awb and Sr are hundreds of
@@ -369,16 +344,11 @@ PARTS: tuple[Part, ...] = (
         )
         for table in SEARCH_FIELDS
     ),
+    # as the list opens: of every source, the European among them
     Part(
         "judgments",
         lambda store: get_judgments_list(
-            store, FIRST_JUDGMENTS, limit=LISTS["judgments"]
-        ),
-    ),
-    Part(
-        "judgments of every source",
-        lambda store: get_judgments_list(
-            store, EVERY_JUDGMENT, limit=LISTS["judgments"]
+            store, JudgmentFilters(), limit=LISTS["judgments"]
         ),
     ),
     # the total and facets of the list of decisions as the explorer opens it, of both
@@ -399,7 +369,6 @@ PARTS: tuple[Part, ...] = (
 # minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes
 # took it from the searches of visitors (16 Oct).
 TAIL: tuple[Part, ...] = (
-    Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
     Part("links of laws", _warm_law_links),
     Part("dossiers of the homepage", _warm_dossiers),
@@ -448,15 +417,39 @@ def warm_up(store: GraphStore) -> None:
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(part.name for part in (*PARTS, *TAIL)))
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
-    # is asked far less than the lists above
-    if _due("most cited articles", store.name, ARTICLES_EVERY):
-        _run("most cited articles", lambda: _warm_articles(store, version))
-        _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
-        _run("chains between the most cited", lambda: _warm_chains(store))
-    if _due("search terms", store.name, SEARCH_TERMS_EVERY):
+    # is asked far less than the lists above. Without a limit of time, but all of it ends
+    # at newer data, whose warm-up cannot begin before this does.
+    stopped = partial(version_cache.superseded, store, version)
+    if _due("common filters", store.name, COMMON_FILTERS_EVERY):
+        _run("common filters", lambda: _warm_common_filters(store, stopped))
+    if not stopped() and _due("most cited articles", store.name, ARTICLES_EVERY):
+        for name, part in (
+            ("most cited articles", lambda: _warm_articles(store, version)),
+            ("most cited neighbourhoods", lambda: _warm_neighborhoods(store)),
+            ("chains between the most cited", lambda: _warm_chains(store)),
+        ):
+            if not stopped():
+                _run(name, part)
+    if not stopped() and _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 
 
+def _warm_common_filters(store: GraphStore, stopped: Callable[[], bool]) -> None:
+    """The lists under the filters visitors choose most (``warm_lists``), one at a time
+    until *stopped*: what was counted is kept, and the next warm-up goes on from there."""
+    for name, count in common_filters(store):
+        if stopped():
+            logger.info("Warm-up of the common filters stopped before %s.", name)
+            _last_begun.pop(("common filters", store.name), None)
+            return
+        _run(name, count)
+
+
+# The common filters are counted at most once per this many seconds per process, as a wide
+# filter holds the workers of the cache for minutes (``tier=rechtbank`` past 3.5 minutes on
+# prod, 3 Nov), and a visitor who asks later takes the answer kept while a new one computes,
+# however old it is (``version_cache.lasting``).
+COMMON_FILTERS_EVERY = 6 * 3600.0
 # The most cited articles are warmed at most once per this many seconds per process: the
 # lid counts it keeps last as long (``nodes.LIDS_MAX_AGE``), and a poll every half hour
 # would start the part of minutes again and again.
