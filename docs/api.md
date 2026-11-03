@@ -529,9 +529,9 @@ touches (the papers of a paper's dossier), not to what its signers signed elsewh
 A walk that fits `cap` keeps every node, breadth first. One that does not keeps exactly `cap`:
 each hop but the last takes at most half of the room left, so a further `depth` adds a hop and
 keeps what the hop before kept of the levels above it, also around a law whose direct neighbours
-alone exceed the cap. Within a hop the room goes in equal shares to each relation, direction and
-collection, in id order within each (`PART_OF` articles next to `REFERS_TO` papers); what one
-cannot fill goes to the others, and to the hops above.
+alone exceed the cap. Within a hop each relation, direction and collection takes a node in turn,
+in id order within each (`PART_OF` articles next to `REFERS_TO` papers); what one cannot fill goes
+to the others, and to the hops above.
 
 A law, a publication or a version as a neighbour or a node of a neighbourhood (the focal one
 too) carries a `date` in its props, also with `props=canvas`, where the source gives one: of a publication the day it was published, of a law

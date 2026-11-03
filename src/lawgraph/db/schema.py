@@ -297,23 +297,17 @@ $$;
 -- The nodes within w_depth edges of w_focal, at most w_cap of them, in one statement. A walk
 -- that fits the cap is breadth first and keeps every node. One that does not shares the cap
 -- out in passes: going down the levels, each but the last takes at most half of the room left
--- (so a hub does not fill the cap with its own neighbours: a step further keeps what the step
--- before kept of the level, and adds a level), the last takes the rest; what is left over goes
--- round again, and what a later pass keeps is walked on from too.
--- Within a level the room is shared among its neighbours per relation, direction and
--- collection: in rounds, each with neighbours left takes up to an equal share of the room, in
--- id order, so one with fewer than its share is kept whole and what it leaves goes to the
--- others (not every article of a law before any paper citing it, as id order would). A
--- neighbour reached along more than one keeps one place, in the first to take it.
--- A level is read whole: the neighbours along the edges of the relations and status asked for,
--- in the directions asked for, not kept before. A node that is gone is not one; a node outside
--- w_collections (when given) or w_tables is neither kept nor walked through. A node of w_stop
--- (when given) but the focal one is kept but not walked through, but for its seats: an edge out
--- of it whose relation and collection of its other end are one of w_seats ('MEMBER_OF
+-- (so a hub does not fill the cap with its own neighbours), the last the rest; what is left
+-- over goes round again, and what a later pass keeps is walked on from too. A level is read
+-- whole (the neighbours along the edges asked for, not kept before) and kept in turns: the
+-- first of each relation, direction and collection, in id order, then the second of each (not
+-- every article of a law before any paper citing it). A node that is gone is not one; a node
+-- outside w_collections (when given) or w_tables is neither kept nor walked through. A node of
+-- w_stop (when given) but the focal one is kept but not walked through, but for its seats: an
+-- edge out of it whose relation and collection of its other end are one of w_seats ('MEMBER_OF
 -- factions'). A law is not walked back to the old articles whose outcome it holds
--- (lg_transposition_outcome).
--- Whether a neighbour is there is asked of its own table only, w_chunk at a time, so a capped
--- walk does not look up the neighbours it will never keep.
+-- (lg_transposition_outcome). Whether a neighbour is there is asked of its own table only,
+-- w_chunk at a time, so a capped walk does not look up the neighbours it will never keep.
 CREATE OR REPLACE FUNCTION lg_walk(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
     w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
@@ -328,23 +322,18 @@ DECLARE
     free text[];
     stopped text[];
     seat_relations text[] := ARRAY(SELECT split_part(s, ' ', 1) FROM unnest(w_seats) s);
-    read_ids text[];
-    read_groups text[];
-    -- the neighbours read, per group a run of them; per group its level, its collection and
-    -- what of its run is not kept yet
-    waiting text[];
-    g_step int[];
-    g_coll text[];
-    g_pos int[];
-    g_end int[];
+    reached text[];
+    -- what was reached, per read a run of it: its level, and what of it is not looked at yet
+    queue text[];
+    r_step int[];
+    r_at int[];
+    r_to int[];
     fair boolean;
     level text[];
     chunk text[];
     present text[];
+    coll text;
     room int;
-    n_open int;
-    share int;
-    took int;
     n int;
 BEGIN
     <<walks>>
@@ -353,47 +342,32 @@ BEGIN
         seen := ARRAY[w_focal];
         kept := '{}';
         frontier := ARRAY[w_focal];
-        waiting := '{}';
-        g_step := '{}';
-        g_coll := '{}';
-        g_pos := '{}';
-        g_end := '{}';
+        queue := '{}';
+        r_step := '{}';
+        r_at := '{}';
+        r_to := '{}';
         LOOP
+            n := cardinality(kept);
             FOR step IN 1..w_depth LOOP
-                IF w_stop IS NULL OR step = 1 THEN
-                    free := frontier;
-                    stopped := '{}';
-                ELSE
-                    free := ARRAY(SELECT x FROM unnest(frontier) x
-                                  WHERE split_part(x, '/', 1) <> ALL(w_stop));
-                    stopped := ARRAY(SELECT x FROM unnest(frontier) x
-                                     WHERE split_part(x, '/', 1) = ANY(w_stop));
-                END IF;
-                read_ids := '{}';
-                read_groups := '{}';
-                IF cardinality(frontier) > 0 THEN
-                    SELECT coalesce(array_agg(f.id ORDER BY f.grp ASC NULLS LAST, f.id), '{}'),
-                           coalesce(array_agg(f.grp ORDER BY f.grp ASC NULLS LAST, f.id), '{}')
-                    INTO read_ids, read_groups
-                    FROM (
-                        SELECT e.to_id AS id, e.to_collection AS coll,
-                               coalesce(e.relation, '') || ' outbound ' || e.to_collection AS grp
+                free := ARRAY(SELECT x FROM unnest(frontier) x WHERE step = 1
+                              OR split_part(x, '/', 1) <> ALL(coalesce(w_stop, '{}')));
+                stopped := ARRAY(SELECT x FROM unnest(frontier) x
+                                 WHERE step > 1 AND split_part(x, '/', 1) = ANY(w_stop));
+                reached := ARRAY(
+                    SELECT f.id FROM (
+                        SELECT e.to_id AS id, e.to_collection AS c, 'out ' || e.relation AS r
                         FROM public.edges e
                         WHERE w_outbound AND e.from_id = ANY(free)
                           AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                           AND (w_status IS NULL OR e.status = w_status)
                         UNION
-                        SELECT e.from_id, e.from_collection,
-                               coalesce(e.relation, '') || ' inbound ' || e.from_collection
-                        FROM public.edges e
+                        SELECT e.from_id, e.from_collection, 'in ' || e.relation FROM public.edges e
                         WHERE w_inbound AND e.to_id = ANY(free)
                           AND (w_relations IS NULL OR e.relation = ANY(w_relations))
                           AND (w_status IS NULL OR e.status = w_status)
                           AND NOT public.lg_transposition_outcome(e.relation, e.to_id)
                         UNION
-                        SELECT e.to_id, e.to_collection,
-                               coalesce(e.relation, '') || ' outbound ' || e.to_collection
-                        FROM public.edges e
+                        SELECT e.to_id, e.to_collection, 'out ' || e.relation FROM public.edges e
                         WHERE w_outbound AND e.from_id = ANY(stopped)
                           AND e.relation = ANY(seat_relations)
                           AND e.relation || ' ' || e.to_collection = ANY(w_seats)
@@ -401,69 +375,47 @@ BEGIN
                           AND (w_status IS NULL OR e.status = w_status)
                     ) f
                     LEFT JOIN unnest(seen) AS s(id) ON s.id = f.id
-                    WHERE s.id IS NULL AND f.coll = ANY(w_tables)
-                      AND (w_collections IS NULL OR f.coll = ANY(w_collections));
-                END IF;
+                    WHERE s.id IS NULL AND f.c = ANY(w_tables)
+                      AND (w_collections IS NULL OR f.c = ANY(w_collections))
+                    ORDER BY row_number() OVER (PARTITION BY f.r, f.c ORDER BY f.id),
+                             f.r ASC NULLS LAST, f.c ASC NULLS LAST, f.id
+                );
                 room := w_cap - cardinality(kept);
                 -- does not fit: walk again and share the cap out
-                IF NOT fair AND (SELECT count(DISTINCT x) FROM unnest(read_ids) x) > room THEN
-                    CONTINUE walks;
-                END IF;
-                SELECT g_step || array_agg(step ORDER BY b.grp ASC NULLS LAST),
-                       g_coll || array_agg(split_part(b.grp, ' ', 3) ORDER BY b.grp ASC NULLS LAST),
-                       g_pos || array_agg(b.lo + cardinality(waiting)
-                                        ORDER BY b.grp ASC NULLS LAST),
-                       g_end || array_agg(b.hi + cardinality(waiting)
-                                        ORDER BY b.grp ASC NULLS LAST)
-                INTO g_step, g_coll, g_pos, g_end
-                FROM (
-                    SELECT r.g AS grp, min(r.i)::int AS lo, max(r.i)::int AS hi
-                    FROM unnest(read_groups) WITH ORDINALITY AS r(g, i)
-                    GROUP BY 1
-                ) b;
-                waiting := waiting || read_ids;
-                IF fair AND step < w_depth THEN
-                    room := ceil(room / 2.0)::int;
-                END IF;
+                CONTINUE walks WHEN NOT fair
+                    AND (SELECT count(DISTINCT x) FROM unnest(reached) x) > room;
+                r_step := r_step || step;
+                r_at := r_at || cardinality(queue) + 1;
+                r_to := r_to || cardinality(queue) + cardinality(reached);
+                queue := queue || reached;
+                room := CASE WHEN fair AND step < w_depth THEN ceil(room / 2.0)::int ELSE room END;
                 level := '{}';
-                LOOP
-                    SELECT count(*) INTO n_open
-                    FROM generate_subscripts(g_step, 1) AS g(i)
-                    WHERE g_step[g.i] = step AND g_pos[g.i] <= g_end[g.i];
-                    EXIT WHEN n_open = 0 OR room <= 0;
-                    share := ceil(room::numeric / n_open)::int;
-                    FOR i IN 1..cardinality(g_step) LOOP
-                        CONTINUE WHEN g_step[i] <> step OR g_pos[i] > g_end[i];
-                        took := 0;
-                        WHILE took < least(share, room) AND g_pos[i] <= g_end[i] LOOP
-                            n := least(w_chunk, least(share, room) - took,
-                                       g_end[i] - g_pos[i] + 1);
-                            chunk := waiting[g_pos[i]:g_pos[i] + n - 1];
-                            g_pos[i] := g_pos[i] + n;
+                FOR i IN 1..cardinality(r_step) LOOP
+                    CONTINUE WHEN r_step[i] <> step;
+                    WHILE room > 0 AND r_at[i] <= r_to[i] LOOP
+                        chunk := queue[r_at[i]:least(r_at[i] + least(w_chunk, room) - 1, r_to[i])];
+                        r_at[i] := r_at[i] + cardinality(chunk);
+                        FOR coll IN SELECT DISTINCT split_part(x, '/', 1) FROM unnest(chunk) x LOOP
                             EXECUTE format(
                                 'SELECT coalesce(array_agg(id ORDER BY id), ''{}'')'
-                                ' FROM public.%I WHERE id = ANY($1) AND id <> ALL($2)',
-                                g_coll[i]
+                                ' FROM public.%I WHERE id = ANY($1) AND id <> ALL($2)', coll
                             ) INTO present USING chunk, seen;
                             seen := seen || present;
                             level := level || present;
-                            took := took + cardinality(present);
+                            room := room - cardinality(present);
                         END LOOP;
-                        room := room - took;
                     END LOOP;
                 END LOOP;
                 kept := kept || level;
                 frontier := level;
             END LOOP;
             frontier := '{}';
-            SELECT count(*) INTO n_open
-            FROM generate_subscripts(g_step, 1) AS g(i) WHERE g_pos[g.i] <= g_end[g.i];
-            IF n_open = 0 OR cardinality(kept) >= w_cap THEN
+            -- a pass with room that keeps nothing has nothing left to keep
+            IF cardinality(kept) IN (n, w_cap) OR NOT fair THEN
                 RETURN kept;
             END IF;
         END LOOP;
     END LOOP;
-    RETURN kept;
 END
 $$;
 

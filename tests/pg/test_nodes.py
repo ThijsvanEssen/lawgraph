@@ -1042,13 +1042,13 @@ def test_the_cap_is_shared_per_relation_direction_and_collection(
     refers to; a paper that both amends and cites has one place."""
     hood = node_queries.get_node_neighborhood(law, "instruments", "wet", depth=1, cap=9)
     assert _kept(hood) == {
-        "articles": ["w01", "w02", "w03"],
-        "documents": ["a01", "a02", "a03", "a04", "m1"],
+        "articles": ["w01", "w02", "w03", "w04"],
+        "documents": ["a01", "a02", "a03", "m1"],
         "instruments": ["ander"],
     }
     assert {b["collection"]: b["kept"] for b in hood["buckets"]} == {
-        "articles": 3,
-        "documents": 5,
+        "articles": 4,
+        "documents": 4,
         "instruments": 1,
     }
 
