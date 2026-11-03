@@ -1,13 +1,14 @@
-"""The lists the warm-up counts under the filters visitors choose: the values come from the
-facets of the list itself, each asked as the explorer asks it."""
+"""The lists the warm-up counts under the filters visitors choose: a small top of the facets
+of the list itself, each asked as the explorer asks it."""
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any, cast
 
 import pytest
 
-from lawgraph.api import warm_lists
+from lawgraph.api import warm
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.decisions import DecisionFilters
 from lawgraph.db.queries.judgments import JudgmentFilters
@@ -19,7 +20,16 @@ def _rows(*values: Any) -> list[dict[str, Any]]:
     return [{"value": value, "count": 1} for value in values]
 
 
-def test_the_judgments_by_their_facets(monkeypatch: pytest.MonkeyPatch) -> None:
+def _run_all(parts: Iterable[warm.Part]) -> list[warm.Part]:
+    found = list(parts)
+    for part in found:
+        part.run(STORE)
+    return found
+
+
+def test_the_judgments_by_a_top_of_their_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     asked: list[JudgmentFilters] = []
 
     def listed(store: Any, filters: JudgmentFilters, limit: int) -> dict[str, Any]:
@@ -27,59 +37,48 @@ def test_the_judgments_by_their_facets(monkeypatch: pytest.MonkeyPatch) -> None:
         return {
             "facets": {
                 "tier": _rows("rechtbank", None, "hoge_raad"),
-                "subject_area": _rows("Strafrecht"),
+                "subject_area": _rows(*[f"area {n}" for n in range(9)]),
                 # the source of nearly every judgment is nearly the whole list
-                "source": _rows("rechtspraak", "echr", "cjeu"),
-                "year": _rows(None, "2023", "2024"),
+                "source": _rows("rechtspraak", "echr"),
+                "year": _rows(None, *[str(year) for year in range(2015, 2026)]),
             }
         }
 
-    monkeypatch.setattr(warm_lists, "get_judgments_list", listed)
-    for _name, ask in warm_lists._judgments(STORE):
-        ask()
+    monkeypatch.setattr(warm, "get_judgments_list", listed)
+    _run_all(warm._judgment_filters(STORE))
     assert asked == [
         JudgmentFilters(),
         JudgmentFilters(tiers=("rechtbank",)),
         JudgmentFilters(tiers=("hoge_raad",)),
-        JudgmentFilters(subject_area="Strafrecht"),
+        *(JudgmentFilters(subject_area=f"area {n}") for n in range(warm.WARM_TOP)),
         JudgmentFilters(source="echr"),
-        JudgmentFilters(source="cjeu"),
         # a bar of the explorer's axis: a whole year, the newest first
-        JudgmentFilters(from_date="2024-01-01", to_date="2024-12-31"),
-        JudgmentFilters(from_date="2023-01-01", to_date="2023-12-31"),
+        *(
+            JudgmentFilters(from_date=f"{year}-01-01", to_date=f"{year}-12-31")
+            for year in range(2025, 2025 - warm.WARM_YEARS, -1)
+        ),
     ]
-
-
-def test_the_years_are_those_of_the_axis(monkeypatch: pytest.MonkeyPatch) -> None:
-    years = [str(year) for year in range(1950, 2026)]
-    monkeypatch.setattr(
-        warm_lists,
-        "get_judgments_list",
-        lambda *a, **k: {"facets": {"year": _rows(*years)}},
-    )
-    names = [name for name, _ask in warm_lists._judgments(STORE)]
-    assert len(names) == warm_lists.WARM_YEARS == 40
-    assert names[0].endswith("2025") and names[-1].endswith("1986")
 
 
 def test_the_decisions_of_each_chamber(monkeypatch: pytest.MonkeyPatch) -> None:
     asked: list[DecisionFilters] = []
+    many = [f"kind {n}" for n in range(9)]
 
     def counts(store: Any, filters: DecisionFilters) -> dict[str, Any]:
         asked.append(filters)
-        return {"facets": {"kind": _rows("Motie")}}
+        return {"facets": {"kind": _rows(*many)}}
 
-    monkeypatch.setattr(warm_lists, "decision_counts", counts)
-    for _name, ask in warm_lists._decisions(STORE):
-        ask()
+    monkeypatch.setattr(warm, "decision_counts", counts)
+    _run_all(warm._decision_filters(STORE))
     for chamber in ("TK", "EK"):
         assert DecisionFilters(chamber=chamber) in asked
-        assert DecisionFilters(chamber=chamber, kinds=("Motie",)) in asked
         assert DecisionFilters(chamber=chamber, passed=True) in asked
         assert DecisionFilters(chamber=chamber, passed=False) in asked
+        kinds = [f.kinds for f in asked if f.chamber == chamber and f.kinds]
+        assert kinds == [(kind,) for kind in many[: warm.WARM_TOP]]
 
 
-def test_the_documents_of_each_chamber_and_the_largest_kinds(
+def test_the_documents_of_the_other_chamber_and_the_largest_kinds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     asked: list[tuple[Any, Any]] = []
@@ -89,17 +88,14 @@ def test_the_documents_of_each_chamber_and_the_largest_kinds(
         asked.append((chambers, kinds))
         return {"facets": {"kind": _rows(*many)}}
 
-    monkeypatch.setattr(warm_lists, "list_documents", listed)
-    for _name, ask in warm_lists._documents(STORE):
-        ask()
+    monkeypatch.setattr(warm, "list_documents", listed)
+    _run_all(warm._document_filters(STORE))
     assert (("EK",), None) in asked and (("TK", "EK"), None) in asked
-    assert [kinds[0] for _c, kinds in asked if kinds] == many[
-        : warm_lists.WARM_DOCUMENT_KINDS
-    ]
+    assert [kinds[0] for _c, kinds in asked if kinds] == many[: warm.WARM_TOP]
     assert {chambers for chambers, kinds in asked if kinds} == {("TK",)}
 
 
-def test_the_instruments_by_area_theme_jurisdiction_and_treaty(
+def test_the_instruments_by_jurisdiction_treaty_and_a_top_of_areas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     asked: list[dict[str, Any]] = []
@@ -110,34 +106,40 @@ def test_the_instruments_by_area_theme_jurisdiction_and_treaty(
             "facets": {
                 # the key of a concept in the explorer's URL: its slug, else its id
                 "legal_area": [
-                    {"slug": "staatsrecht", "id": "c1"},
-                    {"slug": None, "id": "c2"},
                     {"slug": None, "id": None},
+                    {"slug": None, "id": "c2"},
+                    *({"slug": f"area-{n}", "id": f"a{n}"} for n in range(9)),
                 ],
                 "policy_domain": [{"slug": "zorg", "id": "c3"}],
             }
         }
 
-    monkeypatch.setattr(warm_lists, "get_instruments_list", listed)
-    for _name, ask in warm_lists._instruments(STORE):
-        ask()
+    monkeypatch.setattr(warm, "get_instruments_list", listed)
+    _run_all(warm._instrument_filters(STORE))
     base = {"article_count_min": 1, "limit": 1}
     assert asked == [
         base,
         {**base, "jurisdiction": "nl"},
         {**base, "jurisdiction": "eu"},
         {**base, "kind": "verdrag"},
-        {**base, "legal_area": "staatsrecht"},
         {**base, "legal_area": "c2"},
+        *({**base, "legal_area": f"area-{n}"} for n in range(warm.WARM_TOP - 1)),
         {**base, "policy_domain": "zorg"},
     ]
 
 
-def test_the_lists_in_their_order(monkeypatch: pytest.MonkeyPatch) -> None:
-    order = ("_decisions", "_documents", "_instruments", "_judgments")
+def test_the_lists_in_their_order_each_filter_its_own_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order = (
+        "_decision_filters",
+        "_document_filters",
+        "_instrument_filters",
+        "_judgment_filters",
+    )
     for name in order:
         monkeypatch.setattr(
-            warm_lists, name, lambda store, name=name: [(name, lambda: None)]
+            warm, name, lambda store, name=name: [warm.Part(name, print)]
         )
-    found = [name for name, _ask in warm_lists.common_filters(STORE)]
+    found = [part.name for part in warm._common_filter_parts(STORE)]
     assert tuple(found) == order

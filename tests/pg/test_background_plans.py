@@ -54,18 +54,15 @@ WHOLE_BY_DESIGN = [
         " per data version in the background",
     ),
     (
-        "facets and total of the list of judgments and of a common filter",
+        "facets and total of the list of judgments and of a source or area of law",
         re.compile(
             r"FROM judgments j .*WHERE \(j\.stub IS NOT TRUE\) AND \(j\.same_as IS NULL\)"
-            r"( AND \(j\.tier = ANY\(%\(tiers\)s\)\))?"
             r"( AND \(j\.source = %\(source\)s\))?"
             r"( AND \(lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\]\))?"
-            r"( AND \(j\.date_eff >= %\(from\)s\) AND \(j\.date_eff <= %\(to\)s\))?"
             r"( GROUP BY| \) subjects|$)"
         ),
-        "the counts of the list as it opens and under a court, an area of law, a source or"
-        " a year (``warm_lists``) cover every judgment under them, of which the data here"
-        " has one court and one year; computed in the background at most every 6 hours",
+        "the counts of the list as it opens and of a source or its largest areas of law"
+        " cover every judgment of them; kept an hour, computed in the background",
     ),
 ]
 
@@ -75,8 +72,10 @@ def _shaped_like_the_real(store: GraphStore) -> None:
         "INSERT INTO judgments (id, type, props)"
         " SELECT 'judgments/real_' || n, 'judgment', json_build_object("
         " 'source', 'rechtspraak', 'subjects', json_build_array('Bestuursrecht'),"
-        " 'stub', false, 'tier', 'rechtbank', 'court_kind', 'rechtbank',"
-        " 'date_eff', '2020-01-01', 'summary', 'Beroep ongegrond.')"
+        " 'stub', false,"
+        " 'tier', (ARRAY['rechtbank', 'rechtbank', 'gerechtshof', 'hoge_raad',"
+        " 'raad_van_state'])[n % 5 + 1], 'court_kind', 'rechtbank',"
+        " 'date_eff', (2016 + n % 10) || '-01-01', 'summary', 'Beroep ongegrond.')"
         f" FROM generate_series(1, {JUDGMENTS}) n"
     )
     store.execute(

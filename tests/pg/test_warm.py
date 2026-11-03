@@ -200,9 +200,12 @@ def test_newer_data_stops_the_common_filters_and_what_follows(
     monkeypatch.setattr(warm, "TAIL", ())
     monkeypatch.setattr(
         warm,
-        "common_filters",
+        "_common_filter_parts",
         lambda store_: iter(
-            [("first", writes), ("second", lambda: asked.append("second"))]
+            [
+                warm.Part("first", lambda s: writes()),
+                warm.Part("second", lambda s: asked.append("second")),
+            ]
         ),
     )
     monkeypatch.setattr(warm, "_warm_articles", lambda *a: asked.append("articles"))
@@ -225,8 +228,8 @@ def test_the_common_filters_are_counted_once_in_their_hours(
     monkeypatch.setattr(warm, "TAIL", ())
     monkeypatch.setattr(
         warm,
-        "common_filters",
-        lambda store_: iter([("a", lambda: asked.append("a"))]),
+        "_common_filter_parts",
+        lambda store_: iter([warm.Part("a", lambda s: asked.append("a"))]),
     )
     monkeypatch.setattr(warm, "_warm_articles", lambda *a: None)
     monkeypatch.setattr(warm, "_warm_neighborhoods", lambda *a: None)
@@ -248,10 +251,15 @@ def test_a_filter_that_fails_leaves_the_others(
 
     monkeypatch.setattr(
         warm,
-        "common_filters",
-        lambda store_: iter([("a", fails), ("b", lambda: asked.append("b"))]),
+        "_common_filter_parts",
+        lambda store_: iter(
+            [
+                warm.Part("a", lambda s: fails()),
+                warm.Part("b", lambda s: asked.append("b")),
+            ]
+        ),
     )
-    warm._warm_common_filters(store, lambda: False)
+    warm._warm_common_filters(store, store.data_version())
     assert asked == ["b"]
 
 
@@ -649,7 +657,9 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
             ("get_instruments_list", names["sort"], names["limit"]),
             ("get_instruments_list", None, 1),  # the facets of Bladeren
             ("list_documents", None, lists["documents"]),
+            ("list_documents", None, 1),  # the common filters
             ("get_judgments_list", None, lists["judgments"]),
+            ("get_judgments_list", None, 1),  # the common filters
             ("get_feed", None, lists["feed"]),
             ("get_feed_summary", None, first["home_summary"]["limit"]),
         },
