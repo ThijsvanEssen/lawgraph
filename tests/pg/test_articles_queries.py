@@ -1137,8 +1137,6 @@ def _seed_cited_by(store: GraphStore) -> None:
             cites("e2", "judgments/j2", [{"leden": ["1", "2"], "snippet": "c"}]),
             cites("e3", "judgments/j3", [{"snippet": "d"}]),
             cites("e4", "judgments/j4", [{"leden": ["2"], "snippet": "e"}]),
-            cites("e5", "judgments/j5", "not a list"),
-            cites("e6", "judgments/j6", []),
             # not a judgment, and a judgment that is not there
             cites("e7", "documents/d1", [{"snippet": "f"}]),
             cites("e8", "judgments/ghost", [{"snippet": "g"}]),
@@ -1185,8 +1183,9 @@ def test_the_passages_that_cite_an_article_newest_first(store: GraphStore) -> No
             },
         },
         "mention": {"snippet": "d"},
+        "origin": None,  # an edge without ``meta.origin``
     }
-    assert list(cited.rows[0]) == ["judgment", "mention"]
+    assert list(cited.rows[0]) == ["judgment", "mention", "origin"]
     assert list(cited.rows[0]["judgment"]["props"]) == [
         "ecli",
         "display_name",
@@ -1346,6 +1345,34 @@ def test_the_echr_judgments_that_cite_an_article_are_counted_apart(
     assert cited.echr_judgment_total == 2
     assert get_article_cited_by(store, CITED, court="hr").echr_judgment_total == 2
     assert get_article_cited_by(store, "articles/none").echr_judgment_total == 0
+
+
+def test_an_edge_without_passages_is_one_row_without_a_mention(
+    store: GraphStore,
+) -> None:
+    """A link of the metadata: a row among the passages, in the counts and the facets, and
+    not under a ``lid`` (only a passage names one). Mentions that are no list read the same."""
+    _seed_cited_by(store)
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("e5", "judgments/j5", CITED, "REFERS_TO",
+                  meta={"mentions": "not a list"}),
+            _edge("e6", "judgments/j6", CITED, "REFERS_TO",
+                  meta={"mentions": [], "origin": ["metadata"]}),
+        ]
+    )  # fmt: skip
+    cited = get_article_cited_by(store, CITED)
+    assert [
+        (r["judgment"]["key"], r["mention"], r["origin"]) for r in cited.rows[:2]
+    ] == [
+        ("j5", None, None),
+        ("j6", None, ["metadata"]),
+    ]
+    assert (cited.total, cited.judgment_total) == (7, 6)
+    assert {"value": "2022", "count": 2} in cited.facets["year"]
+    assert {"value": "cassatie", "count": 3} in cited.facets["tier"]
+    by_lid = get_article_cited_by(store, CITED, lid="2")
+    assert {r["judgment"]["key"] for r in by_lid.rows} == {"j1", "j2", "j4"}
 
 
 def test_the_most_cited_judgment_comes_first_when_asked(store: GraphStore) -> None:

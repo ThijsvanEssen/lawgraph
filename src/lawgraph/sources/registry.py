@@ -753,10 +753,10 @@ RETRIEVE: list[Pipeline] = [
     ),
     _retrieve(
         commands.retrieve_eerstekamer_bills,
-        "The pages of the bills of the Eerste Kamer: those its committees list (now and "
-        "lately) and those it voted on, from eerstekamer.nl.",
+        "The name of each bill of the Eerste Kamer and the pages of those its committees "
+        "list (now and lately) and those it voted on, from eerstekamer.nl.",
         argv_for_all=_windowed_argv,
-        add_args=commands.windowed_args,
+        add_args=commands.eerstekamer_bills_args,
         lane=EERSTEKAMER_SITE.lane,
         # those it voted on: the bill_url of its decisions
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
@@ -917,8 +917,8 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         EerstekamerBillsNormalizePipeline,
-        "The page of each bill of the Eerste Kamer onto its dossier: the day it was "
-        "submitted and its progress, as the page gives them.",
+        "The name and the page of each bill of the Eerste Kamer onto its dossier: the day "
+        "it was submitted and its progress, as the page gives them.",
         after=("tk-dossiers",),  # the dossiers it writes on
     ),
     _pipeline(

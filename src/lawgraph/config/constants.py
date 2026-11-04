@@ -336,6 +336,8 @@ RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED = "ek-composition-observed"
 # The page of a bill on eerstekamer.nl (external id: its path), with the heading of the list
 # of its committee it was found under (``meta.status``).
 RAW_KIND_EERSTEKAMER_BILL = "ek-bill-html"
+# A bill as the list of every bill names it (``retrieve eerstekamer-bills``).
+RAW_KIND_EERSTEKAMER_BILL_NAME = "ek-bill-name-json"
 # The agenda of a plenary sitting of the Eerste Kamer (external id: its path) and a day of its
 # committee meetings (external id: the day, YYYY-MM-DD), from eerstekamer.nl.
 RAW_KIND_EERSTEKAMER_PLENARY = "ek-plenary-html"
@@ -411,6 +413,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EERSTEKAMER_COMPOSITION,
         RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED,
         RAW_KIND_EERSTEKAMER_BILL,
+        RAW_KIND_EERSTEKAMER_BILL_NAME,
         RAW_KIND_EERSTEKAMER_PLENARY,
         RAW_KIND_EERSTEKAMER_COMMITTEE_DAY,
         RAW_KIND_EERSTEKAMER_MUTATIONS,
@@ -424,6 +427,13 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_KIESRAAD: (RAW_KIND_KIESRAAD_EK_RESULT,),
     SOURCE_KST: (RAW_KIND_KST_SRU,),
 }
+
+# Raw kinds a full retrieve fills once: the nightly asks only what changed in its window, and
+# a source of closed years (the SRU papers of 1994 to 2008) changes nothing, so before that
+# first full retrieve the kind is empty by design and ``check`` notes it as a gap.
+RAW_KINDS_FILLED_ONCE: frozenset[tuple[str, str]] = frozenset(
+    {(SOURCE_KST, RAW_KIND_KST_SRU)}
+)
 
 # Records of a kind read in one cursor batch: fewer the larger its payload (a whole act
 # or judgment), more for the small JSON of a TK record.
@@ -466,6 +476,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_EERSTEKAMER_COMPOSITION: 20,
     RAW_KIND_EERSTEKAMER_COMPOSITION_OBSERVED: 1,
     RAW_KIND_EERSTEKAMER_BILL: 50,
+    RAW_KIND_EERSTEKAMER_BILL_NAME: 1000,
     RAW_KIND_EERSTEKAMER_PLENARY: 50,
     RAW_KIND_EERSTEKAMER_COMMITTEE_DAY: 50,
     RAW_KIND_EERSTEKAMER_MUTATIONS: 50,

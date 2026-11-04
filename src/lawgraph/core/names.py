@@ -123,10 +123,15 @@ def article_cite(props: dict[str, Any], law: dict[str, Any] | None = None) -> st
 def article_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:
     """``Art. 6:162 BW, Onrechtmatige daad``: as an article is cited (``article_cite``),
     with what it is about, its heading or else its ``caption`` (the title of the division
-    it stands in, ``semantic bwb-captions``)."""
+    it stands in, ``semantic bwb-captions``); a heading that opens with a bracket follows
+    without a comma (``Art. 25 Cbw (...)``)."""
     name = article_cite(props, law or {})
     about = text_of(props.get("heading")) or text_of(props.get("caption"))
-    return f"{name}, {about[:1].upper()}{about[1:]}" if about else name
+    if not about:
+        return name
+    if about.startswith("("):
+        return f"{name} {about}"
+    return f"{name}, {about[:1].upper()}{about[1:]}"
 
 
 def annex_title(props: dict[str, Any], law: dict[str, Any] | None) -> str:

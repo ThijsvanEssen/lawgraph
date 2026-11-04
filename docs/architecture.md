@@ -105,7 +105,7 @@ records nothing. After normalize and semantic it runs `VACUUM (ANALYZE)`, or wit
 | Command | What it is |
 |---------|------------|
 | `bootstrap` | a build of an empty database (below) |
-| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` (not with `--no-final-pass`) |
+| `expand-graph` | rounds of `retrieve all --mode gaps` with `normalize all` and `semantic all` of what came in, then one full `semantic all` (`--light`: one round, only the steps with `--since`) |
 | `poll` | one source between the nightly runs: its retrieves over a window back, their normalize and the semantic steps the feed needs (`commands/poll.py`) |
 | `built-beforehand` | the SQL of the indexes of the large tables, built before a deploy |
 | `check`, `gaps`, `verify` | reports that only read: is the graph what the pipelines should have made, what a gaps run would fetch, does every cabinet meet the rules of its seats and phases |
@@ -130,7 +130,7 @@ left out: `expand-graph` fetches those acts. A step that ends `ok` is marked in
 `--plan` prints the plan and what is done.
 
 **Scheduled runs.** `scripts/daily.sh` runs each phase `--since last`, then `check
---skip-edges`; `scripts/weekly.sh` runs a full `semantic all`, `expand-graph` and `check`. They share one
+--skip-edges`; `scripts/weekly.sh` runs in full the semantic steps that differ from the daily run, `expand-graph` and `check`. They share one
 lock (`scripts/_run.sh`), so two never write at once. Schedules, logs and alerts: `docs/operations.md`, "Runs".
 
 **Release.** A push to the branch `release` deploys that commit once `tests.yaml` is green on it:

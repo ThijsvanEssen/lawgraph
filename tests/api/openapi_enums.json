@@ -716,12 +716,14 @@
   "title",
   "citation",
   "case",
+  "eerstekamer",
   "amended_law"
  ],
  "/components/schemas/FeedDossierDTO/properties/short_title_basis/anyOf/0": [
   "title",
   "citation",
   "case",
+  "eerstekamer",
   "amended_law"
  ],
  "/components/schemas/FeedItemDTO/properties/kind": [
@@ -2154,5 +2156,13 @@
   "wetsvoorstel",
   "brief",
   "overig"
+ ],
+ "/components/schemas/ArticleCitedByItem/properties/origin/anyOf/0/items": [
+  "text",
+  "metadata"
+ ],
+ "/components/schemas/JudgmentCitedArticle/properties/origin/anyOf/0/items": [
+  "text",
+  "metadata"
  ]
 }

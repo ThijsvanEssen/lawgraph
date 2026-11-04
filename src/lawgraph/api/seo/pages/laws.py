@@ -21,6 +21,7 @@ from lawgraph.api.seo.pages.base import (
 )
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.bwb_xml import article_label
+from lawgraph.core.code_families import book_of, family_of
 from lawgraph.core.dossier_numbers import official_number
 from lawgraph.core.dutch_dates import long_date
 from lawgraph.core.models import node_id
@@ -89,6 +90,24 @@ def _part_of(name: str, identifier: str) -> dict[str, Any]:
     )
 
 
+def _searched(props: dict[str, Any], name: str) -> str:
+    """The name the description of a law opens with, with the abbreviation lawyers search
+    it by (its title stays the one of the API, ``title_of``, which the app shows):
+    ``Burgerlijk Wetboek Boek 7 (BW 7)`` for a book of a code; *name* with the abbreviation
+    an EU act is cited by (``abbreviation``, kept by hand: ``Algemene verordening
+    gegevensbescherming (AVG)``); else *name*, which has it already
+    (``Cyberbeveiligingswet (Cbw)``, ``law_name``)."""
+    bwb_id = text_of(props.get("bwb_id"))
+    family, book = family_of(bwb_id), book_of(bwb_id)
+    full = text_of(props.get("citation_title"))
+    if family and book and full:
+        return f"{full} ({family} {book})"
+    abbreviation = text_of(props.get("abbreviation"))
+    if abbreviation and abbreviation.lower() not in name.lower():
+        return f"{name} ({abbreviation})"
+    return name
+
+
 def law_page(row: dict[str, Any]) -> Page:
     """A law of the BWB, an EU act or a law of the Staatsblad: its articles; an EU act also
     its whole title and its text on EUR-Lex, a law of the Staatsblad its status and its
@@ -110,9 +129,10 @@ def law_page(row: dict[str, Any]) -> Page:
     count = len(row["articles"])
     # an EU act by its whole title: what it is about ("NIS 2-richtlijn") is in it alone
     full = text_of(props.get("title")) if eu else ""
+    searched = _searched(props, name)
     description = joined(
         ", ",
-        full or text_of(props.get("citation_title")) or name,
+        full or searched,
         enacted[:1].lower() + enacted[1:],
         f"geldend sinds {since}" if since else "",
         f"{count} artikelen" if count else "",

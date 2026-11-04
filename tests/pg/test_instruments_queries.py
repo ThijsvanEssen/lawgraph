@@ -1601,7 +1601,7 @@ def test_the_keys_of_the_registers(store: GraphStore) -> None:
 def test_a_treaty_with_its_bwb_text_is_listed_once_as_the_text(
     store: GraphStore,
 ) -> None:
-    """A Verdragenbank treaty that the BWB text of the treaty is ``SAME_AS`` is that text:
+    """A Verdragenbank treaty with the BWB text of the treaty (``same_as``) is that text:
     the list has the text (with its articles), not the register record, and the total
     and the facets count it once. ``jurisdiction=int`` keeps the Verdragenbank treaties;
     ``facets.kind`` counts per kind without the kind filter."""
@@ -1611,7 +1611,8 @@ def test_a_treaty_with_its_bwb_text_is_listed_once_as_the_text(
             _doc("bwbv0001234", "instrument", bwb_id="BWBV0001234", kind="verdrag",
                  jurisdiction="nl", citation_title="Verdrag A (tekst)"),
             _doc("verdrag_001", "instrument", kind="verdrag", jurisdiction="int",
-                 citation_title="Verdrag A", treaty_number="001234"),
+                 citation_title="Verdrag A", treaty_number="001234",
+                 same_as="instruments/bwbv0001234"),
             _doc("verdrag_002", "instrument", kind="multilateraalverdrag",
                  jurisdiction="int", citation_title="Verdrag B"),
             _doc("bwbr0000001", "instrument", bwb_id="BWBR0000001", kind="wet",
@@ -1620,9 +1621,6 @@ def test_a_treaty_with_its_bwb_text_is_listed_once_as_the_text(
                  citation_title="Stb. 2026, 1"),
         ],
     )  # fmt: skip
-    store.bulk_insert_or_update_edges(
-        [_edge("instruments/bwbv0001234", "instruments/verdrag_001", "SAME_AS")]
-    )
 
     every = instruments.get_instruments_list(store)
     assert sorted(_keys(every["items"])) == [
@@ -1643,8 +1641,13 @@ def test_a_treaty_with_its_bwb_text_is_listed_once_as_the_text(
     international = instruments.get_instruments_list(store, jurisdiction="int")
     assert _keys(international["items"]) == ["verdrag_002"]
     assert international["total"] == 1
-    # without the edge the register record is listed again
-    store.execute("DELETE FROM edges WHERE relation = 'SAME_AS'")
+    # without it the register record is listed again; the list reads no edge
+    store.bulk_insert_or_update_edges(
+        [_edge("instruments/bwbv0001234", "instruments/verdrag_001", "SAME_AS")]
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments", [_doc("verdrag_001", "instrument", same_as=None)]
+    )
     assert instruments.get_instruments_list(store)["total"] == 4
 
 
@@ -1939,8 +1942,8 @@ def test_related_instruments_read_only_the_references_between_articles(
 def test_the_total_of_the_list_is_counted_once_for_every_page(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The total tests every instrument for a SAME_AS edge (2.7 s on prod): kept under the
-    filters, the next page and another limit read their page alone."""
+    """The total is kept under the filters: the next page and another limit read their page
+    alone."""
     _seed_list(store)
     calls = recorded(store, monkeypatch)
     first = instruments.get_instruments_list(store, limit=1)

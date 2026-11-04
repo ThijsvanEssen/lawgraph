@@ -48,7 +48,17 @@ def _article_queries(monkeypatch: pytest.MonkeyPatch) -> None:
             and article.get("props", {}).get("references") is not None
         )
 
+    def article_texts(
+        store: InMemoryStore, keys: list[str]
+    ) -> Iterator[dict[str, Any]]:
+        return iter(
+            {"key": a["key"], "text": a["props"].get("text")}
+            for a in _articles(store)
+            if a["key"] in keys
+        )
+
     monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
+    monkeypatch.setattr(semantic_bwb, "article_texts", article_texts)
     monkeypatch.setattr(
         semantic_bwb, "articles_with_references", articles_with_references
     )
@@ -302,3 +312,33 @@ def test_a_failing_bwb_id_query_is_an_error_not_an_empty_graph(
     monkeypatch.setattr(semantic_bwb, "article_bwb_ids", article_bwb_ids)
     with pytest.raises(RuntimeError, match="database gone"):
         BWBSemanticPipeline(store=cast(GraphStore, object()))._load_bwb_ids_from_graph()
+
+
+def test_a_link_to_a_whole_law_is_an_edge_where_its_sentence_leaves_a_matter_to_it() -> (
+    None
+):
+    text = "Het Koningschap wordt geregeld in de Grondwet. Zie ook de Kieswet."
+    leaves = text.index("Grondwet")
+    names = text.index("Kieswet")
+    article = _make_article("bwbr0002154_5", "BWBR0002154", "5", text)
+    article["props"]["references"] = [
+        {**_ref("BWBR0001840", None, "Grondwet"), "start": leaves, "end": leaves + 8},
+        {**_ref("BWBR0004627", None, "Kieswet"), "start": names, "end": names + 7},
+        {**_ref("BWBR0099999", None, "Onbekend"), "start": leaves, "end": leaves + 8},
+    ]
+    store = InMemoryStore(
+        {
+            "articles": [article],
+            "instruments": [
+                {"key": "bwbr0001840", "type": "instrument", "labels": [], "props": {}},
+                {"key": "bwbr0004627", "type": "instrument", "labels": [], "props": {}},
+            ],
+        }
+    )
+
+    _create_pipeline(store).run()
+
+    edges = [e for e in store.edges.values() if e["to_id"].startswith("instruments/")]
+    assert [(e["to_id"], e["meta"]["reason"]) for e in edges] == [
+        ("instruments/bwbr0001840", "leaves_to")
+    ]

@@ -80,7 +80,7 @@ the `date` of its paper or case (`lg_signed_date`), with indexes on `member_id` 
 `(member_id, capacity, date)` that includes the `dossiers`, kept by triggers on `edges` (a
 signature, and a paper or a case placed in or taken out of a dossier or a case), `documents`
 and `cases`, and filled once: the dossiers of a member or a faction (`get_actor_dossiers`) and
-the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and its `dossiers`, those an activity is `ABOUT` or a case `PART_OF` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_cited_by` holds every `REFERS_TO` edge from a judgment into an article with its number of `mentions`, the `leden` each mention names (in their order), and the judgment's `date_eff`, `ecli`, `court_code`, `tier`, `inbound_citation_count` (as `cited`) and main areas of law (`areas`, `lg_subject_areas` of its `subjects`; null for a row written before they were kept, `semantic graph-light --only cited-by --all` writes them), with an index (`lg_cited_by_article_areas`) on `article_id` that includes all but the `leden`, kept by triggers on `edges` and `judgments` (a row for each edge of a judgment that is there) and filled once: the passages citing an article (`get_article_cited_by`) and the judgments citing a law (`get_citing_judgments`) are counted, filtered (by year, tier and main area of law) and sorted from it, and only the edges and judgments of the page are read. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
+the counts of a cabinet's members (`get_cabinet`) are read from it. `lg_led` holds every `LED_BY` edge into a committee (from an activity or a case) with the `date` of that item (`lg_led_date`) and its `dossiers`, those an activity is `ABOUT` or a case `PART_OF` (`lg_led_dossiers`), with an index on `(committee_id, item_collection, date DESC, item_id)` that includes the `dossiers`, kept by triggers on `edges`, `activities` and `cases` and filled once: the pages of a committee read it (`get_committee_detail`, `get_committee_activities`). `lg_cited_by` holds every `REFERS_TO` edge from a judgment into an article with its number of `mentions`, the `leden` each mention names (in their order), and the judgment's `date_eff`, `ecli`, `court_code`, `tier`, `inbound_citation_count` (as `cited`) and main areas of law (`areas`, `lg_subject_areas` of its `subjects`; null for a row written before they were kept, `semantic graph-light --only cited-by --all` writes them), with an index (`lg_cited_by_article_areas`) on `article_id` that includes all but the `leden`, kept by triggers on `edges` and `judgments` (a row for each edge of a judgment that is there) and filled once: the passages citing an article (`get_article_cited_by`; an edge with no mentions, a link of the metadata, is one row without a passage, unless the judgment is one of the ECHR) and the judgments citing a law (`get_citing_judgments`) are counted, filtered (by year, tier and main area of law) and sorted from it, and only the edges and judgments of the page are read. `lg_article_terms` holds per article its terms (`semantic graph-article-terms`):
 the stems that recur in the light summaries of the judgments that cite it, in at least 3 of
 them, 5 times as often as in all summaries, and in a fifth of them or in a fifth of the
 summaries that hold the stem, at most 20, the most telling first ("noodwer" of art. 41 Sr,
@@ -207,6 +207,7 @@ pipeline writes another, or when the table below is out of date. Refresh it with
 | `reason` | `bwb_instrument` | `REFERS_TO` | The text cites a law (BWB) as a whole. |
 | `reason` | `celex_instrument` | `REFERS_TO` | The text cites an EU act as a whole. |
 | `reason` | `unknown` | `REFERS_TO` | A citation that names neither a law nor an EU act. |
+| `reason` | `leaves_to` | `REFERS_TO` | A link to a whole law whose sentence leaves a matter to it (`delegations.leaves_to`). |
 | `reason` | `bwb_xml_ref` | `REFERS_TO` | A reference the BWB XML of the article records (`intref`, `extref`). |
 | `reason` | `amendment_text` | `AMENDS`, `INTRODUCES`, `REPEALS` | The text of the amendment names the article it changes (`meta.snippet`). |
 | `reason` | `ingediend` | `MADE_IN` | The motion was submitted in the debate held on the day its case started. |
@@ -351,7 +352,7 @@ its keys to the model of `REFERS_TO`.
 |  | `mentions[].confidence` | `float` | How sure the reading is. |
 |  | `mentions[].qualifier` | `str` | The leden or onderdelen as written: `derde lid`. |
 |  | `mentions[].footnote` | `str` | The label of the footnote that cites it. |
-|  | `origin` | `list["text" \| "metadata"]` | What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`), or both; the mentions are those of the text. |
+|  | `origin` | `list["text" \| "metadata"]` | What names the article: its `text`, its `metadata` (`Wetsverwijzing`) or both. |
 |  | `paragraphs` | `list[str]` | The numbers of the paragraphs that cite it, each once. |
 |  | `cited_ecli` | `str` | The ECLI the judgment cites. |
 |  | `cited_appno` | `str` | The application number of the ECHR decision it cites. |
@@ -605,6 +606,7 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `title_nl` | `str` | Of a Verdragenbank treaty: its Dutch title. |
 | `title_en` | `str` | Of a Verdragenbank treaty: its English title. |
 | `treaty_number` | `str` | The six-digit Verdragenbank id, which a BWB treaty names in `wetgeving@verdragnummer`. |
+| `same_as` | `str` | Of a Verdragenbank treaty whose BWB text is in the graph: the id of that text (`semantic verdragenbank`), which is `SAME_AS` it. The list has the text alone. |
 | `treaty_type` | `str` | Of a Verdragenbank treaty: its type as the register gives it. |
 | `status` | `str` | Of a Verdragenbank treaty: its status as the register gives it; of a law of the Staatsblad the BWB does not hold (yet) `vastgesteld`: its text as published, not in force. |
 | `in_force` | `bool` | Of a Verdragenbank treaty: its status is `inwerkinggetreden`; of a law of the Staatsblad the BWB does not hold (yet) `false`. |
@@ -618,23 +620,23 @@ document (memorie van toelichting, nota van toelichting) explains.
 | `tractatenblad[].text` | `str` | As the register writes it: "1951, 154". |
 | `tractatenblad[].description` | `str` | What it publishes: "goedkeuring, inwerkingtreding". |
 | `parties` | `list[object]` | Of a Verdragenbank treaty: its state parties. |
+| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
+| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
+| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
+| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].name` | `str` | The state. |
 | `parties[].signed` | `str` | `DatumOndertekenning`. |
 | `parties[].ratified` | `str` | `DatumRatificatie`. |
 | `parties[].consent` | `str` | `TypeInstemming`: `R`, `T` (toetreding), `A`, ... |
-| `parties[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
-| `parties[].in_force` | `str` | `DatumInwerkingtreding`. |
-| `parties[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `parties[].denounced` | `str` | `DatumOpzegging`. |
-| `parties[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
 | `parties[].reservation` | `bool` | `IsVoorbehoud`: it made a reservation. |
 | `parties[].objection` | `bool` | `IsBezwaar`: it made an objection. |
 | `kingdom_parts` | `list[object]` | Of a Verdragenbank treaty: the parts of the Kingdom it applies to. |
-| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kingdom_parts[].provisional` | `str` | `DatumVoorlopigeToepassing`. |
 | `kingdom_parts[].in_force` | `str` | `DatumInwerkingtreding`. |
 | `kingdom_parts[].retroactive` | `str` | `DatumTerugwerkendeKracht`. |
 | `kingdom_parts[].terminated` | `str` | `DatumBuitenwerkingtreding`. |
+| `kingdom_parts[].part` | `str` | "Nederland (in Europa)", "Aruba". |
 | `kamerstukken` | `list[object]` | Of a Verdragenbank treaty: the dossiers of its approval, each once. |
 | `kamerstukken[].dossier` | `str` | The dossier number. |
 | `kamerstukken[].rijks_number` | `str` | The number of a rijkswet (`R2188`), as the register writes it. |
@@ -1283,12 +1285,12 @@ so. Its schema does not name it.
 | `phases[].date` | `str` | The first date of the records that mark it. |
 | `current_phase` | `str` | The furthest done phase. |
 | `outcome` | `str` | `aangenomen` when its law was published or the Eerste Kamer adopted it, `verworpen` when a chamber voted the bill down, `ingetrokken` when the government withdrew it by letter (`semantic tk-dossier-outcomes`). |
-| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` whose `Onderwerp` is the fixed title `Brief houdende intrekking van het wetsvoorstel` (`core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`). |
+| `withdrawal_letter` | `str` | Of a withdrawn bill, the id of the letter that withdrew it: a `Brief regering` with the fixed `Onderwerp` of `core/dossier_stages.WITHDRAWAL_LETTER_SUBJECT`. |
 | `tk_decision` | `object` | The last decision of the Tweede Kamer on its bill. |
 | `tk_decision.kind` | `str` | Its `BesluitSoort`. |
 | `tk_decision.text` | `str` | Its text. |
 | `tk_decision.date` | `str` | Its day. |
-| `ek_rejected` | `object` | The Eerste Kamer's list of rejected bills names it (`normalize eerstekamer-votes`). |
+| `ek_rejected` | `object` | On the Eerste Kamer's list of rejected bills (`normalize eerstekamer-votes`). |
 | `ek_rejected.date` | `str` | The day. |
 | `ek_rejected.source_url` | `str` | The list. |
 | `ek_rejected.retrieved_on` | `str` | The day it was read. |
@@ -1312,6 +1314,7 @@ so. Its schema does not name it.
 | `ek_bill.progress[].papers[].date` | `str` | Its date. |
 | `ek_bill.progress[].papers[].number` | `str` | Its number. |
 | `ek_bill.progress[].papers[].url` | `str` | Its link. |
+| `ek_name` | `str` | The name the Eerste Kamer gives its bill (`normalize eerstekamer-bills`). |
 | `ministry` | `str` | Who brought it in (`semantic tk-government`): the ministry of the bewindspersoon who first signed its earliest signed document. |
 | `initiative` | `bool` | `true` when a Kamerlid signed first. |
 | `cabinet` | `str` | The cabinet in office that day. |
@@ -1863,7 +1866,7 @@ record is skipped like one without a payload.
 | `bwb` | `bwb-toestand-xml` (current), `bwb-toestand-xml-all` (every toestand, external id `<bwb_id>@<start_date>`), `bwb-wti-algemene-informatie-xml` (the first element of the WTI file: official abbreviations, citation titles, legal areas) |
 | `staatsblad` | `stb-amvb-xml`, `stb-transposition-xml` (a publication whose text names a transposition table, external id `stb-<year>-<n>`: its XML when a table is read in it, `meta.tables` how many) |
 | `staatscourant` | `stcrt-regeling-xml`, `stcrt-post-creators-json` (per cabinet post, the ministries that issued the publications naming it) |
-| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-plenary-html`, `ek-committee-day-html` |
+| `eerstekamer` | `ek-kamerstuk-json`, `ek-votes-day-html`, `ek-rejected-html`, `ek-composition-html`, `ek-composition-observed`, `ek-bill-html`, `ek-bill-name-json`, `ek-plenary-html`, `ek-committee-day-html` |
 | `kst` | `kst-sru-json` (the SRU record of a Kamerstuk of the Tweede Kamer of 1994-1995 to 2007-2008, external id `kst-<dossier>-<n>`; `meta` its session year, dossier and when it was modified) |
 | `echr` | `echr-judgment-json` (one per HUDOC item: a judgment in one language), `echr-judgment-docx-xml` (the `word/document.xml` of the DOCX of the item whose text a judgment gets, external id its item id, `meta.ecli` and `meta.language`) |
 | `verdragenbank` | `verdrag-json` (the SRU record), `verdrag-xml` (the item XML: parties, Tractatenbladen, dossiers, related treaties; `meta.item_url` and `meta.modified`) |
@@ -1928,8 +1931,8 @@ graph-article-terms` raises the counter of `articles` once, at the end of a run 
 terms (`raise_articles_version`), since the search finds an article by them; a trigger would
 raise it with every batch and empty the cached search answers that often during a run. The API's `ETag` is made from these counters
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads
-(`version_cache.cached(tables=...)`) and is kept while their counters stand still, an hour at
-most; one that names none is kept until any counter moves.
+(`version_cache.cached(tables=...)`) and is kept while their counters stand still; after an hour
+it is computed again behind the kept one. One that names none is kept until any counter moves.
 
 ### Derived columns
 

@@ -17,20 +17,15 @@ from lawgraph.api.schemas.common import (
     ArticleRelationDTO,
     ChangeEffect,
     DefinitionDTO,
-    FacetCountDTO,
     InstrumentSummaryDTO,
-    JudgmentOutcomeFields,
     PathSource,
     PublicationDTO,
     QualifierFields,
     StrictModel,
     TermSpanDTO,
-    WithCite,
     WithKindGroup,
     WithPath,
     address_of,
-    judgment_cite_dto,
-    judgment_outcome_fields,
     regulation_kind,
     scope_type_of,
     semantic_fields,
@@ -61,8 +56,6 @@ from lawgraph.core.delegations import (
 )
 from lawgraph.core.display import shorten
 from lawgraph.core.documents import number_in_dossier, numbered_in
-from lawgraph.core.judgment_metadata import subject_areas
-from lawgraph.core.mentions import Mention
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import (
@@ -810,141 +803,6 @@ class ArticleDelegatedResponse(StrictModel):
         "ministerial regulations, then the others; by title.",
     )
     total: int
-
-
-class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
-    """The judgment of a passage that cites an article, with how it ended."""
-
-    path_source = PathSource("judgments")
-
-    id: str
-    key: str
-    ecli: str | None
-    court: str | None = Field(description="ECLI court code, `HR`, `RBAMS`.")
-    tier: str | None = Field(
-        description="The tier, the Type of the court in the Instanties value list: "
-        "`hoge_raad`, `raad_van_state`, `parket`, `gerechtshof`, `rechtbank`, "
-        "`andere_instantie`, … (`/api/stats/coverage` lists those present).",
-    )
-    court_kind: str | None = Field(
-        default=None,
-        description="The kind of court within the tier (`ambtenarengerecht`; a tier of "
-        "one kind of court is its own kind).",
-    )
-    date: str | None = Field(description="Date of the judgment, YYYY-MM-DD.")
-    display_name: str | None
-    inbound_citation_count: int | None = Field(
-        default=None,
-        description="The judgments that cite it, or another publication of the same "
-        "decision, each once (as in `/api/judgments`): a standard judgment has many.",
-    )
-    subject_areas: list[str] = Field(
-        default_factory=list,
-        description="The main areas of law of the judgment (`Strafrecht`, `Civiel recht`, "
-        "`Bestuursrecht`), each once, as `subject_areas` of `/api/judgments/{ecli}`; "
-        "empty when the source gives none.",
-    )
-
-
-def _count(value: Any) -> int | None:
-    return int(value) if isinstance(value, int | float) else None
-
-
-class ArticleCitedByItem(QualifierFields):
-    """One passage of a judgment that cites the article. `leden`, `onderdelen` and
-    `aanhef` say what the passage names of it."""
-
-    judgment: CitedByJudgment
-    paragraph_id: str = Field(
-        description="The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`."
-    )
-    paragraph_number: str | None = Field(
-        description="Its printed number (`5.3`), null when it has none."
-    )
-    qualifier: str | None = Field(
-        description="The qualifier as the judgment wrote it, `derde lid`."
-    )
-    start: int = Field(
-        description="Offset of the citation in the text of the paragraph."
-    )
-    end: int
-    text: str = Field(description="The citation as written: `text[start:end]`.")
-    snippet: str = Field(description="The text of the paragraph around the citation.")
-    confidence: float
-
-    @classmethod
-    def from_row(cls, row: dict[str, Any]) -> ArticleCitedByItem | None:
-        """Build from a `{judgment, mention}` row; None when the mention is malformed."""
-        mention = Mention.from_dict(row.get("mention"))
-        if mention is None:
-            return None
-        doc = row["judgment"]
-        props = doc.get("props") or {}
-        return cls(
-            judgment=CitedByJudgment(
-                id=doc["id"],
-                key=doc["key"],
-                ecli=props.get("ecli"),
-                court=props.get("court_code"),
-                tier=props.get("tier"),
-                court_kind=props.get("court_kind"),
-                date=props.get("date_eff"),
-                display_name=props.get("display_name"),
-                inbound_citation_count=_count(props.get("inbound_citation_count")),
-                subject_areas=subject_areas(props.get("subjects")),
-                cite=judgment_cite_dto(props),
-                **judgment_outcome_fields(props),
-            ),
-            paragraph_id=mention.paragraph_id,
-            paragraph_number=mention.paragraph_number,
-            qualifier=mention.qualifier,
-            start=mention.start,
-            end=mention.end,
-            text=mention.raw_match,
-            snippet=mention.snippet,
-            confidence=mention.confidence,
-            **mention.parts.to_dict(),
-        )
-
-
-class CitedByFacets(StrictModel):
-    """The judgments that cite an article, counted whatever the page, each facet under the
-    other filters."""
-
-    year: list[FacetCountDTO] = Field(
-        description="Per year of the judgment's date, oldest first, null (no date) "
-        "first; without the `year` filter."
-    )
-    tier: list[FacetCountDTO] = Field(
-        description="Per tier, most first; without the `tier` filter."
-    )
-    subject_area: list[FacetCountDTO] = Field(
-        description="Per main area of law of the source (`Strafrecht`, `Civiel recht`, "
-        "`Bestuursrecht`), most first; a judgment counts for each of its areas; without "
-        "the `subject_area` filter."
-    )
-
-
-class ArticleCitedByResponse(StrictModel):
-    """Response for GET /api/articles/{bwb_id}/{article_number}/cited-by."""
-
-    article_id: str
-    items: list[ArticleCitedByItem]
-    total: int = Field(
-        description="Every passage that matches the filters, independent of `limit`."
-    )
-    judgment_total: int = Field(
-        description="The judgments those passages are in: a judgment that cites the "
-        "article in three places is three passages and one judgment."
-    )
-    echr_judgment_total: int = Field(
-        default=0,
-        description="The ECHR judgments that cite the article, whatever the filters. "
-        "HUDOC names the articles a judgment applies, not the passage, so they are no "
-        "row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them "
-        "(`international`).",
-    )
-    facets: CitedByFacets
 
 
 DOSSIER_SHORT_TITLE = (

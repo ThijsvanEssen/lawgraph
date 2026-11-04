@@ -154,6 +154,8 @@ URLS = [
     f"/api/instruments/{BWB}/delegated",
     # the basis of a regulation: its edges, then the articles of it that refer to each
     f"/api/instruments/{BWB}/basis",
+    # the laws above it: its own edges, by the index
+    f"/api/instruments/{BWB}/above",
     # the references between the articles of two laws: those of each, by its edges
     f"/api/instruments/{BWB}/references/BWBR0002",
     f"/api/instruments/{BWB}/versions",

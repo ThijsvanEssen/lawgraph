@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.29",
+    "version": "0.80.30",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -171,7 +171,7 @@
           "articles"
         ],
         "summary": "Passages of judgments that cite an article",
-        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date), `subject_area` (a main area of law of the judgment's source, the part of a subject before its first `;`: `Strafrecht`) and `lid` (a lid number the passage names) filter; `total` counts all passages that match, `judgment_total` the judgments they are in, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, per `subject_area` (most first) without the `subject_area` filter, each under the other filters. 404 when the article is unknown.",
+        "description": "One row per passage: a judgment and the paragraph in it that cites the article, with the lid, onderdeel or aanhef it names, a snippet and the confidence of the detection, and `origin` of the judgment's link to the article (`text`, `metadata` or both; null when not kept). A judgment only its metadata links has no passage: one row, `paragraph_id` and all else of a passage null. Newest judgment first. `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date), `subject_area` (a main area of law of the judgment's source, the part of a subject before its first `;`: `Strafrecht`) and `lid` (a lid number the passage names, so no row without a passage) filter; `total` counts all rows that match, `judgment_total` the judgments of them, `echr_judgment_total` the ECHR judgments that cite the article (no passage: HUDOC names the article). `facets` counts the judgments, whatever the page: per `year` (oldest first, null for none first) without the `year` filter, per `tier` (most first) without the `tier` filter, per `subject_area` (most first) without the `subject_area` filter, each under the other filters. 404 when the article is unknown.",
         "operationId": "get_article_cited_by_passages_api_articles__bwb_id___article_number__cited_by_get",
         "parameters": [
           {
@@ -1021,7 +1021,7 @@
           "judgments"
         ],
         "summary": "One judgment with the articles it cites",
-        "description": "Looks a judgment up by ECLI, follows its REFERS_TO edges to articles and adds each article with its parent instrument.\n\nthe judgment with its `official_url` (uitspraken.rechtspraak.nl by ECLI; HUDOC by item id, `external_id`, for an ECHR judgment; EUR-Lex by CELEX number, `external_id`, for one of a court of the EU; null for a stub of another court), its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number`, its `kind` (`heading`, `subheading`, `body`, `toc`: a line of a table of contents, `signature`: the closing lines that sign a conclusion), of a paragraph without a number that goes on with a numbered consideration `continues` (its `paragraph_id`), its `tables` (each a span of its `text`, a row a line and its cells separated by a tab), and the `citations` in it of an article or a judgment, one per occurrence with `start` and `end`, `kind` `article` or `judgment` and `target.collection` to match; the first is the kop when the judgment has one), its `footnotes` (`label` as printed, `paragraph_id` the paragraph whose marker points to it, null when none does, `at` where that marker stands in the paragraph's `text`, null when not known, `text`, and the `citations` in that text as a paragraph has them), its `parties` (`name`, `role`, `roles` (every role the kop names, in its order: geïntimeerde and appellant in incidenteel hoger beroep), `role_stated` (a derived role is never the other side's for a public authority: the prosecution is `Officier van justitie`), `side` `first`/`second`/`other`, `alias` (\"(hierna: X)\", and \"Partijen worden hierna A, B en C genoemd\"), `representatives` (`name`, `role` `advocaat`, `gemachtigde` or, in a criminal case, `raadsman`, `place`, `capacity`: from the kop and the account of the procedure, data model (docs/data-model.md#judgment)); a party the procedure hears \"als partij\" that the kop does not name comes last, `side` `other`; null when the judgment was normalized before parties were read, empty when none are named), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and the snippet of the strongest mention: `snippet_paragraph_id` the paragraph it is from (of a citation in a footnote, the paragraph that refers to it, and `footnote` the footnote's `label`; null for a paragraph's own text), `text` the citation as written and `start`/`end` where the linker found it in the snippet (null when the judgment was normalized again since it was linked). Citations are read from the stored edges; nothing is detected per request. `judgment.names` and `decision_kind` as in the list; `summary` is the Dutch inhoudsindicatie and `summary_en` an English one: an English translation (its own ECLI, `translation_of` the ECLI of the Dutch judgment) has the Dutch `summary` of that judgment, and that judgment the English `summary_en` (see data-model (docs/data-model.md#judgment)). `judgment.series_id` and `series_size` name the series of parallel cases it is one of (the same court, day and text), `series` the other judgments of it. `conclusions` are the conclusions its metadata names (`conclusion_eclis`), in that order: `ecli`, `author` (the A-G or P-G), `role` and `date` as the conclusion's light node gives them (`lg_judgment_light`), so they read as the conclusion's own page; one the graph lacks is its `ecli` alone. `cited_judgments` are the judgments its text cites (`REFERS_TO`: by ECLI, LJN or application number), newest first, each with the places that cite it as `cited_articles` has them (`paragraph_ids`, `paragraph_numbers`, `snippet`, `snippet_paragraph_id`, `footnote`, `text`, `start`, `end`, `confidence`, `mention_count`; empty for an edge linked before places were kept); `judgment.same_as` is, for a replaced publication, the ECLI of the one kept (for a language version of an ECHR decision without an ECLI, the HUDOC item id of the version kept), and `same_as` the other publications of the decision (`SAME_AS`, either way); `related_to` the connected cases (`RELATED_TO`, as between dossiers, either way: those its summary names, \"Samenhang met 24/03860 E\", \"Zie ook: ECLI:…\", and those whose summary names it), each once with its `links`: per edge its `direction` (`outbound`: this judgment's summary names it, `inbound`: its summary names this one, outbound first), `basis` (`summary_text`) and `text`, the sentence that names it; `judgment.replaced_by` the ECLI `dcterms:isReplacedBy` names, loaded or not. `judgment.advocate_general` and `advocate_general_role` (the role it is signed in: `advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend procureur-generaal`, `plaatsvervangend advocaat-generaal`; null when not clear) is, for a conclusion, who wrote it (`T. Hartlief`; null for a judgment); `published_on`, the \"Datum publicatie\" of uitspraken.rechtspraak.nl (null for another source or without a published document). How it ended (data model (docs/data-model.md#judgment)): `judgment.outcome` (`verworpen`, `vernietigd`, `gedeeltelijk vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, `ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`, `tussenuitspraak`; of the ECHR `schending` or `geen schending`) with `outcome_text`, the clause of the decision that says it (\"verwerpt het beroep\"), and `outcome_paragraph_id`; of a conclusion `conclusion_outcome` (`verwerping`, `vernietiging`, `vernietiging en verwijzing`, `niet-ontvankelijkverklaring`, `gegrondverklaring`, `ongegrondverklaring`, `beantwoording`) with `conclusion_outcome_text` and `conclusion_outcome_paragraph_id`; of the ECHR `echr_findings`, per article `{article, protocol, combined_with, finding, aspect, text}`; null (empty) when the text does not say it. Each of `conclusions` has the `outcome` and `outcome_text` of that conclusion (what it proposes)",
+        "description": "Looks a judgment up by ECLI, follows its REFERS_TO edges to articles and adds each article with its parent instrument.\n\nthe judgment with its `official_url` (uitspraken.rechtspraak.nl by ECLI; HUDOC by item id, `external_id`, for an ECHR judgment; EUR-Lex by CELEX number, `external_id`, for one of a court of the EU; null for a stub of another court), its `paragraphs` (each with a `paragraph_id` for deep links, its printed `number`, its `kind` (`heading`, `subheading`, `body`, `toc`: a line of a table of contents, `signature`: the closing lines that sign a conclusion), of a paragraph without a number that goes on with a numbered consideration `continues` (its `paragraph_id`), its `tables` (each a span of its `text`, a row a line and its cells separated by a tab), and the `citations` in it of an article or a judgment, one per occurrence with `start` and `end`, `kind` `article` or `judgment` and `target.collection` to match; the first is the kop when the judgment has one), its `footnotes` (`label` as printed, `paragraph_id` the paragraph whose marker points to it, null when none does, `at` where that marker stands in the paragraph's `text`, null when not known, `text`, and the `citations` in that text as a paragraph has them), its `parties` (`name`, `role`, `roles` (every role the kop names, in its order: geïntimeerde and appellant in incidenteel hoger beroep), `role_stated` (a derived role is never the other side's for a public authority: the prosecution is `Officier van justitie`), `side` `first`/`second`/`other`, `alias` (\"(hierna: X)\", and \"Partijen worden hierna A, B en C genoemd\"), `representatives` (`name`, `role` `advocaat`, `gemachtigde` or, in a criminal case, `raadsman`, `place`, `capacity`: from the kop and the account of the procedure, data model (docs/data-model.md#judgment)); a party the procedure hears \"als partij\" that the kop does not name comes last, `side` `other`; null when the judgment was normalized before parties were read, empty when none are named), the articles its `REFERS_TO` edges point at with their parent instrument (`articles`), and the same articles as `cited_articles` with the paragraphs that cite them, the lid or onderdeel named and the snippet of the strongest mention: `snippet_paragraph_id` the paragraph it is from (of a citation in a footnote, the paragraph that refers to it, and `footnote` the footnote's `label`; null for a paragraph's own text), `text` the citation as written and `start`/`end` where the linker found it in the snippet (null when the judgment was normalized again since it was linked), and `origin` what names the article: its `text`, its `metadata` (`Wetsverwijzing`; such an article has no paragraphs) or both, null for an edge linked before origin was kept. Citations are read from the stored edges; nothing is detected per request. `judgment.names` and `decision_kind` as in the list; `summary` is the Dutch inhoudsindicatie and `summary_en` an English one: an English translation (its own ECLI, `translation_of` the ECLI of the Dutch judgment) has the Dutch `summary` of that judgment, and that judgment the English `summary_en` (see data-model (docs/data-model.md#judgment)). `judgment.series_id` and `series_size` name the series of parallel cases it is one of (the same court, day and text), `series` the other judgments of it. `conclusions` are the conclusions its metadata names (`conclusion_eclis`), in that order: `ecli`, `author` (the A-G or P-G), `role` and `date` as the conclusion's light node gives them (`lg_judgment_light`), so they read as the conclusion's own page; one the graph lacks is its `ecli` alone. `cited_judgments` are the judgments its text cites (`REFERS_TO`: by ECLI, LJN or application number), newest first, each with the places that cite it as `cited_articles` has them (`paragraph_ids`, `paragraph_numbers`, `snippet`, `snippet_paragraph_id`, `footnote`, `text`, `start`, `end`, `confidence`, `mention_count`; empty for an edge linked before places were kept); `judgment.same_as` is, for a replaced publication, the ECLI of the one kept (for a language version of an ECHR decision without an ECLI, the HUDOC item id of the version kept), and `same_as` the other publications of the decision (`SAME_AS`, either way); `related_to` the connected cases (`RELATED_TO`, as between dossiers, either way: those its summary names, \"Samenhang met 24/03860 E\", \"Zie ook: ECLI:…\", and those whose summary names it), each once with its `links`: per edge its `direction` (`outbound`: this judgment's summary names it, `inbound`: its summary names this one, outbound first), `basis` (`summary_text`) and `text`, the sentence that names it; `judgment.replaced_by` the ECLI `dcterms:isReplacedBy` names, loaded or not. `judgment.advocate_general` and `advocate_general_role` (the role it is signed in: `advocaat-generaal`, `waarnemend advocaat-generaal`, `plaatsvervangend procureur-generaal`, `plaatsvervangend advocaat-generaal`; null when not clear) is, for a conclusion, who wrote it (`T. Hartlief`; null for a judgment); `published_on`, the \"Datum publicatie\" of uitspraken.rechtspraak.nl (null for another source or without a published document). How it ended (data model (docs/data-model.md#judgment)): `judgment.outcome` (`verworpen`, `vernietigd`, `gedeeltelijk vernietigd`, `vernietigd en verwezen`, `bekrachtigd`, `bevestigd`, `gegrond`, `ongegrond`, `niet-ontvankelijk`, `afgewezen`, `toegewezen`, `tussenuitspraak`; of the ECHR `schending` or `geen schending`) with `outcome_text`, the clause of the decision that says it (\"verwerpt het beroep\"), and `outcome_paragraph_id`; of a conclusion `conclusion_outcome` (`verwerping`, `vernietiging`, `vernietiging en verwijzing`, `niet-ontvankelijkverklaring`, `gegrondverklaring`, `ongegrondverklaring`, `beantwoording`) with `conclusion_outcome_text` and `conclusion_outcome_paragraph_id`; of the ECHR `echr_findings`, per article `{article, protocol, combined_with, finding, aspect, text}`; null (empty) when the text does not say it. Each of `conclusions` has the `outcome` and `outcome_text` of that conclusion (what it proposes)",
         "operationId": "get_judgment_detail_api_judgments__ecli__get",
         "parameters": [
           {
@@ -8850,6 +8850,71 @@
         }
       }
     },
+    "/api/aliases": {
+      "get": {
+        "tags": [
+          "aliases"
+        ],
+        "summary": "The abbreviations of the laws",
+        "description": "The one table of abbreviations the search, the titles and the short addresses (`/bw/7/658`) read: every abbreviation that stands for one law, from the BWB (the WTI) and, where it gives none, kept by hand; and the codes whose books are regulations of their own (`BW`), with their books and names. Changes with the data version alone (its `ETag`).",
+        "operationId": "get_aliases_api_aliases_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AliasesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instruments/{bwb_id}/above": {
+      "get": {
+        "tags": [
+          "instruments"
+        ],
+        "summary": "The laws whose text leaves a matter to this one",
+        "description": "The laws in force, by title, with an article in force whose text leaves a matter to this one with a link to it (`geregeld in`, `vindt regeling in`, `in … voorzien`), and those articles. It names it: the source gives no basis (art. 5, 42, 50 and 51 of the Statuut for the Grondwet). Empty for an unknown instrument. A basis in the preamble: `.../basis`.",
+        "operationId": "get_instrument_above_route_api_instruments__bwb_id__above_get",
+        "parameters": [
+          {
+            "name": "bwb_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bwb Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentAboveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/feed.atom": {
       "get": {
         "tags": [
@@ -9293,6 +9358,50 @@
   },
   "components": {
     "schemas": {
+      "AboveArticleDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "article_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Number"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "article_number",
+          "display_name"
+        ],
+        "title": "AboveArticleDTO",
+        "description": "An article of a law above that says so."
+      },
       "ActingOtherSeatDTO": {
         "properties": {
           "seat": {
@@ -10198,7 +10307,7 @@
               }
             ],
             "title": "Short Title",
-            "description": "The name a bill goes by, from the parentheses that end its title: ``Verzamelwet gegevensbescherming``; null when the title has none."
+            "description": "The name a bill goes by: the parentheses that end its title, else what the Eerste Kamer calls it (``Ontwerpen voor bewegwijzering``); null without."
           },
           "title_source": {
             "anyOf": [
@@ -10572,6 +10681,71 @@
         ],
         "title": "ActorDossiersResponse",
         "description": "A page of the dossiers a member or faction authored documents in."
+      },
+      "AliasDTO": {
+        "properties": {
+          "abbreviation": {
+            "type": "string",
+            "title": "Abbreviation",
+            "description": "As its source spells it: `Cbw`, `BW 7`."
+          },
+          "law_id": {
+            "type": "string",
+            "title": "Law Id",
+            "description": "The BWB id or CELEX number it stands for."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "abbreviation",
+          "law_id"
+        ],
+        "title": "AliasDTO",
+        "description": "An abbreviation of one law: `Cbw` stands for `BWBR0049999`."
+      },
+      "AliasesResponse": {
+        "properties": {
+          "codes": {
+            "items": {
+              "$ref": "#/components/schemas/AliasDTO"
+            },
+            "type": "array",
+            "title": "Codes",
+            "description": "Every abbreviation that stands for one law, in alphabetical order ignoring case: the short title and the other abbreviations of the BWB (its WTI), then those kept by hand where the source gives none (an EU act: `AVG`). One that several laws share is left out, as a law without one is."
+          },
+          "families": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Families",
+            "description": "Code -> book -> BWB id, of a code whose books are regulations of their own: `{\"BW\": {\"7\": \"BWBR0005290\"}}`. A citation names the book: `7:658 BW`."
+          },
+          "names": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Names",
+            "description": "Code -> the names it goes by besides its abbreviation: `{\"BW\": [\"Burgerlijk Wetboek\"]}`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "codes",
+          "families",
+          "names"
+        ],
+        "title": "AliasesResponse",
+        "description": "Response for GET /api/aliases."
       },
       "AmendedByResponse": {
         "properties": {
@@ -11877,6 +12051,25 @@
       },
       "ArticleCitedByItem": {
         "properties": {
+          "origin": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "metadata"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin",
+            "description": "What names the article: the judgment's `text`, its `metadata` (the `Wetsverwijzing` the court's editors entered), or both. Null for a link made before this was kept."
+          },
           "leden": {
             "items": {
               "type": "string"
@@ -11903,9 +12096,16 @@
             "$ref": "#/components/schemas/CitedByJudgment"
           },
           "paragraph_id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Paragraph Id",
-            "description": "The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`."
+            "description": "The paragraph, as `paragraph_id` of `/api/judgments/{ecli}`; null for a judgment without a passage."
           },
           "paragraph_number": {
             "anyOf": [
@@ -11932,32 +12132,68 @@
             "description": "The qualifier as the judgment wrote it, `derde lid`."
           },
           "start": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Start",
             "description": "Offset of the citation in the text of the paragraph."
           },
           "end": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "End"
           },
           "text": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Text",
             "description": "The citation as written: `text[start:end]`."
           },
           "snippet": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Snippet",
             "description": "The text of the paragraph around the citation."
           },
           "confidence": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Confidence"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "origin",
           "leden",
           "onderdelen",
           "aanhef",
@@ -11972,7 +12208,7 @@
           "confidence"
         ],
         "title": "ArticleCitedByItem",
-        "description": "One passage of a judgment that cites the article. `leden`, `onderdelen` and\n`aanhef` say what the passage names of it."
+        "description": "One passage of a judgment that cites the article. `leden`, `onderdelen` and\n`aanhef` say what the passage names of it. A judgment only its metadata links to the\narticle has no passage: one row, with null for all that describes a passage."
       },
       "ArticleCitedByResponse": {
         "properties": {
@@ -11990,12 +12226,12 @@
           "total": {
             "type": "integer",
             "title": "Total",
-            "description": "Every passage that matches the filters, independent of `limit`."
+            "description": "Every row that matches the filters, independent of `limit`."
           },
           "judgment_total": {
             "type": "integer",
             "title": "Judgment Total",
-            "description": "The judgments those passages are in: a judgment that cites the article in three places is three passages and one judgment."
+            "description": "The judgments of those rows: a judgment that cites the article in three places is three rows and one judgment."
           },
           "echr_judgment_total": {
             "type": "integer",
@@ -21168,7 +21404,7 @@
               }
             ],
             "title": "Short Title",
-            "description": "The name a bill goes by, from the parentheses that end its title: ``Verzamelwet gegevensbescherming``; null when the title has none."
+            "description": "The name a bill goes by: the parentheses that end its title, else what the Eerste Kamer calls it (``Ontwerpen voor bewegwijzering``); null without."
           },
           "title_source": {
             "anyOf": [
@@ -22982,7 +23218,7 @@
               }
             ],
             "title": "Short Title",
-            "description": "The name a bill goes by, from the parentheses that end its title: ``Verzamelwet gegevensbescherming``; null when the title has none."
+            "description": "The name a bill goes by: the parentheses that end its title, else what the Eerste Kamer calls it (``Ontwerpen voor bewegwijzering``); null without."
           },
           "title_source": {
             "anyOf": [
@@ -24456,6 +24692,19 @@
               }
             ],
             "title": "Article Number"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
@@ -24465,7 +24714,8 @@
           "key",
           "collection",
           "bwb_id",
-          "article_number"
+          "article_number",
+          "path"
         ],
         "title": "ExplainedTargetDTO",
         "description": "What an explanatory document explains: an article, or a law as a whole.\n\nA version of an article resolves to the article itself; a law the document\nexplains without naming articles is an instrument with ``article_number`` null."
@@ -25592,6 +25842,7 @@
                   "title",
                   "citation",
                   "case",
+                  "eerstekamer",
                   "amended_law"
                 ]
               },
@@ -25665,7 +25916,7 @@
               }
             ],
             "title": "Short Title",
-            "description": "The name it goes by: of a budget its chapter and year, else the parentheses that end its title, else the citation title its bill gives itself, the Kamer gives the bill's case, or of the one law the bill changes; null without."
+            "description": "The name it goes by: of a budget its chapter and year, else the parentheses that end its title, else the citation title its bill gives itself or the Kamer gives the bill's case, else the name the Eerste Kamer gives the bill, else the citation title of the one law the bill changes; null without."
           },
           "short_title_basis": {
             "anyOf": [
@@ -25675,6 +25926,7 @@
                   "title",
                   "citation",
                   "case",
+                  "eerstekamer",
                   "amended_law"
                 ]
               },
@@ -25683,7 +25935,7 @@
               }
             ],
             "title": "Short Title Basis",
-            "description": "Where ``short_title`` comes from: ``title``, ``citation``, ``case`` or ``amended_law`` (then it names the law changed, not the bill)."
+            "description": "Where ``short_title`` comes from: ``title``, ``citation``, ``case``, ``eerstekamer`` or ``amended_law`` (then it names the law changed, not the bill)."
           },
           "changes_articles": {
             "anyOf": [
@@ -28276,6 +28528,71 @@
         ],
         "title": "InFluxNodeDTO",
         "description": "A node with open changes, and the dossiers that propose them."
+      },
+      "InstrumentAboveItem": {
+        "properties": {
+          "instrument": {
+            "$ref": "#/components/schemas/InstrumentSummaryDTO"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "Its BWB type, lower case."
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/AboveArticleDTO"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instrument",
+          "kind",
+          "articles"
+        ],
+        "title": "InstrumentAboveItem",
+        "description": "A law whose text leaves a matter to this one, with the articles that say so."
+      },
+      "InstrumentAboveResponse": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id",
+            "description": "The identifier as asked for."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentAboveItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "The laws in force, by title."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "total",
+          "items"
+        ],
+        "title": "InstrumentAboveResponse",
+        "description": "Response for GET /api/instruments/{bwb_id}/above."
       },
       "InstrumentAnnexDTO": {
         "properties": {
@@ -31903,6 +32220,25 @@
       },
       "JudgmentCitedArticle": {
         "properties": {
+          "origin": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "metadata"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin",
+            "description": "What names the article: the judgment's `text`, its `metadata` (the `Wetsverwijzing` the court's editors entered), or both. Null for a link made before this was kept."
+          },
           "paragraph_ids": {
             "items": {
               "type": "string"
@@ -32049,6 +32385,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "origin",
           "paragraph_ids",
           "paragraph_numbers",
           "snippet",

@@ -78,6 +78,8 @@ def test_two_articles_with_one_caption_have_their_own_titles() -> None:
     two = {**one, "article_number": "163"}
     assert article_title(one, law) == "Art. 6:162 BW, Onrechtmatige daad"
     assert article_title(two, law) == "Art. 6:163 BW, Onrechtmatige daad"
+    bracketed = {**one, "article_number": "25", "caption": "(vervallen)"}
+    assert article_title(bracketed, law) == "Art. 6:25 BW (vervallen)"
     version = {
         "bwb_id": "BWBR0001840",
         "instrument_citation_title": "Grondwet",

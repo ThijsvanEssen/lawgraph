@@ -23,6 +23,37 @@ BILL = "Wijziging van de Archiefwet 1995 in verband met de modernisering daarvan
             "Wet betaalbare huur",
             "36496 Wet betaalbare huur",
         ),
+        # the name the Eerste Kamer gives the bill, before the law it changes
+        (
+            {
+                "label": "33899",
+                "title": BILL,
+                "ek_name": "Ontwerpen voor bewegwijzering",
+                "official_short": {"title": "Archiefwet 1995", "basis": "amended_law"},
+            },
+            ("Ontwerpen voor bewegwijzering", "eerstekamer"),
+            "Ontwerpen voor bewegwijzering",
+            "33899 Ontwerpen voor bewegwijzering",
+        ),
+        # that name is its whole title: it names nothing
+        (
+            {"label": "32718", "title": BILL, "ek_name": BILL},
+            (None, None),
+            None,
+            f"32718 {BILL}",
+        ),
+        # after the name its title or its bill gives
+        (
+            {
+                "label": "36889",
+                "title": BILL,
+                "ek_name": "Modernisering Archiefwet",
+                "official_short": {"title": "Archiefwet", "basis": "citation"},
+            },
+            ("Archiefwet", "citation"),
+            "Archiefwet",
+            "36889 Archiefwet",
+        ),
         # the name its bill gives itself, its case, the law it changes
         (
             {

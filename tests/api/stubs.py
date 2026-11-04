@@ -36,9 +36,20 @@ def _dossier_names(store: Any) -> dict[str, dict[str, str]]:
     return DOSSIER_NAMES
 
 
+# The abbreviations of the laws, as ``load_code_aliases`` reads them: one.
+CODE_ALIASES = {"Sr": "BWBR0001854"}
+
+
+def _code_aliases(store: Any) -> dict[str, str]:
+    return CODE_ALIASES
+
+
 # Each loader a route module imports from ``lawgraph.db.queries``, by name, and what stands
 # in for it (``test_route_stubs.py`` checks that every one has a stand-in).
-LOADERS: dict[str, Callable[[Any], Any]] = {"load_dossier_names": _dossier_names}
+LOADERS: dict[str, Callable[[Any], Any]] = {
+    "load_dossier_names": _dossier_names,
+    "load_code_aliases": _code_aliases,
+}
 
 
 def route_modules() -> list[ModuleType]:

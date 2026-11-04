@@ -1,7 +1,7 @@
 -- Why three Rechtspraak steps of the nightly take 25-35 min for a few rows, read only (EXPLAIN without ANALYZE: nothing runs).
 -- A: rechtspraak-duplicates as it reads (props of every judgment) against the stored columns replaced_by / same_as.
 -- B: rechtspraak-series likewise (series_id). C: rechtspraak-conclusions (props.judgment_metadata.document_type).
--- D: the size of the tables behind them.
+-- D: the size of the tables behind them. E: generic_summaries, which rechtspraak-series reads with --since too.
 SET default_transaction_read_only = on;
 SET statement_timeout = '600s';
 \pset pager off
@@ -31,6 +31,22 @@ FROM judgments j
 WHERE j.source = 'rechtspraak'
   AND (lg_str(j.props -> 'judgment_metadata' -> 'document_type') IS NOT DISTINCT FROM 'Conclusie'
        OR coalesce(json_array_length(j.props -> 'conclusion_eclis'), 0) > 0);
+
+\echo '== E1. generic_summaries as it was (what rechtspraak-series reads every night, with --since too)'
+EXPLAIN SELECT md5(j.props -> 'summary' #>> '{}') AS fingerprint
+FROM judgments j
+WHERE j.source = 'rechtspraak' AND coalesce(json_typeof(j.props -> 'summary'), 'null') <> 'null'
+GROUP BY fingerprint
+HAVING count(DISTINCT coalesce((j.props -> 'date_eff')::jsonb, 'null')) >= 3
+ORDER BY fingerprint;
+
+\echo '== E2. the same on the stored columns'
+EXPLAIN SELECT md5(j.pj_summary #>> '{}') AS fingerprint
+FROM judgments j
+WHERE j.source = 'rechtspraak' AND coalesce(json_typeof(j.pj_summary), 'null') <> 'null'
+GROUP BY fingerprint
+HAVING count(DISTINCT coalesce(j.pj_date_eff::jsonb, 'null')) >= 3
+ORDER BY fingerprint;
 
 \echo '== D. sizes'
 SELECT relname, reltuples::bigint AS rows, pg_size_pretty(pg_relation_size(oid)) AS heap,

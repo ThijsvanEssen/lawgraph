@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
+from tests.asserts import show_items
 from tests.paths import ROOT, python_of_the_suite
 
 FAKE_LAWGRAPH = """#!/bin/sh
@@ -24,12 +26,14 @@ case "$*" in "$HOLD_ON"*) touch "$TMPDIR/lawgraph-scheduled.lock/held";; esac
 held=free
 [ ! -d "$TMPDIR/lawgraph-scheduled.lock" ] || held=locked
 echo "$held $*" >> "$TMPDIR/locks"
+# the clock moves on while this step runs
+case "$*" in "$CLOCK_ON"*) echo "$CLOCK_TO" > "$TMPDIR/clock";; esac
 # a poll that takes the lock while this step runs
 case "$*" in "$TAKEN_ON"*) mkdir "$TMPDIR/lawgraph-scheduled.lock";; esac
 # the steps of `semantic all`, and a slice that names where to go on, then that it is done
 case "$*" in
   "semantic all --list")
-    printf '%s\\n' tk rechtspraak rechtspraak-citations bwb-definitions graph-heat;;
+    printf '%s\\n' tk rechtspraak rechtspraak-citations bwb-definitions graph-article-terms;;
   *"--after k1"*) echo "The last read was None (go on with --after None)." >&2;;
   *"--limit"*) echo "The last read was k1 (go on with --after k1)." >&2;;
 esac
@@ -68,6 +72,9 @@ def _run(
         "UNAVAILABLE_ON": "-",
         "HOLD_ON": "-",
         "TAKEN_ON": "-",
+        "CLOCK_ON": "-",
+        # the time of the weekly run is the test's own, never the hour the suite runs at
+        "LAWGRAPH_WEEKLY_UNTIL": "2400",
         **extra,
         "CALLS": str(checkout / "calls"),
         "FAIL_ON": fail_on,
@@ -128,8 +135,8 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         # rechtspraak-citations: left to the daily run (the stubs)
         "semantic bwb-definitions --limit 5000",
         "semantic bwb-definitions --after k1 --limit 5000",
-        "semantic graph-heat",
-        "expand-graph --no-final-pass",
+        "semantic graph-article-terms",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -155,7 +162,7 @@ def test_a_failing_weekly_step_is_told_and_the_rest_still_runs(checkout: Path) -
         "Week semantic tk: mislukt, db-weg [herhaalt]"
     ]
     assert _calls(checkout)[-3:] == [
-        "expand-graph --no-final-pass",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -331,8 +338,9 @@ def test_a_poll_given_up_three_times_in_a_row_says_so_once(checkout: Path) -> No
 def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None:
     """The weekly run takes the steps in the order of ``semantic all --list``, the order of
     the registry, which puts what a step reads before it (``test_semantic_order_puts_what_is
-    _read_first``: the linkers before graph-light, bwb before bwb-amendments, …). Only
-    rechtspraak-citations is left out; no step after it reads what it would add."""
+    _read_first``: the linkers before graph-light, bwb before bwb-amendments, …). Left out
+    are rechtspraak-citations, of which no step after it reads what it would add, and what
+    the daily run does the same."""
     from lawgraph.sources.registry import PIPELINES
 
     names = [pipeline.name for pipeline in PIPELINES["semantic"]]
@@ -340,7 +348,8 @@ def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None
     listing = " ".join(names)
     fake.write_text(
         FAKE_LAWGRAPH.replace(
-            "tk rechtspraak rechtspraak-citations bwb-definitions graph-heat", listing
+            "tk rechtspraak rechtspraak-citations bwb-definitions graph-article-terms",
+            listing,
         )
     )
     assert _run(checkout, "weekly.sh").returncode == 0
@@ -351,7 +360,33 @@ def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None
     ]
     # each step once, the sliced ones per slice
     in_order = list(dict.fromkeys(ran))
-    assert in_order == [name for name in names if name != "rechtspraak-citations"]
+    left_out = {"rechtspraak-citations", *_left_to_the_daily_run()}
+    assert in_order == [name for name in names if name not in left_out]
+
+
+def _left_to_the_daily_run() -> set[str]:
+    """The names of the ``case`` arm of ``weekly.sh`` that runs nothing, but the citations."""
+    script = (ROOT / "scripts" / "weekly.sh").read_text()
+    arm = re.search(r"^\s*(bwb-amendments [^)]*)\) ;;$", script, re.MULTILINE)
+    assert arm is not None
+    return set(re.findall(r"[a-z-]+", arm[1]))
+
+
+def test_what_the_weekly_run_leaves_to_the_daily_run_runs_the_same_there() -> None:
+    """A step that takes ``--since`` reads less in the daily run, and ``graph-light`` is left
+    out of it: the weekly run is what does them in full."""
+    from lawgraph.sources.registry import PIPELINES
+
+    steps = {pipeline.name: pipeline for pipeline in PIPELINES["semantic"]}
+    left = _left_to_the_daily_run()
+    assert "graph-steps" in left
+    assert not left - steps.keys()
+    differ = [
+        name for name in left if steps[name].command.accepts_since or steps[name].weekly
+    ]
+    assert not differ, show_items(differ)
+    daily = (ROOT / "scripts" / "daily.sh").read_text()
+    assert "step semantic all --since last\n" in daily
 
 
 @pytest.mark.parametrize(
@@ -388,7 +423,7 @@ def test_a_slice_that_does_not_go_on_stops_with_a_failure(
     assert done.returncode == 1
     assert failure in (checkout / "logs" / "runs.log").read_text()
     assert _calls(checkout)[-3:] == [
-        "expand-graph --no-final-pass",
+        "expand-graph --light",
         "check",
         "search-candidates",
     ]
@@ -476,4 +511,82 @@ def test_a_skipped_weekly_step_is_in_its_alert(checkout: Path) -> None:
     )
     assert alerts.read_text().splitlines() == [
         "Week search-candidates: overgeslagen, lock-bezet [herhaalt]"
+    ]
+
+
+def _a_clock(checkout: Path, now: str) -> dict[str, str]:
+    """A `date` whose ``-u`` answers from the file ``clock`` (``day HHMM``), first *now*."""
+    shim = checkout / "bin" / "date"
+    shim.parent.mkdir()
+    shim.write_text(f"""#!/bin/sh
+if [ "$1" = -u ]; then
+  case "$2" in
+    +%F) cut -d' ' -f1 "$TMPDIR/clock";;
+    *) cut -d' ' -f2 "$TMPDIR/clock";;
+  esac
+  exit 0
+fi
+exec {shutil.which("date")} "$@"
+""")
+    shim.chmod(0o755)
+    (checkout / "clock").write_text(now + "\n")
+    return {
+        "PATH": f"{shim.parent}{os.pathsep}{os.environ['PATH']}",
+        "LAWGRAPH_WEEKLY_UNTIL": "2330",
+    }
+
+
+@pytest.mark.parametrize("clock", ["2026-11-01 2330", "2026-11-02 0010"])
+def test_past_its_time_the_weekly_run_starts_no_step_and_tells_what_is_left(
+    checkout: Path, clock: str
+) -> None:
+    """The nightly run comes at 00:00: the step that runs ends, the next ones wait a week."""
+    alerts = checkout / "alerts"
+    done = _run(
+        checkout,
+        "weekly.sh",
+        CLOCK_ON="semantic graph-article-terms",
+        CLOCK_TO=clock,
+        LAWGRAPH_ALERT_COMMAND=f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}',
+        args=None,
+        **_a_clock(checkout, "2026-11-01 2300"),
+    )
+    assert done.returncode == 0
+    assert _calls(checkout)[-1] == "semantic graph-article-terms"
+    assert (
+        "weekly.sh: ok, left for next week: lawgraph expand-graph --light; "
+        "lawgraph check; lawgraph search-candidates"
+    ) in (checkout / "logs" / "runs.log").read_text()
+    assert alerts.read_text().splitlines() == [
+        "Week expand-graph +2: blijft-liggen, te-laat [herhaalt]"
+    ]
+
+
+def test_a_run_in_slices_past_the_time_says_where_it_stopped(checkout: Path) -> None:
+    done = _run(
+        checkout,
+        "weekly.sh",
+        CLOCK_ON="semantic rechtspraak --limit",
+        CLOCK_TO="2026-11-01 2345",
+        args=None,
+        **_a_clock(checkout, "2026-11-01 2300"),
+    )
+    assert done.returncode == 0
+    assert _calls(checkout)[-1].startswith("semantic rechtspraak --limit")
+    assert (
+        "lawgraph semantic rechtspraak --after k1; "
+        in (checkout / "logs" / "runs.log").read_text()
+    )
+
+
+def test_the_nightly_run_given_up_says_so_every_time(checkout: Path) -> None:
+    """A night without its run is told at once; a poll waits for its third (above)."""
+    alerts = checkout / "alerts"
+    (checkout / "lawgraph-scheduled.lock").mkdir()
+    alert = {"LAWGRAPH_ALERT_COMMAND": f'echo "$LAWGRAPH_ALERT_MESSAGE" >> {alerts}'}
+    for _ in range(2):
+        assert _run(checkout, "daily.sh", args=None, **alert).returncode == 75
+    assert alerts.read_text().splitlines() == [
+        "Dag: 1x overgeslagen, lock-bezet [actie]",
+        "Dag: 2x overgeslagen, lock-bezet [actie]",
     ]

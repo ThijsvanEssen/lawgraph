@@ -227,7 +227,7 @@ def document_footnotes(props: dict[str, Any]) -> list[DocumentFootnoteDTO]:
     return found
 
 
-class ExplainedTargetDTO(StrictModel):
+class ExplainedTargetDTO(WithPath):
     """What an explanatory document explains: an article, or a law as a whole.
 
     A version of an article resolves to the article itself; a law the document

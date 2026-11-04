@@ -83,6 +83,16 @@ class EerstekamerSiteClient(BaseClient):
                     yield from bills
                     next_path = following if older else None
 
+    def indexed_bills(self, *, pages: int | None) -> Iterator[ek_bills.ListedBill]:
+        """The bills on the list of every bill, *pages* of it at most (20 bills a page, the
+        highest numbers first); None for all of it, some 400 pages."""
+        next_path = ek_bills.index_path(self.page(ek_bills.INDEX_FORM_PATH)[1])
+        read = 0
+        while next_path and (pages is None or read < pages):
+            bills, next_path = ek_bills.listed_bills(self.page(next_path)[1])
+            read += 1
+            yield from bills
+
     def mutation_terms(
         self, stored: Container[str] = ()
     ) -> Iterator[tuple[str, str, str]]:

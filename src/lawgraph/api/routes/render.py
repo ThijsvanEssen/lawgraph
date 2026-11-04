@@ -19,7 +19,9 @@ and no ``/api`` (Caddy rewrites it here):
   in the BWB, or to its article of the same number;
 - a law, or an article of it, by the abbreviation it is cited by
   (``/wetten/wft/artikel/1:1``, ``/wetten/bw/artikel/6:162``): a 301 to its BWB id or
-  CELEX number (``lookup.law_named``); an abbreviation of no law is 404;
+  CELEX number (``lookup.law_named``); the same at its short address, after the pages of
+  the app (``/awb``, ``/sr/287``, ``/bw/7`` and ``/bw/7/658``, ``short_law_path``); an
+  abbreviation of no law is 404;
 - a judgment the Rechtspraak withdrew: 410 with its page (court, date, when it was
   withdrawn, what refers to it) and ``noindex``. Gone, not "not found": the source took
   it away for good, and a search engine drops a page that is gone at once, one that is
@@ -56,6 +58,7 @@ from lawgraph.core.readable_paths import (
     pad_href,
     parse_path,
     path_of,
+    short_law_path,
 )
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import lookup, seo
@@ -230,6 +233,20 @@ def _same_person_path(store: GraphStore, member_id: str) -> str | None:
     return path_of(other, props) if other and props is not None else None
 
 
+def _to_named_law(store: GraphStore, named: Pad, request: Request) -> Response:
+    """A 301 from a law, a book of a code or an article by the abbreviation it is cited
+    by (``law_by_name``, ``short_law_path``) to its readable address; 404 for an
+    abbreviation of no law."""
+    if named.soort == "boek":
+        law_id = lookup.law_named(store, named.a, f"{named.b}:")
+        named = Pad("wet", named.a)
+    else:
+        law_id = lookup.law_named(store, named.a, named.b or None)
+    if law_id is None:
+        return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
+    return _redirect(pad_href(replace(named, a=law_id)) + _query(request))
+
+
 # HEAD as GET (Caddy, crawlers and uptime checks ask it): the server leaves out the body.
 @router.api_route(
     "/render/{path:path}", methods=["GET", "HEAD"], include_in_schema=False
@@ -246,10 +263,7 @@ def render_page(
         if readable:
             return _redirect(readable + _query(request, drop="focus"))
     if (named := law_by_name(pathname)) is not None:
-        law_id = lookup.law_named(store, named.a, named.b)
-        if law_id is None:
-            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
-        return _redirect(pad_href(replace(named, a=law_id)) + _query(request))
+        return _to_named_law(store, named, request)
     pad = parse_path(pathname)
     if pad is None:
         app_path = pathname.rstrip("/") or "/"
@@ -257,9 +271,11 @@ def render_page(
         if moved is not None:
             return _redirect(moved)
         page = _app_page(app_path)
-        if page is None:
-            return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
-        return _html(request, page, 200, CACHE_PAGE, "app")
+        if page is not None:
+            return _html(request, page, 200, CACHE_PAGE, "app")
+        if (short := short_law_path(pathname)) is not None:
+            return _to_named_law(store, short, request)
+        return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
     canonical = pad_href(pad)
     if unquote(canonical) != unquote(pathname):
         return _redirect(canonical + _query(request))

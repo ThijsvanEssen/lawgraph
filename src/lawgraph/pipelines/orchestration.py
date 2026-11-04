@@ -106,13 +106,13 @@ def _run_phase(
     read_since: Callable[[argparse.Namespace], dt.datetime | None] = lambda a: a.since,
     strict: bool = False,
     jobs: int = 1,
-    filling_gaps: bool = False,
+    covers_a_date: bool = True,
 ) -> PipelineResult:
     """Resolve ``--since last``, run the phase and record when it was complete.
 
     What it did with each source is kept for the API (``record_source_runs``). Complete is:
-    every pipeline ended ``ok`` (a skipped one is a hole); a run *filling_gaps*
-    says nothing about a date and records nothing. *read_since* says
+    every pipeline ended ``ok`` (a skipped one is a hole); a run that does not
+    *covers_a_date* (it fills gaps, or leaves steps out) records nothing. *read_since* says
     since when the run read its sources (None: all there is) when that is not ``--since``.
     The store is opened before any lane starts, which also creates the schema once.
     """
@@ -137,7 +137,7 @@ def _run_phase(
             store.vacuum_analyze()
         else:
             store.analyze_changed()
-    if not filling_gaps and all(outcome.state is State.OK for outcome in outcomes):
+    if covers_a_date and all(outcome.state is State.OK for outcome in outcomes):
         watermark.advance(store, phase, began=began, since=read_since(args))
     return combined_result(outcomes)
 
@@ -190,17 +190,23 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
         # a full load reads what changed inside the window (all of it without one)
         read_since=lambda a: a.window if a.mode is RetrieveMode.FULL else a.since,
         jobs=args.jobs,
-        filling_gaps=args.mode is RetrieveMode.GAPS,
+        covers_a_date=args.mode is not RetrieveMode.GAPS,
     )
 
 
 def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
     """The pipelines ``<phase> all`` runs: all of them, but in gaps mode those that can fill
-    gaps, and a semantic run ``--since`` none that is ``weekly``."""
+    gaps, and a semantic run ``--since`` none that is ``weekly``, nor with ``--only-since``
+    one whose command has no ``--since``."""
     if phase == "retrieve" and args.mode is RetrieveMode.GAPS:
         return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
     if phase == "semantic" and args.since is not None:
-        return [pipeline for pipeline in PIPELINES[phase] if not pipeline.weekly]
+        return [
+            pipeline
+            for pipeline in PIPELINES[phase]
+            if not pipeline.weekly
+            and (pipeline.command.accepts_since or not args.only_since)
+        ]
     return PIPELINES[phase]
 
 
@@ -237,6 +243,12 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
         + _LAST_HELP,
     )
     parser.add_argument(
+        "--only-since",
+        action="store_true",
+        help="With --since: leave out the steps that would run in full. The next complete "
+        "run does them; this run does not move the mark of 'last'.",
+    )
+    parser.add_argument(
         "--strict", action="store_true", help="Stop at the first failing step."
     )
     parser.add_argument(
@@ -246,8 +258,17 @@ def semantic_all(argv: list[str] | None = None) -> PipelineResult:
         "none: what scripts/weekly.sh takes one by one.",
     )
     args = parser.parse_args(argv)
+    if args.only_since and args.since is None:
+        parser.error("--only-since needs --since")
     if args.list:
         for pipeline in PIPELINES["semantic"]:
             print(pipeline.name)
         return PipelineResult()
-    return _run_phase("semantic", parser, args, _since_argv, strict=args.strict)
+    return _run_phase(
+        "semantic",
+        parser,
+        args,
+        _since_argv,
+        strict=args.strict,
+        covers_a_date=not args.only_since,
+    )

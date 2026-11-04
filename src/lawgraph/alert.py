@@ -15,6 +15,7 @@ command line and the reason it left (``LAWGRAPH_OUTCOME_FILE``), separated by ta
     skipped      the step waited for the lock and gave its turn up (exit 75)
     stuck        a step in slices that went no further
     held         the run was not started N times in a row (the reason): another held the lock
+    late         the time of the weekly run was over before the step (``LAWGRAPH_WEEKLY_UNTIL``)
 
 The step is the address of the pipeline or the command, without its options; of a parent that
 names its failed step (``semantic tk failed: …``), that step. Steps with the same outcome and
@@ -48,6 +49,7 @@ OUTCOMES: dict[str, str] = {
     "bron-weg": "a source refused us; the rest went on",
     "overgeslagen": "not run, another run held the lock (`3x`: the run, so often in a row)",
     "vast": "a step in slices went no further",
+    "blijft-liggen": "not run, the time of the weekly run was over; next week it runs",
     "herstart": "the API was restarted and answers again",
 }
 
@@ -57,6 +59,7 @@ CAUSES: dict[str, str] = {
     "challenge": "the source answered with a challenge page",
     "geweigerd": "the source refused us otherwise",
     "geen-voortgang": "a slice named the same key again, or there were too many",
+    "te-laat": "past `LAWGRAPH_WEEKLY_UNTIL`, so the nightly run gets the lock",
     "download <oorzaak>": "downloads failed; the cause of the first in fixed words "
     "(`download http-500`, `download time-out`, `download geen-pdf`)",
     "exit-<N>": "the command ended with this exit code without saying why",
@@ -151,6 +154,8 @@ def _ended(line: _Line) -> tuple[str, str, bool]:
         return f"{line.why or 3}x overgeslagen", "lock-bezet", False
     if line.kind == "skipped":
         return "overgeslagen", "lock-bezet", True
+    if line.kind == "late":
+        return "blijft-liggen", "te-laat", True
     if line.kind == "stuck":
         return "vast", "geen-voortgang", False
     if line.kind == "unavailable":

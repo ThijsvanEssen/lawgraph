@@ -16,6 +16,11 @@ from lawgraph.api.params import (
     article_ref,
     parse_choices,
 )
+from lawgraph.api.schemas.article_cited_by import (
+    ArticleCitedByItem,
+    ArticleCitedByResponse,
+    CitedByFacets,
+)
 from lawgraph.api.schemas.article_text import (
     BATCH_MAX,
     ArticleTextBatchItem,
@@ -23,8 +28,6 @@ from lawgraph.api.schemas.article_text import (
     ArticleTextDTO,
 )
 from lawgraph.api.schemas.articles import (
-    ArticleCitedByItem,
-    ArticleCitedByResponse,
     ArticleDelegatedResponse,
     ArticleDetailResponse,
     ArticleExplanationDTO,
@@ -37,7 +40,6 @@ from lawgraph.api.schemas.articles import (
     ArticleSuccessionDTO,
     ArticleSummaryDTO,
     ArticleVersionDTO,
-    CitedByFacets,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
@@ -322,12 +324,15 @@ def _build_relationship_dtos(
     description=(
         "One row per passage: a judgment and the paragraph in it that cites the article, "
         "with the lid, onderdeel or aanhef it names, a snippet and the confidence of the "
-        "detection. Newest judgment first. `court` (ECLI court code), `tier` (repeated: "
-        "any of them), `year` (of the judgment's date), `subject_area` (a main area of "
-        "law of the judgment's source, the part of a subject before its first `;`: "
-        "`Strafrecht`) and `lid` (a lid number the passage names) filter; `total` counts all "
-        "passages that match, "
-        "`judgment_total` the judgments they are in, `echr_judgment_total` the ECHR "
+        "detection, and `origin` of the judgment's link to the article (`text`, "
+        "`metadata` or both; null when not kept). A judgment only its metadata links has "
+        "no passage: one row, `paragraph_id` and all else of a passage null. Newest "
+        "judgment first. `court` (ECLI court code), "
+        "`tier` (repeated: any of them), `year` (of the judgment's date), "
+        "`subject_area` (a main area of law of the judgment's source, the part of a "
+        "subject before its first `;`: `Strafrecht`) and `lid` (a lid number the "
+        "passage names, so no row without a passage) filter; `total` counts all rows "
+        "that match, `judgment_total` the judgments of them, `echr_judgment_total` the ECHR "
         "judgments that cite the article (no passage: HUDOC names the article). "
         "`facets` counts the judgments, whatever the page: per `year` (oldest first, "
         "null for none first) without the `year` filter, per `tier` (most first) "

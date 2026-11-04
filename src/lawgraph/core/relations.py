@@ -30,7 +30,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -54,6 +54,7 @@ from lawgraph.config.constants import (
     COLLECTION_MINISTRIES,
 )
 from lawgraph.core.logging import get_logger
+from lawgraph.core.mentions import CitationOrigin
 from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.props import GovernmentFunctionProps
 from lawgraph.core.props_catalogue import field_rows
@@ -259,9 +260,8 @@ class RefersToMeta(_Span, _Parts):
     """How many places of the judgment cite it."""
     mentions: list[Mention] | None = None
     """The first of those places."""
-    origin: list[Literal["text", "metadata"]] | None = None
-    """What names the article: its `text`, the `metadata` of the judgment (`Wetsverwijzing`),
-    or both; the mentions are those of the text."""
+    origin: list[CitationOrigin] | None = None
+    """What names the article: its `text`, its `metadata` (`Wetsverwijzing`) or both."""
     paragraphs: list[str] | None = None
     """The numbers of the paragraphs that cite it, each once."""
     cited_ecli: str | None = None

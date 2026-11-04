@@ -102,6 +102,8 @@ ROUTES = [
     ("GET", "/api/paths"),
     ("GET", "/api/chains"),
     ("GET", "/api/lookup"),
+    ("GET", "/api/aliases"),
+    ("GET", "/api/instruments/{bwb_id}/above"),
     ("GET", "/api/feed.atom"),
     ("GET", "/"),
     ("GET", "/api/health"),

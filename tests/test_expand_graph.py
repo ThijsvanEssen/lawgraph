@@ -75,27 +75,30 @@ def test_a_failing_step_makes_the_command_fail_and_the_loop_goes_on(
     assert [o.label for o in outcomes].count("retrieve all") == 2
 
 
-def test_without_the_final_pass_the_rounds_alone_run(monkeypatch) -> None:
+def test_light_leaves_out_the_full_pass_and_what_has_no_since(monkeypatch) -> None:
     """The weekly run has done every semantic step in full before it expands."""
-    ran = _recorded(monkeypatch, [100, 160, 160, 160])
-    expand_graph._expand(max_iterations=10, final_pass=False)
-    assert ("semantic all", []) not in ran
+    ran = _recorded(monkeypatch, [100, 160])
+    expand_graph._expand(max_iterations=1, light=True)
     assert [name for name, _ in ran] == [
         "retrieve all",
         "normalize all",
         "semantic all",
-        "retrieve all",
     ]
+    assert ran[1][1][0] == "--since"
+    assert "--only-since" not in ran[1][1]
+    assert ran[2][1] == [*ran[1][1], "--only-since"]
 
 
-def test_the_final_pass_is_the_default_of_the_command(monkeypatch) -> None:
-    seen: list[bool] = []
+def test_light_is_one_round_and_the_rest_the_default_of_the_command(
+    monkeypatch,
+) -> None:
+    seen: list[tuple[int, bool]] = []
 
-    def expand(max_iterations: int, final_pass: bool) -> list[Outcome]:
-        seen.append(final_pass)
+    def expand(max_iterations: int, light: bool) -> list[Outcome]:
+        seen.append((max_iterations, light))
         return []
 
     monkeypatch.setattr(expand_graph, "_expand", expand)
     expand_graph.main([])
-    expand_graph.main(["--no-final-pass"])
-    assert seen == [True, False]
+    expand_graph.main(["--light"])
+    assert seen == [(expand_graph.MAX_ITERATIONS, False), (1, True)]

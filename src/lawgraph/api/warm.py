@@ -27,7 +27,6 @@ from lawgraph.config.constants import (
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
-    COLLECTION_EDGES,
     COLLECTION_FACTIONS,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
@@ -312,11 +311,7 @@ class Part:
     tables: tuple[str, ...] | None = None
 
 
-_INSTRUMENT_TABLES = (
-    COLLECTION_INSTRUMENTS,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_EDGES,
-)
+_INSTRUMENT_TABLES = (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS)
 
 # The parts in their order.
 PARTS: tuple[Part, ...] = (
@@ -416,9 +411,11 @@ _warmed_parts: dict[tuple[str, str], str] = {}
 
 
 def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool:
-    """*parts* in their order; whether every one was reached before newer data arrived."""
+    """*parts* in their order; whether every one was reached before newer data arrived. The
+    first warm-up of the process goes on whatever arrives: during a run the data never
+    stands still, and until then the API has no earlier answer to give."""
     for part in parts:
-        if version_cache.superseded(store, version):
+        if version_cache.superseded(store, version) and _warmed is not None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", part.name)
             return False
@@ -426,7 +423,8 @@ def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool
         if part.tables is None:
             _run(part.name, run)
             continue
-        stamp = store.data_version(part.tables)
+        # per day too: an answer that names today (``get_delegated_by_law``) is gone at midnight
+        stamp = f"{store.data_version(part.tables)}@{dutch_today()}"
         if _warmed_parts.get((store.name, part.name)) == stamp:
             logger.info(
                 "Warm-up of %s left: %s did not change.",
@@ -490,6 +488,8 @@ def _due(part: str, database: str, every: float) -> bool:
 def forget() -> None:
     """Forget which parts were warmed and when the parts of every hour began (the
     tests)."""
+    global _warmed
+    _warmed = None
     _warmed_parts.clear()
     _last_begun.clear()
 

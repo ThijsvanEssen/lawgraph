@@ -182,7 +182,10 @@ def vote_labels_of_factions(
     store: Store, faction_ids: list[str]
 ) -> Iterator[dict[str, Any]]:
     """``{faction_id, label}``: every name (``ActorFractie``) the live Tweede Kamer vote
-    rows of these factions (``Fractie_Id``) give them."""
+    rows of these factions (``Fractie_Id``) give them. No index serves ``Fractie_Id``, so
+    the question reads every vote row of the corpus: none is asked without a faction."""
+    if not faction_ids:
+        return iter(())
     return store.query(
         """
         SELECT DISTINCT doc -> 'payload_json' ->> 'Fractie_Id' AS faction_id,

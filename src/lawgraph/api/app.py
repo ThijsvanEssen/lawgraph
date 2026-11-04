@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from lawgraph import __version__
-from lawgraph.api import errors, search_terms
+from lawgraph.api import above_route, errors, search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.middleware import (
     CacheControlMiddleware,
@@ -23,6 +23,7 @@ from lawgraph.api.middleware import (
 )
 from lawgraph.api.routes import (
     activities,
+    aliases,
     annexes,
     articles,
     cabinets,
@@ -210,9 +211,11 @@ for _module in (
     paths,
     chains,
     lookup,
+    aliases,
 ):
     _name = _module.__name__.rsplit(".", 1)[1]
     app.include_router(_module.router, prefix=f"/api/{_name}", tags=[_name])
+app.include_router(above_route.router, prefix="/api/instruments", tags=["instruments"])
 app.include_router(feed.atom_router, prefix="/api", tags=["feed"])
 # the HTML of every page of Concordans that is no file (Caddy rewrites it to /render)
 app.include_router(render.router)

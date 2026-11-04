@@ -12,7 +12,7 @@ from lawgraph.db.counting import Store
 _TREATY_REGISTERS_SQL = f"""
 SELECT key, props -> 'tractatenblad' AS tractatenblad,
        props -> 'kamerstukken' AS kamerstukken,
-       props -> 'parent_treaties' AS parent_treaties
+       props -> 'parent_treaties' AS parent_treaties, same_as
 FROM {COLLECTION_INSTRUMENTS}
 WHERE key LIKE 'verdrag\\_%%'
 ORDER BY key
@@ -20,8 +20,8 @@ ORDER BY key
 
 
 def treaty_registers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, tractatenblad, kamerstukken, parent_treaties}`` of every Verdragenbank treaty
-    (``verdrag_<id>``), by key; the lists are null before its item XML was read."""
+    """``{key, tractatenblad, kamerstukken, parent_treaties, same_as}`` of every Verdragenbank
+    treaty (``verdrag_<id>``), by key; the lists are null before its item XML was read."""
     return store.query(_TREATY_REGISTERS_SQL)
 
 

@@ -394,14 +394,14 @@ def unanswered_ruling_eclis(store: Store) -> Iterator[str]:
 def generic_summaries(store: Store, *, min_dates: int) -> Iterator[str]:
     """The MD5 (``core.judgment_series.summary_fingerprint``) of every Rechtspraak summary
     written on at least *min_dates* distinct dates (a missing date counts as one), in
-    order: templates, not summaries."""
+    order: templates, not summaries. From the columns: the props of a judgment hold its
+    text."""
     sql = f"""
-        SELECT md5(j.props -> 'summary' #>> '{{}}') AS fingerprint
+        SELECT md5(j.pj_summary #>> '{{}}') AS fingerprint
         FROM judgments j
-        WHERE j.source = %(source)s AND {is_present("j.props -> 'summary'")}
+        WHERE j.source = %(source)s AND {is_present("j.pj_summary")}
         GROUP BY fingerprint
-        HAVING count(DISTINCT coalesce((j.props -> 'date_eff')::jsonb, 'null'))
-            >= %(min_dates)s
+        HAVING count(DISTINCT coalesce(j.pj_date_eff::jsonb, 'null')) >= %(min_dates)s
         ORDER BY fingerprint
         """
     return store.query(sql, {"source": SOURCE_RECHTSPRAAK, "min_dates": min_dates})
@@ -441,28 +441,24 @@ def judgment_court_days(
 
 
 def judgments_in_series(store: Store) -> Iterator[str]:
-    """The ECLIs of the judgments that carry a ``series_id``."""
-    sql = f"""
-        SELECT j.props -> 'ecli' FROM judgments j
-        WHERE {is_present("j.props -> 'series_id'")}
-        ORDER BY j.key
-        """
-    return store.query(sql)
+    """The ECLIs of the judgments that carry a ``series_id``, from the index on it."""
+    return store.query(
+        "SELECT j.ecli FROM judgments j WHERE j.series_id IS NOT NULL ORDER BY j.key"
+    )
 
 
 def replaced_judgments(store: Store) -> Iterator[dict[str, Any]]:
     """``{id, key, ecli, replaced_by, same_as}`` of the judgments a later publication
-    replaces (``props.replaced_by``) and of those ``SAME_AS`` another now."""
-    sql = f"""
-        SELECT j.id, j.key,
-               j.props -> 'ecli' AS ecli,
-               j.props -> 'replaced_by' AS replaced_by,
-               j.props -> 'same_as' AS same_as
+    replaces (``props.replaced_by``) and of those ``SAME_AS`` another now, from the indexes
+    on these columns."""
+    return store.query(
+        """
+        SELECT j.id, j.key, j.ecli, j.replaced_by, j.same_as
         FROM judgments j
-        WHERE {is_present("j.props -> 'replaced_by'")} OR {is_present("j.props -> 'same_as'")}
+        WHERE j.replaced_by IS NOT NULL OR j.same_as IS NOT NULL
         ORDER BY j.key
         """
-    return store.query(sql)
+    )
 
 
 def loaded_judgment_ids(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
