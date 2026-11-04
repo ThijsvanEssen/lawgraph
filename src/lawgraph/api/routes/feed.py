@@ -33,8 +33,8 @@ from lawgraph.api.schemas.feed import (
     FeedPeriodsResponse,
     FeedResponse,
     FeedSummaryResponse,
-    atom_feed,
 )
+from lawgraph.api.schemas.feed_atom import atom_feed
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import SITE_URL
