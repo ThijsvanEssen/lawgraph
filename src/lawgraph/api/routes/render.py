@@ -5,14 +5,13 @@ and no ``/api`` (Caddy rewrites it here):
   front end with the title, description, canonical address, structured data and content
   of the source (``api/seo``), so a crawler reads it without JavaScript, and its node in
   ``<meta name="focus">`` (``<collection>/<key>``), so the app opens it without a lookup;
-- the same address in another spelling (``/uitspraken/ecli:nl:…``), or
-  ``/explore?focus=<collection>/<key>``: a 301 to the readable address;
+- the same address in another spelling (``/uitspraken/ecli:nl:…``): a 301 to the readable
+  address;
 - a page of the app (``spa-routes.json`` of the front end): the shell with its title; the
   start page (``/``) with its content too (``pages/home``), read of nothing;
-- an address of the app that moved (``/gemarkeerd`` to ``/bundels``): a 301 to the new
-  one, once the front end lists it and no longer the old one; a bare collection
-  (``/wetten``) and ``/zoeken`` as the front end's ``moved.json`` lists them: a 301 to
-  their list (``/explore?mode=index&kind=instruments``) or the field on the start page;
+- a bare collection (``/wetten``) and ``/zoeken`` as the front end's ``moved.json`` lists
+  them: a 301 to their list (``/explore?mode=index&kind=instruments``) or the field on the
+  start page;
 - anything else, and an address of a source the graph does not have: 404, the shell with
   "Niet gevonden" and ``noindex``;
 - a law of the Staatsblad, or an article of it, that the BWB holds now: a 301 to the law
@@ -36,13 +35,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Annotated, Any
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import unquote, urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.params import is_node_id
 from lawgraph.api.seo import shell
 from lawgraph.api.seo.pages.base import DESCRIPTION_MAX, Page, cut
 from lawgraph.api.seo.pages.home import home_page
@@ -82,9 +80,9 @@ NOT_FOUND = Page(
 )
 
 
-def _query(request: Request, drop: str = "") -> str:
-    """The query of the request (the state of a view: ``?lezen=1``), without *drop*."""
-    rest = [(k, v) for k, v in request.query_params.multi_items() if k != drop]
+def _query(request: Request) -> str:
+    """The query of the request (the state of a view: ``?lezen=1``)."""
+    rest = request.query_params.multi_items()
     return f"?{urlencode(rest, safe='/,:')}" if rest else ""
 
 
@@ -136,24 +134,6 @@ def _app_page(path: str) -> Page | None:
     )
 
 
-def _moved_in_app(path: str, request: Request) -> str | None:
-    """Where the moved address *path* of the app is now: ``/gemarkeerd`` the overview of
-    the bundels, ``/gemarkeerd/bundel?id=<id>`` the page of one (the browser keeps the
-    fragment of a shared link, ``#m=``). None for any other path, and while the front end
-    has a page at *path* still or none yet at the new address (a release of the front
-    end after the API)."""
-    if path == "/gemarkeerd":
-        new, query = "/bundels", _query(request)
-    elif path == "/gemarkeerd/bundel":
-        bundle = request.query_params.get("id")
-        new, query = f"/bundels/{quote(bundle, safe='')}" if bundle else "/bundels", ""
-    else:
-        return None
-    if shell.route_of(path) is not None or shell.route_of(new) is None:
-        return None
-    return new + query
-
-
 def _moved_by_the_app(path: str, request: Request) -> str | None:
     """Where the front end says the address *path* is now (``moved.json``), with the query
     of the request after its own (``/zoeken?q=huur`` to ``/?q=huur#zoeken``)."""
@@ -203,14 +183,6 @@ def _first_paint(
     return None if budget.ran_out else found
 
 
-def _props_of(store: GraphStore, node_id: str) -> dict[str, Any] | None:
-    """What the readable address of the node *node_id* is built from (``lookup.answer``);
-    None for a node that is not there or no node at all."""
-    if not is_node_id(node_id) or not store.has_node(*parse_node_id(node_id)):
-        return None
-    return (lookup.answer(store, node_id) or {}).get("props") or {}
-
-
 def _in_the_bwb(store: GraphStore, pad: Pad) -> str | None:
     """Of the address of a law of the Staatsblad, or of an article of it, that the graph no
     longer has: the same law in the BWB, which holds it now (``normalize staatsblad-laws``
@@ -229,8 +201,8 @@ def _in_the_bwb(store: GraphStore, pad: Pad) -> str | None:
 def _same_person_path(store: GraphStore, member_id: str) -> str | None:
     """The readable address of the member a bare member is the same person as."""
     other = seo.same_person(store, member_id)
-    props = _props_of(store, other) if other else None
-    return path_of(other, props) if other and props is not None else None
+    found = lookup.answer(store, other) if other else None
+    return path_of(other, found["props"]) if other and found else None
 
 
 def _to_named_law(store: GraphStore, named: Pad, request: Request) -> Response:
@@ -257,17 +229,12 @@ def render_page(
     store: Annotated[GraphStore, Depends(get_store)],
 ) -> Response:
     pathname = "/" + path
-    if pathname == "/explore" and (focus := request.query_params.get("focus")):
-        props = _props_of(store, focus)
-        readable = path_of(focus, props) if props is not None else None
-        if readable:
-            return _redirect(readable + _query(request, drop="focus"))
     if (named := law_by_name(pathname)) is not None:
         return _to_named_law(store, named, request)
     pad = parse_path(pathname)
     if pad is None:
         app_path = pathname.rstrip("/") or "/"
-        moved = _moved_in_app(app_path, request) or _moved_by_the_app(app_path, request)
+        moved = _moved_by_the_app(app_path, request)
         if moved is not None:
             return _redirect(moved)
         page = _app_page(app_path)

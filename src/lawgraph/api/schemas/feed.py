@@ -29,6 +29,7 @@ from lawgraph.config.constants import (
     CHAMBER_TK,
     COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
+    COLLECTION_INSTRUMENTS,
     Chamber,
     Collection,
     as_collection,
@@ -56,6 +57,7 @@ from lawgraph.core.publications import (
     publication_citation,
     publication_series,
 )
+from lawgraph.core.readable_paths import path_of
 from lawgraph.core.time import DUTCH_TIME
 from lawgraph.core.tk_links import activity_page, document_page
 from lawgraph.core.tk_records.actors import CAPACITY_MEMBER, SUBMITTER_FIRST
@@ -1219,10 +1221,10 @@ def _atom_entry(feed: ElementTree.Element, item: FeedItemDTO, site_url: str) -> 
     ElementTree.SubElement(entry, "id").text = f"tag:lawgraph,2026:{item.id}"
     ElementTree.SubElement(entry, "title").text = item.title or item.kind
     ElementTree.SubElement(entry, "updated").text = _dutch_day_start(item.date)
-    # the event on Concordans (at its readable address, else in the explorer), and its
-    # official page
-    page = item.path or f"/explore?focus={item.id}"
-    ElementTree.SubElement(entry, "link", rel="alternate", href=f"{site_url}{page}")
+    # the event on Concordans, and its official page
+    ElementTree.SubElement(
+        entry, "link", rel="alternate", href=f"{site_url}{_page_of(item)}"
+    )
     related = item.official_url or item.tk_url
     if related:
         ElementTree.SubElement(entry, "link", rel="related", href=related)
@@ -1233,6 +1235,18 @@ def _atom_entry(feed: ElementTree.Element, item: FeedItemDTO, site_url: str) -> 
     lines = [line for line in (item.summary, _dossier_line(item)) if line]
     if lines:
         ElementTree.SubElement(entry, "summary").text = "\n".join(lines)
+
+
+def _page_of(item: FeedItemDTO) -> str:
+    """Where the event is on Concordans: its readable address; a version of a law, which
+    has none of its own, the page of its law; a source without one (a paper the Kamer has
+    not numbered) in the explorer."""
+    law = item.commencement.instrument if item.commencement else None
+    return (
+        item.path
+        or (path_of(node_id(COLLECTION_INSTRUMENTS, law.key)) if law else None)
+        or f"/explore?focus={item.id}"
+    )
 
 
 def _dutch_day_start(day: str) -> str:
