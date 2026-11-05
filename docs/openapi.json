@@ -18,7 +18,7 @@
           "articles"
         ],
         "summary": "The narrow form of several articles",
-        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. One item per article of `refs`, in the order asked (each once), at most 20; an article the data does not hold has `article` null and its `ref` in `not_in_data`.",
+        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`, `valid_from`, `breadcrumb`, `stub`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. One item per article of `refs`, in the order asked (each once), at most 20; an article the data does not hold has `article` null and its `ref` in `not_in_data`.",
         "operationId": "get_article_text_batch_api_articles_batch_get",
         "parameters": [
           {
@@ -65,7 +65,7 @@
           "articles"
         ],
         "summary": "The narrow form of an article",
-        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. 404 when the article is unknown.",
+        "description": "The narrow form of an article, to read it beside something else: its heading (`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`, `valid_from`, `breadcrumb`, `stub`), its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its place (`lid-2-onder-a`) and the links in it whose target the data holds, and the articles before and after it in its law (`previous`, `next`). No citations of it and no network: the article route has those. 404 when the article is unknown.",
         "operationId": "get_article_text_api_articles__bwb_id___article_number__text_get",
         "parameters": [
           {
@@ -14099,6 +14099,23 @@
             "type": "boolean",
             "title": "Repealed"
           },
+          "stub": {
+            "type": "boolean",
+            "title": "Stub",
+            "description": "Known only from what cites it: the data has no text of it and no law, so `blocks` is empty, which does not say it lapsed."
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From",
+            "description": "`Tekst sinds`: the first day of the wording that holds today, as `/history` gives it (`valid_from` of the version where `text_changed`). Null when no version holds today, and for an article without versions (an EU act, a law of the Staatsblad)."
+          },
           "validity": {
             "anyOf": [
               {
@@ -14109,6 +14126,14 @@
               }
             ],
             "description": "Whether it holds today, from the dates its source gives (docs/api.md \"Validity\"); null where the source says nothing of it (an EU act, a treaty the Verdragenbank does not say is in force)."
+          },
+          "breadcrumb": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentArticleBreadcrumbDTO"
+            },
+            "type": "array",
+            "title": "Breadcrumb",
+            "description": "The divisions it stands in, the outermost first; empty for none."
           },
           "law": {
             "anyOf": [
@@ -14177,7 +14202,10 @@
           "heading",
           "display_name",
           "repealed",
+          "stub",
+          "valid_from",
           "validity",
+          "breadcrumb",
           "law",
           "blocks",
           "previous",
