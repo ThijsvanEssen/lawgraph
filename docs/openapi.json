@@ -1841,7 +1841,7 @@
           "instruments"
         ],
         "summary": "Parliamentary dossiers touching this law",
-        "description": "Dossiers reached through LEGISLATED_IN from (a) the regulation itself and (b) the amending publications (Stb/Trb) that change, introduce or repeal one of its articles. ``via`` says how the dossier is linked (``instrument`` or ``amending_publication``; in the latter case ``publication`` names the newest publication). ``total`` is the absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest opened first; ``importance``: the dossiers of the regulation itself first, then those with the most amending publications, then the newest opened.",
+        "description": "Dossiers reached through LEGISLATED_IN from (a) the regulation itself and (b) the amending publications (Stb/Trb) that change, introduce or repeal one of its articles. ``via`` says how the dossier is linked (``instrument`` or ``amending_publication``; in the latter case ``publication`` names the newest publication; null for a dossier reached by a paper that AMENDS the regulation or an article of it, not by one that only names it). ``total`` is the absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest opened first; ``importance``: the dossiers of the regulation itself first, then those with the most amending publications, then the newest opened.",
         "operationId": "get_instrument_dossiers_route_api_instruments__bwb_id__dossiers_get",
         "parameters": [
           {
@@ -30449,7 +30449,7 @@
               "amending_publication"
             ],
             "title": "Via",
-            "description": "How the dossier is linked: ``instrument`` = LEGISLATED_IN from the regulation itself, ``amending_publication`` = LEGISLATED_IN from a publication that amends, introduces or repeals one of its articles.",
+            "description": "How the dossier is linked: ``instrument`` = LEGISLATED_IN from the regulation itself, ``amending_publication`` = LEGISLATED_IN from a publication that amends, introduces or repeals one of its articles, or a paper of the dossier that AMENDS the regulation or one of its articles.",
             "default": "instrument"
           },
           "publication": {
@@ -30462,7 +30462,7 @@
               }
             ],
             "title": "Publication",
-            "description": "Identifier (e.g. ``stb-2019-33``) of the newest amending publication linking the dossier; only set when ``via`` is ``amending_publication``."
+            "description": "Identifier (e.g. ``stb-2019-33``) of the newest amending publication linking the dossier; only set when ``via`` is ``amending_publication``, null for a dossier with only a paper that amends."
           },
           "path": {
             "anyOf": [

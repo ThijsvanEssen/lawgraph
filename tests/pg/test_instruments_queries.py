@@ -316,6 +316,66 @@ def _dossier(key: str, **props: Any) -> dict[str, Any]:
     return _doc(key, "dossier", **props)
 
 
+def test_a_dossier_with_a_paper_that_amends_the_law(store: GraphStore) -> None:
+    """A paper with AMENDS to the law or one of its articles brings its dossier in; a paper
+    that only names the law does not."""
+    _seed_articles(store)
+    store.bulk_insert_or_update_nodes(
+        "dossiers",
+        [
+            _dossier("d_law", number="100", opened_on="2024-01-01"),
+            _dossier("d_article", number="200", opened_on="2023-01-01"),
+            _dossier("d_also_published", number="300", opened_on="2022-01-01"),
+            _dossier("d_own", number="400", opened_on="2021-01-01"),
+            _dossier("d_named", number="500", opened_on="2020-01-01"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc(BWB.lower(), "instrument", bwb_id=BWB),
+            _doc("stb1", "instrument", date_published="2019-01-01"),
+        ],
+    )
+    instrument = f"instruments/{BWB.lower()}"
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("documents/bill", instrument, "AMENDS"),
+            _edge("documents/bill", "dossiers/d_law", "PART_OF"),
+            # two papers of one dossier: listed once
+            _edge("documents/amendement", "articles/a1", "AMENDS"),
+            _edge("documents/amendement", "dossiers/d_article", "PART_OF"),
+            _edge("documents/amendement2", "articles/a2a", "AMENDS"),
+            _edge("documents/amendement2", "dossiers/d_article", "PART_OF"),
+            _edge("documents/bill3", instrument, "AMENDS"),
+            _edge("documents/bill3", "dossiers/d_also_published", "PART_OF"),
+            _edge("instruments/stb1", "articles/a1", "AMENDS"),
+            _edge("instruments/stb1", "dossiers/d_also_published", "LEGISLATED_IN"),
+            _edge("documents/bill4", instrument, "AMENDS"),
+            _edge("documents/bill4", "dossiers/d_own", "PART_OF"),
+            _edge(instrument, "dossiers/d_own", "LEGISLATED_IN"),
+            _edge("documents/letter", instrument, "REFERS_TO"),
+            _edge("documents/letter", "dossiers/d_named", "PART_OF"),
+        ]
+    )
+    items, total = instruments.get_instrument_dossiers(store, BWB)
+
+    assert total == 4
+    assert [(i["dossier"]["key"], i["via"], i["publication"]) for i in items] == [
+        ("d_law", "amending_publication", None),
+        ("d_article", "amending_publication", None),
+        ("d_also_published", "amending_publication", "stb1"),
+        ("d_own", "instrument", None),
+    ]
+    items, _ = instruments.get_instrument_dossiers(store, BWB, sort="importance")
+    assert [i["dossier"]["key"] for i in items] == [
+        "d_own",
+        "d_also_published",
+        "d_law",
+        "d_article",
+    ]
+
+
 def test_dossiers_direct_and_through_amending_publications(store: GraphStore) -> None:
     _seed_articles(store)
     store.bulk_insert_or_update_nodes(

@@ -464,14 +464,16 @@ class InstrumentDossierItem(WithPath):
         description=(
             "How the dossier is linked: ``instrument`` = LEGISLATED_IN from the "
             "regulation itself, ``amending_publication`` = LEGISLATED_IN from a "
-            "publication that amends, introduces or repeals one of its articles."
+            "publication that amends, introduces or repeals one of its articles, or a "
+            "paper of the dossier that AMENDS the regulation or one of its articles."
         ),
     )
     publication: str | None = Field(
         None,
         description=(
             "Identifier (e.g. ``stb-2019-33``) of the newest amending publication "
-            "linking the dossier; only set when ``via`` is ``amending_publication``."
+            "linking the dossier; only set when ``via`` is ``amending_publication``, "
+            "null for a dossier with only a paper that amends."
         ),
     )
 

@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
     RELATION_ESTABLISHES,
     RELATION_INTRODUCES,
     RELATION_LEGISLATED_IN,
+    RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_REPEALS,
 )
@@ -404,6 +405,8 @@ def get_instrument_dossiers(
       * the amending publications that AMEND / INTRODUCE / REPEAL one of its
         articles -> ``via = "amending_publication"`` (``publication`` names the
         newest such publication).
+    A paper of a dossier (``PART_OF``) that AMENDS the regulation or an article of it brings
+    the dossier in too: ``amending_publication``, ``publication`` None without one.
     A dossier linked both ways is reported as ``instrument``. Newest opened first, or with
     *sort* ``importance`` the dossiers of the regulation itself first, then those with the
     most amending publications, then the newest opened.
@@ -427,12 +430,20 @@ def get_instrument_dossiers(
               AND e.relation = %(legislated_in)s
               AND e.to_collection = %(dossiers)s
         ),
+        reached AS (
+            SELECT dossier_id, source_id FROM links
+            UNION ALL
+            SELECT p.to_id, NULL FROM edges a JOIN edges p ON p.from_id = a.from_id
+            WHERE a.to_id IN (SELECT %(instrument_id)s UNION {_articles_of(scope.prop)})
+              AND a.relation = %(amends)s AND a.from_collection = %(documents)s
+              AND p.relation = %(part_of)s AND p.to_collection = %(dossiers)s
+        ),
         grouped AS (
             SELECT d.id, d.key, d.type, d.labels, d.props, d.opened_on, d.number,
                    bool_or(l.source_id = %(instrument_id)s) AS direct,
                    (count(*) FILTER (WHERE l.source_id <> %(instrument_id)s))::int
                        AS publication_count
-            FROM links l JOIN dossiers d ON d.id = l.dossier_id
+            FROM reached l JOIN dossiers d ON d.id = l.dossier_id
             GROUP BY d.id
         )
     """
@@ -461,6 +472,9 @@ def get_instrument_dossiers(
             "instrument_id": instrument_id,
             "mutations": list(ENACTING_RELATIONS),
             "legislated_in": RELATION_LEGISLATED_IN,
+            "amends": RELATION_AMENDS,
+            "part_of": RELATION_PART_OF,
+            "documents": COLLECTION_DOCUMENTS,
             "dossiers": COLLECTION_DOSSIERS,
             "limit": limit,
         },
