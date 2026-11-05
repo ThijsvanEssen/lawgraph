@@ -158,8 +158,14 @@ def test_the_passages_are_counted_from_the_index_and_read_for_the_page_alone(
     )
     # every judgment but those of the gerechtshof (the second of COURTS)
     assert cited_by.total == (JUDGMENTS - len(range(1, JUDGMENTS, 3))) * MENTIONS
-    ((statement, params, *_),) = [(c.statement, c.params) for c in calls]
-    plan = explain(store, statement, params, disable=("seqscan",), analyze=True)
+    (passages, counts) = [(c.statement, c.params) for c in calls]
+    plan = explain(store, counts[0], counts[1], disable=("seqscan",), analyze=True)
+    assert {
+        (n["Node Type"], n.get("Index Name"))
+        for n in plan_nodes(plan)
+        if "Relation Name" in n
+    } == {("Index Only Scan", "lg_cited_by_article_areas")}
+    plan = explain(store, passages[0], passages[1], disable=("seqscan",), analyze=True)
     scans = [n for n in plan_nodes(plan) if "Relation Name" in n]
     assert {
         (n["Node Type"], n.get("Index Name"))

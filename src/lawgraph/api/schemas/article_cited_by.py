@@ -167,11 +167,16 @@ class ArticleCitedByResponse(StrictModel):
     )
     judgment_total: int = Field(
         description="The judgments of those rows: a judgment that cites the article in "
-        "three places is three rows and one judgment."
+        "three places is three rows and one judgment. Counted with every request (under "
+        "`lid` kept with the rows), so after a run of the sources it can be ahead of "
+        "`total`, `items` and `facets`, which are kept up to an hour."
     )
     echr_judgment_total: int = Field(
         default=0,
-        description="The ECHR judgments that cite the article, whatever the filters. "
+        description="The ECHR judgments that cite the article, whatever the filters, "
+        "counted with every request. Without filters, this and `judgment_total` add up "
+        "to `metadata.judgment_count` of the article, but for a citation by a judgment "
+        "not (yet) in the graph, which only that count holds. "
         "HUDOC names the articles a judgment applies, not the passage, so they are no "
         "row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them "
         "(`international`).",

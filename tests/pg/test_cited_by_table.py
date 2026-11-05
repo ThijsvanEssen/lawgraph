@@ -11,6 +11,7 @@ import pytest
 
 from lawgraph.db import GraphStore, schema, version_cache
 from lawgraph.db.queries import cited_by_table
+from lawgraph.db.queries._helpers import _count_judgments_for_article
 from lawgraph.db.queries.articles import get_article_cited_by
 
 ARTICLE = "articles/bwbr0005289_6_162"
@@ -154,6 +155,43 @@ def test_an_edge_without_a_mention_is_kept_and_read_as_one_row(
     assert [r["mention"] is None for r in read().rows] == [False, False, False]
     store.bulk_insert_or_update_edges([_citation("j2", [])])
     assert read() == cited
+
+
+def test_the_judgment_counts_follow_the_data_beside_the_kept_passages(
+    store: GraphStore,
+) -> None:
+    """A new citation counts at once, under the filters too, and with the ECHR judgments
+    adds up to the count of the article's detail; the passages, their ``total`` and, under
+    a ``lid``, which the index does not hold, ``judgment_total`` stay as they were kept."""
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment("j1", date_eff="2020-01-01", tier="hoge_raad", court_code="HR"),
+            _judgment("j2", date_eff="2021-01-01", tier="hoge_raad", court_code="HR"),
+            _judgment("h1", date_eff="2021-01-01", tier="ehrm", court_code="ECHR"),
+        ],
+    )
+    store.bulk_insert_or_update_edges([_citation("j1", [["1"]]), _citation("h1", [])])
+    version_cache.clear()
+    before = get_article_cited_by(store, ARTICLE)
+    assert (before.judgment_total, before.echr_judgment_total) == (1, 1)
+    assert get_article_cited_by(store, ARTICLE, year="2021").judgment_total == 0
+    assert get_article_cited_by(store, ARTICLE, lid="1").judgment_total == 1
+
+    store.bulk_insert_or_update_edges([_citation("j2", [["1"]])])
+
+    after = get_article_cited_by(store, ARTICLE)
+    assert (after.judgment_total, after.echr_judgment_total) == (2, 1)
+    assert after.judgment_total + after.echr_judgment_total == (
+        _count_judgments_for_article(store, ARTICLE)
+    )
+    assert (after.rows, after.total) == (before.rows, before.total)
+    assert get_article_cited_by(store, ARTICLE, year="2021").judgment_total == 1
+    assert (
+        get_article_cited_by(store, ARTICLE, year="2021", court="RBAMS").judgment_total
+        == 0
+    )
+    assert get_article_cited_by(store, ARTICLE, lid="1").judgment_total == 1
 
 
 def _pages(store: GraphStore) -> list[Any]:

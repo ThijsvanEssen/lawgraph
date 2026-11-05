@@ -942,11 +942,6 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         )
     }
         ) AS facets,
-        -- the ECHR judgments that cite it: HUDOC names the article (and its leden), no passage
-        (
-            SELECT count(DISTINCT c.judgment_id)::int FROM {CITED_BY_TABLE} c
-            WHERE c.article_id = %(article_id)s AND c.court_code = '{CODE_ECHR}'
-        ) AS echr_judgment_total,
         (
             SELECT coalesce(json_agg(json_build_object(
                 'judgment', {
@@ -966,6 +961,28 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
             LEFT JOIN lg_judgment_light l ON l.id = j.id
         ) AS items
     """
+
+
+# The judgments of an article under the filters but ``lid``, and its ECHR judgments whatever
+# the filters (HUDOC names the article, no passage), each one row. From the index of ``lg_cited_by`` alone
+# (art. 6 EVRM, 38,000 rows: 120 ms on prod on 5 Nov), so read with every request: they then
+# follow the same data as ``metadata.judgment_count``, their sum but for a citation by a
+# judgment that is not there (the table has no row for it).
+_CITED_BY_COUNTS = f"""
+    SELECT
+        count(*) FILTER (WHERE
+            (h.mentions > 0 OR h.court IS DISTINCT FROM '{CODE_ECHR}')
+            AND (%(court)s::text IS NULL OR h.court = %(court)s::text)
+            AND {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
+        )::int AS judgment_total,
+        count(*) FILTER (WHERE h.court = '{CODE_ECHR}')::int AS echr_judgment_total
+    FROM (
+        SELECT c.mentions, c.court_code AS court, c.tier, c.areas,
+               substr(c.date_eff, 1, 4) AS year
+        FROM {CITED_BY_TABLE} c
+        WHERE c.article_id = %(article_id)s
+    ) h
+"""
 
 
 # How long the list of the most cited articles is kept (seconds): it reads the citation
@@ -1051,8 +1068,10 @@ def get_article_cited_by(
     ``total`` counts every row that passes the filters, whatever the page, and
     ``judgment_total`` the judgments they are in; ``echr_judgment_total`` the ECHR
     judgments that cite the article, whatever the filters: HUDOC names the article they
-    apply, not a passage, so they have no row. Filters: the ``court`` (ECLI court code),
-    any of the ``tiers``, the ``year`` (of its date) and the main ``area`` of law (the part
+    apply, not a passage, so they have no row. Those two are read with every request
+    (``_CITED_BY_COUNTS``), the rest is kept ``CITED_BY_MAX_AGE``; under a ``lid``, which
+    the index does not hold, ``judgment_total`` is kept too. Filters: the ``court`` (ECLI
+    court code), any of the ``tiers``, the ``year`` (of its date) and the main ``area`` of law (the part
     of a subject of the source before its first ';': ``Strafrecht``) of the judgment, and
     a ``lid`` number that the mention names. ``facets`` counts the judgments, each under
     the other filters: per ``year`` (oldest first, none first), per ``tier`` (most first)
@@ -1089,11 +1108,14 @@ def get_article_cited_by(
         inline=inline,
     )
     facets = answer.get("facets") or {}
+    counts = next(iter(store.query(_CITED_BY_COUNTS, bind)))
     return CitedBy(
         rows=list(answer.get("items") or []),
         total=int(answer.get("total") or 0),
-        judgment_total=int(answer.get("judgment_total") or 0),
-        echr_judgment_total=int(answer.get("echr_judgment_total") or 0),
+        judgment_total=int(answer.get("judgment_total") or 0)
+        if lid
+        else counts["judgment_total"],
+        echr_judgment_total=counts["echr_judgment_total"],
         facets={
             name: list(facets.get(name) or [])
             for name in ("year", "tier", "subject_area")
