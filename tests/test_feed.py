@@ -19,8 +19,8 @@ from lawgraph.api.schemas.feed import (
     FeedSummaryResponse,
     _subject,
     _surname,
-    atom_feed,
 )
+from lawgraph.api.schemas.feed_atom import atom_feed
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.feed import (
     DAY_ORDER,

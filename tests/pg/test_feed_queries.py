@@ -499,6 +499,21 @@ def test_the_feed_as_atom_has_the_same_events(client: TestClient) -> None:
 
 
 @ON_THE_GRAPH
+def test_the_atom_feed_links_a_new_version_of_a_law_at_the_law(
+    client: TestClient,
+) -> None:
+    """A version has no readable address of its own (``path`` null): its entry links the
+    page of its law, as the row on the site does."""
+    assert _feed(client, kind="inwerkingtreding")["items"][0]["path"] is None
+    response = client.get("/api/feed.atom", params={"kind": "inwerkingtreding"})
+    assert_status(response, 200)
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    entry = present(ElementTree.fromstring(response.content).find("a:entry", ns))
+    alternate = present(entry.find("a:link[@rel='alternate']", ns)).get("href")
+    assert alternate == f"{SITE_URL}/wetten/BWBR0000001"
+
+
+@ON_THE_GRAPH
 def test_the_atom_feed_of_a_dossier_is_its_events(client: TestClient) -> None:
     """``feed.atom?dossier=``: what a feed reader follows of one dossier. The events of the
     feed's page under that filter, newest first, each once at its readable address (else
@@ -2044,9 +2059,8 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
 ) -> None:
     """A paper of every kind the feed lists has the address its render page has
     (``core.readable_paths.path_of``), from its own dossier number and suffix and its
-    number in the dossier, so the feed links it directly instead of through
-    ``/explore?focus`` and a 301; a commitment by its number. A paper the Kamer has not
-    numbered yet has none."""
+    number in the dossier, so the feed links it directly; a commitment by its number. A paper
+    the Kamer has not numbered yet has none."""
     seed_feed(store)
     numbered = {
         "motion_101": ("Motie", "37001", "VII", 12, "/kamerstukken/37001-VII/12"),
@@ -2094,9 +2108,12 @@ def test_every_numbered_paper_and_commitment_has_its_readable_path(
     _serve(store)
     try:
         answer = _feed(_test_client(), limit=200)
+        atom = _test_client().get("/api/feed.atom", params={"limit": 200}).text
     finally:
         app.dependency_overrides.pop(get_store, None)
     paths = {item["id"]: item["path"] for item in answer["items"]}
+    # a source without a readable address: its entry in the explorer
+    assert f"{SITE_URL}/explore?focus={COLLECTION_DOCUMENTS}/fresh_106" in atom
     for key, (_, _, _, _, path) in numbered.items():
         assert paths[f"{COLLECTION_DOCUMENTS}/{key}"] == path, key
     assert paths[f"{COLLECTION_DOCUMENTS}/fresh_106"] is None

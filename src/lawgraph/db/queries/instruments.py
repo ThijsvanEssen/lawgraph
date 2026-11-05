@@ -1062,7 +1062,9 @@ def get_instruments_list(
     facets: bool = True,
 ) -> dict[str, Any]:
     """Paginated, filterable list of instruments with cheap aggregate stats
-    (``facets=False``: the page and the total alone, ``facets`` None).
+    (``facets=False``: the page and the total alone, ``facets`` None). The page never waits
+    for its counts past ``COUNTS_BUDGET``: ``total`` is None and ``partial`` set while they
+    are counted.
 
     Performance strategy:
       * Free text (`q`) narrows the list by the search of ``queries/search``; the
@@ -1172,23 +1174,18 @@ def get_instruments_list(
     def listed_page() -> tuple[list[dict[str, Any]], str | None]:
         return _listed(store, filters, INSTRUMENT_ORDERS[sort], params, limit, after)
 
-    if not facets:
-        answers: list[Any] = run_together(
-            listed_page,
-            lambda: _instrument_total(store, matched, counted, bool(tokens)),
+    def without_facets() -> dict[str, Any]:
+        total = _instrument_total(store, matched, counted, bool(tokens))
+        return {"total": total, "facets": None}
+
+    def with_facets() -> dict[str, Any]:
+        return _instrument_counts(
+            store, filters, matched, regulations, counted, bool(tokens)
         )
-        (listed, next_cursor), count = answers
-        return {
-            "total": count,
-            "items": listed,
-            "facets": None,
-            "next_cursor": next_cursor,
-        }
+
     (on_page, next_cursor), counts = page_with_counts(
         listed_page,
-        lambda: _instrument_counts(
-            store, filters, matched, regulations, counted, bool(tokens)
-        ),
+        with_facets if facets else without_facets,
         "The counts of the instruments",
     )
     return {**with_counts(on_page, counts), "next_cursor": next_cursor}
