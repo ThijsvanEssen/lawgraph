@@ -11,7 +11,8 @@ import psycopg
 import pytest
 
 from lawgraph.db import GraphStore, NodeWriter
-from lawgraph.db.queries.dossiers import DossierFilters, get_dossiers
+from lawgraph.db.queries.dossier_filters import DossierFilters
+from lawgraph.db.queries.dossiers import get_dossiers
 from lawgraph.db.queries.feed import get_feed
 from lawgraph.db.queries.feed_sql import FeedFilters
 from lawgraph.db.schema import (

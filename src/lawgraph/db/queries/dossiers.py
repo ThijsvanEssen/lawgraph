@@ -64,8 +64,10 @@ from lawgraph.db.queries._keyset import InvalidCursor, Keyset, SortKey
 from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
+from lawgraph.db.queries.dossier_filters import DossierFilters
 from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
+from lawgraph.db.queries.seats import seat_dossiers
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached
 
@@ -1187,24 +1189,6 @@ _LIST_KEYS = {
 }
 
 
-@dataclass(frozen=True)
-class DossierFilters:
-    """What a dossier list keeps; None keeps everything."""
-
-    status: str | None = None  # open, closed
-    outcome: str | None = None
-    kinds: tuple[str, ...] | None = None
-    phases: tuple[str, ...] | None = None  # the current phase is one of them
-    has_phase: tuple[str, ...] | None = None
-    ministry: str | None = None
-    initiative: bool | None = None
-    number: str | None = None  # a prefix of the label: 36264, 37020-
-    subject: str | None = None
-    committee_slug: str | None = None
-    opened_from: str | None = None
-    opened_to: str | None = None
-
-
 # ``@has_phase ALL IN (phases OR [])[* FILTER CURRENT.done].name``
 _HAS_PHASE = f"""%(has_phase)s::text[] <@ ARRAY(
             SELECT lg_str(p -> 'name')
@@ -1245,6 +1229,8 @@ def _dossier_filters(
         if value:
             own[name] = clause
             bind[name] = list(value) if isinstance(value, tuple) else value
+    if filters.seat:
+        shared.append("ds.id = ANY(%(seat_ids)s)")
     if filters.number:
         # byte for byte, whatever the collation of the database: a range up to a bound
         # that sorts after every label holds under ICU, not under glibc
@@ -1317,6 +1303,8 @@ def get_dossiers(
     and every facet; the committee filter resolves that committee's dossiers once as a set.
     """
     bind: dict[str, Any] = {"limit": limit, "offset": offset}
+    if filters.seat:
+        bind["seat_ids"] = seat_dossiers(store, filters.seat).ids
     shared, own = _dossier_filters(filters, bind)
     keys, direction = _sort_keys(sort)
     nulls = "NULLS FIRST" if direction == "ASC" else "NULLS LAST"

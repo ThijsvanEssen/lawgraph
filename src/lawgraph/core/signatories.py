@@ -189,7 +189,7 @@ def post_kind(function: str | None) -> str:
     )
 
 
-def _held_on(post: dict[str, Any], day: str) -> bool:
+def held_on(post: dict[str, Any], day: str) -> bool:
     start, end = post.get("from_date"), post.get("to_date")
     if not start or day < start:
         return False
@@ -203,7 +203,7 @@ def _signed_as(person: dict[str, Any], signature: dict[str, Any]) -> bool:
     kind = post_kind(signature.get("function"))
     days = [d for d in (signature.get("first"), signature.get("last")) if d]
     return any(
-        post_kind(post.get("function")) == kind and _held_on(post, day)
+        post_kind(post.get("function")) == kind and held_on(post, day)
         for post in person.get("posts") or []
         for day in days
     )

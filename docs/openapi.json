@@ -3575,6 +3575,24 @@
               "title": "Facets"
             },
             "description": "Count per status, outcome, track, stage and ministry."
+          },
+          {
+            "name": "seat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "An office, by any of its names (``GET /api/seats/{seat}``): the dossiers its holder that day signed first.",
+              "title": "Seat"
+            },
+            "description": "An office, by any of its names (``GET /api/seats/{seat}``): the dossiers its holder that day signed first."
           }
         ],
         "responses": {
@@ -5755,6 +5773,24 @@
               "title": "Facets"
             },
             "description": "Count per status, cabinet and ministry."
+          },
+          {
+            "name": "seat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "An office, by any of its names (``GET /api/seats/{seat}``): the commitments of the member who held it that day.",
+              "title": "Seat"
+            },
+            "description": "An office, by any of its names (``GET /api/seats/{seat}``): the commitments of the member who held it that day."
           }
         ],
         "responses": {
@@ -6725,6 +6761,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/seats/{seat}": {
+      "get": {
+        "tags": [
+          "seats",
+          "government"
+        ],
+        "summary": "Office",
+        "description": "One office (``seat`` of a post in ``GET /api/cabinets/{key}``: ``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``), under every name its ministry went by: any of its names gives the same answer. A merger of ministries is no rename (`merged_from`, `merged_into`). The holders with their periods, `gaps` without a holder, and per list what can be attributed to it: `commitments` and `dossiers` count the lists filtered on ``seat``, and what may be its own but fits nobody. Something is attributed by who did it and the day: the post of that kind they held; with two such posts that day the ministry decides, else it is attributed to neither. A seat without a ministry (``-/…``) has no other names. The viceminister-president, a seat beside a minister's own, has nothing attributed.",
+        "operationId": "get_seat_detail_api_seats__seat__get",
+        "parameters": [
+          {
+            "name": "seat",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Seat"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatDTO"
                 }
               }
             }
@@ -39530,6 +39610,96 @@
         "title": "SearchedDTO",
         "description": "What the search of one type reads."
       },
+      "SeatCountsDTO": {
+        "properties": {
+          "attributed": {
+            "type": "integer",
+            "title": "Attributed",
+            "description": "The ``total`` of the list filtered on this ``seat``."
+          },
+          "unattributed": {
+            "type": "integer",
+            "title": "Unattributed",
+            "description": "Of its ministry and kind, on a day the seat was held, but with no member found or a member who fits no one seat that day: in no list of a seat."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attributed",
+          "unattributed"
+        ],
+        "title": "SeatCountsDTO",
+        "description": "How much of a list can be attributed to the seat."
+      },
+      "SeatDTO": {
+        "properties": {
+          "seat": {
+            "type": "string",
+            "title": "Seat",
+            "description": "By its latest name: ``ienw/minister``, without a lane."
+          },
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names",
+            "description": "Every name it was held under, oldest first."
+          },
+          "merged_from": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Merged From",
+            "description": "The seats of ministries that merged into this one (``venw/minister`` into ``ienm/minister``): other offices, their holders not among these."
+          },
+          "merged_into": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Merged Into",
+            "description": "The seat of the ministry this one merged into: another office."
+          },
+          "holders": {
+            "items": {
+              "$ref": "#/components/schemas/SeatHolderDTO"
+            },
+            "type": "array",
+            "title": "Holders",
+            "description": "Oldest first."
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/SeatGapDTO"
+            },
+            "type": "array",
+            "title": "Gaps"
+          },
+          "commitments": {
+            "$ref": "#/components/schemas/SeatCountsDTO"
+          },
+          "dossiers": {
+            "$ref": "#/components/schemas/SeatCountsDTO"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seat",
+          "names",
+          "merged_from",
+          "merged_into",
+          "holders",
+          "gaps",
+          "commitments",
+          "dossiers"
+        ],
+        "title": "SeatDTO",
+        "description": "An office, over the names of its ministry."
+      },
       "SeatEventBasis": {
         "type": "string",
         "enum": [
@@ -39615,6 +39785,161 @@
           "coalitie"
         ],
         "title": "SeatEventKind"
+      },
+      "SeatGapDTO": {
+        "properties": {
+          "from_date": {
+            "type": "string",
+            "title": "From Date"
+          },
+          "to_date": {
+            "type": "string",
+            "title": "To Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "from_date",
+          "to_date"
+        ],
+        "title": "SeatGapDTO",
+        "description": "A stretch longer than two weeks between two holders: no post known, or no such office\nthen. Not filled in."
+      },
+      "SeatHolderDTO": {
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/PersonRefDTO"
+          },
+          "seat": {
+            "type": "string",
+            "title": "Seat",
+            "description": "The seat as it was then, with its lane: ``bz/staatssecretaris#2``."
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Post"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As Rijksoverheid names the post."
+          },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabinet_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cabinet Key"
+          },
+          "cabinet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cabinet Name"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date",
+            "description": "The day it began."
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The day it ended, as Rijksoverheid gives it: the day of the change, on which the next cabinet (holder, phase) takes office; so the period runs from ``from_date`` up to, not including, ``to_date``, and ``to_date`` is the ``from_date`` of what follows. Null while it lasts."
+          },
+          "acting": {
+            "type": "boolean",
+            "title": "Acting",
+            "description": "A stand-in (ad interim).",
+            "default": false
+          },
+          "overlaps_with": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Overlaps With",
+            "description": "The members who held the same seat at the same time: a conflict in the source, not hidden."
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member",
+          "seat",
+          "post",
+          "function",
+          "ministry",
+          "cabinet_key",
+          "cabinet_name",
+          "from_date",
+          "to_date",
+          "acting",
+          "overlaps_with",
+          "ministry_name"
+        ],
+        "title": "SeatHolderDTO",
+        "description": "A post in the seat: one person, in one cabinet, under one name of the ministry."
       },
       "SeatStretchDTO": {
         "properties": {

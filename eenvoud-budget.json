@@ -31,7 +31,7 @@
     "src/lawgraph/db/queries/articles.py": 1101,
     "src/lawgraph/db/queries/chains.py": 885,
     "src/lawgraph/db/queries/decisions.py": 916,
-    "src/lawgraph/db/queries/dossiers.py": 1510,
+    "src/lawgraph/db/queries/dossiers.py": 1498,
     "src/lawgraph/db/queries/feed.py": 1054,
     "src/lawgraph/db/queries/feed_sql.py": 1132,
     "src/lawgraph/db/queries/instruments.py": 1509,

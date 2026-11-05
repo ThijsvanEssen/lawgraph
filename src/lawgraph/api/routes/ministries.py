@@ -17,7 +17,8 @@ from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.cabinets import ministry_posts
 from lawgraph.db.queries.commitments import get_commitments
-from lawgraph.db.queries.dossiers import DossierFilters, get_dossiers
+from lawgraph.db.queries.dossier_filters import DossierFilters
+from lawgraph.db.queries.dossiers import get_dossiers
 from lawgraph.db.queries.instruments import get_instruments_list
 from lawgraph.db.queries.not_found import require
 

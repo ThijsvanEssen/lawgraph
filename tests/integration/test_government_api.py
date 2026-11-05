@@ -392,6 +392,25 @@ def test_the_open_dossiers_of_a_ministry_or_of_the_members(
     assert [d["number"] for d in initiatives["items"]] == ["37100"]
 
 
+def test_an_office_with_its_holders_and_what_is_its_own(api: Api) -> None:
+    seat = api.get_json("/api/seats/fin/minister")
+    assert seat["seat"] == "fin/minister"
+    heinen = seat["holders"][-1]
+    assert heinen["member"]["path"] == "/leden/eelco-heinen"
+    assert heinen["ministry_name"] == "Financiën"
+    assert heinen["cabinet_key"] == "jetten"
+    commitments = api.get_json("/api/commitments?seat=fin/minister")
+    assert commitments["total"] == seat["commitments"]["attributed"] == 2
+    dossiers = api.get_json("/api/dossiers?seat=fin/minister")
+    assert [d["number"] for d in dossiers["items"]] == ["37022"]
+    assert seat["dossiers"]["attributed"] == 1
+    # a lane is the same seat, in the address as %23
+    lane = api.get_json("/api/seats/fin/minister%232")
+    assert lane == seat
+    assert_status(api.get("/api/seats/fin/geen"), 404)
+    assert api.get_json("/api/commitments?seat=fin/geen")["total"] == 0
+
+
 def test_an_unknown_cabinet_is_404_and_an_unknown_ministry_422(
     api: Api,
 ) -> None:
