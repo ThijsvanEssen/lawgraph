@@ -404,10 +404,8 @@ def get_instrument_dossiers(
       * the amending publications that AMEND / INTRODUCE / REPEAL one of its
         articles -> ``via = "amending_publication"`` (``publication`` names the
         newest such publication).
-    A dossier also counts with a paper of it (``PART_OF``) that AMENDS the regulation or one
-    of its articles, its bill or amendement: ``via = "amending_publication"`` too, with
-    ``publication`` None while no publication of it has. A paper that only names the
-    regulation does not count.
+    A paper of a dossier (``PART_OF``) that AMENDS the regulation or an article of it brings
+    the dossier in too: ``amending_publication``, ``publication`` None without one.
     A dossier linked both ways is reported as ``instrument``. Newest opened first, or with
     *sort* ``importance`` the dossiers of the regulation itself first, then those with the
     most amending publications, then the newest opened.
@@ -431,21 +429,13 @@ def get_instrument_dossiers(
               AND e.relation = %(legislated_in)s
               AND e.to_collection = %(dossiers)s
         ),
-        amending_papers AS (
-            SELECT e.from_id FROM edges e
-            WHERE e.to_id = %(instrument_id)s AND e.relation = %(amends)s
-              AND e.from_collection = %(documents)s
-            UNION
-            SELECT e.from_id FROM edges e
-            WHERE e.to_id IN ({_articles_of(scope.prop)}) AND e.relation = %(amends)s
-              AND e.from_collection = %(documents)s
-        ),
         reached AS (
             SELECT dossier_id, source_id FROM links
             UNION ALL
-            SELECT e.to_id, NULL FROM edges e
-            WHERE e.from_id IN (SELECT from_id FROM amending_papers)
-              AND e.relation = %(part_of)s AND e.to_collection = %(dossiers)s
+            SELECT p.to_id, NULL FROM edges a JOIN edges p ON p.from_id = a.from_id
+            WHERE a.to_id IN (SELECT %(instrument_id)s UNION {_articles_of(scope.prop)})
+              AND a.relation = %(amends)s AND a.from_collection = %(documents)s
+              AND p.relation = %(part_of)s AND p.to_collection = %(dossiers)s
         ),
         grouped AS (
             SELECT d.id, d.key, d.type, d.labels, d.props, d.opened_on, d.number,

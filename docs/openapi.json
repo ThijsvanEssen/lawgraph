@@ -1841,7 +1841,7 @@
           "instruments"
         ],
         "summary": "Parliamentary dossiers touching this law",
-        "description": "Dossiers reached through LEGISLATED_IN from (a) the regulation itself and (b) the amending publications (Stb/Trb) that change, introduce or repeal one of its articles. ``via`` says how the dossier is linked (``instrument`` or ``amending_publication``; in the latter case ``publication`` names the newest publication). A dossier with a paper that AMENDS the regulation or one of its articles (a bill, an amendement) counts as well: ``amending_publication``, ``publication`` null while no publication of it has; a paper that only names the law does not. ``total`` is the absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest opened first; ``importance``: the dossiers of the regulation itself first, then those with the most amending publications, then the newest opened.",
+        "description": "Dossiers reached through LEGISLATED_IN from (a) the regulation itself and (b) the amending publications (Stb/Trb) that change, introduce or repeal one of its articles. ``via`` says how the dossier is linked (``instrument`` or ``amending_publication``; in the latter case ``publication`` names the newest publication; null for a dossier reached by a paper that AMENDS the regulation or an article of it, not by one that only names it). ``total`` is the absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest opened first; ``importance``: the dossiers of the regulation itself first, then those with the most amending publications, then the newest opened.",
         "operationId": "get_instrument_dossiers_route_api_instruments__bwb_id__dossiers_get",
         "parameters": [
           {
