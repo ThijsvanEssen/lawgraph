@@ -99,7 +99,8 @@ router = APIRouter()
 
 _TEXT = (
     "The narrow form of an article, to read it beside something else: its heading "
-    "(`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`), "
+    "(`label`, `heading`, `display_name`, its `law` with the abbreviation, `validity`, "
+    "`valid_from`, `breadcrumb`, `stub`), "
     "its text as `blocks`, one per lid, onderdeel or aanhef with the anchor of its "
     "place (`lid-2-onder-a`) and the links in it whose target the data holds, and the "
     "articles before and after it in its law (`previous`, `next`). No citations of it "

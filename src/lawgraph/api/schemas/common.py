@@ -100,9 +100,9 @@ def scope_type_of(meta: dict[str, Any]) -> str:
 
 PARTIAL_COUNTS = (
     "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not "
-    "counted since the data last changed: a request waits 3 s for them): ``total`` null and "
-    "empty facets now, ask again for them; they are counted on. The next page does not "
-    "depend on them."
+    "counted since the data last changed: a request waits 3 s for them): empty facets now, "
+    "and ``total`` null unless it was counted before them; ask again for them, they are "
+    "counted on. The next page does not depend on them."
 )
 
 

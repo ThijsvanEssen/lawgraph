@@ -944,7 +944,7 @@ class InstrumentListResponse(StrictModel):
 
     items: list[InstrumentListItemDTO]
     total: int | None = Field(
-        ..., description="Matching instruments; null while ``partial``."
+        ..., description="Matching instruments; null until it is counted."
     )
     # null when asked for without them (``facets=false``)
     facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)

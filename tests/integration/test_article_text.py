@@ -143,6 +143,14 @@ def test_an_article_cited_by_its_book(api: Api) -> None:
     assert body["next"]["path"] == f"/wetten/{BW6}/artikel/6:163"
 
 
+def test_the_fields_a_client_always_shows(api: Api) -> None:
+    body = api.get_json(f"/api/articles/{CBW}/51/text")
+    history = api.get_json(f"/api/articles/{CBW}/51/history")
+
+    assert body["stub"] is False
+    assert body["valid_from"] == history["versions"][-1]["valid_from"] == "2026-08-15"
+
+
 def test_the_batch_keeps_the_order_and_names_what_is_missing(api: Api) -> None:
     refs = [f"{CBB}/28", f"{CBB}/19", f"{CBB}/999", f"{CBB}/23", f"{BW6}/6:162"]
     body = api.get_json("/api/articles/batch", refs=",".join(refs))
