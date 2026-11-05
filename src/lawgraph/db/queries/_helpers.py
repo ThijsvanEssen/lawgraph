@@ -28,6 +28,10 @@ from lawgraph.db.store import read_budget, read_time_left
 # under a filter not counted yet (a minute or more, cold) it answers its page without them,
 # ``partial``, and they are counted on for a later request.
 COUNTS_BUDGET = 3.0
+# How long a request waits for the total of a list alone, after its page and apart from the
+# facets (seconds): a total takes seconds where the facets take minutes, cold; one past it
+# (a wide filter, cold) is counted on for a later request.
+TOTAL_BUDGET = 3.0
 
 
 @dataclass(frozen=True)
@@ -47,12 +51,12 @@ def page_with_counts[P](
 ) -> tuple[P, Counted]:
     """The result of *page*, read first and alone with no budget but the request's own,
     and of *counts* (the total and facets, kept per filter: ``lasting``, ``cached``).
-    A request waits for the counts what is left of ``COUNTS_BUDGET`` counted from the start
-    of the answer, so that the page and the counts together take that long and no longer
-    (a page that took the whole of it leaves the counts a look at what is kept); past it
-    the counts are None and go on computing for a later request. *total*, the same total
-    read alone, is waited for first: when the facets of *counts* are not in time it stands
-    in for them, so that a total counted (far less than the facets) waits for no facet. In
+    *total*, the same total read alone, is waited for next, ``TOTAL_BUDGET`` from the end
+    of the page whatever the facets: where the facets of *counts* are not in time it stands
+    in for them. A request waits for the counts what is left of ``COUNTS_BUDGET`` counted
+    from the start of the answer, so that the page and the counts together take that long
+    and no longer (a page or a total that took the whole of it leaves the counts a look at
+    what is kept); past it the counts are None and go on computing for a later request. In
     the background (the warm-up, a computation of the cache) nobody waits for the page: the
     counts are waited for, so that a warm-up leaves no queue of them in the pool before the
     visitors' own."""
@@ -61,14 +65,13 @@ def page_with_counts[P](
     began = time.monotonic()
     shown = page()
 
-    def in_time[T](read: Callable[[], T]) -> T | None:
-        left = max(0.0, COUNTS_BUDGET - (time.monotonic() - began))
-        with read_budget(left, what) as budget:
+    def in_time[T](read: Callable[[], T], left: float) -> T | None:
+        with read_budget(max(0.0, left), what) as budget:
             answer = read()
         return None if budget.ran_out else answer
 
-    known = in_time(total) if total else None
-    counted = in_time(counts)
+    known = in_time(total, TOTAL_BUDGET) if total else None
+    counted = in_time(counts, COUNTS_BUDGET - (time.monotonic() - began))
     return shown, Counted(counted, None if counted is not None else known)
 
 

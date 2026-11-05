@@ -485,8 +485,9 @@ def get_judgments_list(
     facets: bool = True,
 ) -> dict[str, Any]:
     """Paginated, filterable list of judgments, with facets (``facets=False``: the page and
-    the total alone, ``facets`` None). The page never waits for its counts past
-    ``COUNTS_BUDGET``: ``total`` is None and ``partial`` set while they are counted.
+    the total alone, ``facets`` None). The page never waits for its facets past
+    ``COUNTS_BUDGET``, nor for its total past ``TOTAL_BUDGET``: ``partial`` is set while
+    they are counted, ``total`` None while it is.
 
     Performance strategy mirrors ``get_instruments_list``:
       * Free text (``q``) narrows the list and every count by the search of
@@ -592,7 +593,7 @@ def get_judgments_list(
         items,
         counts if facets else without_facets,
         "The counts of the judgments",
-        total if facets else None,
+        total,
     )
     return with_counts(shown, counted)
 
