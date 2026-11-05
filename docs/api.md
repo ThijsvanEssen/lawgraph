@@ -34,7 +34,9 @@ count has them. `facets=false` counts nothing. A page of `/api/documents` and
 (422), and a cursor of another list or sort is 422 too. `offset` stays on every list.
 
 **An article to read beside.** `/api/articles/{bwb_id}/{article_number}/text` is the narrow
-form of an article, for a reader beside a page: its heading, law and validity, its text as
+form of an article, for a reader beside a page: its heading, law and validity, the divisions
+it stands in (`breadcrumb`), the first day of its wording (`valid_from`, `Tekst sinds`),
+whether the data knows it only from what cites it (`stub`), its text as
 blocks per lid, onderdeel and aanhef (`core/article_blocks.py`) whose `anchor` is the id of
 the part (`lid-2-onder-a`), with the links whose target the data holds, and the articles
 before and after it. `/api/articles/batch?refs=` gives up to 20 of them in one answer, in the
