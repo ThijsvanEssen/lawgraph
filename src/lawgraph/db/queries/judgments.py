@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from functools import partial
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -560,8 +561,7 @@ def get_judgments_list(
     def items() -> list[Any]:
         return _page(store, order, chosen.where(), params, hits_first=hits_first)
 
-    def total() -> int:
-        return _total(store, filtered, chosen.where(), params)
+    total = partial(_total, store, filtered, chosen.where(), params)
 
     def without_facets() -> dict[str, Any]:
         return {"total": total(), "facets": None}

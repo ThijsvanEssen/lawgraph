@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -1174,8 +1175,7 @@ def get_instruments_list(
     def listed_page() -> tuple[list[dict[str, Any]], str | None]:
         return _listed(store, filters, INSTRUMENT_ORDERS[sort], params, limit, after)
 
-    def total() -> int:
-        return _instrument_total(store, matched, counted, bool(tokens))
+    total = partial(_instrument_total, store, matched, counted, bool(tokens))
 
     def without_facets() -> dict[str, Any]:
         return {"total": total(), "facets": None}

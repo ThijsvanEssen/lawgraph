@@ -31268,7 +31268,7 @@
               }
             ],
             "title": "Total",
-            "description": "Matching instruments; null while ``partial`` and not counted yet."
+            "description": "Matching instruments; null until it is counted."
           },
           "facets": {
             "anyOf": [
@@ -34026,7 +34026,7 @@
               }
             ],
             "title": "Total",
-            "description": "Matching judgments; null while ``partial`` and not counted yet."
+            "description": "Matching judgments; null until it is counted."
           },
           "facets": {
             "anyOf": [
