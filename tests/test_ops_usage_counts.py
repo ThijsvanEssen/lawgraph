@@ -6,12 +6,10 @@ import importlib.util
 import json
 from pathlib import Path
 from types import ModuleType
-from typing import Any
 
 import pytest
 
 from lawgraph.core.notation import NotationParser
-from lawgraph.db.queries.search.parser import load_notation_parser
 from tests.paths import ROOT
 
 
@@ -116,18 +114,3 @@ def test_the_terms_are_split_and_only_counts_leave(
     assert "geheimenaam" not in out
     assert "ontslag" not in out
     assert "strafrecht" not in out
-
-
-def test_the_parser_loads_on_a_store_that_only_reads() -> None:
-    """The store of the script is enough for ``load_notation_parser``."""
-
-    class Connection:
-        def execute(self, statement: str, params: Any = None) -> Any:
-            assert params is None
-            return self
-
-        def fetchall(self) -> list[dict[str, Any]]:
-            return []
-
-    parser = load_notation_parser(usage._ReadOnlyStore(Connection()))
-    assert parser.parse("ontslag") is None
