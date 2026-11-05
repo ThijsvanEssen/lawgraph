@@ -46,7 +46,7 @@ class Counting:
 
 def test_the_counts_come_with_the_page() -> None:
     page, counted = _helpers.page_with_counts(lambda: ["a"], lambda: COUNTED, "x")
-    assert (page, counted) == (["a"], COUNTED)
+    assert (page, counted) == (["a"], _helpers.Counted(COUNTED))
     assert _helpers.with_counts(page, counted) == {"items": ["a"], **COUNTED}
 
 
@@ -55,7 +55,7 @@ def test_counts_past_the_budget_are_none_and_the_page_whole() -> None:
         raise ReadTimedOut("slow")
 
     page, counted = _helpers.page_with_counts(lambda: ["a"], counts, "x")
-    assert counted is None
+    assert counted == _helpers.Counted(None)
     assert _helpers.with_counts(page, counted, {"kind": []}) == {
         "items": ["a"],
         "total": None,
@@ -95,6 +95,33 @@ def test_the_time_of_the_page_is_part_of_the_budget(
     assert seen == [0.0]
 
 
+def test_the_total_has_its_own_budget_after_the_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A page that took the whole of ``COUNTS_BUDGET`` leaves the facets a look at what is
+    kept, and the total its own ``TOTAL_BUDGET``: a list says how many it holds (B104)."""
+    monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.2)
+    monkeypatch.setattr(_helpers, "TOTAL_BUDGET", 3.0)
+    seen: list[float] = []
+
+    def slow_page() -> list[str]:
+        time.sleep(0.25)
+        return ["a"]
+
+    def total() -> int:
+        seen.append(request_context.read_time_left() or 0.0)
+        return 7
+
+    page, counted = _helpers.page_with_counts(slow_page, Counting(), "x", total)
+    assert seen[0] > 2.5
+    assert _helpers.with_counts(page, counted, {"kind": []}) == {
+        "items": ["a"],
+        "total": 7,
+        "facets": {"kind": []},
+        "partial": True,
+    }
+
+
 def test_a_cancelled_client_is_not_a_budget() -> None:
     def counts() -> dict[str, Any]:
         raise request_context.RequestCancelled("gone")
@@ -106,10 +133,12 @@ def test_a_cancelled_client_is_not_a_budget() -> None:
 def _both_requests(
     monkeypatch: pytest.MonkeyPatch, ask: Callable[[], dict[str, Any]]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The answer with a budget of 0 and then with the real one."""
+    """The answer with budgets of 0 (the counts and the total) and then with the real ones."""
     monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
+    monkeypatch.setattr(_helpers, "TOTAL_BUDGET", 0.0)
     first = ask()
     monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 3.0)
+    monkeypatch.setattr(_helpers, "TOTAL_BUDGET", 3.0)
     return first, ask()
 
 
@@ -254,7 +283,7 @@ def test_the_warm_up_waits_for_the_counts(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
     with request_context.in_background():
         page, counted = _helpers.page_with_counts(lambda: ["a"], Counting(), "x")
-    assert (page, counted) == (["a"], COUNTED)
+    assert (page, counted) == (["a"], _helpers.Counted(COUNTED))
 
 
 def test_a_page_of_judgments_does_not_wait_for_its_total(
@@ -270,6 +299,21 @@ def test_a_page_of_judgments_does_not_wait_for_its_total(
     )
     assert first == {"total": None, "items": [], "facets": None, "partial": True}
     assert second == {"total": 7, "items": [], "facets": None}
+
+
+@pytest.mark.parametrize("facets", [False, True])
+def test_a_list_of_judgments_gives_its_total_while_the_facets_count(
+    monkeypatch: pytest.MonkeyPatch, facets: bool
+) -> None:
+    """The facets past their budget (cold), the total within its own: with or without
+    facets the list says how many it holds."""
+    monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
+    monkeypatch.setattr(judgments, "_page", lambda *a, **k: [])
+    monkeypatch.setattr(judgments, "_total", lambda *a: 7)
+    monkeypatch.setattr(judgments, "lasting_rows", Counting([]))
+    got = judgments.get_judgments_list(cast(GraphStore, object()), facets=facets)
+    assert (got["total"], got["facets"]) == (7, None)
+    assert got.get("partial") is (True if facets else None)
 
 
 def test_a_page_of_instruments_does_not_wait_for_its_total(

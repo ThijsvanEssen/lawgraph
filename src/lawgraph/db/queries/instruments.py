@@ -300,12 +300,13 @@ def most_cited_laws(store: GraphStore, n: int) -> list[str]:
     )
 
 
-# A citing judgment as a row of the list; of a conclusion also its advocate general, props
-# only a conclusion has, read from its props for a conclusion alone: the props of a judgment
-# hold its text, and are parsed whole for one value.
+# A citing judgment as a row of the list, with its own citations (``citation_count``); of a
+# conclusion also its advocate general, read from its props for a conclusion alone: the
+# props of a judgment hold its text, and are parsed whole for one value.
 _LISTED_JUDGMENT = listed_judgment(
     "j",
     "l",
+    "'inbound_citation_count', j.pj_inbound_citation_count",
     *(
         f"'{prop}', CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s"
         f" THEN j.props -> '{prop}' END"
@@ -1078,8 +1079,8 @@ def get_instruments_list(
 ) -> dict[str, Any]:
     """Paginated, filterable list of instruments with cheap aggregate stats
     (``facets=False``: the page and the total alone, ``facets`` None). The page never waits
-    for its counts past ``COUNTS_BUDGET``: ``total`` is None and ``partial`` set while they
-    are counted.
+    for its facets past ``COUNTS_BUDGET``, nor for its total past ``TOTAL_BUDGET``:
+    ``partial`` is set while they are counted, ``total`` None while it is.
 
     Performance strategy:
       * Free text (`q`) narrows the list by the search of ``queries/search``; the
@@ -1203,7 +1204,7 @@ def get_instruments_list(
         listed_page,
         with_facets if facets else without_facets,
         "The counts of the instruments",
-        total if facets else None,
+        total,
     )
     return {**with_counts(on_page, counts), "next_cursor": next_cursor}
 

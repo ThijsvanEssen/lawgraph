@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.schemas.instruments import InstrumentJudgmentItem
 from lawgraph.core.text_fold import ascii_slug
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
@@ -207,6 +208,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
             "tier": "hoge_raad",
             "court_kind": "hoge_raad",
             "date_eff": "1990-01-01",
+            "inbound_citation_count": None,
             "advocate_general": None,
             "advocate_general_role": None,
             "outcome": None,
@@ -240,6 +242,7 @@ def test_judgments_grouped_by_judgment(store: GraphStore) -> None:
         "tier": None,
         "court_kind": None,
         "date_eff": None,
+        "inbound_citation_count": None,
         "advocate_general": None,
         "advocate_general_role": None,
         "outcome": None,
@@ -1890,6 +1893,11 @@ def test_the_judgments_citing_a_law_by_tier_year_and_citations(
 
     every = instruments.get_citing_judgments(store, BWB, sort="citation_count")
     assert keys(every) == ["j2", "j4", "j1", "j3"]
+    # what it sorts on is on the row as well
+    assert [
+        InstrumentJudgmentItem.from_row(item).inbound_citation_count
+        for item in every.items
+    ] == [9, 4, 3, 1]
     assert every.tiers == [
         {"value": "hoge_raad", "count": 2},
         {"value": "rechtbank", "count": 2},

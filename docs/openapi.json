@@ -20731,7 +20731,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           },
           "next_cursor": {
@@ -30905,6 +30905,18 @@
             "title": "Advocate General Role",
             "description": "For a conclusion, the role it is signed in (`advocaat-generaal`, `waarnemend advocaat-generaal`, ...), as on `/api/judgments/{ecli}`. Null for a judgment."
           },
+          "inbound_citation_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inbound Citation Count",
+            "description": "The judgments that cite it, each once (as in `/api/judgments`): what `sort=citation_count` orders by."
+          },
           "cited_articles": {
             "items": {
               "$ref": "#/components/schemas/CitedArticleRef"
@@ -30946,6 +30958,7 @@
           "date",
           "advocate_general",
           "advocate_general_role",
+          "inbound_citation_count",
           "cited_articles",
           "path"
         ],
@@ -31311,7 +31324,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           },
           "next_cursor": {
@@ -31536,7 +31549,8 @@
           },
           "total": {
             "type": "integer",
-            "title": "Total"
+            "title": "Total",
+            "description": "The references both ways together, so the same for `A/references/B` and `B/references/A`; per way, the items by `direction`."
           },
           "items": {
             "items": {
@@ -34069,7 +34083,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           }
         },
