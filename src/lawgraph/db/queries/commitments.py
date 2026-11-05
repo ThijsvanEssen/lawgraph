@@ -19,6 +19,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.queries.cabinets import person_object
+from lawgraph.db.queries.seats import seat_commitments
 from lawgraph.db.schema import search_words
 
 # What a commitment item shows beside its own props: who made it, its dossiers (with the
@@ -159,6 +160,7 @@ def get_commitments(
     member: str | None = None,
     cabinet: str | None = None,
     ministry: str | None = None,
+    seat: str | None = None,
     dossier: str | None = None,
     due_before: str | None = None,
     overdue: bool = False,
@@ -173,7 +175,7 @@ def get_commitments(
     """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
     ``ministry`` the number of commitments per value under the other filters, each
     dimension counted without its own filter (``facets=False``: the page and the total
-    alone, ``facets`` None). *q* the queries, any of them, each the words of which the
+    alone, ``facets`` None). *seat* keeps what is attributed to that office (``queries.seats``). *q* the queries, any of them, each the words of which the
     text or number holds every one, in any order (``_words.any_query``). *dossier* is a number (``36600``) or the
     label of a dossier (``36600-VII``); *overdue* keeps the open ones whose expected date
     has passed; *made_from* and *made_to* the first and last day it was made on; *sort* is ``date`` (newest made first), ``expected_resolution`` (soonest
@@ -204,6 +206,9 @@ def get_commitments(
         made_from=made_from,
         made_to=made_to,
     )
+    if seat:
+        shared.append("c.id = ANY(%(seat_ids)s)")
+        bind["seat_ids"] = seat_commitments(store, seat).ids
     if sort == "expected_resolution":
         bind["earliest_due"] = EARLIEST_DUE_DATE
     order = _COMMITMENT_SORTS.get(sort, _COMMITMENT_SORTS["date"])

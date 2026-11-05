@@ -532,7 +532,9 @@ def get_instrument_judgments_route(
         "and (b) the amending publications (Stb/Trb) that change, introduce or "
         "repeal one of its articles. ``via`` says how the dossier is linked "
         "(``instrument`` or ``amending_publication``; in the latter case "
-        "``publication`` names the newest publication). ``total`` is the "
+        "``publication`` names the newest publication; null for a dossier reached by a "
+        "paper that AMENDS the regulation or an article of it, not by one that only names "
+        "it). ``total`` is the "
         "absolute count, independent of ``limit``. ``sort`` ``opened`` (default): newest "
         "opened first; ``importance``: the dossiers of the regulation itself first, then "
         "those with the most amending publications, then the newest opened."
@@ -598,11 +600,11 @@ def get_instrument_amended_by_route(
         "first; an expired law (`date_expired` passed) is left out. Each "
         "carries its `kind` and `date_in_force`, the `direction`, the articles at both "
         "ends (`outbound_count` articles of this law refer to `outbound_cited_count` of "
-        "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law) "
-        "and `basis`: whether one is issued under the other as well (`BASED_ON`), with "
-        "the articles its preamble names. ``total`` is the absolute count, independent of "
-        "``limit``; ``based_on_total`` how many of those have a `basis`. The articles "
-        "between the two: `.../references/{other}`."
+        "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law, "
+        "named in `inbound_cited_articles`) and `basis`: whether one is issued under the "
+        "other as well (`BASED_ON`), with the articles its preamble names. ``total`` is the "
+        "absolute count, independent of ``limit``; ``based_on_total`` how many of those have "
+        "a `basis`. The articles between the two: `.../references/{other}`."
     ),
     tags=["instruments"],
 )

@@ -48,6 +48,7 @@ from lawgraph.api.routes import (
     render,
     resolve,
     search,
+    seats,
     stats,
 )
 from lawgraph.api.schemas.health import HealthDTO
@@ -204,6 +205,7 @@ for _module in (
     documents,
     resolve,
     search,
+    seats,
     stats,
     decisions,
     parliament,

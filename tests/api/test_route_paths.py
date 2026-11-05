@@ -90,6 +90,7 @@ ROUTES = [
     ("GET", "/api/documents/{key}/passages"),
     ("GET", "/api/resolve"),
     ("GET", "/api/search"),
+    ("GET", "/api/seats/{seat}"),
     ("GET", "/api/stats"),
     ("GET", "/api/stats/coverage"),
     ("GET", "/api/decisions"),
@@ -129,7 +130,8 @@ def test_each_route_lives_in_the_module_of_its_prefix() -> None:
         for route in importlib.import_module(
             f"{routes.__name__}.{info.name}"
         ).router.routes
-        if isinstance(route, APIRoute) and f"/api/{info.name}{route.path}" not in served
+        if isinstance(route, APIRoute)
+        and f"/api/{info.name}{route.path}".replace(":path", "") not in served
     ]
     assert missing == []
     render = importlib.import_module(f"{routes.__name__}.render").router.routes

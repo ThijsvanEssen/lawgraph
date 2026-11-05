@@ -2,15 +2,15 @@
 and whenever the data version changes (``version_cache.on_new_version``), in the background.
 The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search, the lower courts of Actueel, the pages of the newest cabinets,
-the dossiers of the active factions, the first page of the judgments of the largest areas
-of law, the pages of the most cited laws (judgments, related laws, EU links) and the
-dossiers of the homepage. Off with ``LAWGRAPH_API_WARM_UP=false``."""
+the dossiers of the active factions, the pages of the most cited laws (judgments, related
+laws, EU links) and the dossiers of the homepage; after those the lists under the filters
+visitors choose most (``_common_filter_parts``). Off with ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
 import datetime as dt
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any
@@ -24,6 +24,9 @@ from lawgraph.api.routes.instruments import (
 )
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
+    CHAMBERS,
     COLLECTION_ARTICLES,
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
@@ -32,6 +35,7 @@ from lawgraph.config.constants import (
     COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     COLLECTION_MEMBERS,
+    KIND_TREATY,
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
@@ -115,32 +119,6 @@ WARM_CABINETS = 4
 def _warm_cabinets(store: GraphStore) -> None:
     for item in get_cabinets(store)[:WARM_CABINETS]:
         get_cabinet(store, item["cabinet"]["key"])
-
-
-# The main areas of law with the most judgments, whose first page with facets is warmed
-# (each counts the facets over every judgment of the area).
-WARM_SUBJECT_AREAS = 5
-
-
-# What the front end asks of a list first (its ``Bladeren``): the judgments of Rechtspraak,
-# the instruments with articles and the papers of the Tweede Kamer. The facets and totals
-# are kept per filter, so the warm-up asks with the same filters.
-FIRST_JUDGMENTS = JudgmentFilters(source="rechtspraak")
-# The judgments of every source, as the list shows them once its source is cleared: its
-# counts over every judgment took 20 s cold on prod (10 Oct), kept but never warmed.
-EVERY_JUDGMENT = JudgmentFilters()
-
-
-def _warm_subject_areas(store: GraphStore) -> None:
-    listed = get_judgments_list(store, FIRST_JUDGMENTS, limit=1)
-    areas = (listed.get("facets") or {}).get("subject_area") or []
-    for area in areas[:WARM_SUBJECT_AREAS]:
-        if area.get("value"):
-            get_judgments_list(
-                store,
-                replace(FIRST_JUDGMENTS, subject_area=area["value"]),
-                limit=LISTS["judgments"],
-            )
 
 
 # The laws with the most citations whose pages are warmed. The Awb and Sr are hundreds of
@@ -369,16 +347,11 @@ PARTS: tuple[Part, ...] = (
         )
         for table in SEARCH_FIELDS
     ),
+    # as the list opens: of every source, the European among them
     Part(
         "judgments",
         lambda store: get_judgments_list(
-            store, FIRST_JUDGMENTS, limit=LISTS["judgments"]
-        ),
-    ),
-    Part(
-        "judgments of every source",
-        lambda store: get_judgments_list(
-            store, EVERY_JUDGMENT, limit=LISTS["judgments"]
+            store, JudgmentFilters(), limit=LISTS["judgments"]
         ),
     ),
     # the total and facets of the list of decisions as the explorer opens it, of both
@@ -399,7 +372,6 @@ PARTS: tuple[Part, ...] = (
 # minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes
 # took it from the searches of visitors (16 Oct).
 TAIL: tuple[Part, ...] = (
-    Part("judgments by area of law", _warm_subject_areas),
     Part("judgments citing a law", _warm_law_judgments),
     Part("links of laws", _warm_law_links),
     Part("dossiers of the homepage", _warm_dossiers),
@@ -448,15 +420,130 @@ def warm_up(store: GraphStore) -> None:
     _warmed = version
     logger.info("Warm-up done: %s.", ", ".join(part.name for part in (*PARTS, *TAIL)))
     # after "warm" (``/api/health``, which a deploy waits for): minutes, and each article
-    # is asked far less than the lists above
-    if _due("most cited articles", store.name, ARTICLES_EVERY):
-        _run("most cited articles", lambda: _warm_articles(store, version))
-        _run("most cited neighbourhoods", lambda: _warm_neighborhoods(store))
-        _run("chains between the most cited", lambda: _warm_chains(store))
-    if _due("search terms", store.name, SEARCH_TERMS_EVERY):
+    # is asked far less than the lists above. Without a limit of time, but all of it ends
+    # at newer data, whose warm-up cannot begin before this does.
+    stopped = partial(version_cache.superseded, store, version)
+    if _due("common filters", store.name, COMMON_FILTERS_EVERY):
+        _run("common filters", lambda: _warm_common_filters(store, version))
+    if not stopped() and _due("most cited articles", store.name, ARTICLES_EVERY):
+        for name, part in (
+            ("most cited articles", lambda: _warm_articles(store, version)),
+            ("most cited neighbourhoods", lambda: _warm_neighborhoods(store)),
+            ("chains between the most cited", lambda: _warm_chains(store)),
+        ):
+            if not stopped():
+                _run(name, part)
+    if not stopped() and _due("search terms", store.name, SEARCH_TERMS_EVERY):
         _run("search terms", lambda: _warm_search_terms(store))
 
 
+# The largest values of a facet counted, and the newest years: a small top, whatever the data
+# holds. Each tier is counted (``core.courts.TIERS``, a list of its own).
+WARM_TOP = 5
+WARM_YEARS = 5
+# The jurisdictions of the filter of the list of laws (no facet counts them).
+_JURISDICTIONS = ("nl", "eu")
+
+
+def _filter(name: str, count: Callable[..., object], *args: Any, **kwargs: Any) -> Part:
+    """A part that counts a list under one filter: *count* with *args* and *kwargs*."""
+    return Part(name, lambda store: count(store, *args, **kwargs))
+
+
+def _values(rows: list[dict[str, Any]] | None) -> list[Any]:
+    """The values of the rows of a facet, without the rows that have none."""
+    return [row["value"] for row in rows or [] if row.get("value")]
+
+
+def _judgment_filters(store: GraphStore) -> Iterator[Part]:
+    """Each tier, the largest main areas of law, the sources but the largest (nearly the
+    whole list, and no list asks it), and the newest years as a bar of the axis asks them."""
+
+    def part(name: str, **filters: Any) -> Part:
+        return _filter(name, get_judgments_list, JudgmentFilters(**filters), limit=1)
+
+    facets = get_judgments_list(store, JudgmentFilters(), limit=1)["facets"] or {}
+    for tier in _values(facets.get("tier")):
+        yield part(f"judgments of {tier}", tiers=(tier,))
+    for area in _values(facets.get("subject_area"))[:WARM_TOP]:
+        yield part(f"judgments in {area}", subject_area=area)
+    for source in _values(facets.get("source"))[1 : WARM_TOP + 1]:
+        yield part(f"judgments of {source}", source=source)
+    for year in sorted(_values(facets.get("year")), reverse=True)[:WARM_YEARS]:
+        whole = {"from_date": f"{year}-01-01", "to_date": f"{year}-12-31"}
+        yield part(f"judgments of {year}", **whole)
+
+
+def _instrument_filters(store: GraphStore) -> Iterator[Part]:
+    """As the list of laws opens (with an article): each jurisdiction, the treaties (the
+    count beside Verdragen), the largest main areas of law and themes, by the key of their
+    concept in the URL (its slug, else its id)."""
+
+    def part(name: str, **filters: Any) -> Part:
+        return _filter(
+            name, get_instruments_list, article_count_min=1, limit=1, **filters
+        )
+
+    opened = get_instruments_list(store, article_count_min=1, limit=1)
+    facets = opened["facets"] or {}
+    for jurisdiction in _JURISDICTIONS:
+        yield part(f"instruments of {jurisdiction}", jurisdiction=jurisdiction)
+    yield part("treaties", kind=KIND_TREATY)
+    for name in ("legal_area", "policy_domain"):
+        concepts = [c.get("slug") or c.get("id") for c in facets.get(name) or []]
+        for key in [concept for concept in concepts if concept][:WARM_TOP]:
+            yield part(f"instruments of {name} {key}", **{name: key})
+
+
+def _document_filters(store: GraphStore) -> Iterator[Part]:
+    """The Eerste Kamer, both chambers, and the largest kinds of the Tweede Kamer, the list
+    as it opens (``documents`` of ``PARTS``)."""
+
+    def part(name: str, chambers: tuple[str, ...], **filters: Any) -> Part:
+        return _filter(name, list_documents, chambers=chambers, limit=1, **filters)
+
+    yield part(f"documents of {CHAMBER_EK}", (CHAMBER_EK,))
+    yield part("documents of both chambers", CHAMBERS)
+    opened = list_documents(store, chambers=(CHAMBER_TK,), limit=1)
+    for kind in _values((opened["facets"] or {}).get("kind"))[:WARM_TOP]:
+        yield part(f"documents of {CHAMBER_TK}: {kind}", (CHAMBER_TK,), kinds=(kind,))
+
+
+def _decision_filters(store: GraphStore) -> Iterator[Part]:
+    """Of each chamber: its list, its largest kinds and each outcome."""
+    for chamber in CHAMBERS:
+        base = DecisionFilters(chamber=chamber)
+        facets = decision_counts(store, base)["facets"] or {}
+        for kind in _values(facets.get("kind"))[:WARM_TOP]:
+            filters = replace(base, kinds=(kind,))
+            yield _filter(f"decisions of {chamber}: {kind}", decision_counts, filters)
+        for passed in (True, False):
+            filters = replace(base, passed=passed)
+            yield _filter(f"decisions of {chamber}: {passed}", decision_counts, filters)
+
+
+def _common_filter_parts(store: GraphStore) -> Iterator[Part]:
+    """The lists under the filters visitors choose most, the values from the facets of the
+    list as ``PARTS`` warmed it, each asked as the explorer asks it (an answer is kept per
+    filter); first the lists that count quickly."""
+    yield from _decision_filters(store)
+    yield from _document_filters(store)
+    yield from _instrument_filters(store)
+    yield from _judgment_filters(store)
+
+
+def _warm_common_filters(store: GraphStore, version: str) -> None:
+    """One filter at a time until newer data arrives: what was counted is kept, and the next
+    warm-up goes on from there, not after ``COMMON_FILTERS_EVERY``."""
+    if not _warm_lane(store, version, tuple(_common_filter_parts(store))):
+        _last_begun.pop(("common filters", store.name), None)
+
+
+# The common filters are counted at most once per this many seconds per process, as a wide
+# filter holds the workers of the cache for minutes (``tier=rechtbank`` past 3.5 minutes on
+# prod, 3 Nov), and a visitor who asks later takes the answer kept while a new one computes,
+# however old it is (``version_cache.lasting``).
+COMMON_FILTERS_EVERY = 6 * 3600.0
 # The most cited articles are warmed at most once per this many seconds per process: the
 # lid counts it keeps last as long (``nodes.LIDS_MAX_AGE``), and a poll every half hour
 # would start the part of minutes again and again.

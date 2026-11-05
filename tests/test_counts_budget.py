@@ -64,6 +64,19 @@ def test_counts_past_the_budget_are_none_and_the_page_whole() -> None:
     }
 
 
+def test_a_total_counted_does_not_wait_for_the_facets() -> None:
+    def counts() -> dict[str, Any]:
+        raise ReadTimedOut("slow")
+
+    page, counted = _helpers.page_with_counts(lambda: ["a"], counts, "x", lambda: 7)
+    assert _helpers.with_counts(page, counted, {"kind": []}) == {
+        "items": ["a"],
+        "total": 7,
+        "facets": {"kind": []},
+        "partial": True,
+    }
+
+
 def test_the_time_of_the_page_is_part_of_the_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -140,6 +153,35 @@ def test_judgments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None
     assert set(second["facets"]) == set(judgments._FACETS)
 
 
+def test_judgments_a_total_counted_comes_without_the_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def slow(*a: Any, **k: Any) -> list[Any]:
+        raise ReadTimedOut("not counted yet")
+
+    monkeypatch.setattr(judgments, "_page", lambda *a, **k: [])
+    monkeypatch.setattr(judgments, "_total", lambda *a: 7)
+    monkeypatch.setattr(judgments, "lasting_rows", slow)
+    got = judgments.get_judgments_list(cast(GraphStore, object()))
+
+    assert (got["total"], got["partial"], got["facets"]) == (7, True, None)
+
+
+def test_instruments_a_total_counted_comes_without_the_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
+        if "AS total" not in str(sql):
+            raise ReadTimedOut("not counted yet")
+        return [7]
+
+    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "cached_rows", rows)
+    got = instruments.get_instruments_list(cast(GraphStore, object()))
+
+    assert (got["total"], got["partial"], got["facets"]) == (7, True, None)
+
+
 def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
     count = Counting()
@@ -204,3 +246,57 @@ def test_without_facets_nothing_is_counted_or_partial(
     store = cast(GraphStore, InMemoryStore())
     page = decisions.get_decisions(store, DecisionFilters(), facets=False)
     assert page == {"total": None, "items": [], "facets": None}
+
+
+def test_the_warm_up_waits_for_the_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """In the background nobody waits for the page: a warm-up that went on after the budget
+    would leave its counts behind each other in the pool, before the visitors' own."""
+    monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
+    with request_context.in_background():
+        page, counted = _helpers.page_with_counts(lambda: ["a"], Counting(), "x")
+    assert (page, counted) == (["a"], COUNTED)
+
+
+def test_a_page_of_judgments_does_not_wait_for_its_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``facets=false`` under a wide filter: the page first, its total within the budget or
+    null (17.9 s for ``tier=rechtbank`` on prod, past the explorer's 10 s)."""
+    monkeypatch.setattr(judgments, "_page", lambda *a, **k: [])
+    monkeypatch.setattr(judgments, "_total", Counting(7))
+    store = cast(GraphStore, object())
+    first, second = _both_requests(
+        monkeypatch, lambda: judgments.get_judgments_list(store, facets=False)
+    )
+    assert first == {"total": None, "items": [], "facets": None, "partial": True}
+    assert second == {"total": 7, "items": [], "facets": None}
+
+
+def test_a_page_of_instruments_does_not_wait_for_its_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], "next"))
+    monkeypatch.setattr(instruments, "_instrument_total", Counting(7))
+    store = cast(GraphStore, object())
+    first, second = _both_requests(
+        monkeypatch, lambda: instruments.get_instruments_list(store, facets=False)
+    )
+    assert first["partial"] is True and first["total"] is None
+    assert first["next_cursor"] == "next"
+    assert second == {"total": 7, "items": [], "facets": None, "next_cursor": "next"}
+
+
+def test_an_exact_match_still_counting_is_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A case number found, its total not yet counted: no search for its words."""
+    row = {"id": "judgments/a"}
+    monkeypatch.setattr(judgments, "_page", lambda *a, **k: [row])
+    monkeypatch.setattr(judgments, "_total", Counting(1))
+    monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
+    found = judgments.get_judgments_list(
+        cast(GraphStore, object()),
+        judgments.JudgmentFilters(q="18/04298"),
+        facets=False,
+    )
+    assert found["items"] == [row] and found["partial"] is True

@@ -6,12 +6,15 @@ from __future__ import annotations
 import datetime as dt
 from functools import partial
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from lawgraph.api import warm
+from lawgraph.api.params import Tier
+from lawgraph.api.routes import decisions, documents, instruments, judgments
 from lawgraph.core.time import dutch_today
-from lawgraph.db import GraphStore
+from lawgraph.db import GraphStore, request_context, version_cache
 from lawgraph.db.queries import _bm25, warm_nodes
 from lawgraph.db.queries.articles import get_article_cited_by
 from tests.fakes import ManualClock, until
@@ -110,24 +113,154 @@ def test_the_tail_is_warmed_after_the_rest_and_warm_waits_for_it(
     assert warm.warmed_version() == "earlier"
 
 
-def test_the_warm_up_counts_the_largest_areas_of_law(
+def _seed_lists(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            {"key": f"j{n}", "type": "judgment", "labels": [],
+             "props": {"ecli": f"ECLI:NL:HR:2020:{n}", "source": "rechtspraak",
+                       "date_eff": "2020-03-01", "tier": "hoge_raad",
+                       "subjects": ["Strafrecht"]}}
+            for n in range(3)
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"key": "wet", "type": "instrument", "labels": [],
+          "props": {"jurisdiction": "nl", "kind": "wet", "article_count": 2}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [{"key": "d1", "type": "document", "labels": ["TK"],
+          "props": {"kind": "Motie", "date": "2024-01-01"}}],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [{"key": "s1", "type": "decision", "labels": ["TK"],
+          "props": {"kind": "Motie", "passed": True, "date": "2024-01-01",
+                    "dossier_numbers": []}}],
+    )  # fmt: skip
+
+
+def test_the_common_filters_are_kept_as_the_explorer_asks_them(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The first page of an area of law counts its facets over all its judgments."""
-    areas = [{"value": f"Area {n}", "count": 10 - n} for n in range(7)]
-    asked: list[str | None] = []
-    sources: list[str | None] = []
+    """After a warm-up each route, asked with the query the explorer sends, finds its total
+    and facets kept: an answer is kept per filter, so another form of a filter counts anew."""
+    _seed_lists(store)
+    warm.forget()
+    version_cache.clear()
+    with request_context.in_background():
+        warm.warm_up(store)
+    calls = recorded(store, monkeypatch)
+    answers: list[Any] = [
+        judgments.list_judgments(store=store, limit=1, tier=[Tier("hoge_raad")]),
+        judgments.list_judgments(store=store, limit=1, subject_area="Strafrecht"),
+        judgments.list_judgments(
+            store=store,
+            limit=1,
+            date_from=dt.date(2020, 1, 1),
+            date_to=dt.date(2020, 12, 31),
+        ),
+        instruments.list_instruments(
+            store=store, limit=1, article_count_min=1, jurisdiction="nl"
+        ),
+        instruments.list_instruments(
+            store=store, limit=1, article_count_min=1, kind="verdrag"
+        ),
+        documents.list_chamber_documents(store=store, limit=1, chamber="EK"),
+        documents.list_chamber_documents(
+            store=store, limit=1, chamber="TK", kind="Motie"
+        ),
+        decisions.list_decisions(store=store, limit=1, chamber="TK", kind="Motie"),
+        decisions.list_decisions(store=store, limit=1, chamber="EK", passed=True),
+    ]
+    assert [answer.partial for answer in answers] == [False] * len(answers)
+    counted = [
+        c.text for c in calls if "count(*)" in c.text or "count(DISTINCT" in c.text
+    ]
+    assert not counted, counted
 
-    def listed(store_: GraphStore, filters, limit: int = 20):
-        asked.append(filters.subject_area)
-        sources.append(filters.source)
-        return {"total": 0, "items": [], "facets": {"subject_area": areas}}
 
-    monkeypatch.setattr(warm, "get_judgments_list", listed)
-    warm._warm_subject_areas(store)
-    assert asked == [None, "Area 0", "Area 1", "Area 2", "Area 3", "Area 4"]
-    # with the filters the front end sends, whose facets are kept per filter
-    assert sources == ["rechtspraak"] * 6
+def test_newer_data_stops_the_common_filters_and_what_follows(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The warm-up of the newer data cannot begin before this one ends (B31): it stops
+    between two filters, and the hourly parts are not spent on data out of date."""
+    asked: list[str] = []
+
+    def writes() -> None:
+        asked.append("first")
+        store.bulk_insert_or_update_nodes(
+            "instruments",
+            [{"key": "new", "type": "instrument", "labels": [], "props": {}}],
+        )
+
+    monkeypatch.setattr(warm, "PARTS", ())
+    monkeypatch.setattr(warm, "TAIL", ())
+    monkeypatch.setattr(
+        warm,
+        "_common_filter_parts",
+        lambda store_: iter(
+            [
+                warm.Part("first", lambda s: writes()),
+                warm.Part("second", lambda s: asked.append("second")),
+            ]
+        ),
+    )
+    monkeypatch.setattr(warm, "_warm_articles", lambda *a: asked.append("articles"))
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda *a: asked.append("terms"))
+    warm.forget()
+    version = store.data_version()
+    warm.warm_up(store)
+    assert asked == ["first"]
+    assert warm.warmed_version() == version  # warm before the lists began
+    assert warm._due("most cited articles", store.name, warm.ARTICLES_EVERY)
+    # a warm-up that was stopped goes on with the next one, not after its hours
+    assert warm._due("common filters", store.name, warm.COMMON_FILTERS_EVERY)
+
+
+def test_the_common_filters_are_counted_once_in_their_hours(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str] = []
+    monkeypatch.setattr(warm, "PARTS", ())
+    monkeypatch.setattr(warm, "TAIL", ())
+    monkeypatch.setattr(
+        warm,
+        "_common_filter_parts",
+        lambda store_: iter([warm.Part("a", lambda s: asked.append("a"))]),
+    )
+    monkeypatch.setattr(warm, "_warm_articles", lambda *a: None)
+    monkeypatch.setattr(warm, "_warm_neighborhoods", lambda *a: None)
+    monkeypatch.setattr(warm, "_warm_chains", lambda *a: None)
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda *a: None)
+    warm.forget()
+    warm.warm_up(store)
+    warm.warm_up(store)
+    assert asked == ["a"]
+
+
+def test_a_filter_that_fails_leaves_the_others(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str] = []
+
+    def fails() -> None:
+        raise RuntimeError("no")
+
+    monkeypatch.setattr(
+        warm,
+        "_common_filter_parts",
+        lambda store_: iter(
+            [
+                warm.Part("a", lambda s: fails()),
+                warm.Part("b", lambda s: asked.append("b")),
+            ]
+        ),
+    )
+    warm._warm_common_filters(store, store.data_version())
+    assert asked == ["b"]
 
 
 def test_the_warm_up_searches_the_terms_searched_most(
@@ -524,8 +657,9 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
             ("get_instruments_list", names["sort"], names["limit"]),
             ("get_instruments_list", None, 1),  # the facets of Bladeren
             ("list_documents", None, lists["documents"]),
+            ("list_documents", None, 1),  # the common filters
             ("get_judgments_list", None, lists["judgments"]),
-            ("get_judgments_list", None, 1),  # the areas of law, by their facet
+            ("get_judgments_list", None, 1),  # the common filters
             ("get_feed", None, lists["feed"]),
             ("get_feed_summary", None, first["home_summary"]["limit"]),
         },

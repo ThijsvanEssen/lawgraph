@@ -714,7 +714,7 @@ def test_what_became_of_an_old_article_is_read_from_it_not_from_the_new_law(
     # o0 is reached through the article whose place it takes
     assert _ids(hood["nodes"]) == own | {f"{COLLECTION_ARTICLES}/o0"}
     assert hood["buckets"] == [{"collection": "articles", "total": 3, "kept": 3}]
-    capped = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "new", cap=3)
+    capped = get_node_neighborhood(store, COLLECTION_INSTRUMENTS, "new", depth=1, cap=3)
     assert _ids(capped["nodes"]) == own
 
     old = get_node_with_neighbors(store, COLLECTION_ARTICLES, "o1", limit=1)

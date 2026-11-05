@@ -9,7 +9,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
-from lawgraph.api.schemas.article_text import BATCH_MAX
+from lawgraph.api.schemas.article_text import BATCH_MAX, text_since
 from lawgraph.db.queries.article_text import ArticleTextData
 from tests.api.stubs import stub_route
 from tests.asserts import assert_status
@@ -94,3 +94,64 @@ def test_an_article_the_data_does_not_hold_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "articles", get_article_texts=_texts)
     assert_status(client.get("/api/articles/BWBR0052875/999/text"), 404)
     assert_status(client.get("/api/articles/BWBR0052875/19/text"), 200)
+
+
+def test_a_stub_and_the_divisions_of_an_article(monkeypatch) -> None:
+    data = _article("19")
+    data.article["props"] |= {
+        "stub": True,
+        "breadcrumb": [
+            {"type": "hoofdstuk", "label": "Hoofdstuk 1", "title": "Algemeen"},
+            {"type": "paragraaf", "label": "§ 1.2", "title": None},
+        ],
+    }
+    data.versions = [_version("2000-01-01", None, "Een.")]
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_texts=lambda store, keys: ({data.article["key"]: data}, set()),
+    )
+    response = client.get("/api/articles/BWBR0052875/19/text")
+    assert_status(response, 200)
+    body = response.json()
+
+    assert body["stub"] is True
+    assert body["valid_from"] == "2000-01-01"
+    assert [c["label"] for c in body["breadcrumb"]] == ["Hoofdstuk 1", "§ 1.2"]
+    assert body["breadcrumb"][1]["anchor"] == "deel-hoofdstuk-1-1.2"
+
+
+def _version(start: str | None, end: str | None, text: str) -> dict[str, Any]:
+    return {"valid_from": start, "valid_until": end, "text": text}
+
+
+def test_a_wording_starts_where_its_text_changed() -> None:
+    versions = [
+        _version("2000-01-01", "2010-01-01", "Oud."),
+        _version("2010-01-01", "2020-01-01", "Nieuw."),
+        _version("2020-01-01", None, "Nieuw.\u00a0"),
+    ]
+
+    assert text_since(versions, "2026-11-05") == "2010-01-01"
+    assert text_since(versions, "2005-06-01") == "2000-01-01"
+
+
+def test_a_coming_version_is_not_the_text_of_today() -> None:
+    versions = [
+        _version("2000-01-01", "2030-01-01", "Oud."),
+        _version("2030-01-01", None, "Nieuw."),
+    ]
+
+    assert text_since(versions, "2026-11-05") == "2000-01-01"
+
+
+def test_no_text_since_without_a_version_that_holds() -> None:
+    lapsed = [
+        _version("2000-01-01", "2020-01-01", "Oud."),
+        _version("2020-01-01", "2020-01-01", ""),
+    ]
+
+    assert text_since(lapsed, "2026-11-05") is None
+    assert text_since([], "2026-11-05") is None
+    assert text_since([_version("2030-01-01", None, "Nieuw.")], "2026-11-05") is None
+    assert text_since([_version(None, None, "Zonder datum.")], "2026-11-05") is None

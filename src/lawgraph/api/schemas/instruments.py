@@ -464,14 +464,16 @@ class InstrumentDossierItem(WithPath):
         description=(
             "How the dossier is linked: ``instrument`` = LEGISLATED_IN from the "
             "regulation itself, ``amending_publication`` = LEGISLATED_IN from a "
-            "publication that amends, introduces or repeals one of its articles."
+            "publication that amends, introduces or repeals one of its articles, or a "
+            "paper of the dossier that AMENDS the regulation or one of its articles."
         ),
     )
     publication: str | None = Field(
         None,
         description=(
             "Identifier (e.g. ``stb-2019-33``) of the newest amending publication "
-            "linking the dossier; only set when ``via`` is ``amending_publication``."
+            "linking the dossier; only set when ``via`` is ``amending_publication``, "
+            "null for a dossier with only a paper that amends."
         ),
     )
 
@@ -691,6 +693,13 @@ class InstrumentRelatedBasisDTO(StrictModel):
         )
 
 
+class InstrumentRelatedArticleDTO(StrictModel):
+    """An article of this law that a related instrument refers to."""
+
+    key: str = Field(description="Node key of the article, to open it.")
+    article_number: str | None
+
+
 class InstrumentRelatedItem(StrictModel):
     """One other instrument linked via cross-article REFERS_TO edges."""
 
@@ -722,6 +731,11 @@ class InstrumentRelatedItem(StrictModel):
     )
     inbound_cited_count: int = Field(
         ..., description="Articles in force of this law that those refer to."
+    )
+    inbound_cited_articles: list[InstrumentRelatedArticleDTO] = Field(
+        ...,
+        description="Those articles, each once, in the order of this law: "
+        "`inbound_cited_count` of them.",
     )
     based_on: bool = Field(
         False,
@@ -759,6 +773,9 @@ class InstrumentRelatedItem(StrictModel):
             outbound_cited_count=int(row["outbound_cited_count"]),
             inbound_count=inbound,
             inbound_cited_count=int(row["inbound_cited_count"]),
+            inbound_cited_articles=[
+                InstrumentRelatedArticleDTO(**a) for a in row["inbound_cited_articles"]
+            ],
             based_on=basis is not None,
             basis=basis,
         )
@@ -927,7 +944,7 @@ class InstrumentListResponse(StrictModel):
 
     items: list[InstrumentListItemDTO]
     total: int | None = Field(
-        ..., description="Matching instruments; null while ``partial``."
+        ..., description="Matching instruments; null until it is counted."
     )
     # null when asked for without them (``facets=false``)
     facets: InstrumentFacets | None = Field(default_factory=InstrumentFacets)

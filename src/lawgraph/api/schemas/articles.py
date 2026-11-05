@@ -1211,7 +1211,7 @@ class ArticleVersionListedDTO(_ArticleVersionFields):
     )
 
 
-def _wording(text: str | None) -> str:
+def wording(text: str | None) -> str:
     """*text* as two versions are compared: a non-breaking space is a space."""
     return (text or "").replace("\u00a0", " ").replace("\u202f", " ").strip()
 
@@ -1250,7 +1250,7 @@ def _outer_parts(props: dict[str, Any]) -> dict[tuple[str, str], _Part]:
             str(p.get("kind") or ""),
             p.get("number"),
             p.get("term"),
-            _wording(text[p["start"] : p["end"]]),
+            wording(text[p["start"] : p["end"]]),
         )
         if part.number:
             pair = (part.kind, str(part.number))
@@ -1289,8 +1289,8 @@ def listed_versions(
     before: tuple[str, dict[tuple[str, str], _Part]] | None = None
     for doc in docs:
         props = doc.get("props") or {}
-        wording, parts = _wording(props.get("text")), _outer_parts(props)
-        changed = before is None or before[0] != wording
+        words, parts = wording(props.get("text")), _outer_parts(props)
+        changed = before is None or before[0] != words
         listed.append(
             ArticleVersionListedDTO(
                 **ArticleVersionListedDTO.fields_of(doc, titles),
@@ -1298,7 +1298,7 @@ def listed_versions(
                 changes=_part_changes(before[1], parts) if before and changed else [],
             )
         )
-        before = (wording, parts)
+        before = (words, parts)
     return listed
 
 

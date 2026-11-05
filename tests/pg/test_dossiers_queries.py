@@ -48,8 +48,8 @@ from lawgraph.core.dossier_numbers import dossier_order
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter, make_edge_doc
 from lawgraph.db.queries._keyset import InvalidCursor
+from lawgraph.db.queries.dossier_filters import DossierFilters
 from lawgraph.db.queries.dossiers import (
-    DossierFilters,
     count_dossier_members,
     count_dossier_mutations,
     get_dossier_by_number,
