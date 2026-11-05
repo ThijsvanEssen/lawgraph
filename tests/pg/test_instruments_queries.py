@@ -792,6 +792,7 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         "outbound_cited_count",
         "inbound_count",
         "inbound_cited_count",
+        "inbound_cited_articles",
         "basis",
     ]
     # two articles of this law refer to two of the other; none is issued under another
@@ -802,6 +803,57 @@ def test_related_instruments_of_a_bwb_regulation(store: GraphStore) -> None:
         store, BWB, limit=1
     )
     assert (page, total, based_on) == (items[:1], 3, 0)
+
+
+def test_related_instruments_name_the_articles_the_other_refers_to(
+    store: GraphStore,
+) -> None:
+    """Which articles of this law the other's articles refer to, once each and in the order
+    of the law: its articles in force, not those that refer the other way."""
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _doc("f10", "article", bwb_id=BWB, article_number="10", position=1),
+            _doc("f9", "article", bwb_id=BWB, article_number="9", position=0),
+            _doc("f11", "article", bwb_id=BWB, article_number="11", position=2),
+            _doc(
+                "gone",
+                "article",
+                bwb_id=BWB,
+                article_number="8",
+                position=3,
+                repealed=True,
+            ),
+            _doc("x1", "article", bwb_id="BWBR0000002"),
+            _doc("x2", "article", bwb_id="BWBR0000002"),
+            _doc("y1", "article", bwb_id="BWBR0000003"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc("bwbr0000002", "instrument", bwb_id="BWBR0000002"),
+            _doc("bwbr0000003", "instrument", bwb_id="BWBR0000003"),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("articles/x1", "articles/f10", "REFERS_TO"),
+            _edge("articles/x2", "articles/f10", "REFERS_TO"),
+            _edge("articles/x1", "articles/f9", "REFERS_TO"),
+            _edge("articles/x1", "articles/gone", "REFERS_TO"),
+            # this law refers to it: none of its articles names one of this law
+            _edge("articles/f11", "articles/y1", "REFERS_TO"),
+        ]
+    )
+    items, _, _ = instruments.get_instrument_related_instruments(store, BWB)
+    by_key = {i["instrument"]["key"]: i for i in items}
+    assert by_key["bwbr0000002"]["inbound_cited_count"] == 2
+    assert by_key["bwbr0000002"]["inbound_cited_articles"] == [
+        {"key": "f9", "article_number": "9"},
+        {"key": "f10", "article_number": "10"},
+    ]
+    assert by_key["bwbr0000003"]["inbound_cited_articles"] == []
 
 
 def test_related_instruments_of_an_eu_act(store: GraphStore) -> None:
