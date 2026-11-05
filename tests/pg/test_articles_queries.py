@@ -12,6 +12,7 @@ from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import articles
 from lawgraph.db.queries.articles import (
+    _CITED_BY_COUNTS,
     get_article_citations,
     get_article_cited_by,
     get_article_explanations,
@@ -1404,7 +1405,8 @@ def test_the_passages_citing_an_article_are_kept_per_request(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The passages of a much cited article read the meta of every edge of it: a request
-    asked again is answered from what was kept (``CITED_BY_MAX_AGE``)."""
+    asked again is answered from what was kept (``CITED_BY_MAX_AGE``), and reads only the
+    judgment counts, from the index."""
     store.bulk_insert_or_update_nodes(
         "articles", [{"key": "w_1", "type": "article", "labels": [], "props": {}}]
     )
@@ -1421,9 +1423,9 @@ def test_the_passages_citing_an_article_are_kept_per_request(
     first = get_article_cited_by(store, "articles/w_1")
     reads = recorded(store, monkeypatch, "_stream")
     again = get_article_cited_by(store, "articles/w_1")
-    calls = len(reads)
+    statements = [call.statement for call in reads]
     assert again == first and first.total == 1
-    assert calls == 0
+    assert statements == [_CITED_BY_COUNTS]
 
 
 def test_the_most_cited_articles(store: GraphStore) -> None:

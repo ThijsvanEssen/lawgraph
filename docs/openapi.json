@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.30",
+    "version": "0.80.31",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -12311,12 +12311,12 @@
           "judgment_total": {
             "type": "integer",
             "title": "Judgment Total",
-            "description": "The judgments of those rows: a judgment that cites the article in three places is three rows and one judgment."
+            "description": "The judgments of those rows: a judgment that cites the article in three places is three rows and one judgment. Counted with every request (under `lid` kept with the rows), so after a run of the sources it can be ahead of `total`, `items` and `facets`, which are kept up to an hour."
           },
           "echr_judgment_total": {
             "type": "integer",
             "title": "Echr Judgment Total",
-            "description": "The ECHR judgments that cite the article, whatever the filters. HUDOC names the articles a judgment applies, not the passage, so they are no row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them (`international`).",
+            "description": "The ECHR judgments that cite the article, whatever the filters, counted with every request. Without filters, this and `judgment_total` add up to `metadata.judgment_count` of the article, but for a citation by a judgment not (yet) in the graph, which only that count holds. HUDOC names the articles a judgment applies, not the passage, so they are no row of `items`; `GET /api/instruments/{identifier}/eu-links` lists them (`international`).",
             "default": 0
           },
           "facets": {
