@@ -598,11 +598,11 @@ def get_instrument_amended_by_route(
         "first; an expired law (`date_expired` passed) is left out. Each "
         "carries its `kind` and `date_in_force`, the `direction`, the articles at both "
         "ends (`outbound_count` articles of this law refer to `outbound_cited_count` of "
-        "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law) "
-        "and `basis`: whether one is issued under the other as well (`BASED_ON`), with "
-        "the articles its preamble names. ``total`` is the absolute count, independent of "
-        "``limit``; ``based_on_total`` how many of those have a `basis`. The articles "
-        "between the two: `.../references/{other}`."
+        "it; `inbound_count` of its articles refer to `inbound_cited_count` of this law, "
+        "named in `inbound_cited_articles`) and `basis`: whether one is issued under the "
+        "other as well (`BASED_ON`), with the articles its preamble names. ``total`` is the "
+        "absolute count, independent of ``limit``; ``based_on_total`` how many of those have "
+        "a `basis`. The articles between the two: `.../references/{other}`."
     ),
     tags=["instruments"],
 )

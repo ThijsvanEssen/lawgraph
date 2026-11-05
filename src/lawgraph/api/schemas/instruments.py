@@ -691,6 +691,13 @@ class InstrumentRelatedBasisDTO(StrictModel):
         )
 
 
+class InstrumentRelatedArticleDTO(StrictModel):
+    """An article of this law that a related instrument refers to."""
+
+    key: str = Field(description="Node key of the article, to open it.")
+    article_number: str | None
+
+
 class InstrumentRelatedItem(StrictModel):
     """One other instrument linked via cross-article REFERS_TO edges."""
 
@@ -722,6 +729,11 @@ class InstrumentRelatedItem(StrictModel):
     )
     inbound_cited_count: int = Field(
         ..., description="Articles in force of this law that those refer to."
+    )
+    inbound_cited_articles: list[InstrumentRelatedArticleDTO] = Field(
+        ...,
+        description="Those articles, each once, in the order of this law: "
+        "`inbound_cited_count` of them.",
     )
     based_on: bool = Field(
         False,
@@ -759,6 +771,9 @@ class InstrumentRelatedItem(StrictModel):
             outbound_cited_count=int(row["outbound_cited_count"]),
             inbound_count=inbound,
             inbound_cited_count=int(row["inbound_cited_count"]),
+            inbound_cited_articles=[
+                InstrumentRelatedArticleDTO(**a) for a in row["inbound_cited_articles"]
+            ],
             based_on=basis is not None,
             basis=basis,
         )
