@@ -61,9 +61,9 @@ from lawgraph.db.queries.dossier_changes import (
     STAGE_ENACTED,
     get_dossier_changed_articles,
 )
+from lawgraph.db.queries.dossier_filters import DossierFilters
 from lawgraph.db.queries.dossiers import (
     MUTATIONS_PAGE,
-    DossierFilters,
     TimelineOrder,
     count_dossier_members,
     count_dossier_mutations,
@@ -186,6 +186,13 @@ class DossierListParams:
             bool,
             Query(description="Count per status, outcome, track, stage and ministry."),
         ] = True,
+        seat: Annotated[
+            str | None,
+            Query(
+                description="An office, by any of its names (``GET /api/seats/{seat}``): "
+                "the dossiers its holder that day signed first."
+            ),
+        ] = None,
     ) -> None:
         self.filters = DossierFilters(
             status=None if status == "all" else status,
@@ -194,6 +201,7 @@ class DossierListParams:
             phases=parse_choices(phase, _PHASE_NAMES, "phase"),
             has_phase=parse_choices(has_phase, _PHASE_NAMES, "has_phase"),
             ministry=ministry.value if ministry else None,
+            seat=seat,
             initiative=initiative,
             number=number,
             subject=subject,

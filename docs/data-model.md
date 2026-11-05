@@ -522,6 +522,11 @@ statutes made by the legislator:
   the column `ministry` is what `/api/instruments?ministry=` and the counts of
   `/api/ministries/{key}` read. A law, a dossier and a commitment answer their ministry with
   its name (`ministry_name`).
+- A **seat** on a post (`ienw/minister`) is an office: `/api/seats/{seat}` follows it over the
+  renames of its ministry (`core.seats`), and `seat=` on `/api/commitments` and `/api/dossiers`
+  keeps what the holder of that day did. Both are worked out when asked, from `member_key`,
+  `first_signed` and the posts on a member; a BWB regulation names a ministry without a person
+  or a day, so `/api/instruments` has no such filter.
 - `abbreviation` of an instrument is the abbreviation it is cited by
   (`core.aliases.abbreviation_of`): the WTI short title of a BWB regulation or treaty
   (`EVRM`), else the first one kept by hand (`curated instrument-abbreviations`: `AVG` for

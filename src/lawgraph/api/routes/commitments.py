@@ -89,6 +89,13 @@ def list_commitments(
     facets: Annotated[
         bool, Query(description="Count per status, cabinet and ministry.")
     ] = True,
+    seat: Annotated[
+        str | None,
+        Query(
+            description="An office, by any of its names (``GET /api/seats/{seat}``): the "
+            "commitments of the member who held it that day."
+        ),
+    ] = None,
 ) -> CommitmentListResponse:
     raw = get_commitments(
         store,
@@ -96,6 +103,7 @@ def list_commitments(
         member=member,
         cabinet=cabinet,
         ministry=ministry.value if ministry else None,
+        seat=seat,
         dossier=dossier,
         due_before=iso_day(due_before),
         overdue=overdue,
