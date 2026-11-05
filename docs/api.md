@@ -526,6 +526,13 @@ the step to the faction (`MEMBER_OF`) or cabinet (`SERVED_IN`) a member sits in.
 `stop_at=members,factions,committees,cabinets` the cap goes to what the node itself
 touches (the papers of a paper's dossier), not to what its signers signed elsewhere.
 
+A walk that fits `cap` keeps every node, breadth first. One that does not keeps exactly `cap`:
+each hop but the last takes at most half of the room left, so a further `depth` adds a hop and
+keeps what the hop before kept of the levels above it, also around a law whose direct neighbours
+alone exceed the cap. Within a hop each relation, direction and collection takes a node in turn,
+in id order within each (`PART_OF` articles next to `REFERS_TO` papers); what one cannot fill goes
+to the others, and to the hops above.
+
 A law, a publication or a version as a neighbour or a node of a neighbourhood (the focal one
 too) carries a `date` in its props, also with `props=canvas`, where the source gives one: of a publication the day it was published, of a law
 or a treaty the day its text in force came into force (the start of its BWB toestand, else

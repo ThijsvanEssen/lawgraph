@@ -23,6 +23,8 @@ def _node(collection: str, key: str) -> tuple[str, dict[str, Any]]:
         "cabinets": "cabinet",
         "factions": "faction",
         "committees": "committee",
+        "instruments": "instrument",
+        "articles": "article",
     }[collection]
     return collection, {
         "key": key,
@@ -126,13 +128,15 @@ def test_the_neighborhood_breadth_first(graph: GraphStore) -> None:
     assert [e["key"] for e in hood["edges"]] == ["e1", "e2", "e3", "e4", "e5"]
 
 
-def test_a_capped_neighborhood_keeps_the_first_level_first(graph: GraphStore) -> None:
+def test_a_capped_neighborhood_gives_the_next_level_a_place(graph: GraphStore) -> None:
+    """The first level takes half of the cap, the next the rest; what is left over goes
+    round again (``documents/c``), up to the cap."""
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=4)
     assert [n["id"] for n in hood["nodes"]] == [
         "documents/a",
         "documents/b",
         "documents/c",
-        "dossiers/2",
+        "members/m",
     ]
 
 
@@ -226,9 +230,9 @@ _ACTORS = ("members", "factions", "committees", "cabinets")
 def test_a_walk_that_stops_at_the_actors_keeps_the_papers_of_the_dossier(
     paper: GraphStore,
 ) -> None:
-    """Without ``stop_at`` the papers the signers signed elsewhere fill the cap and none of
-    the dossier's is kept; with it a member is reached but not walked through, but for the
-    step to the faction and the cabinet it sits in."""
+    """Without ``stop_at`` the papers the signers signed elsewhere take part of the cap from
+    the dossier's; with it a member is reached but not walked through, but for the step to
+    the faction and the cabinet it sits in."""
 
     def hood(**kwargs: Any) -> dict[str, list[str]]:
         return _kept(
@@ -238,7 +242,7 @@ def test_a_walk_that_stops_at_the_actors_keeps_the_papers_of_the_dossier(
         )
 
     every = hood()
-    assert [k for k in every["documents"] if k.startswith("x")] == []
+    assert len([k for k in every["documents"] if k.startswith("x")]) == 7
     assert hood(stop_at=_ACTORS) == {
         "cabinets": ["c1"],
         "documents": [f"x{n:02}" for n in range(1, 11)],
@@ -984,6 +988,146 @@ def test_a_capped_neighborhood_shares_the_cap_among_its_collections(
         "cabinets": 1,
         "cases": 6,
         "documents": 6,
+    }
+
+
+@pytest.fixture()
+def law(store: GraphStore) -> GraphStore:
+    """A law with 12 articles, 12 papers citing it (``a…``, first in id order among the
+    documents), 2 papers amending it, one of which cites it too, and a law it refers to.
+    Each article is cited by 3 papers (``c…``), and each of those amended by a dossier."""
+    documents = [f"a{n:02}" for n in range(1, 13)] + ["m1"]
+    citing = [f"c{n:02}{m}" for n in range(1, 13) for m in range(3)]
+    for collection, keys in [
+        ("instruments", ["wet", "ander"]),
+        ("articles", [f"w{n:02}" for n in range(1, 13)]),
+        ("documents", documents + citing),
+        ("dossiers", [f"d{key}" for key in citing]),
+    ]:
+        store.bulk_insert_or_update_nodes(
+            collection, [_node(collection, key)[1] for key in keys]
+        )
+    store.bulk_insert_or_update_edges(
+        [
+            *(
+                _edge(f"p{n}", f"articles/w{n:02}", "instruments/wet", "PART_OF")
+                for n in range(1, 13)
+            ),
+            *(
+                _edge(f"r{n}", f"documents/a{n:02}", "instruments/wet", "REFERS_TO")
+                for n in range(1, 13)
+            ),
+            _edge("am1", "documents/m1", "instruments/wet", "AMENDS"),
+            _edge("am2", "documents/a01", "instruments/wet", "AMENDS"),
+            _edge("out", "instruments/wet", "instruments/ander", "REFERS_TO"),
+            *(
+                _edge(
+                    f"c{key}", f"documents/{key}", f"articles/w{key[1:3]}", "REFERS_TO"
+                )
+                for key in citing
+            ),
+            *(
+                _edge(f"d{key}", f"documents/{key}", f"dossiers/d{key}", "PART_OF")
+                for key in citing
+            ),
+        ]
+    )
+    return store
+
+
+def test_the_cap_is_shared_per_relation_direction_and_collection(
+    law: GraphStore,
+) -> None:
+    """Papers citing the law do not push out the articles, the amendments or the law it
+    refers to; a paper that both amends and cites has one place."""
+    hood = node_queries.get_node_neighborhood(law, "instruments", "wet", depth=1, cap=9)
+    assert _kept(hood) == {
+        "articles": ["w01", "w02", "w03", "w04"],
+        "documents": ["a01", "a02", "a03", "m1"],
+        "instruments": ["ander"],
+    }
+    assert {b["collection"]: b["kept"] for b in hood["buckets"]} == {
+        "articles": 4,
+        "documents": 4,
+        "instruments": 1,
+    }
+
+
+def test_a_step_further_changes_what_a_large_law_shows(law: GraphStore) -> None:
+    """A step further holds the cap and adds a level, from the level before, of which it
+    keeps what the step before kept."""
+
+    def hood(depth: int) -> dict[str, list[str]]:
+        return _kept(
+            node_queries.get_node_neighborhood(
+                law, "instruments", "wet", depth=depth, cap=16
+            )
+        )
+
+    one, two, three = hood(1), hood(2), hood(3)
+    assert "dossiers" not in two
+    assert "dossiers" in three
+
+    def citing(found: dict[str, list[str]]) -> list[str]:
+        return [k for k in found["documents"] if k.startswith("c")]
+
+    assert citing(one) == []
+    assert len(citing(two)) > len(citing(three)) > 0
+    assert two["articles"] == three["articles"]
+    assert set(two["articles"]) < set(one["articles"])
+    assert [sum(len(keys) for keys in f.values()) for f in (one, two, three)] == [
+        16
+    ] * 3
+
+
+def test_a_cap_that_binds_is_filled_also_when_the_levels_below_are_small(
+    store: GraphStore,
+) -> None:
+    """What a deeper level leaves goes round again and is walked on from: 10 of 12 are kept
+    though the first pass found only 5 and 1 below."""
+    keys = [f"n{n:02}" for n in range(1, 11)]
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("documents", key)[1] for key in ["f", "x1", "x2", *keys]],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            *(_edge(key, "documents/f", f"documents/{key}", "CITES") for key in keys),
+            _edge("x1", "documents/n01", "documents/x1", "CITES"),
+            _edge("x2", "documents/n10", "documents/x2", "CITES"),
+        ]
+    )
+    hood = node_queries.get_node_neighborhood(store, "documents", "f", depth=2, cap=11)
+    assert len(hood["nodes"]) == 11
+    assert "documents/x1" in {n["id"] for n in hood["nodes"]}
+
+
+def test_a_walk_that_fits_the_cap_keeps_every_node_within_its_steps(
+    store: GraphStore,
+) -> None:
+    """The first level is larger than its half of the cap, the walk fits it: every node, as
+    breadth first, also the one (``far``) that only a path through a late neighbour reaches
+    in time."""
+    keys = [f"n{n:02}" for n in range(1, 11)]
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [_node("documents", key)[1] for key in ["f", "a", "b", "far", *keys]],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            *(_edge(key, "documents/f", f"documents/{key}", "CITES") for key in keys),
+            _edge("n01a", "documents/n01", "documents/a", "CITES"),
+            _edge("ab", "documents/a", "documents/b", "CITES"),
+            _edge("n10b", "documents/n10", "documents/b", "CITES"),
+            _edge("bfar", "documents/b", "documents/far", "CITES"),
+        ]
+    )
+    hood = node_queries.get_node_neighborhood(store, "documents", "f", depth=3, cap=14)
+    assert {n["id"] for n in hood["nodes"]} == {
+        *(f"documents/{key}" for key in keys),
+        "documents/a",
+        "documents/b",
+        "documents/far",
     }
 
 

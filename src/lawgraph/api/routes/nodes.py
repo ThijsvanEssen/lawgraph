@@ -694,7 +694,7 @@ def get_node_graph(
         "cabinets` keeps the papers of a paper's dossier, not those its signers "
         "signed elsewhere. A law is not walked back to the old articles whose outcome "
         "in a recodification it holds (`TRANSPOSED_TO` the law, `meta.outcome`), nor "
-        "are they counted in its `buckets`."
+        "are they counted in its `buckets`. A walk past `cap` shares it per hop and relation."
     ),
     tags=["nodes"],
 )
