@@ -33,8 +33,8 @@ from lawgraph.api.schemas.feed import (
     FeedPeriodsResponse,
     FeedResponse,
     FeedSummaryResponse,
-    atom_feed,
 )
+from lawgraph.api.schemas.feed_atom import atom_feed
 from lawgraph.api.schemas.stats import DataAsOfDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.config.settings import SITE_URL
@@ -457,7 +457,8 @@ def get_feed_route(
         "tier) and a `next` link with the cursor; an entry per event (`id` "
         "`tag:lawgraph,2026:<id>`, `title`, `updated` the start of its day in the "
         "Netherlands (the source gives no time of day), an `alternate` link to "
-        "the event on Concordans (its `path`, else `/explore?focus=<id>`) and a "
+        "the event on Concordans (its `path`, of an `inwerkingtreding` the page of its "
+        "law, of a source without a readable address `/explore?focus=<id>`) and a "
         "`related` one to its `official_url` or `tk_url`, `category` its kind, an "
         "`author` per person, `summary` its summary and dossier). The feed is `updated` "
         "when the events were last written (`lawgraph feed-events`), and may be kept "

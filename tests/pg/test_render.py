@@ -695,30 +695,19 @@ def test_a_dossier_lists_its_papers(client: TestClient) -> None:
     assert 'href="/kamerstukken/36496/71"' in page["main"]
 
 
-def test_another_spelling_and_the_explorer_redirect_to_the_readable_address(
+def test_another_spelling_redirects_to_the_readable_address(
     client: TestClient,
 ) -> None:
     lower = _get(client, "/uitspraken/ecli:nl:hr:2019:2006?lezen=1")
     assert_status(lower, 301)
     assert lower.headers["location"] == "/uitspraken/ECLI:NL:HR:2019:2006?lezen=1"
-    focus = _get(client, "/explore?focus=articles/bwbr0005289_162&lezen=1")
-    assert_status(focus, 301)
-    assert focus.headers["location"] == "/wetten/BWBR0005289/artikel/6:162?lezen=1"
-    # a decision by its key; a node without a readable address stays the explorer
-    vote = _get(client, "/explore?focus=decisions/s_1")
-    assert (vote.status_code, vote.headers["location"]) == (301, "/stemmingen/s_1"), (
-        vote.text
-    )
-    explorer = _get(client, "/explore?focus=activities/a1")
-    assert_status(explorer, 200)
-    assert _head(explorer.text)["title"] == "Verkenner, Concordans"
 
 
 @pytest.mark.parametrize(
     "path",
     ["/uitspraken/ECLI:NL:HR:1900:1", "/wetten/BWBR9999999", "/kamerstukken/36496/999",
      "/stemmingen/s_999",
-     "/bestaat/niet", "/wetten/xyz"],
+     "/bestaat/niet", "/wetten/xyz", "/gemarkeerd", "/gemarkeerd/bundel?id=m-1a2b"],
 )  # fmt: skip
 def test_what_is_not_there_is_not_found(client: TestClient, path: str) -> None:
     response = _get(client, path)
@@ -789,24 +778,31 @@ def test_a_decision_has_its_page(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize(
-    "focus", ["decisions/nothing", "activities/a1", "geen/collectie", "zonder-slash"]
+    "focus",
+    [
+        "articles/bwbr0005289_162&lezen=1",
+        "decisions/s_1",
+        "activities/a1",
+        "decisions/nothing",
+        "geen/collectie",
+        "zonder-slash",
+    ],
 )
-def test_the_explorer_of_a_node_that_is_not_there_is_the_explorer(
-    client: TestClient, focus: str
-) -> None:
-    """No 500: a focus on a node the graph lacks, or on no node at all, is the page of the
-    explorer, which says so itself."""
+def test_a_focus_is_the_page_of_the_explorer(client: TestClient, focus: str) -> None:
+    """Whatever it names: the app opens the source, and says so of a node the graph lacks
+    or of no node at all. The page itself names no node."""
     response = _get(client, f"/explore?focus={focus}")
     assert_status(response, 200)
     assert _head(response.text)["title"] == "Verkenner, Concordans"
+    assert _focus(response.text) is None
 
 
 def test_a_dossier_with_a_suffix_by_its_label(
     client: TestClient, store: GraphStore
 ) -> None:
-    """The key of a dossier is its label made a key (36600_viii): the page, its address
-    and the redirect from the explorer go by the label; its title writes the number as a
-    citation does (36600 VIII), here and in the API."""
+    """The key of a dossier is its label made a key (36600_viii): the page and its address
+    go by the label; its title writes the number as a citation does (36600 VIII), here and
+    in the API."""
     store.bulk_insert_or_update_nodes(
         "dossiers",
         [_node("36600_viii", "dossier", label="36600-VIII", number="36600",
@@ -815,8 +811,6 @@ def test_a_dossier_with_a_suffix_by_its_label(
     page = _head(_get(client, "/dossiers/36600-VIII").text)
     assert page["canonical"] == "https://concordans.nl/dossiers/36600-VIII"
     assert page["title"] == "36600 VIII Begroting Onderwijs, Concordans"
-    focus = _get(client, "/explore?focus=dossiers/36600_viii")
-    assert focus.headers["location"] == "/dossiers/36600-VIII"
     node = client.get("/api/nodes/dossiers/36600_viii").json()
     assert node["path"] == "/dossiers/36600-VIII"
     assert node["title"] == "36600 VIII Begroting Onderwijs"
@@ -1426,41 +1420,6 @@ def test_a_page_of_the_app_by_a_pattern_takes_any_one_segment(
     assert_status(_get(client, "/bundels/m-1a2b/meer"), 404)
 
 
-def test_the_addresses_of_the_bundels_before_move_with_the_app(
-    client: TestClient, tmp_path: Path
-) -> None:
-    """``/gemarkeerd`` is ``/bundels`` now and ``/gemarkeerd/bundel?id=<id>`` the page of
-    the bundel (the fragment of a shared link stays in the browser), once the front end
-    lists the new pages and no longer the old one."""
-    moved = {
-        "/gemarkeerd": "/bundels",
-        "/gemarkeerd/": "/bundels",
-        "/gemarkeerd?lezen=1": "/bundels?lezen=1",
-        "/gemarkeerd/bundel?id=m-1a2b": "/bundels/m-1a2b",
-        "/gemarkeerd/bundel?id=a%2Fb": "/bundels/a%2Fb",
-        "/gemarkeerd/bundel": "/bundels",
-    }
-    for old, new in moved.items():
-        response = _get(client, old)
-        assert response.status_code == 301, old
-        assert response.headers["location"] == new
-    # a front end of before, with its page at /gemarkeerd: that stays its page
-    (tmp_path / "spa-routes.json").write_text(
-        json.dumps(
-            [
-                {"path": "/"},
-                {"path": "/gemarkeerd", "title": "Gemarkeerd, Concordans",
-                 "index": False},
-            ]
-        )
-    )  # fmt: skip
-    shell.forget()
-    response = _get(client, "/gemarkeerd")
-    assert_status(response, 200)
-    assert _head(response.text)["title"] == "Gemarkeerd, Concordans"
-    assert_status(_get(client, "/gemarkeerd/bundel?id=m-1a2b"), 404)
-
-
 def test_a_bare_collection_moves_where_the_front_end_says(
     client: TestClient, tmp_path: Path
 ) -> None:
@@ -1501,8 +1460,8 @@ def _focus(html: str) -> str | None:
 def test_every_page_of_a_node_names_it_and_no_other_page_does(
     client: TestClient,
 ) -> None:
-    """``<meta name="focus">``: the node of the page, which the app opens without a lookup
-    (a 301 from ``/explore?focus=`` drops it); a page of the app and a 404 have none."""
+    """``<meta name="focus">``: the node of the page, which the app opens without a lookup;
+    a page of the app and a 404 have none."""
     for path, node in (
         ("/wetten/BWBR0005289/artikel/6:162", "articles/bwbr0005289_162"),
         ("/uitspraken/ECLI:NL:HR:2019:2006", "judgments/ecli_nl_hr_2019_2006"),
@@ -1607,14 +1566,12 @@ def test_an_annex_has_its_law_and_entries(
         "Bijlage II Opiumwet: lijst II",
     ]
     assert _focus(response.text) == "annexes/bwbr0001941_annex_ii"
-    # another spelling, and the explorer of the annex, to its readable address
+    # another spelling to its readable address
     lower = _get(client, "/wetten/bwbr0001941/bijlage/ii")
     assert (lower.status_code, lower.headers["location"]) == (
         301,
         "/wetten/BWBR0001941/bijlage/II",
     ), lower.text
-    focus = _get(client, "/explore?focus=annexes/bwbr0001941_annex_ii")
-    assert focus.headers["location"] == "/wetten/BWBR0001941/bijlage/II"
     # an annex only cited (a stub) has nothing to read: not indexed
     stub = _head(_get(client, "/wetten/BWBR0001941/bijlage/III").text)
     assert stub["robots"] == "noindex"
@@ -1655,8 +1612,6 @@ def test_a_zaak_has_its_dossier_papers_and_votes(
         301,
         "/zaken/2025Z15468",
     ), lower.text
-    focus = _get(client, "/explore?focus=cases/z_2&lezen=1")
-    assert focus.headers["location"] == "/zaken/2025Z15468?lezen=1"
     # a motion: its paper is the page to find; without a dossier, no crumb to one
     motion = _head(_get(client, "/zaken/2025Z15469").text)
     assert motion["title"].startswith(
@@ -1787,8 +1742,6 @@ def test_a_debate_has_its_page_with_what_was_made_in_it(
         301,
         "/activiteiten/2026A01323",
     ), lower.text
-    focus = _get(client, "/explore?focus=activities/wgo_1")
-    assert focus.headers["location"] == "/activiteiten/2026A01323"
     # a vote with nothing made in it has nothing to read
     assert _head(_get(client, "/activiteiten/2026A01400").text)["robots"] == "noindex"
     assert_status(_get(client, "/activiteiten/2026A09999"), 404)
@@ -1861,11 +1814,6 @@ def test_an_eu_act_by_its_celex_number_lists_its_articles(
         301,
         "/wetten/32022L2555",
     ), lower.text
-    focus = _get(client, "/explore?focus=instruments/32022l2555")
-    assert (focus.status_code, focus.headers["location"]) == (
-        301,
-        "/wetten/32022L2555",
-    ), focus.text
     # an act whose text was not read has no content of its own: not indexed
     bare = _get(client, "/wetten/32019R0881")
     assert_status(bare, 200)
