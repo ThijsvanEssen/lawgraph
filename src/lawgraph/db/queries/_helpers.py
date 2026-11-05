@@ -19,7 +19,7 @@ from lawgraph.core.models import make_node_key
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
-from lawgraph.db.request_context import ReadTimedOut
+from lawgraph.db.request_context import ReadTimedOut, reads_in_background
 from lawgraph.db.schema import node_of
 from lawgraph.db.store import read_budget, read_time_left
 
@@ -37,7 +37,11 @@ def page_with_counts[P, C](
     A request waits for the counts what is left of ``COUNTS_BUDGET`` counted from the start
     of the answer, so that the page and the counts together take that long and no longer
     (a page that took the whole of it leaves the counts a look at what is kept); past it
-    the counts are None and go on computing for a later request."""
+    the counts are None and go on computing for a later request. In the background (the
+    warm-up, a computation of the cache) nobody waits for the page: the counts are waited
+    for, so that a warm-up leaves no queue of them in the pool before the visitors' own."""
+    if reads_in_background():
+        return page(), counts()
     began = time.monotonic()
     shown = page()
     left = max(0.0, COUNTS_BUDGET - (time.monotonic() - began))
