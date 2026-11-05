@@ -7,6 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from typing import Any, cast
 
 from lawgraph.config.constants import (
@@ -29,12 +30,21 @@ from lawgraph.db.store import read_budget, read_time_left
 COUNTS_BUDGET = 3.0
 
 
-def page_with_counts[P, C](
+@dataclass(frozen=True)
+class Counted:
+    """The counts beside the page of a list: ``counts`` (``{total, facets}``) where they came
+    in time, else None; then ``total``, read alone, where that came in time."""
+
+    counts: dict[str, Any] | None
+    total: int | None = None
+
+
+def page_with_counts[P](
     page: Callable[[], P],
-    counts: Callable[[], C],
+    counts: Callable[[], dict[str, Any]],
     what: str,
     total: Callable[[], int] | None = None,
-) -> tuple[P, C | dict[str, Any] | None]:
+) -> tuple[P, Counted]:
     """The result of *page*, read first and alone with no budget but the request's own,
     and of *counts* (the total and facets, kept per filter: ``lasting``, ``cached``).
     A request waits for the counts what is left of ``COUNTS_BUDGET`` counted from the start
@@ -42,12 +52,12 @@ def page_with_counts[P, C](
     (a page that took the whole of it leaves the counts a look at what is kept); past it
     the counts are None and go on computing for a later request. *total*, the same total
     read alone, is waited for first: when the facets of *counts* are not in time it stands
-    in for them as ``{total, partial}``, so that a total counted (far less than the facets)
-    waits for no facet. In the background (the warm-up, a computation of the cache) nobody
-    waits for the page: the counts are waited for, so that a warm-up leaves no queue of them
-    in the pool before the visitors' own."""
+    in for them, so that a total counted (far less than the facets) waits for no facet. In
+    the background (the warm-up, a computation of the cache) nobody waits for the page: the
+    counts are waited for, so that a warm-up leaves no queue of them in the pool before the
+    visitors' own."""
     if reads_in_background():
-        return page(), counts()
+        return page(), Counted(counts())
     began = time.monotonic()
     shown = page()
 
@@ -59,21 +69,26 @@ def page_with_counts[P, C](
 
     known = in_time(total) if total else None
     counted = in_time(counts)
-    if counted is None and known is not None:
-        return shown, {"total": known, "partial": True}
-    return shown, counted
+    return shown, Counted(counted, None if counted is not None else known)
 
 
 def with_counts(
-    items: list[Any], counted: dict[str, Any] | None, empty_facets: Any = None
+    items: list[Any], counted: Counted, empty_facets: Any = None
 ) -> dict[str, Any]:
-    """``{items, total, facets}`` of a list: *counted* (``{total, facets}``) or, where the
-    counts ran out, ``total`` as far as it is known (``{total, partial}``, else None),
-    *empty_facets* and ``partial``."""
-    if counted is None or counted.get("partial"):
-        total = counted["total"] if counted else None
-        return {"total": total, "items": items, "facets": empty_facets, "partial": True}
-    return {"total": counted["total"], "items": items, "facets": counted["facets"]}
+    """``{items, total, facets}`` of a list: the counts of *counted* or, where they ran out,
+    ``total`` as far as it is known (else None), *empty_facets* and ``partial``."""
+    if counted.counts is None:
+        return {
+            "total": counted.total,
+            "items": items,
+            "facets": empty_facets,
+            "partial": True,
+        }
+    return {
+        "total": counted.counts["total"],
+        "items": items,
+        "facets": counted.counts["facets"],
+    }
 
 
 def _find_instrument_for_article(

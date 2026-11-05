@@ -46,7 +46,7 @@ class Counting:
 
 def test_the_counts_come_with_the_page() -> None:
     page, counted = _helpers.page_with_counts(lambda: ["a"], lambda: COUNTED, "x")
-    assert (page, counted) == (["a"], COUNTED)
+    assert (page, counted) == (["a"], _helpers.Counted(COUNTED))
     assert _helpers.with_counts(page, counted) == {"items": ["a"], **COUNTED}
 
 
@@ -55,7 +55,7 @@ def test_counts_past_the_budget_are_none_and_the_page_whole() -> None:
         raise ReadTimedOut("slow")
 
     page, counted = _helpers.page_with_counts(lambda: ["a"], counts, "x")
-    assert counted is None
+    assert counted == _helpers.Counted(None)
     assert _helpers.with_counts(page, counted, {"kind": []}) == {
         "items": ["a"],
         "total": None,
@@ -254,7 +254,7 @@ def test_the_warm_up_waits_for_the_counts(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(_helpers, "COUNTS_BUDGET", 0.0)
     with request_context.in_background():
         page, counted = _helpers.page_with_counts(lambda: ["a"], Counting(), "x")
-    assert (page, counted) == (["a"], COUNTED)
+    assert (page, counted) == (["a"], _helpers.Counted(COUNTED))
 
 
 def test_a_page_of_judgments_does_not_wait_for_its_total(

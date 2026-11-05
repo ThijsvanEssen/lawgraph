@@ -300,12 +300,13 @@ def most_cited_laws(store: GraphStore, n: int) -> list[str]:
     )
 
 
-# A citing judgment as a row of the list; of a conclusion also its advocate general, props
-# only a conclusion has, read from its props for a conclusion alone: the props of a judgment
-# hold its text, and are parsed whole for one value.
+# A citing judgment as a row of the list, with its own citations (``citation_count``); of a
+# conclusion also its advocate general, read from its props for a conclusion alone: the
+# props of a judgment hold its text, and are parsed whole for one value.
 _LISTED_JUDGMENT = listed_judgment(
     "j",
     "l",
+    "'inbound_citation_count', j.pj_inbound_citation_count",
     *(
         f"'{prop}', CASE WHEN j.pj_decision_kind #>> '{{}}' = %(conclusion)s"
         f" THEN j.props -> '{prop}' END"

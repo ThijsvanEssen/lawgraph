@@ -358,6 +358,11 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithCite, WithPath):
         "`waarnemend advocaat-generaal`, ...), as on `/api/judgments/{ecli}`. Null for a "
         "judgment.",
     )
+    inbound_citation_count: int | None = Field(
+        default=None,
+        description="The judgments that cite it, each once (as in `/api/judgments`): "
+        "what `sort=citation_count` orders by.",
+    )
     cited_articles: list[CitedArticleRef] = Field(
         default_factory=list,
         description="Articles of the focal instrument that this judgment cites.",
@@ -379,6 +384,7 @@ class InstrumentJudgmentItem(JudgmentOutcomeFields, WithCite, WithPath):
             date=props.get("date_eff"),
             advocate_general=props.get("advocate_general"),
             advocate_general_role=props.get("advocate_general_role"),
+            inbound_citation_count=props.get("inbound_citation_count"),
             cite=judgment_cite_dto(props),
             **judgment_outcome_fields(props),
             cited_articles=[
@@ -2088,7 +2094,11 @@ class InstrumentReferencesResponse(StrictModel):
 
     bwb_id: str = Field(..., description=_REQUESTED)
     other: str = Field(..., description="The other instrument, as requested.")
-    total: int
+    total: int = Field(
+        ...,
+        description="The references both ways together, so the same for `A/references/B` "
+        "and `B/references/A`; per way, the items by `direction`.",
+    )
     items: list[InstrumentReferenceDTO] = Field(default_factory=list)
 
 
