@@ -8,7 +8,11 @@ from typing import Any
 
 from pydantic import Field
 
-from lawgraph.api.schemas.articles import headings_from_props, parts_from_props
+from lawgraph.api.schemas.articles import (
+    headings_from_props,
+    parts_from_props,
+    wording,
+)
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
     OFFICIAL_ID,
@@ -18,16 +22,38 @@ from lawgraph.api.schemas.common import (
     WithPath,
     address_of,
 )
+from lawgraph.api.schemas.instruments import (
+    InstrumentArticleBreadcrumbDTO,
+    breadcrumb_dtos,
+)
 from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.core.article_blocks import Block, article_blocks
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import reference_target
+from lawgraph.core.time import dutch_today
 from lawgraph.db.queries.article_text import ArticleTextData
 
 # The most articles one ``/batch`` asks for.
 BATCH_MAX = 20
+
+
+def text_since(versions: list[dict[str, Any]], today: str) -> str | None:
+    """The first day of the wording that holds on *today*, of *versions* oldest first: a
+    version that only restates the text before it starts none. None when no version holds
+    on that day (the article lapsed, or its first version is yet to come)."""
+    since, holds, before = None, False, None
+    for version in versions:
+        start, end = version.get("valid_from"), version.get("valid_until")
+        if not start or start > today:
+            continue
+        text = wording(version.get("text"))
+        if since is None or text != before:
+            since = start
+        before = text
+        holds = not end or end > today
+    return since if holds else None
 
 
 class ArticleTextLawDTO(WithPath):
@@ -156,7 +182,20 @@ class ArticleTextDTO(WithPath):
     )
     display_name: str | None = Field(description="How it is cited: `Art. 68 Cbw`.")
     repealed: bool
+    stub: bool = Field(
+        description="Known only from what cites it: the data has no text of it and no "
+        "law, so `blocks` is empty, which does not say it lapsed."
+    )
+    valid_from: str | None = Field(
+        description="`Tekst sinds`: the first day of the wording that holds today, as "
+        "`/history` gives it (`valid_from` of the version where `text_changed`). Null "
+        "when no version holds today, and for an article without versions (an EU act, a "
+        "law of the Staatsblad)."
+    )
     validity: ValidityDTO | None = Field(description=VALIDITY)
+    breadcrumb: list[InstrumentArticleBreadcrumbDTO] = Field(
+        description="The divisions it stands in, the outermost first; empty for none."
+    )
     law: ArticleTextLawDTO | None
     blocks: list[ArticleTextBlockDTO]
     previous: ArticleNeighborDTO | None = Field(
@@ -188,7 +227,10 @@ class ArticleTextDTO(WithPath):
             heading=props.get("heading"),
             display_name=article_cite(props) or None,
             repealed=bool(props.get("repealed")),
+            stub=bool(props.get("stub")),
+            valid_from=text_since(data.versions, dutch_today().isoformat()),
             validity=validity,
+            breadcrumb=breadcrumb_dtos(props.get("breadcrumb")),
             law=ArticleTextLawDTO.from_document(data.instrument)
             if data.instrument
             else None,

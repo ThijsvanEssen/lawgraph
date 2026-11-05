@@ -37,6 +37,7 @@ class ArticleTextData:
     citations: list[ArticleCitationEntry] = field(default_factory=list)
     previous: dict[str, Any] | None = None
     next: dict[str, Any] | None = None
+    versions: list[dict[str, Any]] = field(default_factory=list)  # oldest first
 
 
 _ARTICLES = f"""
@@ -68,6 +69,34 @@ CROSS JOIN LATERAL (
 ) n
 WHERE a.id = ANY(%(ids)s) AND a.position IS NOT NULL
 """
+
+
+# The versions of each of ``ids``, oldest first, found as ``db.queries.articles`` finds them:
+# by ``(bwb_id, stam_id)``, else by ``(bwb_id, article_number)``, each from its index.
+_VERSIONS = """
+SELECT a.id AS of_id, v.valid_from, v.valid_until, v.text
+FROM articles a
+CROSS JOIN LATERAL (
+    SELECT s.key, s.valid_from, s.valid_until, lg_str(s.props -> 'text') AS text
+    FROM article_versions s
+    WHERE s.bwb_id = a.bwb_id AND s.stam_id = a.stam_id
+    UNION ALL
+    SELECT n.key, n.valid_from, n.valid_until, lg_str(n.props -> 'text')
+    FROM article_versions n
+    WHERE a.stam_id IS NULL AND n.bwb_id = a.bwb_id
+      AND n.article_number = a.article_number
+) v
+WHERE a.id = ANY(%(ids)s)
+ORDER BY a.id, v.valid_from NULLS FIRST, v.key
+"""
+
+
+def _versions(store: GraphStore, ids: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """The versions of each of *ids* with their dates and wording, oldest first."""
+    versions: dict[str, list[dict[str, Any]]] = {}
+    for row in store.query(_VERSIONS, {"ids": ids}):
+        versions.setdefault(row["of_id"], []).append(row)
+    return versions
 
 
 def _neighbors(
@@ -120,6 +149,7 @@ def get_article_texts(
         lambda: get_citations_of(store, ids),
         lambda: present_targets(store, wanted),
         lambda: _around(store, docs),
+        lambda: _versions(store, ids),
     )
     successors = cast("dict[str, list[dict[str, Any]]]", found[0])
     citations = cast("dict[str, list[ArticleCitationEntry]]", found[1])
@@ -127,6 +157,7 @@ def get_article_texts(
     before, after = cast(
         "tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]", found[3]
     )
+    versions = cast("dict[str, list[dict[str, Any]]]", found[4])
     texts = {
         doc["key"]: ArticleTextData(
             article=doc,
@@ -136,6 +167,7 @@ def get_article_texts(
             citations=citations.get(doc["id"], []),
             previous=before.get(doc["id"]),
             next=after.get(doc["id"]),
+            versions=versions.get(doc["id"], []),
         )
         for doc, row in zip(docs, rows, strict=True)
     }
