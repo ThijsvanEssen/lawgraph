@@ -572,7 +572,7 @@ def get_judgments_list(
     separately = [name for name in _FACETS if not (together and name in _COLUMN_FACETS)]
 
     def counts() -> dict[str, Any]:
-        calls = [
+        calls: list[Callable[[], Any]] = [
             *(facet(name) for name in separately),
             narrower,
             total,
