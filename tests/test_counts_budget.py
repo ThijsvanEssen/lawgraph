@@ -64,6 +64,19 @@ def test_counts_past_the_budget_are_none_and_the_page_whole() -> None:
     }
 
 
+def test_a_total_counted_does_not_wait_for_the_facets() -> None:
+    def counts() -> dict[str, Any]:
+        raise ReadTimedOut("slow")
+
+    page, counted = _helpers.page_with_counts(lambda: ["a"], counts, "x", lambda: 7)
+    assert _helpers.with_counts(page, counted, {"kind": []}) == {
+        "items": ["a"],
+        "total": 7,
+        "facets": {"kind": []},
+        "partial": True,
+    }
+
+
 def test_the_time_of_the_page_is_part_of_the_budget(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -138,6 +151,35 @@ def test_judgments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None
     assert first["facets"] is None
     assert second["total"] == 7 and "partial" not in second
     assert set(second["facets"]) == set(judgments._FACETS)
+
+
+def test_judgments_a_total_counted_comes_without_the_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def slow(*a: Any, **k: Any) -> list[Any]:
+        raise ReadTimedOut("not counted yet")
+
+    monkeypatch.setattr(judgments, "_page", lambda *a, **k: [])
+    monkeypatch.setattr(judgments, "_total", lambda *a: 7)
+    monkeypatch.setattr(judgments, "lasting_rows", slow)
+    got = judgments.get_judgments_list(cast(GraphStore, object()))
+
+    assert (got["total"], got["partial"], got["facets"]) == (7, True, None)
+
+
+def test_instruments_a_total_counted_comes_without_the_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
+        if "AS total" not in str(sql):
+            raise ReadTimedOut("not counted yet")
+        return [7]
+
+    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "cached_rows", rows)
+    got = instruments.get_instruments_list(cast(GraphStore, object()))
+
+    assert (got["total"], got["partial"], got["facets"]) == (7, True, None)
 
 
 def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None:

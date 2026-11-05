@@ -859,7 +859,8 @@ class JudgmentListResponse(StrictModel):
 
     items: list[JudgmentListItemDTO]
     total: int | None = Field(
-        ..., description="Matching judgments; null while ``partial``."
+        ...,
+        description="Matching judgments; null while ``partial`` and not counted yet.",
     )
     # null when asked for without them (``facets=false``)
     facets: JudgmentFacets | None = Field(default_factory=JudgmentFacets)

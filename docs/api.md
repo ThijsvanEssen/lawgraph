@@ -28,7 +28,8 @@ the feed), rather than keeping the whole answer waiting.
 `/api/judgments` and `/api/feed` read the page first and alone, and count `total` and `facets`
 (kept per filter) beside it: past 3 s from the start of the answer (the page counts in it) the
 page comes whole with `total` null, empty facets and `partial` true, and a request after the
-count has them. `facets=false` counts nothing. A page of `/api/documents` and
+count has them. `/api/judgments` and `/api/instruments` count `total` first and give it with
+`partial` true as soon as it is counted, while the facets are counted on. `facets=false` counts nothing. A page of `/api/documents` and
 `/api/instruments` has `next_cursor` (null on the last page): pass it as `after` instead of
 `offset` for the next page, which costs what the first does at any depth; not both
 (422), and a cursor of another list or sort is 422 too. `offset` stays on every list.

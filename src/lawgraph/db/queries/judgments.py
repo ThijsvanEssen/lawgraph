@@ -560,11 +560,11 @@ def get_judgments_list(
     def items() -> list[Any]:
         return _page(store, order, chosen.where(), params, hits_first=hits_first)
 
+    def total() -> int:
+        return _total(store, filtered, chosen.where(), params)
+
     def without_facets() -> dict[str, Any]:
-        return {
-            "total": _total(store, filtered, chosen.where(), params),
-            "facets": None,
-        }
+        return {"total": total(), "facets": None}
 
     # Under no filter but the stubs and the replaced publications every facet leaves out
     # the same filters: the five by a column are counted in one read of the table.
@@ -575,21 +575,24 @@ def get_judgments_list(
         calls = [
             *(facet(name) for name in separately),
             narrower,
-            lambda: _total(store, filtered, chosen.where(), params),
+            total,
         ]
         if together:
             calls.append(lambda: _column_facets(store, chosen.where(), params))
         answers: list[Any] = run_together(*calls)
         counted = dict(zip(separately, answers, strict=False))
-        subjects, total = answers[len(separately) : len(separately) + 2]
+        subjects, found = answers[len(separately) : len(separately) + 2]
         if together:
             counted.update(answers[-1])
         counted = {name: counted[name] for name in _FACETS}
         counted["subject_area"] = _with_narrower(counted["subject_area"], subjects)
-        return {"total": total, "facets": counted}
+        return {"total": found, "facets": counted}
 
     shown, counted = page_with_counts(
-        items, counts if facets else without_facets, "The counts of the judgments"
+        items,
+        counts if facets else without_facets,
+        "The counts of the judgments",
+        total if facets else None,
     )
     return with_counts(shown, counted)
 
