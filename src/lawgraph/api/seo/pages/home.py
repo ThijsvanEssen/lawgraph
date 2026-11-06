@@ -16,7 +16,7 @@ from lawgraph.config import settings
 START: dict[str, Any] = {
     "heading": "Zie hoe wetten, rechtspraak en parlement samenhangen.",
     "lede": "Zoek een wet, uitspraak, Kamerstuk of dossier en zie wat ermee verbonden is.",
-    "placeholder": "Wet, uitspraak, Kamerstuk, dossier of motie",
+    "placeholder": "Zoek een wet, uitspraak of dossier",
     "questions": {
         "heading": "Begin met een vraag",
         "items": [
