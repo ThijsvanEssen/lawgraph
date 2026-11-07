@@ -42,7 +42,17 @@ def recorded(monkeypatch) -> list[tuple[str, dict[str, Any]]]:
     for name in dir(retrieve_commands):
         if name.endswith("RetrievePipeline"):
             monkeypatch.setattr(retrieve_commands, name, _Recorder)
+    # the creators of the stored publications, asked after the Staatsblad and the
+    # Staatscourant: no since of their own
+    monkeypatch.setattr(
+        retrieve_commands, "CreatorsRetrievePipeline", lambda *a, **k: _NoCreators()
+    )
     return _Recorder.calls
+
+
+class _NoCreators:
+    def run(self) -> PipelineResult:
+        return PipelineResult()
 
 
 def _run(name: str, *argv: str) -> None:

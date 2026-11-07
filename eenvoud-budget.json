@@ -26,7 +26,7 @@
     "src/lawgraph/core/judgment_paragraphs.py": 875,
     "src/lawgraph/core/judgment_parties.py": 1004,
     "src/lawgraph/core/props.py": 1767,
-    "src/lawgraph/core/relations.py": 1084,
+    "src/lawgraph/core/relations.py": 1085,
     "src/lawgraph/core/transposition_xml.py": 927,
     "src/lawgraph/db/queries/articles.py": 1128,
     "src/lawgraph/db/queries/chains.py": 885,

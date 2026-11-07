@@ -28,6 +28,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
     SOURCE_TK,
 )
+from lawgraph.core.publication_creators import META_CREATORS
 from lawgraph.db._rows import raw_doc
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import is_absent, is_present
@@ -359,6 +360,25 @@ def toestand_state_urls(store: Store) -> Iterator[dict[str, Any]]:
         """,
         {"source": SOURCE_BWB, "kind": RAW_KIND_BWB_TOESTAND},
     )
+
+
+def without_creators(
+    store: Store, *, source: str, kind: str, limit: int | None
+) -> Iterator[dict[str, Any]]:
+    """The records of *kind* whose meta does not hold what the SRU says of their creators
+    yet (``core.publication_creators``), in key order, *limit* of them."""
+    rows = store.query(
+        f"""
+        SELECT key, doc FROM raw_sources
+        WHERE source = %(source)s AND kind = %(kind)s AND external_id IS NOT NULL
+          AND NOT (doc -> 'meta')::jsonb ? %(meta_key)s
+        {_ORDER}
+        LIMIT %(limit)s
+        """,
+        {"source": source, "kind": kind, "meta_key": META_CREATORS, "limit": limit},
+        batch_size=500,
+    )
+    return _records(rows)
 
 
 _HAS_STAATSBLAD_REF = "(doc -> 'meta')::jsonb ? 'staatsblad_ref'"
