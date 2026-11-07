@@ -39,3 +39,10 @@ def member_name_sql(p: str) -> str:
     known, name = f"lg_truthy({p} -> 'known_as')", f"lg_truthy({p} -> 'name')"
     whens = f"WHEN {kamer} THEN {p} ->> 'name' WHEN {known} THEN {p} ->> 'known_as'"
     return f"CASE {whens} WHEN {name} THEN {p} ->> 'name' ELSE {p} ->> 'government_name' END"
+
+
+def first_name_missing_sql(p: str) -> str:
+    """SQL: whether no official source gives the first name of the member of props *p* (no
+    name of the Kamer, no ``known_as``): their name is initials and surname, a gap."""
+    kamer = f"lg_truthy({p} -> 'name') AND lg_truthy({p} -> 'family_name')"
+    return f"NOT ({kamer} OR lg_truthy({p} -> 'known_as'))"

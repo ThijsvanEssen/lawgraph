@@ -25,14 +25,21 @@ class PersonRefDTO(WithPath):
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
+    first_name_missing: bool | None = Field(
+        None,
+        description="true: no official source gives their first name (neither the Kamer "
+        "nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given "
+        "on a cabinet, office, ministry and commitment; null elsewhere.",
+    )
 
     @classmethod
     def from_row(cls, person: dict[str, Any], **fields: Any) -> Self:
-        """From a member as a query gives it, ``{key, name, slug}``: its slug makes its
-        address."""
+        """From a member as a query gives it, ``{key, name, slug, first_name_missing}``:
+        its slug makes its address."""
         return cls(
             key=person["key"],
             name=person.get("name"),
+            first_name_missing=person.get("first_name_missing"),
             path_props={"slug": person.get("slug")},
             **fields,
         )

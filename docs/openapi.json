@@ -17776,6 +17776,18 @@
             "title": "Name",
             "description": "The name they go by: Sophie Hermans."
           },
+          "first_name_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name Missing",
+            "description": "true: no official source gives their first name (neither the Kamer nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given on a cabinet, office, ministry and commitment; null elsewhere."
+          },
           "function": {
             "anyOf": [
               {
@@ -17806,6 +17818,7 @@
         "required": [
           "key",
           "name",
+          "first_name_missing",
           "function",
           "path"
         ],
@@ -38414,6 +38427,18 @@
             "title": "Name",
             "description": "The name they go by: Sophie Hermans."
           },
+          "first_name_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name Missing",
+            "description": "true: no official source gives their first name (neither the Kamer nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given on a cabinet, office, ministry and commitment; null elsewhere."
+          },
           "path": {
             "anyOf": [
               {
@@ -38433,6 +38458,7 @@
         "required": [
           "key",
           "name",
+          "first_name_missing",
           "path"
         ],
         "title": "PersonRefDTO",

@@ -14,6 +14,7 @@ from lawgraph.core.tk_records.actors import CAPACITY_GOVERNMENT
 from lawgraph.core.tk_records.commitments import COMMITMENT_OPEN
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db._sql import first_name_missing_sql
 from lawgraph.db.counting import Store
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
@@ -28,11 +29,12 @@ KIND_BILL = "Wetgeving"
 
 
 def person_object(member: str) -> str:
-    """SQL: the member as a list and detail item name it, ``{key, name, slug}`` (the slug
-    for its readable address)."""
+    """SQL: the member as a list and detail item name it, ``{key, name, slug,
+    first_name_missing}`` (the slug for its readable address)."""
     return (
         f"json_build_object('key', {member}.key, 'name', {member}.list_name,"
-        f" 'slug', {member}.props -> 'slug')"
+        f" 'slug', {member}.props -> 'slug',"
+        f" 'first_name_missing', {first_name_missing_sql(f'{member}.props')})"
     )
 
 
