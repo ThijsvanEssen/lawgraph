@@ -72,7 +72,7 @@ def test_a_commitment_page_is_read_as_the_kamer_writes_it() -> None:
     assert page.activity_kind == "Plenaire vergadering"
     assert page.category == "lagere regelgeving"
     assert page.subjects == ["flexwerkers", "PGB-sector"]
-    assert page.papers == ["Wet meer zekerheid flexwerkers (36.746)"]
+    assert page.documents == ["Wet meer zekerheid flexwerkers (36.746)"]
     assert page.dossiers == ["36746"]
     assert page.citation == "Handelingen I, 2025/2026, nr.39, item 18, p. 10."
     assert page.speakers == [ek_commitments.Speaker("Minister", "Vijlbrief")]
@@ -252,7 +252,8 @@ def _fetched(
     )
     records = list(pipeline.fetch())
     assert [r.external_id for r in records] == client.read
-    assert all(r.meta and r.meta["status"] for r in records)
+    unstated = [r.external_id for r in records if not (r.meta or {}).get("status")]
+    assert not unstated, unstated
     return client.read
 
 

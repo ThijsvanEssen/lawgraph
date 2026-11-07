@@ -96,7 +96,7 @@ class EkCommitmentProps(BaseModel):
     `legisprudentie`, `overig`."""
     subjects: list[str] | None = None
     """Of the Eerste Kamer: its subjects (`Onderwerpen`)."""
-    papers: list[str] | None = None
+    documents: list[str] | None = None
     """Of the Eerste Kamer: its Kamerstukken as named (`Wet meer zekerheid flexwerkers
     (36.746)`)."""
     dossier_labels: list[str] | None = None
@@ -151,7 +151,7 @@ class CommitmentPage:
     activity_kind: str | None = None  # Plenaire vergadering
     category: str | None = None  # lagere regelgeving
     subjects: list[str] = field(default_factory=list)
-    papers: list[str] = field(default_factory=list)  # as the Kamer names them
+    documents: list[str] = field(default_factory=list)  # as the Kamer names them
     dossiers: list[str] = field(default_factory=list)  # 36746, 36915-XII
     citation: str | None = None  # Handelingen I, 2025/2026, nr.39, item 18, p. 10.
     speakers: list[Speaker] = field(default_factory=list)
@@ -197,7 +197,7 @@ def _offices(cell: str) -> list[str]:
     return [_PERIOD.sub("", line) for line in _lines(cell)]
 
 
-def _papers(cell: str) -> tuple[list[str], list[str]]:
+def _documents(cell: str) -> tuple[list[str], list[str]]:
     """The Kamerstukken a cell names, and the dossier labels of those with a number."""
     names = [html_text(label) for _, label in _LINK.findall(cell)] or _lines(cell)
     dossiers: list[str] = []
@@ -233,7 +233,7 @@ def commitment_page(page: str) -> CommitmentPage | None:
     text = _TEXT.search(page)
     former = _offices(rows.get("voormalige verantwoordelijke(n)", ""))
     now = _offices(rows.get("huidige verantwoordelijke(n)", ""))
-    papers, dossiers = _papers(rows.get("kamerstukken", ""))
+    documents, dossiers = _documents(rows.get("kamerstukken", ""))
     citation, speakers = _passage(page)
     return CommitmentPage(
         number=number,
@@ -249,7 +249,7 @@ def commitment_page(page: str) -> CommitmentPage | None:
         activity_kind=html_text(rows.get("soort activiteit", "")) or None,
         category=html_text(rows.get("categorie", "")) or None,
         subjects=_lines(rows.get("onderwerpen", "")),
-        papers=papers,
+        documents=documents,
         dossiers=dossiers,
         citation=citation,
         speakers=speakers,

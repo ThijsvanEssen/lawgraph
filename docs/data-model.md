@@ -1533,7 +1533,7 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `activity_kind` | `str` | Of the Eerste Kamer: where it was made (`Plenaire vergadering`). |
 | `category` | `str` | Of the Eerste Kamer: `brief/nota`, `evaluatie`, `lagere regelgeving`, `legisprudentie`, `overig`. |
 | `subjects` | `list[str]` | Of the Eerste Kamer: its subjects (`Onderwerpen`). |
-| `papers` | `list[str]` | Of the Eerste Kamer: its Kamerstukken as named (`Wet meer zekerheid flexwerkers (36.746)`). |
+| `documents` | `list[str]` | Of the Eerste Kamer: its Kamerstukken as named (`Wet meer zekerheid flexwerkers (36.746)`). |
 | `dossier_labels` | `list[str]` | Of the Eerste Kamer: the dossiers of those Kamerstukken (`36746`, `36915-XII`), each stored one `ABOUT` (`basis` `kamerstukken`). |
 | `citation` | `str` | Of the Eerste Kamer: the passage it was made in (`Handelingen I, 2025/2026, nr.39, item 18, p. 10.`). |
 | `member_missing` | `"no_name" \| "unmatched"` | Of the Eerste Kamer, without `member_key`: why (`semantic eerstekamer-government`): `no_name`, the passage names no one who spoke in an office of its kind; `unmatched`, the name fits no one or several who held one that day. A gap, not filled by hand. |
@@ -1546,12 +1546,12 @@ A vote of the Eerste Kamer (`normalize eerstekamer-votes`) has the key `ek_<date
 | `made_on` | `str` | The day it was made: that of its activity (`Activiteit.Datum`, the debate), else `registered_on`. |
 | `registered_on` | `str` | The day the Kamer registered it (`Aanmaakdatum`, often weeks after the debate). |
 | `expected_resolution` | `str` | The day it is due, as the source gives it; `0001-01-01` when the Kamer names none. A day before `1900-01-01` (`0025-01-28`, `0205-02-20`) is no day a commitment can be due: the API gives it as a gap (null, `expected_resolution_impossible`), not corrected. |
-| `status` | `str` | `Toezegging.Status` as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen`; of the Eerste Kamer its status with a capital: `Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`. |
+| `status` | `str` | The status as the Kamer gives it: `Openstaand`, `Afgedaan`, `Deels Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Vervallen`; of the Eerste Kamer `Voldaan`, `Deels voldaan`, `Afgevoerd`. |
 | `activity_number` | `str` | The number of its activity. |
 | `number` | `str` | `TZ202603-130`, how the Kamer cites it; `T04275` of the Eerste Kamer. |
 | `letter_ids` | `list[str]` | `Toezegging.KamerbriefNakoming`: the letters that fulfil it (TK ids); each stored one `ANSWERS` it. |
 | `letter_dossiers` | `list[str]` | The dossiers those letters are numbered in (`37020`, `36600-VII`): it is `ABOUT` the stored ones, before the agenda of its debate. |
-| `member_key` | `str` | Who made it (`semantic tk-government`; also an `AUTHORED` edge, `role` `toezegger`). |
+| `member_key` | `str` | Who made it (`semantic tk-government`; also an `AUTHORED` edge, role `toezegger`). |
 | `post` | `str` | The post they made it in. |
 | `ministry` | `str` | The ministry of that post. |
 | `cabinet` | `str` | The cabinet in office that day. |

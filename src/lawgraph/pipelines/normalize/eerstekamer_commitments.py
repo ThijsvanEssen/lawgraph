@@ -32,7 +32,7 @@ from lawgraph.core.display import shorten
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.official_urls import ek_url
-from lawgraph.core.provenance import BASIS_PAPERS
+from lawgraph.core.provenance import BASIS_DOCUMENTS
 from lawgraph.core.raw_records import payload_text
 from lawgraph.db import NodeWriter
 from lawgraph.db.edges import EdgeWriter
@@ -77,7 +77,7 @@ def commitment_node(
             "activity_kind": page.activity_kind,
             "category": page.category,
             "subjects": page.subjects,
-            "papers": page.papers,
+            "documents": page.documents,
             "dossier_labels": page.dossiers,
             "citation": page.citation,
             "url": meta.get("url") or ek_url(path),
@@ -140,7 +140,7 @@ class EerstekamerCommitmentsNormalizePipeline(NormalizePipelineBase[Records]):
                     node_id(COLLECTION_DOSSIERS, key),
                     RELATION_ABOUT,
                     source=EDGE_SOURCE,
-                    meta={"basis": BASIS_PAPERS},
+                    meta={"basis": BASIS_DOCUMENTS},
                 )
         writer.flush()
         writer.remove_stale(
