@@ -14,6 +14,7 @@ from lawgraph.api.schemas.nodes import NeighborDTO
 from lawgraph.api.schemas.parties import PartyRefDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.member_role import has_role
+from lawgraph.core.member_slugs import member_name
 from lawgraph.core.tk_records.decisions import VoteKind
 
 
@@ -345,10 +346,7 @@ class MemberDTO(WithPath):
         return {
             "id": doc["id"],
             "key": doc["key"],
-            # a minister who never sat in parliament has a TK person without a name
-            "name": props.get("name")
-            or props.get("known_as")
-            or props.get("government_name"),
+            "name": member_name(props),
             "full_name": props.get("full_name"),
             "slug": props.get("slug"),
             "family_name": props.get("family_name"),

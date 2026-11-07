@@ -32,14 +32,14 @@
     "src/lawgraph/db/queries/chains.py": 885,
     "src/lawgraph/db/queries/decisions.py": 916,
     "src/lawgraph/db/queries/dossiers.py": 1498,
-    "src/lawgraph/db/queries/feed.py": 1054,
+    "src/lawgraph/db/queries/feed.py": 1052,
     "src/lawgraph/db/queries/feed_sql.py": 1132,
     "src/lawgraph/db/queries/instruments.py": 1525,
     "src/lawgraph/db/queries/nodes.py": 928,
     "src/lawgraph/db/queries/search/types.py": 1267,
     "src/lawgraph/db/queries/semantic/tk.py": 1104,
     "src/lawgraph/db/queries/seo.py": 1258,
-    "src/lawgraph/db/schema.py": 2906,
+    "src/lawgraph/db/schema.py": 2900,
     "src/lawgraph/db/store.py": 1235,
     "src/lawgraph/sources/registry.py": 1271
   }
