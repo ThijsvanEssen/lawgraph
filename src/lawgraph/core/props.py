@@ -1,12 +1,10 @@
 """Typed props schemas for every node collection (``models.COLLECTIONS``).
 
-Each node collection has a corresponding Pydantic model with ``extra="forbid"``.
-This catches typos in field names (e.g. ``bwbr_id`` instead of ``bwb_id``) and
-undeclared fields at Node construction time.
+Each node collection has a Pydantic model with ``extra="forbid"``, which catches typos in
+field names (``bwbr_id`` for ``bwb_id``) and undeclared fields when a Node is made.
 
 Rules for maintainers:
-  1. All fields are Optional — props are merged across pipeline runs; no single
-     pipeline writes every field on every pass.
+  1. All fields are Optional: props are merged across runs; no pipeline writes them all.
   2. ``extra="forbid"`` is intentional — unknown field names raise ValidationError.
      If you legitimately need a new field, add it to the schema *first*.
   3. ``from_document()`` bypasses validation (DB reads may carry partial data).
@@ -759,6 +757,8 @@ class JudgmentProps(_CommonProps):
     echr_findings: list[dict[str, Any]] | None = None
     """ECHR: what it found per article, read from `conclusion`: `{article, protocol,
     combined_with, finding, aspect, text}` (``core/echr_findings.py``)."""
+    criminal_decision: dict[str, Any] | None = None
+    """Of a criminal judgment of a rechtbank or gerechtshof, what it decided on the charge."""
 
 
 # ---------------------------------------------------------------------------

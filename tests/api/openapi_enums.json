@@ -302,6 +302,34 @@
   "not_in_source",
   "not_fetched"
  ],
+ "/components/schemas/CriminalDecisionDTO/properties/proven/anyOf/0": [
+  "ja",
+  "deels",
+  "nee"
+ ],
+ "/components/schemas/CriminalDecisionDTO/properties/proven_missing/anyOf/0": [
+  "geen-dictum",
+  "geen-strafvonnis",
+  "niet-in-dictum",
+  "niet-gevonden",
+  "vrijgesproken"
+ ],
+ "/components/schemas/CriminalDecisionDTO/properties/sentences_missing/anyOf/0": [
+  "geen-dictum",
+  "geen-strafvonnis",
+  "niet-in-dictum",
+  "niet-gevonden",
+  "vrijgesproken"
+ ],
+ "/components/schemas/CriminalSentenceDTO/properties/kind": [
+  "gevangenisstraf",
+  "taakstraf",
+  "geldboete",
+  "jeugddetentie",
+  "hechtenis",
+  "tbs",
+  "meerdere"
+ ],
  "/components/schemas/DecisionDTO/properties/kind_group/anyOf/0": [
   "motie",
   "amendement",

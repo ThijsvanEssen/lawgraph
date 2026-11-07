@@ -500,3 +500,19 @@ def test_facets_false_asks_for_none_and_answers_null(monkeypatch) -> None:
     assert_status(response, 200)
     assert response.json()["facets"] is None and response.json()["total"] == 3
     assert asked[0]["facets"] is False
+
+
+def test_the_detail_says_what_a_criminal_judgment_decided() -> None:
+    decided = {
+        "proven": None,
+        "proven_missing": "niet-in-dictum",
+        "sentences": [{"kind": "taakstraf", "text": "Veroordeelt tot 60 uren."}],
+        "sentences_missing": None,
+    }
+    doc = {
+        **_JUDGMENT_DOC,
+        "props": {**_JUDGMENT_DOC["props"], "criminal_decision": decided},
+    }
+    found = JudgmentDTO.from_document(doc).criminal_decision
+    assert found is not None and found.model_dump() == decided
+    assert JudgmentDTO.from_document(_JUDGMENT_DOC).criminal_decision is None

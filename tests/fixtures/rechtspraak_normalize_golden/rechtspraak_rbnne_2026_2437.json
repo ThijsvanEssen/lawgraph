@@ -1,5 +1,5 @@
 {
- "document": "6413dbb3bfd722b5",
+ "document": "40b24461733ccf1d",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBNNE:2026:2437",
@@ -761,6 +761,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-06-22",
   "published_on": "2026-06-22",

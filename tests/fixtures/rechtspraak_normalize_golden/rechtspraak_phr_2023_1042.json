@@ -1,5 +1,5 @@
 {
- "document": "f68955160c5d3a03",
+ "document": "0c2a796bd54fc747",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:PHR:2023:1042",
@@ -283,6 +283,7 @@
   "conclusion_outcome": "ongegrondverklaring",
   "conclusion_outcome_text": "c38acc8124b2c987 Op grond van de onderdelen 6.14 t/m 6.20 geef ik u in overwe…",
   "conclusion_outcome_paragraph_id": "p-c9bcabb2",
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2023-11-17",
   "published_on": "2023-12-01",

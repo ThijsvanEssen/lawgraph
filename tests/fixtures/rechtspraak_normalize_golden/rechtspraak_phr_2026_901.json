@@ -1,5 +1,5 @@
 {
- "document": "50a2ce4f5bf7f022",
+ "document": "bc0b1ffb4bf05638",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:PHR:2026:901",
@@ -493,6 +493,7 @@
   "conclusion_outcome": "vernietiging en verwijzing",
   "conclusion_outcome_text": "6c88634a702cfd46 Deze conclusie strekt tot vernietiging van het bestreden arr…",
   "conclusion_outcome_paragraph_id": "rov-14_3",
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-01",
   "published_on": "2026-09-22",

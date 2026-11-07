@@ -1,5 +1,5 @@
 {
- "document": "f1bccbf68b84e45f",
+ "document": "e66d64dae97c1249",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHSHE:2026:2210",
@@ -73,6 +73,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-dictum",
+   "sentences": [],
+   "sentences_missing": "geen-dictum"
+  },
   "names": [],
   "date_eff": "2026-08-10",
   "published_on": "2026-08-10",

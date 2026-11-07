@@ -131,6 +131,11 @@ the decisions an appeal names in its text that are not loaded (`court`, `date`,
 laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written, such as `Rv`,
 `article_number`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `paragraph_ids`,
 `mention_count`), one per law and article in reading order.
+`judgment.criminal_decision` is what a criminal judgment of a rechtbank or gerechtshof decided
+on the charge: `proven` (`ja`, `deels`, `nee`), `sentences` (`kind`, `text` as the decision
+writes it) and, for a field left empty, its reason (`proven_missing`, `sentences_missing`); null
+for any other judgment and for one not normalized since ([data model](data-model.md)). It is the
+outcome of the whole case, not of one article it cites.
 
 ### Parliament
 

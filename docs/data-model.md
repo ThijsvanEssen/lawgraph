@@ -939,6 +939,7 @@ A Rechtspraak judgment carries:
   `outcome_paragraph_id`, of a conclusion what it proposes as `conclusion_outcome`,
   `conclusion_outcome_text` and `conclusion_outcome_paragraph_id` (below); null when the text
   does not say it.
+- of a criminal judgment of a rechtbank or gerechtshof, `criminal_decision` (below).
 
 An ECHR judgment carries `appno`, `title`, `date`, `respondent`, `originating_body`,
 `articles`, `conclusion`, `echr_findings` and `outcome` (below), `importance`, `language` (of its HUDOC record; another language version
@@ -1081,6 +1082,26 @@ voorziening`, `houdt iedere verdere beslissing aan`) gives none. `outcome_text` 
 of a kind after those words: `verwerping`, `vernietiging` (`vernietiging en verwijzing` with a
 (terug)verwijzing), `niet-ontvankelijkverklaring`, `ongegrondverklaring`, `gegrondverklaring`,
 `beantwoording` (of preliminary questions). `conclusion_outcome_text` is the sentence.
+
+`criminal_decision` is what a criminal judgment (area of law `Strafrecht`, no conclusion) of a
+rechtbank or gerechtshof decided on the charge, read from the clauses of the same decision
+(`core/criminal_decision.py`); null for any other judgment, the Hoge Raad among them (it rules
+on the cassation appeal, not on the charge). `proven` is `ja` (`verklaart bewezen`, also
+`ontslaat van alle rechtsvervolging`), `nee` (acquitted of all) or `deels` (a charge proven and
+another acquitted, or the prosecution inadmissible for it); the formula `verklaart niet bewezen
+wat meer of anders …` is no acquittal. `sentences` are the main punishments it imposes
+(`veroordeelt`, `legt op`, `gelast` a tbs), each its `kind` (`gevangenisstraf`, `taakstraf`,
+`geldboete`, `jeugddetentie`, `hechtenis`, `tbs`, `meerdere` for a clause with more than one)
+and its clause as `text` (240 characters), substitute detention left out. A field it cannot
+tell is empty with its reason in `proven_missing` or `sentences_missing`: `geen-dictum` (no
+decision read), `geen-strafvonnis` (the decision neither proves nor sentences: a complaint, a
+confiscation order, an appeal court that confirms), `niet-in-dictum` (it sentences without
+saying what was proven: an appeal court that changes the sentence alone), `niet-gevonden`
+(proven, but no sentence read: the decision may be cut off or impose a measure alone; never
+"no sentence"), `vrijgesproken`. A holdout of 60 judgments bore out `proven` (some 95 in 100)
+and the kind of sentence (some 90 in 100); several charges, the prosecution inadmissible for a
+part and an appeal court quashing are read but not kept (too often missed, too rare to
+measure, said by `outcome`).
 
 Of an ECHR judgment `echr_findings` is what it found per article, read from `conclusion`
 (`core/echr_findings.py`): per "Violation of Article 8 - …" or "No violation of …" (in French
@@ -1248,6 +1269,7 @@ next (the text read joins them with a line break).
 | `conclusion_outcome_text` | `str` | The sentence that says it. |
 | `conclusion_outcome_paragraph_id` | `str` | The paragraph of that sentence. |
 | `echr_findings` | `list[object]` | ECHR: what it found per article, read from `conclusion`: `{article, protocol, combined_with, finding, aspect, text}` (`core/echr_findings.py`). |
+| `criminal_decision` | `object` | Of a criminal judgment of a rechtbank or gerechtshof, what it decided on the charge. |
 
 <!-- props:judgments:end -->
 
