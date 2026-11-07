@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.31",
+    "version": "0.80.32",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -18480,6 +18480,114 @@
         "title": "CoverageTierDTO",
         "description": "The judgments of one court tier in the graph."
       },
+      "CriminalDecisionDTO": {
+        "properties": {
+          "proven": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ja",
+                  "deels",
+                  "nee"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proven",
+            "description": "`ja` (verklaart bewezen), `deels` (a charge proven, another acquitted or the prosecution inadmissible for it), `nee` (acquitted of all); null with `proven_missing`."
+          },
+          "proven_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "geen-dictum",
+                  "geen-strafvonnis",
+                  "niet-in-dictum",
+                  "niet-gevonden",
+                  "vrijgesproken"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proven Missing",
+            "description": "Why it is empty: `geen-dictum` (no decision read in the text), `geen-strafvonnis` (the decision neither proves nor sentences: a complaint, a confiscation order, an appeal court that confirms), `niet-in-dictum` (the decision sentences but does not say what was proven: an appeal court that changes only the sentence), `niet-gevonden` (proven, but no main sentence read: the decision may be cut off or impose a measure alone; never read it as no sentence), `vrijgesproken` (nothing proven); null when it is not empty."
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/CriminalSentenceDTO"
+            },
+            "type": "array",
+            "title": "Sentences",
+            "description": "The main punishments the decision imposes, in its order; empty with `sentences_missing`."
+          },
+          "sentences_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "geen-dictum",
+                  "geen-strafvonnis",
+                  "niet-in-dictum",
+                  "niet-gevonden",
+                  "vrijgesproken"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentences Missing",
+            "description": "Why it is empty: `geen-dictum` (no decision read in the text), `geen-strafvonnis` (the decision neither proves nor sentences: a complaint, a confiscation order, an appeal court that confirms), `niet-in-dictum` (the decision sentences but does not say what was proven: an appeal court that changes only the sentence), `niet-gevonden` (proven, but no main sentence read: the decision may be cut off or impose a measure alone; never read it as no sentence), `vrijgesproken` (nothing proven); null when it is not empty."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "proven",
+          "proven_missing",
+          "sentences",
+          "sentences_missing"
+        ],
+        "title": "CriminalDecisionDTO",
+        "description": "What a criminal judgment of a rechtbank or gerechtshof decided on the charge, read\nfrom its decision (``core/criminal_decision.py``). It is the outcome of the whole case,\nnot of one article it cites: with more than one charge, `deels` says nothing of one."
+      },
+      "CriminalSentenceDTO": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gevangenisstraf",
+              "taakstraf",
+              "geldboete",
+              "jeugddetentie",
+              "hechtenis",
+              "tbs",
+              "meerdere"
+            ],
+            "title": "Kind",
+            "description": "`gevangenisstraf`, `taakstraf`, `geldboete`, `jeugddetentie`, `hechtenis`, `tbs`, or `meerdere` for one clause that imposes more than one."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The clause as the decision writes it, at most 240 characters: \"Veroordeelt verdachte tot een gevangenisstraf voor de duur van 3 (drie) jaren.\" Its duration or amount is text, not a number to sort on."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "CriminalSentenceDTO",
+        "description": "A main punishment as the decision imposes it."
+      },
       "DataAsOfDTO": {
         "properties": {
           "retrieved_at": {
@@ -33146,6 +33254,17 @@
             "title": "Echr Findings",
             "description": "Of the ECHR, what it found per article, in the order of HUDOC; empty for any other judgment."
           },
+          "criminal_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CriminalDecisionDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of a criminal judgment of a rechtbank or gerechtshof (no conclusion), what it decided on the charge; null for any other (the Hoge Raad rules on the cassation appeal, not on the charge) and for one `normalize rechtspraak` has not read since."
+          },
           "outcome_paragraph_id": {
             "anyOf": [
               {
@@ -33518,6 +33637,7 @@
           "conclusion_outcome",
           "conclusion_outcome_text",
           "echr_findings",
+          "criminal_decision",
           "outcome_paragraph_id",
           "conclusion_outcome_paragraph_id",
           "ecli",

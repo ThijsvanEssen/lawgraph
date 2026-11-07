@@ -1,5 +1,5 @@
 {
- "document": "e7a40db8c575237d",
+ "document": "34f618cddcee4638",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBDHA:2026:29643",
@@ -468,6 +468,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-10-07",
   "published_on": "2026-10-08",

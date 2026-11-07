@@ -1,5 +1,5 @@
 {
- "document": "f6b91e418ec6ca2d",
+ "document": "470e9139a556bae2",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2026:2678",
@@ -2938,6 +2938,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-22",
   "published_on": "2026-09-22",

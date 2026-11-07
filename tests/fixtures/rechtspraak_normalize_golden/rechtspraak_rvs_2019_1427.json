@@ -1,5 +1,5 @@
 {
- "document": "7a756fac0f72d7c0",
+ "document": "fe8ca29cec2937a4",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2019:1427",
@@ -310,6 +310,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2019-05-01",
   "published_on": "2019-05-01",

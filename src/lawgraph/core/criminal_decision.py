@@ -18,6 +18,12 @@ judgment of a court of first instance or of appeal:
 A decision that is none of these (a complaint, a confiscation order, a Hoge Raad ruling, the
 prosecution inadmissible as a whole) has no ``proven``: that is no conviction or acquittal to
 tell.
+
+``criminal_props`` is what ``normalize rechtspraak`` keeps of it, only the fields a holdout of
+60 judgments bore out (``proven`` and the kind of each sentence with its words): of the
+flags ``several`` misses one in five, ``partly_inadmissible`` was found too rarely to measure,
+and ``quashes`` adds nothing ``outcome`` does not say. A field it cannot tell is null with
+the reason (``CriminalGap``), never a guess.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from dataclasses import dataclass
 from typing import Any, Final, Literal
 
 from lawgraph.core.display import shorten
+from lawgraph.core.judgment_metadata import AREA_CRIMINAL
 from lawgraph.core.judgment_outcome import (
     decision_paragraphs,
     dispositive_clauses,
@@ -35,6 +42,30 @@ from lawgraph.core.judgment_outcome import (
 )
 
 Proven = Literal["ja", "deels", "nee"]
+SentenceKind = Literal[
+    "gevangenisstraf",
+    "taakstraf",
+    "geldboete",
+    "jeugddetentie",
+    "hechtenis",
+    "tbs",
+    "meerdere",
+]
+# Why a field of ``criminal_props`` is empty.
+CriminalGap = Literal[
+    "geen-dictum",
+    "geen-strafvonnis",
+    "niet-in-dictum",
+    "niet-gevonden",
+    "vrijgesproken",
+]
+NO_DECISION: Final[CriminalGap] = "geen-dictum"
+NO_VERDICT: Final[CriminalGap] = "geen-strafvonnis"
+NOT_IN_DECISION: Final[CriminalGap] = "niet-in-dictum"
+NOT_FOUND: Final[CriminalGap] = "niet-gevonden"
+ACQUITTED: Final[CriminalGap] = "vrijgesproken"
+# The tiers whose criminal judgments were validated: the Hoge Raad never proves or sentences.
+CRIMINAL_TIERS = ("rechtbank", "gerechtshof")
 PROVEN: Final[Proven] = "ja"
 PARTLY_PROVEN: Final[Proven] = "deels"
 NOT_PROVEN: Final[Proven] = "nee"
@@ -43,7 +74,7 @@ NOT_PROVEN: Final[Proven] = "nee"
 SENTENCE_CHARS = 240
 
 # (kind, words naming it), tried in this order in a clause.
-_KINDS: tuple[tuple[str, re.Pattern[str]], ...] = (
+_KINDS: tuple[tuple[SentenceKind, re.Pattern[str]], ...] = (
     ("gevangenisstraf", re.compile(r"\bgevangenisstraf\b", re.I)),
     ("taakstraf", re.compile(r"\b(?:taak|werk)straf\b", re.I)),
     ("geldboete", re.compile(r"\bgeldboete\b", re.I)),
@@ -109,7 +140,7 @@ class Sentence:
     """A main punishment: its ``kind``, the words of the decision (``text``) and the
     durations or amounts they name."""
 
-    kind: str
+    kind: SentenceKind
     text: str
     amounts: tuple[str, ...]
 
@@ -130,7 +161,7 @@ def _text(paragraph: Mapping[str, Any]) -> str:
     return str(paragraph.get("text") or "").strip()
 
 
-def _kinds(clause: str) -> list[str]:
+def _kinds(clause: str) -> list[SentenceKind]:
     return [kind for kind, pattern in _KINDS if pattern.search(clause)]
 
 
@@ -148,7 +179,7 @@ def _sentence(clause: str) -> Sentence | None:
     amounts = tuple(m.group(0) for m in _AMOUNT.finditer(clause)) + tuple(
         f"{m.group(1)} {m.group(2).lower()}" for m in _DURATION.finditer(clause)
     )
-    kind = kinds[0] if len(kinds) == 1 else "meerdere"
+    kind: SentenceKind = kinds[0] if len(kinds) == 1 else "meerdere"
     return Sentence(kind, shorten(clause, SENTENCE_CHARS), amounts)
 
 
@@ -214,3 +245,42 @@ def criminal_decision(
         ),
         quashes=any(_QUASHES_JUDGMENT.search(c) for c in clauses),
     )
+
+
+def _kept(found: CriminalDecision | None) -> dict[str, Any]:
+    """The ``criminal_decision`` prop of a decision *found* (None: no decision read)."""
+    if found is None:
+        gap: tuple[CriminalGap | None, CriminalGap | None] = (NO_DECISION, NO_DECISION)
+    elif found.proven is None and not found.sentences:
+        # a complaint, a confiscation order, an appeal court that confirms
+        gap = (NO_VERDICT, NO_VERDICT)
+    else:
+        sentences_gap = None
+        if not found.sentences:
+            # never "no sentence": the decision may be cut off, or impose a measure alone
+            sentences_gap = ACQUITTED if found.proven == NOT_PROVEN else NOT_FOUND
+        gap = (None if found.proven else NOT_IN_DECISION, sentences_gap)
+    return {
+        "proven": found.proven if found else None,
+        "proven_missing": gap[0],
+        "sentences": [
+            {"kind": s.kind, "text": s.text} for s in (found.sentences if found else ())
+        ],
+        "sentences_missing": gap[1],
+    }
+
+
+def criminal_props(
+    *,
+    tier: str | None,
+    area: str | None,
+    conclusion: bool,
+    paragraphs: Sequence[Mapping[str, Any]] | None,
+) -> dict[str, Any]:
+    """The ``criminal_decision`` of a Dutch judgment of a court of *tier* in the *area* of law
+    with these *paragraphs*: ``criminal_decision`` for a criminal judgment (no *conclusion*)
+    of a rechtbank or gerechtshof, null for any other, so a run again clears it."""
+    applies = tier in CRIMINAL_TIERS and area == AREA_CRIMINAL and not conclusion
+    return {
+        "criminal_decision": _kept(criminal_decision(paragraphs)) if applies else None
+    }

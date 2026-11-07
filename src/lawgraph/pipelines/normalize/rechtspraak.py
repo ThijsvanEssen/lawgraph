@@ -11,6 +11,7 @@ from lawgraph.config.constants import (
     SOURCE_RECHTSPRAAK,
 )
 from lawgraph.core.case_numbers import case_number_keys, translated_case_number
+from lawgraph.core.criminal_decision import criminal_props
 from lawgraph.core.judgment_advocate_general import (
     advocate_general,
     advocate_general_role,
@@ -18,6 +19,7 @@ from lawgraph.core.judgment_advocate_general import (
 from lawgraph.core.judgment_counsel import read_counsel
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, judgment_kind
 from lawgraph.core.judgment_metadata import (
+    area_of_law,
     compose_display_name,
     derive_court,
     extract_judgment_text,
@@ -91,8 +93,8 @@ def _kind_props(
     props: dict[str, Any], root: ET.Element, kop: list[str]
 ) -> dict[str, Any]:
     """The ``decision_kind`` of a judgment with the props read so far (``_metadata_props``,
-    ``_text_props``, ``_court_props``), the advocate-general of a conclusion, and how it
-    ended."""
+    ``_text_props``, ``_court_props``), the advocate-general of a conclusion, how it ended
+    and, of a criminal judgment, what it decided on the charge."""
     judgment_meta = props.get("judgment_metadata", {})
     kind = judgment_kind(
         document_type=judgment_meta.get("document_type"),
@@ -106,6 +108,14 @@ def _kind_props(
         found["advocate_general"] = advocate_general(root)
         found["advocate_general_role"] = advocate_general_role(props.get("text"))
     found.update(outcome_props(kind, props.get("paragraphs", [])))
+    found.update(
+        criminal_props(
+            tier=props["tier"],
+            area=area_of_law(props.get("subjects")),
+            conclusion=kind == KIND_CONCLUSIE,
+            paragraphs=props.get("paragraphs"),
+        )
+    )
     return found
 
 

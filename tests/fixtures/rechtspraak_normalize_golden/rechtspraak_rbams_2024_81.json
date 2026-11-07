@@ -1,5 +1,5 @@
 {
- "document": "bff00fa8cd8c07f3",
+ "document": "7cbfbdb4e3b958ae",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBAMS:2024:81",
@@ -6663,6 +6663,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2024-01-11",
   "published_on": "2024-01-11",

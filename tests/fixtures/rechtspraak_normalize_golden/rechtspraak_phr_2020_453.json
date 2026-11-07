@@ -1,5 +1,5 @@
 {
- "document": "a972f8e99e6ef446",
+ "document": "6b1c1bc580e38e58",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:PHR:2020:453",
@@ -173,6 +173,7 @@
   "conclusion_outcome": "vernietiging en verwijzing",
   "conclusion_outcome_text": "De conclusie strekt tot vernietiging van het arrest van het hof ’s-Hertogenbosch van 9 april 2019 en tot verwijzing.",
   "conclusion_outcome_paragraph_id": "p-e712bf2b",
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2020-05-08",
   "published_on": "2020-06-08",

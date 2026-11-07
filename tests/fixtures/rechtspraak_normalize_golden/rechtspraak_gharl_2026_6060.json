@@ -1,5 +1,5 @@
 {
- "document": "ddb88f570cd1dd5b",
+ "document": "d9fa2755da739982",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHARL:2026:6060",
@@ -104,6 +104,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-dictum",
+   "sentences": [],
+   "sentences_missing": "geen-dictum"
+  },
   "names": [],
   "date_eff": "2026-09-21",
   "published_on": "2026-09-21",

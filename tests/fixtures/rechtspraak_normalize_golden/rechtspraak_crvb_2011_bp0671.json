@@ -1,5 +1,5 @@
 {
- "document": "186aeebba7b4520b",
+ "document": "c25484e141da7f8f",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:CRVB:2011:BP0671",
@@ -233,6 +233,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2011-01-12",
   "published_on": "2011-01-13",

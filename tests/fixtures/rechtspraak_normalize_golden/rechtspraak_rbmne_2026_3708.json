@@ -1,5 +1,5 @@
 {
- "document": "b3d18aa465cd4bf4",
+ "document": "782518ba5d08c792",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBMNE:2026:3708",
@@ -291,6 +291,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-strafvonnis",
+   "sentences": [],
+   "sentences_missing": "geen-strafvonnis"
+  },
   "names": [],
   "date_eff": "2026-06-30",
   "published_on": "2026-07-03",

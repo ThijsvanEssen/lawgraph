@@ -1,5 +1,5 @@
 {
- "document": "a4ed1d173c785380",
+ "document": "362763f4d59e68f2",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2007:BB0782",
@@ -482,6 +482,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2007-08-01",
   "published_on": "2007-08-01",

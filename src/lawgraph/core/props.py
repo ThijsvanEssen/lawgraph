@@ -759,6 +759,11 @@ class JudgmentProps(_CommonProps):
     echr_findings: list[dict[str, Any]] | None = None
     """ECHR: what it found per article, read from `conclusion`: `{article, protocol,
     combined_with, finding, aspect, text}` (``core/echr_findings.py``)."""
+    criminal_decision: dict[str, Any] | None = None
+    """Of a criminal judgment of a rechtbank or gerechtshof, what its decision says on the
+    charge (``core/criminal_decision.py``): `{proven, proven_missing, sentences: [{kind,
+    text}], sentences_missing}`, `proven` `ja`, `deels` or `nee`, a `*_missing` the reason
+    a field is empty; null for any other judgment."""
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 {
- "document": "c6077e75b8def7fb",
+ "document": "2618b89de34c64e2",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2007",
@@ -145,6 +145,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [
    "Urgenda"
   ],

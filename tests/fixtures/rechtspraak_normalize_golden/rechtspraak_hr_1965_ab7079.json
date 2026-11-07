@@ -1,5 +1,5 @@
 {
- "document": "f07c798e6bf52657",
+ "document": "59e5b4cb3f12f6bc",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:1965:AB7079",
@@ -127,6 +127,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [
    "Kelderluik"
   ],

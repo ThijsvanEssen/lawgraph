@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from lawgraph.core.criminal_decision import CriminalDecision, criminal_decision
+from lawgraph.core.criminal_decision import (
+    CriminalDecision,
+    criminal_decision,
+    criminal_props,
+)
 
 
 def _decision(*lines: str) -> CriminalDecision | None:
@@ -122,3 +126,75 @@ def test_durations_in_words_and_digits() -> None:
         "5 jaren",
         "tweeëntwintig maanden",
     )
+
+
+def _props(tier: str, *lines: str, area: str = "Strafrecht", conclusion: bool = False):
+    rows = [{"id": "h", "kind": "heading", "text": "Beslissing"}]
+    rows += [{"id": f"p-{n}", "kind": "body", "text": t} for n, t in enumerate(lines)]
+    return criminal_props(tier=tier, area=area, conclusion=conclusion, paragraphs=rows)[
+        "criminal_decision"
+    ]
+
+
+def test_the_props_keep_proof_and_sentences_of_a_conviction() -> None:
+    assert _props(
+        "rechtbank",
+        "Verklaart bewezen dat verdachte het ten laste gelegde heeft begaan.",
+        BOILERPLATE,
+        "Veroordeelt verdachte tot een gevangenisstraf voor de duur van 3 (drie) jaren.",
+    ) == {
+        "proven": "ja",
+        "proven_missing": None,
+        "sentences": [
+            {
+                "kind": "gevangenisstraf",
+                "text": "Veroordeelt verdachte tot een gevangenisstraf voor de duur van "
+                "3 (drie) jaren.",
+            }
+        ],
+        "sentences_missing": None,
+    }
+
+
+def test_an_empty_field_says_why() -> None:
+    acquitted = _props(
+        "gerechtshof",
+        "Verklaart niet bewezen dat de verdachte het tenlastegelegde heeft begaan en "
+        "spreekt de verdachte daarvan vrij.",
+    )
+    assert (acquitted["proven"], acquitted["sentences_missing"]) == (
+        "nee",
+        "vrijgesproken",
+    )
+    cut_off = _props(
+        "rechtbank", "Verklaart bewezen dat verdachte het feit heeft begaan."
+    )
+    assert (cut_off["sentences"], cut_off["sentences_missing"]) == ([], "niet-gevonden")
+    sentence_only = _props(
+        "gerechtshof",
+        "Vernietigt het vonnis waarvan beroep maar alleen ten aanzien van de straf.",
+        "Veroordeelt de verdachte tot een taakstraf van 60 uren.",
+    )
+    assert (sentence_only["proven"], sentence_only["proven_missing"]) == (
+        None,
+        "niet-in-dictum",
+    )
+    complaint = _props(
+        "rechtbank", "De rechtbank verklaart het klaagschrift ongegrond."
+    )
+    assert (
+        complaint["proven_missing"]
+        == complaint["sentences_missing"]
+        == "geen-strafvonnis"
+    )
+    no_decision = criminal_props(
+        tier="rechtbank", area="Strafrecht", conclusion=False, paragraphs=[]
+    )["criminal_decision"]
+    assert no_decision["proven_missing"] == "geen-dictum"
+
+
+def test_only_a_criminal_judgment_of_a_rechtbank_or_hof_has_props() -> None:
+    proof = "Verklaart bewezen dat verdachte het feit heeft begaan."
+    assert _props("hoge_raad", proof) is None
+    assert _props("rechtbank", proof, area="Civiel recht") is None
+    assert _props("gerechtshof", proof, conclusion=True) is None
