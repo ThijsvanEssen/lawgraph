@@ -1,5 +1,6 @@
 """Client for eerstekamer.nl: its list of votes on bills, its list of rejected bills, the
-pages of its factions and committees, and the pages of its bills.
+pages of its factions and committees, the pages of its bills and its register of
+commitments.
 
 The Eerste Kamer publishes its votes only on its website; its terms allow reuse, also
 commercial, with the source and the day it was taken over. ``robots.txt`` allows these
@@ -13,9 +14,16 @@ from collections.abc import Container, Iterator
 
 import requests
 
-from lawgraph.clients.base import PAGE_TIMEOUT, BaseClient, response_text
+from lawgraph.clients.base import (
+    PAGE_TIMEOUT,
+    BaseClient,
+    Unexpected,
+    UnexpectedAnswer,
+    response_text,
+)
 from lawgraph.core import (
     ek_bills,
+    ek_commitments,
     ek_composition,
     ek_pages,
     ek_votes,
@@ -104,6 +112,17 @@ class EerstekamerSiteClient(BaseClient):
         for path in ek_pages.term_page(current).terms:
             if path not in stored:
                 yield path, *self.page(path)
+
+    def listed_commitments(self) -> Iterator[ek_commitments.ListedCommitment]:
+        """Every commitment of the register, the newest first (50 a page, some 90 pages);
+        the caller stops when it has what it needs."""
+        form = ek_commitments.form_id(self.page(ek_commitments.LIST_PATH)[1])
+        if form is None:
+            raise UnexpectedAnswer(Unexpected.NO_FORM, ek_url(ek_commitments.LIST_PATH))
+        path: str | None = ek_commitments.list_path(form)
+        while path:
+            entries, path = ek_commitments.listed(self.page(path)[1])
+            yield from entries
 
     def page(self, path: str) -> tuple[str, str]:
         """``(url, html)`` of the page at *path*."""

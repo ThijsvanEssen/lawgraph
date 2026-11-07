@@ -350,6 +350,9 @@ RAW_KIND_EERSTEKAMER_PERSON = "ek-person-html"
 # The page of a motion of the Eerste Kamer (``/motiedossier/…``, external id its path): what it
 # asks, its key data and who submitted and co-signed it.
 RAW_KIND_EERSTEKAMER_MOTION = "ek-motion-html"
+# The page of a commitment of the Eerste Kamer (``/toezegging/…``, external id its path), from
+# its register of commitments (``core.ek_commitments``).
+RAW_KIND_EERSTEKAMER_COMMITMENT = "ek-commitment-html"
 # The page of an election of the Eerste Kamer in the Kiesraad's databank (external id its
 # code, ``EK20230530``): the seats each list won.
 RAW_KIND_KIESRAAD_EK_RESULT = "kiesraad-ek-result-html"
@@ -420,6 +423,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
         RAW_KIND_EERSTEKAMER_MUTATION,
         RAW_KIND_EERSTEKAMER_PERSON,
         RAW_KIND_EERSTEKAMER_MOTION,
+        RAW_KIND_EERSTEKAMER_COMMITMENT,
     ),
     SOURCE_VERDRAGENBANK: (RAW_KIND_VERDRAGENBANK_JSON, RAW_KIND_VERDRAGENBANK_XML),
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
@@ -483,6 +487,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_EERSTEKAMER_MUTATION: 20,
     RAW_KIND_EERSTEKAMER_PERSON: 50,
     RAW_KIND_EERSTEKAMER_MOTION: 50,
+    RAW_KIND_EERSTEKAMER_COMMITMENT: 50,
     RAW_KIND_KIESRAAD_EK_RESULT: 20,
     RAW_KIND_VERDRAGENBANK_JSON: 1000,
     RAW_KIND_VERDRAGENBANK_XML: 1000,

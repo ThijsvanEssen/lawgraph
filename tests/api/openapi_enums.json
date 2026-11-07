@@ -228,9 +228,18 @@
   "split",
   "wissel"
  ],
+ "/components/schemas/CommitmentDTO/properties/chamber": [
+  "TK",
+  "EK"
+ ],
+ "/components/schemas/CommitmentDTO/properties/member_missing/anyOf/0": [
+  "no_name",
+  "unmatched"
+ ],
  "/components/schemas/CommitmentDossierDTO/properties/basis/anyOf/0": [
   "nakoming",
-  "agenda"
+  "agenda",
+  "kamerstukken"
  ],
  "/components/schemas/CommitmentLetterDTO/properties/kind_group/anyOf/0": [
   "motie",
@@ -1803,6 +1812,10 @@
   "date",
   "expected_resolution",
   "registered_on"
+ ],
+ "/paths//api/commitments/get/parameters/15/schema/anyOf/0": [
+  "TK",
+  "EK"
  ],
  "/paths//api/committees/get/parameters/0/schema": [
   "TK",

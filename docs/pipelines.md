@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad`, `staatsblad-laws` | `staatsblad`, `staatsblad-law-references` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-commitments`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions`, `eerstekamer-commitments` | `eerstekamer`, `eerstekamer-government` |
 | Kamerstukken (KOOP SRU) | `kst-sru` | `kst-sru` | `kst-sru` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
@@ -1887,6 +1887,38 @@ their page as `normalize eerstekamer-persons` matches a page; one whose page is 
 of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
 is not in the graph is skipped, and nothing is written of it.
 
+**Retrieve `eerstekamer-commitments`.** The register of commitments (`/toezeggingen_2`, sent
+as a form without a choice: every commitment since June 2003, the newest first, 50 a page,
+some 90 pages) and the page of each commitment (`/toezegging/…`; record `ek-commitment-html`,
+external id the path, `meta.status` the status the register gave it). A page is fetched when
+it is not stored or when the register gives another status. `--since` reads the register only
+down to the commitments made that day (a change of status of an older one is not seen);
+`retrieve all` reads it whole. `--limit` (default 300, some 10 minutes at the host's
+interval) caps the pages of one run; the log says how many are left after it.
+
+**Normalize `eerstekamer-commitments`.** `core/ek_commitments.py` reads the page by its
+structure: the commitment ("De minister van … zegt de Kamer … toe …"), the table of key data
+(`Nummer`, `Status`, `Datum toezegging`, `Deadline`, `Verantwoordelijke(n)` or, for an office
+since renamed, `Voormalige Verantwoordelijke(n)` and `Huidige Verantwoordelijke(n)`,
+`Kamerleden`, `Commissie`, `Soort activiteit`, `Categorie`, `Onderwerpen`, `Kamerstukken`)
+and, under "Uit de stukken", the citation and who spoke for the government (`Minister
+<strong>Vijlbrief:</strong>`). It writes a commitment `commitments/ek_<number>` beside those
+of the Tweede Kamer, labelled `EersteKamer` and `EK`: `number` (`T04275`), `text`, `status`
+with a capital (`Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`), `made_on`,
+`expected_resolution` (the deadline), `minister_role` (the first office responsible, the
+years the Kamer adds to a later name left out), `minister_name` (the first who spoke in an
+office of that kind), and what only the Eerste Kamer gives (`core.ek_commitments.EkCommitmentProps`).
+Each stored dossier of its Kamerstukken is `ABOUT` it (`meta.basis` `kamerstukken`).
+
+**Semantic `eerstekamer-government`.** Reads every commitment of the Eerste Kamer as
+`semantic tk-government` reads those of the Tweede Kamer (`commitment_props`): the member who
+held a post of the office's kind that day and whose surname is `minister_name`; `post` and
+`ministry` of the office (or of the function the text names when that is another ministry),
+else of the post the member held; `cabinet` on the day; `AUTHORED` from the member
+(`toezegger`). It marks what does not fit: `member_missing` (`no_name`, `unmatched`) and
+`ministry_held`, the ministry of the post the member held that day when it is not that of the
+office (the Kamer names some offices by a later name), never corrected.
+
 **Normalize `eerstekamer-composition`.** `core/ek_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
 <name> (sinds <date>)`), never a sentence. A snapshot is the composition on a day a version
@@ -2302,8 +2334,10 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
+| normalize `eerstekamer-commitments` | `normalize tk-dossiers`, `normalize kst-sru` and `normalize eerstekamer` (the dossiers of their Kamerstukken) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
-| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize staatsblad` and `staatscourant` (of a publication), `normalize rijksoverheid` (the posts) |
+| semantic `eerstekamer-government` | `normalize rijksoverheid` (cabinets and posts), `normalize eerstekamer-commitments` (the commitments of the Eerste Kamer) |
+| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` and `semantic eerstekamer-government` (of a dossier and a commitment), `normalize staatsblad` and `staatscourant` (of a publication), `normalize rijksoverheid` (the posts) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |

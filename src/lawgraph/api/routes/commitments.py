@@ -18,6 +18,7 @@ from lawgraph.api.schemas.commitments import (
     CommitmentFacetsDTO,
     CommitmentListResponse,
 )
+from lawgraph.config.constants import Chamber
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.commitments import get_commitment, get_commitments
@@ -33,10 +34,14 @@ router = APIRouter()
     summary="Commitments",
     description=(
         "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every "
-        "match. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, "
-        "`Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`). "
+        "match; those of the Tweede Kamer (since 2022) and of the Eerste Kamer (since "
+        "2003), ``chamber``. ``status`` is the Toezegging.Status of the Tweede Kamer "
+        "(`Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, "
+        "`Vervallen`) or the status of the Eerste Kamer with a capital (`Openstaand`, "
+        "`Voldaan`, `Deels voldaan`, `Afgevoerd`). "
         "``overdue`` keeps the `Openstaand` ones whose expected date has passed. "
-        "``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments "
+        "``facets`` counts per ``status``, ``cabinet``, ``ministry`` and ``chamber`` the "
+        "commitments "
         "under the other filters; ``facets=false`` leaves them out (null): the pages after "
         "the first need none."
     ),
@@ -47,7 +52,7 @@ def list_commitments(
     status: Annotated[
         str | None,
         Query(
-            description="A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`."
+            description="A status as the commitment has it: `Openstaand`, `Voldaan`."
         ),
     ] = None,
     member: Annotated[str | None, Query(description="Member key.")] = None,
@@ -87,7 +92,7 @@ def list_commitments(
     limit: ListLimit = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
-        bool, Query(description="Count per status, cabinet and ministry.")
+        bool, Query(description="Count per status, cabinet, ministry and chamber.")
     ] = True,
     seat: Annotated[
         str | None,
@@ -96,6 +101,10 @@ def list_commitments(
             "commitments of the member who held it that day."
         ),
     ] = None,
+    chamber: Annotated[
+        Chamber | None,
+        Query(description="The chamber it was made to: `TK` or `EK`."),
+    ] = None,
 ) -> CommitmentListResponse:
     raw = get_commitments(
         store,
@@ -103,6 +112,7 @@ def list_commitments(
         member=member,
         cabinet=cabinet,
         ministry=ministry.value if ministry else None,
+        chamber=chamber,
         seat=seat,
         dossier=dossier,
         due_before=iso_day(due_before),

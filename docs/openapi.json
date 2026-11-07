@@ -5546,7 +5546,7 @@
           "government"
         ],
         "summary": "Commitments",
-        "description": "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every match. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`). ``overdue`` keeps the `Openstaand` ones whose expected date has passed. ``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments under the other filters; ``facets=false`` leaves them out (null): the pages after the first need none.",
+        "description": "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every match; those of the Tweede Kamer (since 2022) and of the Eerste Kamer (since 2003), ``chamber``. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`) or the status of the Eerste Kamer with a capital (`Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`). ``overdue`` keeps the `Openstaand` ones whose expected date has passed. ``facets`` counts per ``status``, ``cabinet``, ``ministry`` and ``chamber`` the commitments under the other filters; ``facets=false`` leaves them out (null): the pages after the first need none.",
         "operationId": "list_commitments_api_commitments_get",
         "parameters": [
           {
@@ -5562,10 +5562,10 @@
                   "type": "null"
                 }
               ],
-              "description": "A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`.",
+              "description": "A status as the commitment has it: `Openstaand`, `Voldaan`.",
               "title": "Status"
             },
-            "description": "A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`."
+            "description": "A status as the commitment has it: `Openstaand`, `Voldaan`."
           },
           {
             "name": "member",
@@ -5768,11 +5768,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Count per status, cabinet and ministry.",
+              "description": "Count per status, cabinet, ministry and chamber.",
               "default": true,
               "title": "Facets"
             },
-            "description": "Count per status, cabinet and ministry."
+            "description": "Count per status, cabinet, ministry and chamber."
           },
           {
             "name": "seat",
@@ -5791,6 +5791,28 @@
               "title": "Seat"
             },
             "description": "An office, by any of its names (``GET /api/seats/{seat}``): the commitments of the member who held it that day."
+          },
+          {
+            "name": "chamber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "TK",
+                    "EK"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The chamber it was made to: `TK` or `EK`.",
+              "title": "Chamber"
+            },
+            "description": "The chamber it was made to: `TK` or `EK`."
           }
         ],
         "responses": {
@@ -17168,6 +17190,16 @@
             "type": "string",
             "title": "Key"
           },
+          "chamber": {
+            "type": "string",
+            "enum": [
+              "TK",
+              "EK"
+            ],
+            "title": "Chamber",
+            "description": "The chamber it was made to: `TK` or `EK`.",
+            "default": "TK"
+          },
           "number": {
             "anyOf": [
               {
@@ -17178,7 +17210,7 @@
               }
             ],
             "title": "Number",
-            "description": "How the Kamer cites it: `TZ202603-130`."
+            "description": "How the Kamer cites it: `TZ202603-130`; of the Eerste Kamer `T04275`."
           },
           "text": {
             "anyOf": [
@@ -17201,7 +17233,7 @@
               }
             ],
             "title": "Status",
-            "description": "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`; null when it gives none."
+            "description": "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`; of the Eerste Kamer its status with a capital: `Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`; null when it gives none."
           },
           "date": {
             "anyOf": [
@@ -17261,7 +17293,19 @@
               }
             ],
             "title": "Minister Name",
-            "description": "As the source writes it."
+            "description": "As the source writes it; of the Eerste Kamer the name of who spoke in the office responsible in the passage it quotes (`Vijlbrief`)."
+          },
+          "minister_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minister Role",
+            "description": "The office it was made in, as the source writes it (`Minister van Sociale Zaken en Werkgelegenheid`)."
           },
           "member": {
             "anyOf": [
@@ -17273,6 +17317,33 @@
               }
             ],
             "description": "The member who made it; null when no member fits the name."
+          },
+          "member_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_name",
+                  "unmatched"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Missing",
+            "description": "Of the Eerste Kamer, without ``member``: why. `no_name`, the passage names no one who spoke in an office of its kind; `unmatched`, the name fits no one or several who held one that day. A gap, not filled by hand."
+          },
+          "ministry_held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the Eerste Kamer: the ministry of the post the member held that day, when it is not ``ministry`` (that of the office the Kamer names): a conflict, not corrected."
           },
           "post": {
             "anyOf": [
@@ -17332,6 +17403,17 @@
             "title": "Fulfilled By",
             "description": "The letters that fulfil it (``ANSWERS``, from ``Toezegging.KamerbriefNakoming``), oldest first."
           },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EkSourceDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the Eerste Kamer: its page on eerstekamer.nl and the day it was read, to name with it; null for the Tweede Kamer."
+          },
           "path": {
             "anyOf": [
               {
@@ -17363,6 +17445,7 @@
         "type": "object",
         "required": [
           "key",
+          "chamber",
           "number",
           "text",
           "status",
@@ -17371,18 +17454,22 @@
           "expected_resolution",
           "expected_resolution_impossible",
           "minister_name",
+          "minister_role",
           "member",
+          "member_missing",
+          "ministry_held",
           "post",
           "ministry",
           "cabinet",
           "dossiers",
           "activity",
           "fulfilled_by",
+          "source",
           "path",
           "ministry_name"
         ],
         "title": "CommitmentDTO",
-        "description": "A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."
+        "description": "A commitment (toezegging) of a bewindspersoon to the Tweede or the Eerste Kamer."
       },
       "CommitmentDossierDTO": {
         "properties": {
@@ -17430,7 +17517,8 @@
                 "type": "string",
                 "enum": [
                   "nakoming",
-                  "agenda"
+                  "agenda",
+                  "kamerstukken"
                 ]
               },
               {
@@ -17438,7 +17526,7 @@
               }
             ],
             "title": "Basis",
-            "description": "Why it is this dossier: `nakoming`, the dossier of a letter that fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of the debate it was made in, where it was discussed (a commitment no letter in a dossier fulfils yet)."
+            "description": "Why it is this dossier: `nakoming`, the dossier of a letter that fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of the debate it was made in, where it was discussed (a commitment no letter in a dossier fulfils yet); `kamerstukken`, of the Eerste Kamer, the dossier of a Kamerstuk its page names."
           },
           "path": {
             "anyOf": [
@@ -17488,6 +17576,13 @@
             },
             "type": "array",
             "title": "Ministry"
+          },
+          "chamber": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Chamber"
           }
         },
         "additionalProperties": false,
@@ -17495,7 +17590,8 @@
         "required": [
           "status",
           "cabinet",
-          "ministry"
+          "ministry",
+          "chamber"
         ],
         "title": "CommitmentFacetsDTO",
         "description": "Per dimension the number of commitments per value under the current filters, each\ndimension counted without its own filter, the largest first: only the values that\nhave commitments (a ministry without any is not listed)."
