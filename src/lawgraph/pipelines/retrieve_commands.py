@@ -51,9 +51,7 @@ from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.pipelines.retrieve._creators import (
     PER_RUN as CREATORS_PER_RUN,
 )
-from lawgraph.pipelines.retrieve._creators import (
-    PublicationCreatorsRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve._creators import CreatorsRetrievePipeline
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -571,7 +569,7 @@ def _with_creators(
     result: PipelineResult, store: GraphStore, args: argparse.Namespace, kind: str
 ) -> PipelineResult:
     """*result*, then the creators of the stored publications of *kind* that lack them."""
-    creators = PublicationCreatorsRetrievePipeline(store, kind, limit=args.creators)
+    creators = CreatorsRetrievePipeline(store, kind, limit=args.creators)
     return result.merge(creators.run())
 
 

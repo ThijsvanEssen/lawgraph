@@ -66,7 +66,7 @@ def with_creators(
     )
 
 
-class PublicationCreatorsRetrievePipeline(RetrievePipelineBase):
+class CreatorsRetrievePipeline(RetrievePipelineBase):
     """Write the creators of the stored records of *kind* (``PUBLICATIONS``) into their
     meta. Run at the end of ``retrieve staatsblad`` and ``retrieve staatscourant``."""
 

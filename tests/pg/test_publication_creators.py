@@ -16,7 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
-from lawgraph.pipelines.retrieve._creators import PublicationCreatorsRetrievePipeline
+from lawgraph.pipelines.retrieve._creators import CreatorsRetrievePipeline
 from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPipeline
 
 _XML = (
@@ -74,7 +74,7 @@ def _documents(store: GraphStore) -> dict[str, dict[str, Any]]:
 def test_creators_from_retrieve_to_led_by(store: GraphStore) -> None:
     _store_records(store)
     client = _Client()
-    result = PublicationCreatorsRetrievePipeline(
+    result = CreatorsRetrievePipeline(
         store, RAW_KIND_STAATSCOURANT_REGELING, cast(KoopPublicationClient, client)
     ).run()
     assert (result.created, result.errors) == (3, [])
@@ -98,7 +98,7 @@ def test_creators_from_retrieve_to_led_by(store: GraphStore) -> None:
     assert read["payload_text"] == _XML
 
     again = _Client()
-    PublicationCreatorsRetrievePipeline(
+    CreatorsRetrievePipeline(
         store, RAW_KIND_STAATSCOURANT_REGELING, cast(KoopPublicationClient, again)
     ).run()
     assert again.asked == []
