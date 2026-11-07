@@ -357,8 +357,9 @@ def test_the_references_of_the_law_of_a_day_fit_its_text(api: Api) -> None:
         include="references",
     )["items"]
 
-    assert any(item["references"] for item in items)
-    assert not _references_not_on_their_text(items)
+    assert any(item["references"] for item in items), "no article has references"
+    misfits = _references_not_on_their_text(items)
+    assert not misfits, show_items(misfits)
 
 
 def test_a_version_with_another_text_than_its_article_gets_no_references(
@@ -394,7 +395,8 @@ def test_a_version_with_another_text_than_its_article_gets_no_references(
 
     assert by_number["1"]["references"] is None
     assert by_number["5"]["references"] != []
-    assert not _references_not_on_their_text(items)
+    misfits = _references_not_on_their_text(items)
+    assert not misfits, show_items(misfits)
 
 
 def test_a_heading_and_a_specificatielijst_come_out_of_the_api(
