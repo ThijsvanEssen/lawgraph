@@ -50,6 +50,7 @@ Basis = Literal[
     "transposition_table",
     "nakoming",
     "agenda",
+    "kamerstukken",
 ]
 Reason = Literal[
     "bwb_article",
@@ -83,6 +84,7 @@ BASIS_FOOTNOTE: Final[Basis] = "footnote"
 BASIS_TRANSPOSITION_TABLE: Final[Basis] = "transposition_table"
 BASIS_FULFILMENT: Final[Basis] = "nakoming"
 BASIS_AGENDA: Final[Basis] = "agenda"
+BASIS_DOCUMENTS: Final[Basis] = "kamerstukken"
 
 REASON_BWB_ARTICLE: Final[Reason] = "bwb_article"
 REASON_BWB_METADATA_ARTICLE: Final[Reason] = "bwb_metadata_article"
@@ -227,6 +229,13 @@ PROVENANCE: tuple[Provenance, ...] = (
         (RELATION_ABOUT,),
         "A commitment no letter in a stored dossier fulfils, and a dossier on the agenda "
         "of the debate it was made in: discussed there, not necessarily its subject.",
+    ),
+    Provenance(
+        "basis",
+        BASIS_DOCUMENTS,
+        (RELATION_ABOUT,),
+        "A commitment of the Eerste Kamer and the dossier of a Kamerstuk its page names "
+        "(`Kamerstukken`): the Kamer files it under that dossier.",
     ),
     Provenance(
         "bases",

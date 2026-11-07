@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any, cast
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
+    CHAMBER_TK,
     COLLECTION_ACTIVITIES,
     COLLECTION_COMMITMENTS,
     COLLECTION_DOCUMENTS,
@@ -72,6 +74,9 @@ _COMMITMENT_FACETS = {
     "status": "c.status",
     "cabinet": "c.cabinet",
     "ministry": "c.ministry",
+    # the chamber, by the label of a commitment of the Eerste Kamer
+    "chamber": f"(CASE WHEN '{CHAMBER_EK}' = ANY(c.labels) THEN '{CHAMBER_EK}'"
+    f" ELSE '{CHAMBER_TK}' END)",
 }
 
 # The words of a commitment: its text and number, folded as the search folds them
@@ -160,6 +165,7 @@ def get_commitments(
     member: str | None = None,
     cabinet: str | None = None,
     ministry: str | None = None,
+    chamber: str | None = None,
     seat: str | None = None,
     dossier: str | None = None,
     due_before: str | None = None,
@@ -172,8 +178,8 @@ def get_commitments(
     made_to: str | None = None,
     facets: bool = True,
 ) -> dict[str, Any]:
-    """A page of commitments, the total and ``facets``: per ``status``, ``cabinet`` and
-    ``ministry`` the number of commitments per value under the other filters, each
+    """A page of commitments, the total and ``facets``: per ``status``, ``cabinet``,
+    ``ministry`` and ``chamber`` (``TK``, ``EK``) the number of commitments per value under the other filters, each
     dimension counted without its own filter (``facets=False``: the page and the total
     alone, ``facets`` None). *seat* keeps what is attributed to that office (``queries.seats``). *q* the queries, any of them, each the words of which the
     text or number holds every one, in any order (``_words.any_query``). *dossier* is a number (``36600``) or the
@@ -192,6 +198,7 @@ def get_commitments(
         ("status", status),
         ("cabinet", cabinet),
         ("ministry", ministry),
+        ("chamber", chamber),
     ):
         if value:
             own[name] = f"{_COMMITMENT_FACETS[name]} = %({name})s"

@@ -4567,6 +4567,7 @@
     "items": [
      {
       "key": "k2",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -4575,23 +4576,28 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
       "dossiers": [],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -4600,12 +4606,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -4636,11 +4645,13 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k3",
+      "chamber": "TK",
       "number": null,
       "text": "Over de ÉCOLE",
       "status": "Afgedaan",
@@ -4649,7 +4660,10 @@
       "expected_resolution": "2025-01-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": null,
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": null,
       "cabinet": "schoof",
@@ -4665,11 +4679,13 @@
       ],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": null
      },
      {
       "key": "k4",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -4678,7 +4694,10 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": null,
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": null,
       "cabinet": "jetten",
@@ -4694,6 +4713,7 @@
       ],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": null
      }
@@ -4728,6 +4748,12 @@
        "value": "fin",
        "count": 2
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 4
+      }
      ]
     }
    }
@@ -4739,6 +4765,7 @@
     "items": [
      {
       "key": "k2",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -4747,23 +4774,28 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
       "dossiers": [],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -4772,12 +4804,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -4808,6 +4843,7 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      }
@@ -4834,6 +4870,12 @@
        "value": null,
        "count": 1
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 2
+      }
      ]
     }
    }
@@ -4845,6 +4887,7 @@
     "items": [
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -4853,12 +4896,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -4889,11 +4935,13 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k2",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -4902,18 +4950,22 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
       "dossiers": [],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      }
@@ -4934,6 +4986,12 @@
      "ministry": [
       {
        "value": "fin",
+       "count": 2
+      }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
        "count": 2
       }
      ]
@@ -4947,6 +5005,7 @@
     "items": [
      {
       "key": "k3",
+      "chamber": "TK",
       "number": null,
       "text": "Over de ÉCOLE",
       "status": "Afgedaan",
@@ -4955,7 +5014,10 @@
       "expected_resolution": "2025-01-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": null,
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": null,
       "cabinet": "schoof",
@@ -4971,6 +5033,7 @@
       ],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": null
      }
@@ -4993,6 +5056,12 @@
        "value": null,
        "count": 1
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 1
+      }
      ]
     }
    }
@@ -5004,6 +5073,7 @@
     "items": [
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -5012,12 +5082,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -5048,11 +5121,13 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k3",
+      "chamber": "TK",
       "number": null,
       "text": "Over de ÉCOLE",
       "status": "Afgedaan",
@@ -5061,7 +5136,10 @@
       "expected_resolution": "2025-01-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": null,
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": null,
       "cabinet": "schoof",
@@ -5077,6 +5155,7 @@
       ],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": null
      }
@@ -5091,6 +5170,7 @@
     "items": [
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -5099,12 +5179,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -5135,11 +5218,13 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      },
      {
       "key": "k4",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -5148,7 +5233,10 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": null,
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": null,
       "cabinet": "jetten",
@@ -5164,6 +5252,7 @@
       ],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": null
      }
@@ -5190,6 +5279,12 @@
        "value": "fin",
        "count": 1
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 2
+      }
      ]
     }
    }
@@ -5201,6 +5296,7 @@
     "items": [
      {
       "key": "k2",
+      "chamber": "TK",
       "number": null,
       "text": null,
       "status": "Openstaand",
@@ -5209,18 +5305,22 @@
       "expected_resolution": null,
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
       "dossiers": [],
       "activity": null,
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      }
@@ -5243,6 +5343,12 @@
        "value": "fin",
        "count": 1
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 1
+      }
      ]
     }
    }
@@ -5254,6 +5360,7 @@
     "items": [
      {
       "key": "k1",
+      "chamber": "TK",
       "number": null,
       "text": "Een brief over Box 3",
       "status": "Openstaand",
@@ -5262,12 +5369,15 @@
       "expected_resolution": "2020-05-01",
       "expected_resolution_impossible": null,
       "minister_name": null,
+      "minister_role": null,
       "member": {
        "key": "m1",
        "name": "Eelco Heinen",
        "function": null,
        "path": "/leden/eelco-heinen"
       },
+      "member_missing": null,
+      "ministry_held": null,
       "post": null,
       "ministry": "fin",
       "cabinet": "jetten",
@@ -5298,6 +5408,7 @@
        "path": "/activiteiten/2026A01"
       },
       "fulfilled_by": [],
+      "source": null,
       "path": null,
       "ministry_name": "Financiën"
      }
@@ -5332,6 +5443,12 @@
        "value": "fin",
        "count": 2
       }
+     ],
+     "chamber": [
+      {
+       "value": "TK",
+       "count": 4
+      }
      ]
     }
    }
@@ -5340,6 +5457,7 @@
    "status": 200,
    "body": {
     "key": "k1",
+    "chamber": "TK",
     "number": null,
     "text": "Een brief over Box 3",
     "status": "Openstaand",
@@ -5348,12 +5466,15 @@
     "expected_resolution": "2020-05-01",
     "expected_resolution_impossible": null,
     "minister_name": null,
+    "minister_role": null,
     "member": {
      "key": "m1",
      "name": "Eelco Heinen",
      "function": null,
      "path": "/leden/eelco-heinen"
     },
+    "member_missing": null,
+    "ministry_held": null,
     "post": null,
     "ministry": "fin",
     "cabinet": "jetten",
@@ -5384,6 +5505,7 @@
      "path": "/activiteiten/2026A01"
     },
     "fulfilled_by": [],
+    "source": null,
     "path": null,
     "ministry_name": "Financiën"
    }

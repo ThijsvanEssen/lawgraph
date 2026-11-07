@@ -67,7 +67,7 @@ def test_nothing_stored_nothing_listed(store: GraphStore) -> None:
     assert get_commitments(store) == {
         "total": 0,
         "items": [],
-        "facets": {"status": [], "cabinet": [], "ministry": []},
+        "facets": {"status": [], "cabinet": [], "ministry": [], "chamber": []},
     }
 
 
@@ -275,6 +275,8 @@ def test_the_commitments_newest_first_with_their_facets(
             ],
             # a tie of counts: by value, null first
             "ministry": [{"value": None, "count": 2}, {"value": "fin", "count": 2}],
+            # a commitment without the label of the Eerste Kamer is of the Tweede
+            "chamber": [{"value": "TK", "count": 4}],
         }
     )
     k1 = page["items"][1]
@@ -315,6 +317,7 @@ def test_each_facet_counts_without_its_own_filter(government: GraphStore) -> Non
         "status": [{"value": "Openstaand", "count": 2}],
         "cabinet": [{"value": "jetten", "count": 2}],
         "ministry": [{"value": "fin", "count": 2}, {"value": None, "count": 1}],
+        "chamber": [{"value": "TK", "count": 2}],
     }
 
 
