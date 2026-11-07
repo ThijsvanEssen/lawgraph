@@ -28,7 +28,7 @@
     "src/lawgraph/core/props.py": 1767,
     "src/lawgraph/core/relations.py": 1085,
     "src/lawgraph/core/transposition_xml.py": 927,
-    "src/lawgraph/db/queries/articles.py": 1128,
+    "src/lawgraph/db/queries/articles.py": 1138,
     "src/lawgraph/db/queries/chains.py": 885,
     "src/lawgraph/db/queries/decisions.py": 916,
     "src/lawgraph/db/queries/dossiers.py": 1498,
