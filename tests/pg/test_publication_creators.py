@@ -1,5 +1,5 @@
-"""Who issued a publication, from retrieve to edge on a real PostgreSQL: ``retrieve
-staatscourant-creators`` writes what the SRU says into the meta of the stored record (its
+"""Who issued a publication, from retrieve to edge on a real PostgreSQL: the creators step of
+``retrieve staatscourant`` writes what the SRU says into the meta of the stored record (its
 payload stays, a second run asks nothing), ``normalize staatscourant`` reads the ministry on
 the day of publication, and ``semantic tooi-ministries`` makes the paper ``LED_BY`` it."""
 
@@ -16,9 +16,7 @@ from lawgraph.config.constants import (
 from lawgraph.db import GraphStore, RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.staatscourant import StaatscourantNormalizePipeline
-from lawgraph.pipelines.retrieve.staatscourant_creators import (
-    StaatscourantCreatorsRetrievePipeline,
-)
+from lawgraph.pipelines.retrieve._creators import PublicationCreatorsRetrievePipeline
 from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPipeline
 
 _XML = (
@@ -76,8 +74,8 @@ def _documents(store: GraphStore) -> dict[str, dict[str, Any]]:
 def test_creators_from_retrieve_to_led_by(store: GraphStore) -> None:
     _store_records(store)
     client = _Client()
-    result = StaatscourantCreatorsRetrievePipeline(
-        store, cast(KoopPublicationClient, client)
+    result = PublicationCreatorsRetrievePipeline(
+        store, RAW_KIND_STAATSCOURANT_REGELING, cast(KoopPublicationClient, client)
     ).run()
     assert (result.created, result.errors) == (3, [])
     # one query, in the order of the record keys
@@ -100,8 +98,8 @@ def test_creators_from_retrieve_to_led_by(store: GraphStore) -> None:
     assert read["payload_text"] == _XML
 
     again = _Client()
-    StaatscourantCreatorsRetrievePipeline(
-        store, cast(KoopPublicationClient, again)
+    PublicationCreatorsRetrievePipeline(
+        store, RAW_KIND_STAATSCOURANT_REGELING, cast(KoopPublicationClient, again)
     ).run()
     assert again.asked == []
 

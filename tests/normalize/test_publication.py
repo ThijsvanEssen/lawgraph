@@ -120,6 +120,7 @@ def test_who_issued_it_comes_from_the_meta_of_its_record() -> None:
         "published": "2011-06-01",
     }
     node = pipeline._parse_publication("stcrt-2011-5", "<r/>", None, meta)
+    assert node is not None
     assert (node.props["creators"], node.props["ministries"]) == (
         ["Ministerie van Justitie"],
         ["venj"],

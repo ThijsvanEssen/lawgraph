@@ -26,6 +26,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from lawgraph.config.constants import (
+    RAW_KIND_STAATSBLAD_AMVB,
+    RAW_KIND_STAATSCOURANT_REGELING,
     RECHTSPRAAK_DEFAULT_COURTS,
     RECHTSPRAAK_EVERY_COURT,
     RECHTSPRAAK_MODIFIED_WINDOW_DAYS,
@@ -46,7 +48,12 @@ from lawgraph.pipelines.command import (
     takes_option,
 )
 from lawgraph.pipelines.retrieve import _gaps
-from lawgraph.pipelines.retrieve._creators import PER_RUN as CREATORS_PER_RUN
+from lawgraph.pipelines.retrieve._creators import (
+    PER_RUN as CREATORS_PER_RUN,
+)
+from lawgraph.pipelines.retrieve._creators import (
+    PublicationCreatorsRetrievePipeline,
+)
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -549,6 +556,25 @@ def retrieve_rechtspraak(args: argparse.Namespace) -> PipelineResult:
 # ── Staatsblad and Staatscourant ─────────────────────────────────────────────
 
 
+def _creators_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--creators",
+        type=int,
+        default=CREATORS_PER_RUN,
+        metavar="N",
+        help="Then ask the SRU who issued at most N stored publications that lack it "
+        f"(default {CREATORS_PER_RUN}; the rest the next run).",
+    )
+
+
+def _with_creators(
+    result: PipelineResult, store: GraphStore, args: argparse.Namespace, kind: str
+) -> PipelineResult:
+    """*result*, then the creators of the stored publications of *kind* that lack them."""
+    creators = PublicationCreatorsRetrievePipeline(store, kind, limit=args.creators)
+    return result.merge(creators.run())
+
+
 def staatsblad_args(parser: argparse.ArgumentParser) -> None:
     add_mode_argument(
         parser,
@@ -558,16 +584,19 @@ def staatsblad_args(parser: argparse.ArgumentParser) -> None:
         "the laws of the dossiers whose bill passed without a law in the graph; full: every "
         "AMvB the SRU lists.",
     )
+    _creators_argument(parser)
 
 
 def retrieve_staatsblad(args: argparse.Namespace) -> PipelineResult:
     store = GraphStore()
     pipeline = StaatsbladRetrievePipeline(store=store)
     if args.mode is RetrieveMode.FULL:
-        return pipeline.run_full()
-    return pipeline.run_from_bwb_graph(store).merge(
-        pipeline.run_laws_of_adopted_dossiers(store)
-    )
+        result = pipeline.run_full()
+    else:
+        result = pipeline.run_from_bwb_graph(store).merge(
+            pipeline.run_laws_of_adopted_dossiers(store)
+        )
+    return _with_creators(result, store, args, RAW_KIND_STAATSBLAD_AMVB)
 
 
 def staatscourant_args(parser: argparse.ArgumentParser) -> None:
@@ -577,24 +606,19 @@ def staatscourant_args(parser: argparse.ArgumentParser) -> None:
         help="Fetch these publications (stcrt-…) as they are.",
     )
     windowed_args(parser)
-
-
-def creators_args(parser: argparse.ArgumentParser) -> None:
-    add_limit_argument(
-        parser,
-        f"Ask for at most this many publications (default {CREATORS_PER_RUN}; the rest "
-        "in the next run): a backfill goes in slices.",
-        default=CREATORS_PER_RUN,
-    )
+    _creators_argument(parser)
 
 
 def retrieve_staatscourant(args: argparse.Namespace) -> PipelineResult:
-    pipeline = StaatscourantRetrievePipeline(GraphStore())
+    store = GraphStore()
+    pipeline = StaatscourantRetrievePipeline(store)
     if args.identifiers:
-        return pipeline.run(identifiers=args.identifiers)
-    if args.mode is RetrieveMode.FULL:
-        return pipeline.run_full()
-    return pipeline.run(since=iso_day(args.since))
+        result = pipeline.run(identifiers=args.identifiers)
+    elif args.mode is RetrieveMode.FULL:
+        result = pipeline.run_full()
+    else:
+        result = pipeline.run(since=iso_day(args.since))
+    return _with_creators(result, store, args, RAW_KIND_STAATSCOURANT_REGELING)
 
 
 # ── Tweede Kamer ─────────────────────────────────────────────────────────────

@@ -23,6 +23,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from lawgraph.core.publication_creators import CreatorProps
+
 
 class _StrictBase(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
@@ -69,8 +71,7 @@ class LegalAreaProps(_StrictBase):
 
 
 class PolicyDomainProps(_StrictBase):
-    """A government theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI
-    concept."""
+    """A theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI concept."""
 
     label: str
     """The theme as the WTI names it ("Overheid, bestuur en koninkrijk")."""
@@ -126,8 +127,7 @@ class TreatyPartyProps(_TreatyDatesProps):
 
 
 class TreatyKingdomPartProps(_TreatyDatesProps):
-    """A part of the Kingdom a treaty applies to, with its dates as the register gives
-    them."""
+    """A part of the Kingdom a treaty applies to, with the dates the register gives."""
 
     part: str | None = None
     """"Nederland (in Europa)", "Aruba"."""
@@ -789,7 +789,7 @@ class DocumentActorProps(_StrictBase):
     `bewindspersoon`, `kamerlid` or `overig`."""
 
 
-class DocumentProps(_CommonProps):
+class DocumentProps(CreatorProps, _CommonProps):
     external_id: str | None = None
     """The id of its record (TK `Document.Id`)."""
     raw: dict[str, Any] | None = None
@@ -923,16 +923,6 @@ class DocumentProps(_CommonProps):
     """Of such a publication: its year."""
     bwb_id: str | None = None
     """Of such a publication: the regulation it is about."""
-    creators: list[str] | None = None
-    """Of such a publication: who issued it, as the SRU writes each `dcterms:creator`
-    (`Ministerie van Financiën`; `retrieve staatsblad-creators`, `staatscourant-creators`);
-    empty when it names none; absent until the SRU was asked."""
-    ministries: list[str] | None = None
-    """Of such a publication: the ministries those creators name, as named on the day of
-    publication (`core/publication_creators.py`), each `LED_BY`."""
-    ministry_missing: str | None = None
-    """Of such a publication without `ministries`, why: `no_creator` (the SRU names none or
-    holds no record of it) or `unlinked` (its creators name no ministry on that day)."""
 
 
 # ---------------------------------------------------------------------------

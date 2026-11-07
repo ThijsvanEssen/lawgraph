@@ -1,5 +1,5 @@
 -- B110 bron 1 before and after: per source the stored publications, those whose meta holds what the SRU says of
--- their creators (`retrieve staatsblad-creators`, `staatscourant-creators`), the papers by who issued them
+-- their creators (the end of `retrieve staatsblad` and `staatscourant`), the papers by who issued them
 -- (`ministry_missing`: no_creator, unlinked) and the LED_BY edges from a paper to a ministry. Read only.
 SET default_transaction_read_only = on;
 SET statement_timeout = '300s';

@@ -119,12 +119,6 @@ from lawgraph.pipelines.retrieve.rechtspraak_instanties import (
     RechtspraakInstantiesRetrievePipeline,
 )
 from lawgraph.pipelines.retrieve.rijksoverheid import RijksoverheidRetrievePipeline
-from lawgraph.pipelines.retrieve.staatsblad_creators import (
-    StaatsbladCreatorsRetrievePipeline,
-)
-from lawgraph.pipelines.retrieve.staatscourant_creators import (
-    StaatscourantCreatorsRetrievePipeline,
-)
 from lawgraph.pipelines.retrieve.staatscourant_posts import (
     StaatscourantPostsRetrievePipeline,
 )
@@ -676,26 +670,6 @@ RETRIEVE: list[Pipeline] = [
         lane=KOOP_REPOSITORY.lane,
     ),
     _retrieve(
-        StaatsbladCreatorsRetrievePipeline,
-        "Who issued each stored Staatsblad publication (dcterms:creator) and its day of "
-        "publication, from the KOOP SRU, into the meta of its record.",
-        argv_for_all=_no_argv,
-        add_args=commands.creators_args,
-        extra_kwargs=lambda args: {"limit": args.limit},
-        lane=KOOP_REPOSITORY.lane,
-        after=("staatsblad",),
-    ),
-    _retrieve(
-        StaatscourantCreatorsRetrievePipeline,
-        "Who issued each stored ministerial regulation (dcterms:creator) and its day of "
-        "publication, from the KOOP SRU, into the meta of its record.",
-        argv_for_all=_no_argv,
-        add_args=commands.creators_args,
-        extra_kwargs=lambda args: {"limit": args.limit},
-        lane=KOOP_REPOSITORY.lane,
-        after=("staatscourant",),
-    ),
-    _retrieve(
         commands.retrieve_eerstekamer,
         "Eerste Kamer Kamerstukken from the KOOP SRU (no votes).",
         argv_for_all=_windowed_argv,
@@ -886,7 +860,6 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         StaatsbladNormalizePipeline,
         "Publications as documents, with the ministries that issued them.",
-        fed_by=("staatsblad-creators",),  # who issued each, in the meta of its record
     ),
     _pipeline(
         StaatsbladLawsNormalizePipeline,
@@ -899,9 +872,6 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         StaatscourantNormalizePipeline,
         "Regulations as documents, with the ministries that issued them.",
-        fed_by=(
-            "staatscourant-creators",
-        ),  # who issued each, in the meta of its record
     ),
     _pipeline(
         EerstekamerNormalizePipeline,
@@ -1188,9 +1158,8 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         TooiMinistriesSemanticPipeline,
         "The ministries as nodes, each name that followed another CONTINUES it; LED_BY "
-        "from every regulation, dossier, commitment and publication of the Staatsblad and "
-        "the Staatscourant to its ministry, SERVED_IN from every member to the ministries "
-        "they held a post under.",
+        "from every regulation, dossier, commitment and Stb/Stcrt paper to its ministry, "
+        "SERVED_IN from every member to the ministries they held a post under.",
         after=("tk-government",),
     ),
     _pipeline(

@@ -9,20 +9,27 @@ it is, only the meta and ``fetched_at`` change, so ``normalize`` reads the recor
 publication the SRU holds no record of gets an empty list: asked, and it names none.
 
 A record fetched again (a publication modified at the source) comes without them and is
-asked again. ``--limit`` bounds a run: the daily run asks for the new ones, a backfill goes in
-slices.
+asked again. ``--creators`` of those retrieves bounds a run: the daily run asks for the new
+ones, a backfill goes in slices.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
 from itertools import batched
-from typing import Any, ClassVar
+from typing import Any
 
 from lawgraph.clients.koop_publications import (
+    AMVB,
     CREATORS_PER_QUERY,
+    MINISTERIAL_REGULATION,
     KoopPublicationClient,
-    PublicationKind,
+)
+from lawgraph.config.constants import (
+    RAW_KIND_STAATSBLAD_AMVB,
+    RAW_KIND_STAATSCOURANT_REGELING,
+    SOURCE_STAATSBLAD,
+    SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.publication_creators import META_CREATORS, META_PUBLISHED
 from lawgraph.db import GraphStore
@@ -30,9 +37,14 @@ from lawgraph.db.queries import raw as raw_queries
 
 from .base import RetrievePipelineBase, RetrieveRecord
 
-# The publications a run asks for without ``--limit``: the new ones of a day, many times
+# The publications a run asks for without ``--creators``: the new ones of a day, many times
 # over (100 queries, a few minutes). A backfill passes its own.
 PER_RUN = 5_000
+# Per raw kind of the XML of a publication: its source and what the SRU lists it as.
+PUBLICATIONS = {
+    RAW_KIND_STAATSBLAD_AMVB: (SOURCE_STAATSBLAD, AMVB),
+    RAW_KIND_STAATSCOURANT_REGELING: (SOURCE_STAATSCOURANT, MINISTERIAL_REGULATION),
+}
 
 
 def with_creators(
@@ -55,20 +67,20 @@ def with_creators(
 
 
 class PublicationCreatorsRetrievePipeline(RetrievePipelineBase):
-    """Write the creators of the stored records of ``source``/``kind`` into their meta."""
-
-    source: ClassVar[str]
-    kind: ClassVar[str]  # the raw kind of the publication's XML
-    publication: ClassVar[PublicationKind]
+    """Write the creators of the stored records of *kind* (``PUBLICATIONS``) into their
+    meta. Run at the end of ``retrieve staatsblad`` and ``retrieve staatscourant``."""
 
     def __init__(
         self,
         store: GraphStore,
+        kind: str,
         client: KoopPublicationClient | None = None,
         limit: int | None = PER_RUN,
     ) -> None:
         super().__init__(store)
-        self.client = client or KoopPublicationClient(self.publication)
+        self.source, publication = PUBLICATIONS[kind]
+        self.kind = kind
+        self.client = client or KoopPublicationClient(publication)
         self.limit = limit
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:

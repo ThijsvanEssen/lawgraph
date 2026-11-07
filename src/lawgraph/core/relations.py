@@ -796,14 +796,12 @@ RELATIONS: tuple[RelationSpec, ...] = (
             (_DOC, _MINISTRY),
         ),
         "Who leads it. The lead committee (`voortouwcommissie`) of an activity or case; "
-        "absent for plenary. The ministry of a BWB regulation (first responsible: its WTI "
-        "`eerstverantwoordelijke`), of a dossier (that of the bewindspersoon who brought it "
-        "in) and of a commitment: its `ministry`. Each ministry that issued a paper of the "
-        "Staatsblad or the Staatscourant (its `dcterms:creator` on the day of publication): "
-        "its `ministries`. Derived on read, not stored: a dossier "
-        "→ the committees that lead an activity about it (`meta.derived_from` "
-        "`activities`, `role` `lead`, `activities` how many), and a committee → those "
-        "dossiers (also `latest`, the day of the latest such activity).",
+        "absent for plenary. The ministry of a BWB regulation (its WTI "
+        "`eerstverantwoordelijke`), a dossier (of the bewindspersoon who brought it in) and "
+        "a commitment: its `ministry`; of a Stb/Stcrt paper its `ministries` (its creator). "
+        "Derived on read, not stored: a dossier → the committees that lead an activity "
+        "about it (`meta.derived_from` `activities`, `role` `lead`, `activities` how many), "
+        "and a committee → those dossiers (also `latest`, the day of the latest one).",
         derived=((_DOSSIER, _COMMITTEE),),
     ),
     RelationSpec(
