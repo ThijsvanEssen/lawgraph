@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from fastapi import Response
 
 from lawgraph.api import warm
 from lawgraph.api.params import Tier
@@ -154,26 +155,45 @@ def test_the_common_filters_are_kept_as_the_explorer_asks_them(
         warm.warm_up(store)
     calls = recorded(store, monkeypatch)
     answers: list[Any] = [
-        judgments.list_judgments(store=store, limit=1, tier=[Tier("hoge_raad")]),
-        judgments.list_judgments(store=store, limit=1, subject_area="Strafrecht"),
+        judgments.list_judgments(
+            store=store, response=Response(), limit=1, tier=[Tier("hoge_raad")]
+        ),
+        judgments.list_judgments(
+            store=store, response=Response(), limit=1, subject_area="Strafrecht"
+        ),
         judgments.list_judgments(
             store=store,
+            response=Response(),
             limit=1,
             date_from=dt.date(2020, 1, 1),
             date_to=dt.date(2020, 12, 31),
         ),
         instruments.list_instruments(
-            store=store, limit=1, article_count_min=1, jurisdiction="nl"
+            store=store,
+            response=Response(),
+            limit=1,
+            article_count_min=1,
+            jurisdiction="nl",
         ),
         instruments.list_instruments(
-            store=store, limit=1, article_count_min=1, kind="verdrag"
+            store=store,
+            response=Response(),
+            limit=1,
+            article_count_min=1,
+            kind="verdrag",
         ),
-        documents.list_chamber_documents(store=store, limit=1, chamber="EK"),
         documents.list_chamber_documents(
-            store=store, limit=1, chamber="TK", kind="Motie"
+            store=store, response=Response(), limit=1, chamber="EK"
         ),
-        decisions.list_decisions(store=store, limit=1, chamber="TK", kind="Motie"),
-        decisions.list_decisions(store=store, limit=1, chamber="EK", passed=True),
+        documents.list_chamber_documents(
+            store=store, response=Response(), limit=1, chamber="TK", kind="Motie"
+        ),
+        decisions.list_decisions(
+            store=store, response=Response(), limit=1, chamber="TK", kind="Motie"
+        ),
+        decisions.list_decisions(
+            store=store, response=Response(), limit=1, chamber="EK", passed=True
+        ),
     ]
     assert [answer.partial for answer in answers] == [False] * len(answers)
     counted = [

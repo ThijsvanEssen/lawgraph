@@ -466,7 +466,7 @@ SOURCES: dict[str, Source] = {
             ),
             # the versions of the instruments whose title holds the words: by the index
             # on the citation title, or without one (its title then) every such instrument
-            # but the publications (``instruments_list_title``)
+            # but the publications (``instruments_list_sort_title``)
             found=lambda q: (
                 "n.bwb_id = ANY(ARRAY("
                 "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"

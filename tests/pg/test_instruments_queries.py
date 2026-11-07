@@ -1047,14 +1047,15 @@ def test_the_list_by_title(store: GraphStore) -> None:
         "validity": [{"value": "in_force", "count": 6}],
     }
     assert got["total"] == 6
-    # no citation_title first, by key; then the titles in the collation
+    # by the title each shows (its citation title, else title, display name or key), in
+    # the collation: one without a citation title not first (B127)
     assert [i["key"] for i in got["items"]] == [
-        "bare",
-        "dn_only",
-        "t_only",
         "bwbr0000001",
+        "t_only",
         "32016r0679",
+        "bare",
         "bwbr0000002",
+        "dn_only",
     ]
     by_key = {i["key"]: i for i in got["items"]}
     assert list(by_key["bwbr0000002"]) == [
@@ -1140,7 +1141,7 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     got = instruments.get_instruments_list(store, jurisdiction="NL")
     assert (got["total"], [i["key"] for i in got["items"]]) == (
         3,
-        ["t_only", "bwbr0000001", "bwbr0000002"],
+        ["bwbr0000001", "t_only", "bwbr0000002"],
     )
     got = instruments.get_instruments_list(store, kind="Publicatie")
     assert (got["total"], [i["key"] for i in got["items"]]) == (1, ["stb1"])
@@ -1178,7 +1179,10 @@ def test_the_list_by_article_count_with_filters_and_paging(store: GraphStore) ->
     }
     # a query that tokenises to nothing is no filter
     got = instruments.get_instruments_list(store, q="!", limit=2)
-    assert (got["total"], [i["key"] for i in got["items"]]) == (6, ["bare", "dn_only"])
+    assert (got["total"], [i["key"] for i in got["items"]]) == (
+        6,
+        ["bwbr0000001", "t_only"],
+    )
 
 
 def test_the_list_leaves_the_amending_regulations_out_unless_asked(
@@ -2073,11 +2077,32 @@ def test_the_total_of_the_list_is_counted_once_for_every_page(
     assert totals == [1]
 
 
+def test_the_list_sorts_past_the_marks_a_title_starts_with(store: GraphStore) -> None:
+    """A title that starts with a quote or a bracket sorts by its first letter; the pages
+    of ``after`` follow the same order."""
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [
+            _doc("a", "instrument", citation_title="Wet op de Raad van State"),
+            _doc("b", "instrument", citation_title="‘Muziek in de wet’"),
+            _doc("c", "instrument", citation_title="(Onder)mandaatregeling"),
+            _doc("d", "instrument", title="Rijkswet goedkeuring verdrag"),
+            _doc("e", "instrument", citation_title="Advocatenwet"),
+        ],
+    )
+    first = instruments.get_instruments_list(store, limit=3, facets=False)
+    second = instruments.get_instruments_list(
+        store, limit=3, facets=False, after=first["next_cursor"]
+    )
+    assert _keys(first["items"]) == ["e", "b", "c"]
+    assert _keys(second["items"]) == ["d", "a"]
+
+
 def test_the_page_without_the_amending_regulations_is_read_in_title_order(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The list leaves the amending regulations and those no longer in force out by
-    default: its page is still read from the index of its order (``instruments_list_title``),
+    default: its page is still read from the index of its order (``instruments_list_sort_title``),
     the few left out passed over on the way, not the whole list sorted."""
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -2103,5 +2128,7 @@ def test_the_page_without_the_amending_regulations_is_read_in_title_order(
     ]
     plan = explain(store, statement, params)
     nodes = list(plan_nodes(plan))
-    assert any(n.get("Index Name") == "instruments_list_title" for n in nodes), plan
+    assert any(n.get("Index Name") == "instruments_list_sort_title" for n in nodes), (
+        plan
+    )
     assert not any(n["Node Type"] == "Sort" for n in nodes), plan

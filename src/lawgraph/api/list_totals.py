@@ -7,6 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
+from fastapi import Response
+
 from lawgraph.api.routes import (
     cabinets,
     commitments,
@@ -52,13 +54,17 @@ LISTS: dict[str, ListTotal] = {
     "instruments": ListTotal(
         (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS, COLLECTION_EDGES),
         lambda store: (
-            instruments.list_instruments(store=store, limit=1, facets=False).total
+            instruments.list_instruments(
+                store=store, response=Response(), limit=1, facets=False
+            ).total
         ),
     ),
     "judgments": ListTotal(
         (COLLECTION_JUDGMENTS, COLLECTION_EDGES),
         lambda store: (
-            judgments.list_judgments(store=store, limit=1, facets=False).total
+            judgments.list_judgments(
+                store=store, response=Response(), limit=1, facets=False
+            ).total
         ),
     ),
     "dossiers": ListTotal(
@@ -72,7 +78,11 @@ LISTS: dict[str, ListTotal] = {
     # with its facets: without them the list gives no total
     "documents": ListTotal(
         (COLLECTION_DOCUMENTS, COLLECTION_EDGES),
-        lambda store: documents.list_chamber_documents(store=store, limit=1).total,
+        lambda store: (
+            documents.list_chamber_documents(
+                store=store, response=Response(), limit=1
+            ).total
+        ),
     ),
     "members": ListTotal((COLLECTION_MEMBERS,), count_members),
     "bewindspersonen": ListTotal(

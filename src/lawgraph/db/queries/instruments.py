@@ -48,7 +48,12 @@ from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_ti
 from lawgraph.db.queries.instrument_scope import listed_article, scope_of
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.search.clause import build_search_clause, tokenize_search_query
-from lawgraph.db.schema import CITED_BY_TABLE, instrument_date_in_force, node_of
+from lawgraph.db.schema import (
+    CITED_BY_TABLE,
+    instrument_date_in_force,
+    instrument_sort_title,
+    node_of,
+)
 from lawgraph.db.version_cache import cached, cached_rows, lasting
 
 
@@ -1214,7 +1219,10 @@ def get_instruments_list(
 INSTRUMENT_ORDERS = {
     "title": Keyset(
         "instruments:title",
-        (SortKey("citation_title", nulls_first=True), SortKey("key", not_null=True)),
+        (
+            SortKey(instrument_sort_title(), not_null=True),
+            SortKey("key", not_null=True),
+        ),
     ),
     "article_count": Keyset(
         "instruments:article_count",
