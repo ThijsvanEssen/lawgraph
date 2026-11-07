@@ -51,11 +51,12 @@ _DOSSIER = re.compile(r"\((\d{1,3}\.\d{3}(?:[^()]|\([^()]*\))*)\)\s*$")
 # of a later period.
 _PERIOD = re.compile(r"\s*\(\s*\d{4}\s*-\s*(?:\d{4})?\s*\)\s*$")
 _PASSAGE = re.compile(r"<h2>\s*<a id=\"p\d+\"></a>\s*Uit de stukken.*?(?=<h2>|$)", re.S)
-# ``Minister <strong>De Graaf</strong>:``, ``Staatssecretaris <strong>Van Ark:</strong>``: who
-# spoke for the government in the passage quoted.
+# ``Minister <strong>De Graaf</strong>:``, ``Staatssecretaris <strong>Van Ark:</strong>``,
+# ``Minister <strong>Pau</strong>l:`` (the rest of the name after the tag): who spoke for the
+# government in the passage quoted.
 _SPEAKER = re.compile(
     r"\b((?:Vice-?)?[Mm]inister(?:-president)?|[Ss]taatssecretaris)\s*<strong>"
-    r"\s*([^<:]+?)\s*:?\s*</strong>"
+    r"\s*([^<:]+?)\s*:?\s*</strong>([^\s<:]*)"
 )
 _CITATION = re.compile(r'<p class="mnone">(.*?)</p>', re.S)
 
@@ -217,8 +218,8 @@ def _passage(page: str) -> tuple[str | None, list[Speaker]]:
         return None, []
     citation = _CITATION.search(found[0])
     speakers: list[Speaker] = []
-    for function, name in _SPEAKER.findall(found[0]):
-        speaker = Speaker(function.capitalize(), html_text(name))
+    for function, name, rest in _SPEAKER.findall(found[0]):
+        speaker = Speaker(function.capitalize(), html_text(name + rest))
         if speaker.name and speaker not in speakers:
             speakers.append(speaker)
     return (html_text(citation[1]) or None) if citation else None, speakers

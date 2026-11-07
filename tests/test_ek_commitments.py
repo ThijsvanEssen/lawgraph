@@ -99,6 +99,18 @@ def test_every_dossier_of_the_kamerstukken_with_its_addition() -> None:
     assert ek_commitments.maker(page) == "Karremans"
 
 
+def test_a_name_partly_outside_its_tag_is_whole() -> None:
+    page = ek_commitments.commitment_page(
+        '<th scope="row">Nummer</th><td>T04106</td>'
+        '<th scope="row">Verantwoordelijke(n)</th>'
+        "<td>Minister van Sociale Zaken en Werkgelegenheid<br /></td>"
+        '<h2><a id="p2"></a>Uit de stukken</h2>'
+        '<p class="mtop">Minister <strong>Pau</strong>l:</p>'
+    )
+    assert page is not None
+    assert ek_commitments.maker(page) == "Paul"
+
+
 def test_a_page_without_a_number_is_none() -> None:
     assert ek_commitments.commitment_page("<main><p>Niet gevonden</p></main>") is None
 
