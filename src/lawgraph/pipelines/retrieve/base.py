@@ -14,7 +14,7 @@ from lawgraph.clients.base import UnexpectedAnswer
 from lawgraph.config.constants import RAW_BATCH_SIZE, RAW_KIND_MISSING_SUFFIX
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.models import PipelineResult
-from lawgraph.core.time import iso_timestamp
+from lawgraph.core.time import iso_timestamp, utc_now_iso
 from lawgraph.db import RawSourceWriter, raw_source_doc
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.raw import StoreUnavailable
@@ -42,6 +42,26 @@ class RetrieveRecord:
     meta: dict[str, Any] | None = None
     # False for a by-product of another record: stored, but not a step of the progress.
     counts: bool = True
+    # The stored document of the record when only its *meta* changes: written again as it
+    # is, fetched now, its payload left where it is in the payload store.
+    stored: dict[str, Any] | None = None
+
+
+def record_doc(record: RetrieveRecord) -> dict[str, Any]:
+    """The raw_sources document of *record*."""
+    if record.stored is not None:
+        doc = {
+            k: v for k, v in record.stored.items() if k not in ("id", "payload_text")
+        }
+        return {**doc, "meta": dict(record.meta or {}), "fetched_at": utc_now_iso()}
+    return raw_source_doc(
+        source=record.source,
+        kind=record.kind,
+        external_id=record.external_id,
+        payload_json=record.payload_json,
+        payload_text=record.payload_text,
+        meta=record.meta,
+    )
 
 
 class SourceDown(RuntimeError):
@@ -305,14 +325,7 @@ class RetrievePipelineBase(PipelineBase):
                 for record in records:
                     if STOP.is_set():
                         raise KeyboardInterrupt  # leaves the writer, which stores its buffer
-                    doc = raw_source_doc(
-                        source=record.source,
-                        kind=record.kind,
-                        external_id=record.external_id,
-                        payload_json=record.payload_json,
-                        payload_text=record.payload_text,
-                        meta=record.meta,
-                    )
+                    doc = record_doc(record)
                     if not record.counts:
                         by_products.add(doc["key"])
                     writer.add(doc)

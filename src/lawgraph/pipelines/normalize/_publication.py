@@ -15,6 +15,7 @@ from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.identifiers import find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
+from lawgraph.core.publication_creators import creator_props
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.xml import find_text
@@ -63,9 +64,10 @@ _CLAIMS_AT_ONCE = 200
 
 
 class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
-    """A document per publication of the spec: its text, year, number, title and the
+    """A document per publication of the spec: its text, year, number, title, the
     regulation it belongs to (``bwb_id``: the one retrieve found it for, where the spec's
-    source confirms it, else the first its text names)."""
+    source confirms it, else the first its text names) and, once the SRU was asked, who
+    issued it (``core.publication_creators``)."""
 
     spec: ClassVar[PublicationSpec]
 
@@ -91,7 +93,9 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
                 if not text:
                     self.progress.skip("no payload", identifier or record.get("key"))
                     continue
-                node = self._parse_publication(identifier, text, claims.get(identifier))
+                node = self._parse_publication(
+                    identifier, text, claims.get(identifier), meta(record)
+                )
                 if node is None:
                     continue
                 writer.add(node)
@@ -117,9 +121,14 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
         return {identifier: claims[identifier] for identifier in kept}
 
     def _parse_publication(
-        self, identifier: str, xml_text: str, bwb_id: str | None = None
+        self,
+        identifier: str,
+        xml_text: str,
+        bwb_id: str | None = None,
+        record_meta: dict[str, Any] | None = None,
     ) -> Node | None:
-        """The document of a publication's XML; None for XML that does not parse."""
+        """The document of a publication's XML, with who issued it from the meta of its
+        record (*record_meta*); None for XML that does not parse."""
         spec = self.spec
         try:
             root = ET.fromstring(xml_text)
@@ -150,6 +159,7 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             # would otherwise stay
             "bwb_id": bwb_id or find_bwb_id(xml_text),
         }
+        props.update(creator_props(record_meta or {}, props.get("date")))
         return Node(
             collection=COLLECTION_DOCUMENTS,
             key=make_node_key(spec.key_prefix, identifier),

@@ -46,6 +46,7 @@ from lawgraph.pipelines.command import (
     takes_option,
 )
 from lawgraph.pipelines.retrieve import _gaps
+from lawgraph.pipelines.retrieve._creators import PER_RUN as CREATORS_PER_RUN
 from lawgraph.pipelines.retrieve.bwb import BWBRetrievePipeline
 from lawgraph.pipelines.retrieve.echr import ECHRRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer import EerstekamerRetrievePipeline
@@ -576,6 +577,15 @@ def staatscourant_args(parser: argparse.ArgumentParser) -> None:
         help="Fetch these publications (stcrt-…) as they are.",
     )
     windowed_args(parser)
+
+
+def creators_args(parser: argparse.ArgumentParser) -> None:
+    add_limit_argument(
+        parser,
+        f"Ask for at most this many publications (default {CREATORS_PER_RUN}; the rest "
+        "in the next run): a backfill goes in slices.",
+        default=CREATORS_PER_RUN,
+    )
 
 
 def retrieve_staatscourant(args: argparse.Namespace) -> PipelineResult:

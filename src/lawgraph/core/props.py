@@ -923,6 +923,16 @@ class DocumentProps(_CommonProps):
     """Of such a publication: its year."""
     bwb_id: str | None = None
     """Of such a publication: the regulation it is about."""
+    creators: list[str] | None = None
+    """Of such a publication: who issued it, as the SRU writes each `dcterms:creator`
+    (`Ministerie van Financiën`; `retrieve staatsblad-creators`, `staatscourant-creators`);
+    empty when it names none; absent until the SRU was asked."""
+    ministries: list[str] | None = None
+    """Of such a publication: the ministries those creators name, as named on the day of
+    publication (`core/publication_creators.py`), each `LED_BY`."""
+    ministry_missing: str | None = None
+    """Of such a publication without `ministries`, why: `no_creator` (the SRU names none or
+    holds no record of it) or `unlinked` (its creators name no ministry on that day)."""
 
 
 # ---------------------------------------------------------------------------

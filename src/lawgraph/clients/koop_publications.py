@@ -24,9 +24,13 @@ from lawgraph.config.sources import KOOP_REPOSITORY, KOOP_SRU
 from lawgraph.core.identifiers import STB_ID_PATTERN, STCRT_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.transposition_xml import TABLE_WORDS
-from lawgraph.core.xml import find_own_text, own_texts
+from lawgraph.core.xml import find_own_text, iter_named, own_texts
 
 logger = get_logger(__name__)
+
+# The identifiers one query asks for (``creators_of``): a hundred makes the URL too long for
+# the repository, which then answers no records.
+CREATORS_PER_QUERY = 50
 
 
 @dataclass(frozen=True)
@@ -145,6 +149,26 @@ class KoopPublicationClient(BaseClient):
             found.update(record["creators"])
         return found
 
+    def creators_of(self, identifiers: list[str]) -> dict[str, dict[str, Any]]:
+        """``{identifier: {creators, published}}`` of the publications of *identifiers* the
+        SRU holds (``CREATORS_PER_QUERY`` to a query): each ``dcterms:creator`` as
+        ``{name, scheme}`` (``Ministerie van Financiën``, ``OVERHEID.Ministerie``) and the day
+        of publication (``dcterms:available``). An identifier the SRU does not hold is not in
+        it."""
+        found: dict[str, dict[str, Any]] = {}
+        for start in range(0, len(identifiers), CREATORS_PER_QUERY):
+            batch = identifiers[start : start + CREATORS_PER_QUERY]
+            ids = " OR ".join(f'dt.identifier=="{i}"' for i in batch)
+            for record in iter_publications(
+                self,
+                KOOP_SRU,
+                query=f"({ids})",
+                parse=lambda root: [_creators(r) for r in records(root)],
+                context=f"{self.kind.publication} creators",
+            ):
+                found[record.pop("identifier")] = record
+        return found
+
     def _publications(
         self, root: ET.Element, others: list[str]
     ) -> list[dict[str, Any]]:
@@ -171,3 +195,16 @@ class KoopPublicationClient(BaseClient):
                 }
             )
         return found
+
+
+def _creators(record: ET.Element) -> dict[str, Any]:
+    """``{identifier, creators, published}`` of one SRU record (``creators_of``)."""
+    return {
+        "identifier": record_identifier(record),
+        "creators": [
+            {"name": name, "scheme": node.get("scheme")}
+            for node in iter_named(record, "creator")
+            if (name := (node.text or "").strip())
+        ],
+        "published": find_own_text(record, "available"),
+    }
