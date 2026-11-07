@@ -1269,7 +1269,7 @@ next (the text read joins them with a line break).
 | `conclusion_outcome_text` | `str` | The sentence that says it. |
 | `conclusion_outcome_paragraph_id` | `str` | The paragraph of that sentence. |
 | `echr_findings` | `list[object]` | ECHR: what it found per article, read from `conclusion`: `{article, protocol, combined_with, finding, aspect, text}` (`core/echr_findings.py`). |
-| `criminal_decision` | `object` | Of a criminal judgment of a rechtbank or gerechtshof, what its decision says on the charge (`core/criminal_decision.py`): `{proven, proven_missing, sentences: [{kind, text}], sentences_missing}`, `proven` `ja`, `deels` or `nee`, a `*_missing` the reason a field is empty; null for any other judgment. |
+| `criminal_decision` | `object` | Of a criminal judgment of a rechtbank or gerechtshof, what it decided on the charge. |
 
 <!-- props:judgments:end -->
 
