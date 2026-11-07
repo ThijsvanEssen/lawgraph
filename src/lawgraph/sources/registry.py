@@ -859,7 +859,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         StaatsbladNormalizePipeline,
-        "Publications as documents.",
+        "Publications as documents, with the ministries that issued them.",
     ),
     _pipeline(
         StaatsbladLawsNormalizePipeline,
@@ -871,7 +871,7 @@ NORMALIZE: list[Pipeline] = [
     ),
     _pipeline(
         StaatscourantNormalizePipeline,
-        "Regulations as documents.",
+        "Regulations as documents, with the ministries that issued them.",
     ),
     _pipeline(
         EerstekamerNormalizePipeline,
@@ -1158,8 +1158,8 @@ SEMANTIC: list[Pipeline] = [
     _pipeline(
         TooiMinistriesSemanticPipeline,
         "The ministries as nodes, each name that followed another CONTINUES it; LED_BY "
-        "from every regulation, dossier and commitment to its ministry, SERVED_IN from "
-        "every member to the ministries they held a post under.",
+        "from every regulation, dossier, commitment and Stb/Stcrt paper to its ministry, "
+        "SERVED_IN from every member to the ministries they held a post under.",
         after=("tk-government",),
     ),
     _pipeline(

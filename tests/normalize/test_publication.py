@@ -108,3 +108,23 @@ def test_stcrt_date_is_validated() -> None:
     # ``iso_date`` only accepts a real YYYY-MM-DD, so anything else sets no date.
     assert date("05-03-2020 om 10:00") is None
     assert date("garbage-text-here") is None
+
+
+def test_who_issued_it_comes_from_the_meta_of_its_record() -> None:
+    pipeline = StaatscourantNormalizePipeline(store=cast(GraphStore, _NoStore()))
+    meta = {
+        "identifier": "stcrt-2011-5",
+        "creators": [
+            {"name": "Ministerie van Justitie", "scheme": "OVERHEID.Ministerie"}
+        ],
+        "published": "2011-06-01",
+    }
+    node = pipeline._parse_publication("stcrt-2011-5", "<r/>", None, meta)
+    assert node is not None
+    assert (node.props["creators"], node.props["ministries"]) == (
+        ["Ministerie van Justitie"],
+        ["venj"],
+    )
+    assert node.props["ministry_missing"] is None
+    # not asked yet: nothing written, so an upsert keeps what was there
+    assert "creators" not in _stcrt("stcrt-2011-5", "<r/>").props

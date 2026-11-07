@@ -536,7 +536,8 @@
         "cases",
         "instruments",
         "dossiers",
-        "commitments"
+        "commitments",
+        "documents"
       ],
       "targets": [
         "committees",
@@ -561,6 +562,10 @@
         ],
         [
           "commitments",
+          "ministries"
+        ],
+        [
+          "documents",
           "ministries"
         ]
       ],

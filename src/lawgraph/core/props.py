@@ -23,6 +23,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from lawgraph.core.publication_creators import CreatorProps
+
 
 class _StrictBase(BaseModel):
     model_config = ConfigDict(extra="forbid", use_attribute_docstrings=True)
@@ -69,8 +71,7 @@ class LegalAreaProps(_StrictBase):
 
 
 class PolicyDomainProps(_StrictBase):
-    """A government theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI
-    concept."""
+    """A theme of a BWB regulation (WTI ``overheidsdomein``), with its TOOI concept."""
 
     label: str
     """The theme as the WTI names it ("Overheid, bestuur en koninkrijk")."""
@@ -126,8 +127,7 @@ class TreatyPartyProps(_TreatyDatesProps):
 
 
 class TreatyKingdomPartProps(_TreatyDatesProps):
-    """A part of the Kingdom a treaty applies to, with its dates as the register gives
-    them."""
+    """A part of the Kingdom a treaty applies to, with the dates the register gives."""
 
     part: str | None = None
     """"Nederland (in Europa)", "Aruba"."""
@@ -789,7 +789,7 @@ class DocumentActorProps(_StrictBase):
     `bewindspersoon`, `kamerlid` or `overig`."""
 
 
-class DocumentProps(_CommonProps):
+class DocumentProps(CreatorProps, _CommonProps):
     external_id: str | None = None
     """The id of its record (TK `Document.Id`)."""
     raw: dict[str, Any] | None = None

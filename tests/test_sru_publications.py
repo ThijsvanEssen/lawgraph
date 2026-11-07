@@ -216,3 +216,35 @@ def test_a_record_of_another_publication_is_left_out_and_counted(caplog) -> None
         "1 of another publication left out, such as stb-1994-1" in m
         for m in caplog.messages
     ), show_items(caplog.messages)
+
+
+# ── creators ─────────────────────────────────────────────────────────────────
+
+
+def test_the_creators_of_a_real_record_with_their_scheme_and_day() -> None:
+    client = _client(AMVB, _page(["stb-2009-601-b1"]))
+    assert client.creators_of(["stb-2009-601-b1", "stb-2009-999"]) == {
+        "stb-2009-601-b1": {
+            "creators": [
+                {
+                    "name": "Ministerie van Landbouw, Natuur en Voedselkwaliteit",
+                    "scheme": "OVERHEID.Ministerie",
+                }
+            ],
+            "published": "2009-12-29",
+        }
+    }
+    query = _sent(client)[0].params["query"]
+    assert query.startswith(
+        '(dt.identifier=="stb-2009-601-b1" OR dt.identifier=="stb-2009-999") sortBy'
+    )
+
+
+def test_creators_are_asked_fifty_identifiers_to_a_query() -> None:
+    ids = [f"stcrt-2020-{n}" for n in range(1, 121)]
+    client = _client(
+        MINISTERIAL_REGULATION, _page(ids[:50]), _page(ids[50:100]), _page(ids[100:])
+    )
+    assert len(client.creators_of(ids)) == 120
+    queries = [sent.params["query"] for sent in _sent(client)]
+    assert [q.count("dt.identifier==") for q in queries] == [50, 50, 20]

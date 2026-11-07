@@ -1530,8 +1530,26 @@ the `DC.title` of the metadata, else its `intitule` (`Wet van 8 juli 2026, houde
 the first `titel` that is not the masthead of the series (`Staatsblad`), `bwb_id` = the regulation retrieve found it
 for when its stored toestand names this publication, read from its XML as retrieve reads it (not
 from its `meta.staatsblad_ref`), else the first BWB id in the XML), key
-`stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
-that node comes from `bwb-amendments`.
+`stb_<identifier>`, and who issued it (below). No edges. The same Staatsblad number also
+exists as an amending Instrument; that node comes from `bwb-amendments`.
+
+**Retrieve: who issued it** (the end of `retrieve staatsblad` and `staatscourant`, `retrieve/_creators.py`). The XML of a publication does
+not name who issued it; its SRU record does (`dcterms:creator` with its `scheme`: `Ministerie
+van Financiën`, `OVERHEID.Ministerie`; also a municipality or a court in the Staatscourant).
+For every stored `stb-amvb-xml` and `stcrt-regeling-xml` record whose meta lacks `creators`,
+the SRU is asked by identifier, fifty to a query (a hundred makes the URL too long), and
+`meta.creators` (`{name, scheme}` each) and `meta.published` (`dcterms:available`, the day of
+publication) are written into the record with a new `fetched_at`; the payload stays. A
+publication the SRU holds no record of gets `creators` empty. At most `--creators` (default
+5,000) a run, in key order; a record fetched again comes without them and is asked again. A
+failing SRU request is an error of the run; what was asked stays.
+
+**Normalize: who issued it** (`core/publication_creators.py`). Of a record whose meta holds
+`creators`: `creators` the names, `ministries` the keys each names as the ministry was named
+on `meta.published` (else the document's `date`; `core.ministries.ministry_of`, so
+`Binnenlandse Zaken` after 2010 is BZK), and `ministry_missing` when none does: `no_creator`
+(the SRU names none) or `unlinked` (its creators name no ministry that day). The source names
+no person; who held the post that day is derived on read. Nothing is filled by hand.
 
 **Semantic `staatsblad`.** `EXPLAINS` to the instrument with that `bwb_id` (0.85), else whose
 `citation_title` occurs in the title (0.60); the confidence says which.
@@ -1599,7 +1617,7 @@ unless it has a `--since`; a page that is not XML is not stored, and 25 failed d
 row fail the step.
 
 **Normalize.** Document (`kind` "Ministeriële regeling", `title`, `text`, `bwb_id`, `date`),
-key `stcrt_<identifier>`.
+key `stcrt_<identifier>`, and who issued it (as under Staatsblad).
 
 **Retrieve `staatscourant-posts`.** For every post on the stored Rijksoverheid cabinet pages
 whose function names no ministry, held from 1995 on (the repository holds the Staatscourant
@@ -2237,7 +2255,8 @@ uses a name before its first period keeps that name.
 **Semantic `tooi-ministries`.** Every name of the table is a node `ministries/<key>`
 ([fields](data-model.md#ministry-ministries)), a name that followed another `CONTINUES` it. A
 regulation (its WTI, `normalize bwb`), a dossier and a commitment (`semantic tk-government`)
-whose `ministry` names one are `LED_BY` it; a member who held a post under one (`normalize
+whose `ministry` names one are `LED_BY` it, and a paper of the Staatsblad or the Staatscourant
+each of its `ministries` (`normalize staatsblad`, `staatscourant`); a member who held a post under one (`normalize
 rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
 what it no longer derives goes.
 
@@ -2284,7 +2303,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
-| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize rijksoverheid` (the posts) |
+| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize staatsblad` and `staatscourant` (of a publication), `normalize rijksoverheid` (the posts) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |
