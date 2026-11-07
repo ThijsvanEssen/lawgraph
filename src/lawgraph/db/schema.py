@@ -59,7 +59,11 @@ from lawgraph.core.models import COLLECTIONS
 from lawgraph.core.votes import DOCUMENT_OUTCOME_PROPS
 from lawgraph.core.xml import collapse_ws
 from lawgraph.db._rows import NEIGHBOR_SUMMARY_CHARS
-from lawgraph.db._sql import sql_text_list
+from lawgraph.db._sql import (
+    INSTRUMENT_SORT_TITLE,
+    instrument_dossier_numbers,
+    sql_text_list,
+)
 
 logger = get_logger(__name__)
 
@@ -1265,13 +1269,6 @@ def instrument_date_in_force(alias: str = "") -> str:
     return f"public.lg_str({p}props -> 'date_in_force')"
 
 
-def instrument_dossier_numbers(alias: str = "") -> str:
-    """The dossier numbers of an instrument (a publication's; of the row *alias*), as text:
-    the expression of the index ``instruments_dossier_numbers``."""
-    p = f"{alias}." if alias else ""
-    return f"public.lg_text_array({p}props -> 'dossier_numbers')"
-
-
 def feed_title(alias: str = "") -> str:
     """The title the feed shows of a document (``queries/feed_sql.py``), its subject or else its
     title, folded as the search folds (``lg_fold``): the expression of the trigram index
@@ -1301,8 +1298,10 @@ def article_100_letter(alias: str = "") -> str:
 _LISTED = f"kind IS DISTINCT FROM '{KIND_PUBLICATION}'"
 _LIST_INDEXES: dict[str, tuple[str, ...]] = {
     COLLECTION_INSTRUMENTS: (
-        "CREATE INDEX IF NOT EXISTS instruments_list_title"
-        f" ON instruments (citation_title NULLS FIRST, key) WHERE {_LISTED}",
+        built_beforehand(
+            "CREATE INDEX IF NOT EXISTS instruments_list_sort_title"
+            f" ON instruments (({INSTRUMENT_SORT_TITLE}), key) WHERE {_LISTED}"
+        ),
         "CREATE INDEX IF NOT EXISTS instruments_list_article_count"
         f" ON instruments (article_count DESC NULLS LAST, key DESC) WHERE {_LISTED}",
         # /api/instruments by legal area and theme (BE-14): GIN indexes on their keys

@@ -84,6 +84,12 @@ _REVIEWED: dict[tuple[str, str], str] = {
     ("db/queries/source_steps.py", "x"): "an end of an edge",
     ("db/queries/source_steps.py", "c.a"): "an end of an edge",
     ("db/queries/source_steps.py", "c.b"): "an end of an edge",
+    # ``INSTRUMENT_SORT_TITLE``: the expression of an index too; ``SortKey`` adds NULLS
+    (
+        "db/_sql.py",
+        "regexp_replace(coalesce(citation_title, public.lg_str(props -> 'title'),"
+        " public.lg_str(props -> 'display_name'), key), '^[^[:alnum:]]+', '')",
+    ): "a coalesce that ends in the key",
 }
 
 # file -> why a jsonb object built there is never served.

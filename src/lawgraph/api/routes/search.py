@@ -3,11 +3,12 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api import search_terms
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import TopLimit, parse_choices
 from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import FacetCountDTO, judgment_cite_dto
@@ -300,6 +301,7 @@ def search(
         Query(min_length=1, max_length=RESOLVE_MAX_LENGTH, description="Search term"),
     ],
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     types: Annotated[
         list[str],
         Query(description="Entity types to search"),
@@ -411,6 +413,7 @@ def search(
         raw, partial, counted = _searched(store, mode, facets, asked, any_word=True)
         any_word = any(raw.values())
 
+    no_store_if(response, bool(partial))
     names = load_dossier_names(store) if "documents" in raw else {}
     grouped = {t: [_item(q, hit, names) for hit in hits] for t, hits in raw.items()}
     named = None if period else concept_named(q, words.words)

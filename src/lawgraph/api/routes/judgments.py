@@ -3,9 +3,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import CourtKind, PageLimit, Tier
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
@@ -112,6 +113,7 @@ router = APIRouter()
 )
 def list_judgments(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
@@ -201,6 +203,7 @@ def list_judgments(
     data = get_judgments_list(
         store, filters, sort=sort, limit=limit, offset=offset, facets=facets
     )
+    no_store_if(response, bool(data.get("partial")))
     items = [JudgmentListItemDTO.from_document(row) for row in data.get("items", [])]
     return JudgmentListResponse(
         items=items,

@@ -10,10 +10,11 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     PageLimit,
@@ -158,6 +159,7 @@ router = APIRouter()
 )
 def list_decisions(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     kind: Annotated[
         str | None,
         Query(
@@ -259,6 +261,7 @@ def list_decisions(
         motion_kinds=parse_choices(motion_kind, MOTION_KINDS, "motion_kind"),
     )
     raw = get_decisions(store, filters, limit=limit, offset=offset, facets=facets)
+    no_store_if(response, bool(raw.get("partial")))
     names = load_dossier_names(store)
     return DecisionListResponse(
         total=raw.get("total"),

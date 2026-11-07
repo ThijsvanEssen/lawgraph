@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator
 from typing import Any, cast
 
 import pytest
+from fastapi import Response
 
 from lawgraph.api.routes import feed as feed_routes
 from lawgraph.api.routes import render
@@ -145,6 +146,7 @@ def _feed_periods(monkeypatch: pytest.MonkeyPatch) -> Callable[[], Any]:
     monkeypatch.setattr(feed_events, "get_periods", _cancelled)
     return lambda: feed_routes.get_feed_periods_route(
         cast(GraphStore, object()),
+        Response(),
         FeedFilters(),
     )
 

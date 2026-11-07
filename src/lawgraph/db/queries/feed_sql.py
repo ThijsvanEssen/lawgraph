@@ -63,6 +63,7 @@ from lawgraph.core.tk_records.actors import (
 )
 from lawgraph.core.tk_records.kinds import KIND_EXPLANATORY_MEMORANDUM
 from lawgraph.core.votes import VOTE_AGAINST, VOTE_FOR
+from lawgraph.db._sql import instrument_dossier_numbers
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
@@ -85,7 +86,6 @@ from lawgraph.db.queries.feed_relations import (
 from lawgraph.db.schema import (
     FEED_EVENTS_TABLE,
     feed_title,
-    instrument_dossier_numbers,
     search_words,
 )
 
@@ -466,7 +466,7 @@ SOURCES: dict[str, Source] = {
             ),
             # the versions of the instruments whose title holds the words: by the index
             # on the citation title, or without one (its title then) every such instrument
-            # but the publications (``instruments_list_title``)
+            # but the publications (``instruments_list_sort_title``)
             found=lambda q: (
                 "n.bwb_id = ANY(ARRAY("
                 "SELECT unnest(ARRAY[i.bwb_id, i.key, upper(i.key)])"

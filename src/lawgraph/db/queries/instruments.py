@@ -31,6 +31,7 @@ from lawgraph.core.models import node_id
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
+from lawgraph.db._sql import INSTRUMENT_SORT_TITLE
 from lawgraph.db.queries import law_citations, proposals
 from lawgraph.db.queries._helpers import page_with_counts, run_together, with_counts
 from lawgraph.db.queries._json_sql import array_or_empty
@@ -62,9 +63,6 @@ class AmendedByData:
     dossier_titles: dict[str, str | None]
     proposals: list[dict[str, Any]] = field(default_factory=list)
     proposals_total: int = 0
-
-
-INSTRUMENT_SORTS = ("title", "article_count")
 
 
 def _document_order(table: str) -> str:
@@ -1214,7 +1212,7 @@ def get_instruments_list(
 INSTRUMENT_ORDERS = {
     "title": Keyset(
         "instruments:title",
-        (SortKey("citation_title", nulls_first=True), SortKey("key", not_null=True)),
+        (SortKey(INSTRUMENT_SORT_TITLE, not_null=True), SortKey("key", not_null=True)),
     ),
     "article_count": Keyset(
         "instruments:article_count",
