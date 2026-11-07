@@ -67,6 +67,9 @@ from lawgraph.pipelines.normalize.eerstekamer_agenda import (
 from lawgraph.pipelines.normalize.eerstekamer_bills import (
     EerstekamerBillsNormalizePipeline,
 )
+from lawgraph.pipelines.normalize.eerstekamer_commitments import (
+    EerstekamerCommitmentsNormalizePipeline,
+)
 from lawgraph.pipelines.normalize.eerstekamer_composition import (
     EerstekamerCompositionNormalizePipeline,
 )
@@ -99,6 +102,10 @@ from lawgraph.pipelines.normalize.tk_document_links import (
 )
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
+from lawgraph.pipelines.retrieve.eerstekamer_commitments import (
+    EerstekamerCommitmentsRetrievePipeline,
+    ek_commitments_args,
+)
 from lawgraph.pipelines.retrieve.eerstekamer_composition import (
     EerstekamerCompositionRetrievePipeline,
 )
@@ -154,6 +161,9 @@ from lawgraph.pipelines.semantic.echr import ECHRSemanticPipeline
 from lawgraph.pipelines.semantic.echr_versions import ECHRVersionsSemanticPipeline
 from lawgraph.pipelines.semantic.eerstekamer import (
     EerstekamerSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.eerstekamer_government import (
+    EerstekamerGovernmentSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.eurlex import EurlexSemanticPipeline
 from lawgraph.pipelines.semantic.eurlex_cjeu import EurlexCjeuSemanticPipeline
@@ -736,6 +746,15 @@ RETRIEVE: list[Pipeline] = [
         reads=(Reads("eerstekamer-votes", COLLECTION_DECISIONS, "EK"),),
     ),
     _retrieve(
+        EerstekamerCommitmentsRetrievePipeline,
+        "The page of every commitment of the Eerste Kamer (/toezegging, since 2003), again "
+        "when its register gives it another status; at most --limit pages a run.",
+        argv_for_all=_no_argv,
+        add_args=ek_commitments_args,
+        extra_kwargs=lambda args: {"since": args.since, "limit": args.limit},
+        lane=EERSTEKAMER_SITE.lane,
+    ),
+    _retrieve(
         KiesraadRetrievePipeline,
         "The seats each list won at the elections of the Eerste Kamer since 2003, from the "
         "Kiesraad's databank: each election once.",
@@ -908,6 +927,12 @@ NORMALIZE: list[Pipeline] = [
         "it asks, its key data and who submitted and co-signed it, with AUTHORED from them.",
         # the Kamerstukken of the Eerste Kamer, and the members of the persons' pages
         after=("eerstekamer", "eerstekamer-persons"),
+    ),
+    _pipeline(
+        EerstekamerCommitmentsNormalizePipeline,
+        "The commitments of the Eerste Kamer beside those of the Tweede Kamer, ABOUT the "
+        "dossiers of their Kamerstukken.",
+        after=("tk-dossiers", "kst-sru", "eerstekamer"),  # the dossiers they are about
     ),
     _pipeline(
         EerstekamerAgendaNormalizePipeline,
@@ -1156,11 +1181,16 @@ SEMANTIC: list[Pipeline] = [
         ),
     ),
     _pipeline(
+        EerstekamerGovernmentSemanticPipeline,
+        "Who in government made each commitment of the Eerste Kamer, the post, ministry "
+        "and cabinet; gaps and conflicts marked (member_missing, ministry_held).",
+    ),
+    _pipeline(
         TooiMinistriesSemanticPipeline,
         "The ministries as nodes, each name that followed another CONTINUES it; LED_BY "
         "from every regulation, dossier, commitment and Stb/Stcrt paper to its ministry, "
         "SERVED_IN from every member to the ministries they held a post under.",
-        after=("tk-government",),
+        after=("tk-government", "eerstekamer-government"),
     ),
     _pipeline(
         TKCoalitionVotesSemanticPipeline,

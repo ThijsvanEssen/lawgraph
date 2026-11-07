@@ -14,19 +14,25 @@ from lawgraph.api.schemas.common import (
     WithKindGroup,
     WithPath,
 )
+from lawgraph.api.schemas.ek_source import EkSourceDTO
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.api.schemas.ministries import WithMinistry
+from lawgraph.config.constants import CHAMBER_TK, Chamber
+from lawgraph.config.settings import EK_ATTRIBUTION
+from lawgraph.core.documents import chamber_of
 from lawgraph.core.dossier_numbers import short_title
+from lawgraph.core.ek_commitments import MemberMissing
 from lawgraph.core.tk_records.commitments import due_date, impossible_due_date
 
 # Why a commitment is about a dossier: ``meta.basis`` of its ``ABOUT`` edge.
-CommitmentBasis = Literal["nakoming", "agenda"]
+CommitmentBasis = Literal["nakoming", "agenda", "kamerstukken"]
 
-# The status of a commitment is the Toezegging.Status the Tweede Kamer gives it.
+# The status of a commitment is the one its chamber gives it.
 COMMITMENT_STATUS_DESCRIPTION = (
     "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes "
     "it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, "
-    "`Vervallen`; null when it gives none."
+    "`Vervallen`; of the Eerste Kamer its status with a capital: `Openstaand`, `Voldaan`, "
+    "`Deels voldaan`, `Afgevoerd`; null when it gives none."
 )
 
 
@@ -44,7 +50,8 @@ class CommitmentDossierDTO(WithPath):
         description="Why it is this dossier: `nakoming`, the dossier of a letter that "
         "fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of "
         "the debate it was made in, where it was discussed (a commitment no letter in a "
-        "dossier fulfils yet).",
+        "dossier fulfils yet); `kamerstukken`, of the Eerste Kamer, the dossier of a "
+        "Kamerstuk its page names.",
     )
 
 
@@ -88,13 +95,18 @@ class CommitmentMemberDTO(PersonRefDTO):
 
 
 class CommitmentDTO(WithMinistry, WithPath):
-    """A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."""
+    """A commitment (toezegging) of a bewindspersoon to the Tweede or the Eerste Kamer."""
 
     path_source = PathSource("commitments")
 
     key: str
+    chamber: Chamber = Field(
+        CHAMBER_TK, description="The chamber it was made to: `TK` or `EK`."
+    )
     number: str | None = Field(
-        None, description="How the Kamer cites it: `TZ202603-130`."
+        None,
+        description="How the Kamer cites it: `TZ202603-130`; of the Eerste Kamer "
+        "`T04275`.",
     )
     text: str | None = None
     status: str | None = Field(None, description=COMMITMENT_STATUS_DESCRIPTION)
@@ -119,9 +131,30 @@ class CommitmentDTO(WithMinistry, WithPath):
         "be due that day (``0025-01-28``): a gap in the source, not corrected; null "
         "otherwise.",
     )
-    minister_name: str | None = Field(None, description="As the source writes it.")
+    minister_name: str | None = Field(
+        None,
+        description="As the source writes it; of the Eerste Kamer the name of who spoke "
+        "in the office responsible in the passage it quotes (`Vijlbrief`).",
+    )
+    minister_role: str | None = Field(
+        None,
+        description="The office it was made in, as the source writes it (`Minister van "
+        "Sociale Zaken en Werkgelegenheid`).",
+    )
     member: CommitmentMemberDTO | None = Field(
         None, description="The member who made it; null when no member fits the name."
+    )
+    member_missing: MemberMissing | None = Field(
+        None,
+        description="Of the Eerste Kamer, without ``member``: why. `no_name`, the passage "
+        "names no one who spoke in an office of its kind; `unmatched`, the name fits no "
+        "one or several who held one that day. A gap, not filled by hand.",
+    )
+    ministry_held: MinistryKey | None = Field(
+        None,
+        description="Of the Eerste Kamer: the ministry of the post the member held that "
+        "day, when it is not ``ministry`` (that of the office the Kamer names): a "
+        "conflict, not corrected.",
     )
     post: Post | None = None
     ministry: MinistryKey | None = None
@@ -135,6 +168,11 @@ class CommitmentDTO(WithMinistry, WithPath):
         description="The letters that fulfil it (``ANSWERS``, from "
         "``Toezegging.KamerbriefNakoming``), oldest first.",
     )
+    source: EkSourceDTO | None = Field(
+        None,
+        description="Of the Eerste Kamer: its page on eerstekamer.nl and the day it was "
+        "read, to name with it; null for the Tweede Kamer.",
+    )
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> CommitmentDTO:
@@ -145,8 +183,11 @@ class CommitmentDTO(WithMinistry, WithPath):
         due = props.get("expected_resolution")
         made_in = row.get("activity")
         activity = CommitmentActivityDTO(**made_in) if made_in else None
+        # a commitment is of the Tweede Kamer unless it is labelled as of the Eerste
+        chamber = chamber_of(commitment.get("labels")) or CHAMBER_TK
         return cls(
             key=commitment["key"],
+            chamber=chamber,
             number=props.get("number"),
             text=props.get("text"),
             status=props.get("status"),
@@ -155,6 +196,9 @@ class CommitmentDTO(WithMinistry, WithPath):
             expected_resolution=due_date(due),
             expected_resolution_impossible=impossible_due_date(due),
             minister_name=props.get("minister_name"),
+            minister_role=props.get("minister_role"),
+            member_missing=props.get("member_missing"),
+            ministry_held=props.get("ministry_held"),
             member=(
                 CommitmentMemberDTO.from_row(
                     member, function=props.get("minister_role")
@@ -183,6 +227,15 @@ class CommitmentDTO(WithMinistry, WithPath):
                 )
                 for letter in row.get("fulfilled_by") or []
             ],
+            source=(
+                EkSourceDTO(
+                    url=props.get("url"),
+                    retrieved_on=props.get("read_on"),
+                    attribution=EK_ATTRIBUTION,
+                )
+                if chamber == "EK"
+                else None
+            ),
         )
 
 
@@ -194,6 +247,7 @@ class CommitmentFacetsDTO(StrictModel):
     status: list[FacetCountDTO] = Field(default_factory=list)
     cabinet: list[FacetCountDTO] = Field(default_factory=list)
     ministry: list[FacetCountDTO] = Field(default_factory=list)
+    chamber: list[FacetCountDTO] = Field(default_factory=list)
 
 
 class CommitmentListResponse(StrictModel):

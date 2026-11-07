@@ -146,8 +146,8 @@ _RIJKSWET_ADDITION = re.compile(r"\(R\d+\)", re.IGNORECASE)
 
 
 # The number of a toezegging of the Tweede Kamer, its year and month and a sequence:
-# ``TZ202609-124``.
-COMMITMENT_NUMBER = re.compile(r"^TZ\d{6}-\d{1,5}$", re.IGNORECASE)
+# ``TZ202609-124``; of the Eerste Kamer a sequence: ``T04275``.
+COMMITMENT_NUMBER = re.compile(r"^(?:TZ\d{6}-\d{1,5}|T\d{5})$", re.IGNORECASE)
 
 
 def kamerstuk_identifier(number: str, suffix: str | None, sequence: int | str) -> str:
