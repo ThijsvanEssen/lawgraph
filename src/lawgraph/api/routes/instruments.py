@@ -90,7 +90,6 @@ from lawgraph.db.queries.instrument_scope import (
     scope_of_node,
 )
 from lawgraph.db.queries.instruments import (
-    INSTRUMENT_SORTS,
     LawOnADate,
     get_articles,
     get_articles_at,
@@ -207,8 +206,6 @@ def list_instruments(
     after: After = None,
 ) -> InstrumentListResponse:
     not_both(after, offset)
-    if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
-        sort = "title"
     data = get_instruments_list(
         store,
         q=q,

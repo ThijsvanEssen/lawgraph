@@ -33,7 +33,12 @@ _LISTS = [
 def test_a_partial_list_is_not_kept(
     monkeypatch: pytest.MonkeyPatch, path: str, target: str, partial: bool
 ) -> None:
-    answer = {"total": None, "items": [], "facets": {}, "partial": partial}
+    answer: dict[str, Any] = {
+        "total": None,
+        "items": [],
+        "facets": {},
+        "partial": partial,
+    }
     monkeypatch.setattr(f"lawgraph.api.routes.{target}", lambda *_, **__: answer)
     stub_route(monkeypatch, "documents", load_dossier_names={})
     stub_route(monkeypatch, "decisions", load_dossier_names={})
