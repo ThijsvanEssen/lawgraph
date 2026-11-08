@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.config.constants import RELATION_REFERRED_BY
 from lawgraph.core.courts import court_of
 from lawgraph.core.ecli import court_code
 from lawgraph.core.judgment_course import (
@@ -116,7 +117,9 @@ def _step(
     current: bool,
 ) -> dict[str, Any]:
     """One step: the judgment *node*, the article that gives its court its say, and its
-    *edges* to earlier steps (of a conclusion: to the judgment it advises on)."""
+    *edges* to earlier steps (of a conclusion: to the judgment it advises on). A decision
+    after referral has no article: the source often names its procedure ``Hoger beroep``,
+    but the court hears the case by the referral, which the list does not hold."""
     code = node["court_code"] or (court_code(node["ecli"]) if node["ecli"] else None)
     known = court_of(code, node["court"])
     tier = node["tier"] or (known.tier if known else None)
@@ -133,7 +136,9 @@ def _step(
         "decision_kind": node["decision_kind"],
         "outcome": node["outcome"],
         "area": area,
-        "basis": basis_of(tier, node["procedure"], area),
+        "basis": None
+        if any(e.relation == RELATION_REFERRED_BY for e in edges)
+        else basis_of(tier, node["procedure"], area),
         "loaded": not node["stub"],
         "current": current,
         "links": [

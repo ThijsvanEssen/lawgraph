@@ -109,7 +109,8 @@ CASES = {
         "Gerechtshof Den Haag",
         "2021-01-01",
         "200.3/01",
-        procedure="Verwijzing na Hoge Raad",
+        # as the source often names it (ECLI:NL:GHDHA:2026:2845): the referral is the edge
+        procedure="Hoger beroep",
         relations=_earlier(HR_REF),
         subject=CIVIEL,
     ),
@@ -202,7 +203,7 @@ def test_a_decision_after_referral_follows_the_ruling(client: TestClient) -> Non
     assert steps[2]["links"] == [
         {"relation": "REFERRED_BY", "to": HR_REF, "source_outcome": None}
     ]
-    # no article in the list for a decision after referral: a gap
+    # no article for a decision after referral, though its procedure reads Hoger beroep
     assert [_basis(s) for s in steps] == [(RO, "60"), (RO, "78"), None]
 
 
