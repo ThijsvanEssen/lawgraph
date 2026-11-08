@@ -274,10 +274,14 @@ def rechtspraak_xml(
     procedure: str | None = None,
     relations: str = "",
     text: str = "De rechter beslist.",
+    subject: str | None = None,
 ) -> str:
     """A judgment with the metadata that ties it to others: its case number, its type
-    (``Uitspraak`` or ``Conclusie``), its procedure and its *relations*."""
+    (``Uitspraak`` or ``Conclusie``), its procedure, its *relations* and its *subject*
+    ("Civiel recht; Verbintenissenrecht")."""
     procedure_xml = f"<psi:procedure>{procedure}</psi:procedure>" if procedure else ""
+    if subject:
+        procedure_xml += f"<dcterms:subject>{subject}</dcterms:subject>"
     return (
         f"<open-rechtspraak {RECHTSPRAAK_NS}><rdf:RDF><rdf:Description>"
         f"<dcterms:identifier>{ecli}</dcterms:identifier>"

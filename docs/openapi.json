@@ -1058,6 +1058,50 @@
         }
       }
     },
+    "/api/judgments/{ecli}/course": {
+      "get": {
+        "tags": [
+          "judgments",
+          "judgments"
+        ],
+        "summary": "The course of the case of a judgment (Verloop)",
+        "description": "The judgments of the case of a judgment, in one answer: breadth-first over `APPEAL_OF`, `REFERRED_BY`, `CONTINUES` and `ADVISES_ON`, both ways, up to 8 edges from it and 24 judgments (`truncated` when the case goes on). Each step has its court, date, procedure, outcome and area of law, `basis` the article of law that gives its court its say (RO art. 42, 44, 45, 60, 78; Awb art. 8:6, 8:105; from a fixed list, null where it has none), `loaded` (false for a stub) and `links`, its edges to other steps with the outcome the Rechtspraak records (`source_outcome`). 404 for a judgment not in the graph.",
+        "operationId": "get_judgment_course_api_judgments__ecli__course_get",
+        "parameters": [
+          {
+            "name": "ecli",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ecli"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgmentCourseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/instruments": {
       "get": {
         "tags": [
@@ -18371,6 +18415,234 @@
         "title": "CommitteeSeatDTO",
         "description": "One period a member held a seat on a committee."
       },
+      "CourseBasis": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id",
+            "description": "The law: `BWBR0001830` (RO), `BWBR0005537` (Awb)."
+          },
+          "article_number": {
+            "type": "string",
+            "title": "Article Number",
+            "description": "Its article as numbered: `60`, `8:105`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "article_number"
+        ],
+        "title": "CourseBasis",
+        "description": "The article of law that gives the court its say in this step."
+      },
+      "CourseLink": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "title": "Relation",
+            "description": "`APPEAL_OF`, `REFERRED_BY` or `CONTINUES` (to an earlier step), `ADVISES_ON` (a conclusion to the judgment it advises on)."
+          },
+          "to": {
+            "type": "string",
+            "title": "To",
+            "description": "The ECLI of the other step."
+          },
+          "source_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Outcome",
+            "description": "How the appeal ended as the Rechtspraak records it (`psi:gevolg`: `Bekrachtiging/bevestiging`); null when neither judgment says."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "relation",
+          "to",
+          "source_outcome"
+        ],
+        "title": "CourseLink",
+        "description": "An edge from this step to another step of the course."
+      },
+      "CourseStep": {
+        "properties": {
+          "ecli": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ecli"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "court_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Code"
+          },
+          "court_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Name",
+            "description": "The court as its metadata names it; of a stub as the Instanties list names its code."
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "court_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Kind"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure",
+            "description": "The procedure as the source writes it (`psi:procedure`, the first)."
+          },
+          "decision_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Kind"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "How it ended as its text says (`judgment.outcome`)."
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area",
+            "description": "`civiel`, `straf`, `bestuur` or `belasting`, from its subjects."
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CourseBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From a fixed list (`data/route_articles.json`) by tier, procedure and area; null where the list has none (a gap, never a guess)."
+          },
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded",
+            "description": "False for a stub: named, not in the graph."
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current",
+            "description": "The judgment asked for."
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLink"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ecli",
+          "key",
+          "court_code",
+          "court_name",
+          "tier",
+          "court_kind",
+          "date",
+          "procedure",
+          "decision_kind",
+          "outcome",
+          "area",
+          "basis",
+          "loaded",
+          "current",
+          "links"
+        ],
+        "title": "CourseStep",
+        "description": "One judgment of the case."
+      },
       "CourtKind": {
         "type": "string",
         "enum": [
@@ -33079,6 +33351,49 @@
         ],
         "title": "JudgmentConclusionDTO",
         "description": "A conclusion a judgment names (``conclusion_eclis``), as its light node names it."
+      },
+      "JudgmentCourseResponse": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CourseStep"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "The judgments of the case in its order: an earlier instance before the judgment that names it, a conclusion just before the judgment it advises on, judgments of one place by date."
+          },
+          "unresolved": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Unresolved",
+            "description": "The decisions the judgment asked for names in its text as the one it appeals that are not loaded (`unresolved_appeal_targets`: `court`, `date`, `case_number`)."
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "The case goes on past 8 edges from the judgment or 24 judgments."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "steps",
+          "unresolved",
+          "truncated"
+        ],
+        "title": "JudgmentCourseResponse"
       },
       "JudgmentCoverageResponse": {
         "properties": {

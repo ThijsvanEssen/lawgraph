@@ -16,6 +16,7 @@ from lawgraph.api.schemas.common import (
     judgment_cite_dto,
 )
 from lawgraph.api.schemas.completeness import completeness_dto
+from lawgraph.api.schemas.judgment_course import JudgmentCourseResponse
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
     JudgmentCitedJudgment,
@@ -32,12 +33,14 @@ from lawgraph.api.schemas.judgments import (
 from lawgraph.core.mentions import mention_texts
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.judgment_course import judgment_course
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
     JudgmentFilters,
     get_judgment_with_relations,
     get_judgments_list,
 )
+from lawgraph.db.queries.not_found import require
 from lawgraph.db.queries.unlinked_references import reference_counts
 
 router = APIRouter()
@@ -370,6 +373,30 @@ def get_judgment_detail(
         ),
         metadata=data.metadata or None,
     )
+
+
+@router.get(
+    "/{ecli}/course",
+    response_model=JudgmentCourseResponse,
+    summary="The course of the case of a judgment (Verloop)",
+    description=(
+        "The judgments of the case of a judgment, in one answer: breadth-first over "
+        "`APPEAL_OF`, `REFERRED_BY`, `CONTINUES` and `ADVISES_ON`, both ways, up to 8 "
+        "edges from it and 24 judgments (`truncated` when the case goes on). Each step "
+        "has its court, date, procedure, outcome and area of law, `basis` the article "
+        "of law that gives its court its say (RO art. 42, 44, 45, 60, 78; Awb art. 8:6, "
+        "8:105; from a fixed list, null where it has none), `loaded` (false for a stub) "
+        "and `links`, its edges to other steps with the outcome the Rechtspraak records "
+        "(`source_outcome`). 404 for a judgment not in the graph."
+    ),
+    tags=["judgments"],
+)
+def get_judgment_course(
+    ecli: str,
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> JudgmentCourseResponse:
+    course = require(judgment_course(store, ecli), "Judgment", ecli)
+    return JudgmentCourseResponse.model_validate(course, from_attributes=True)
 
 
 def _citation_spans(

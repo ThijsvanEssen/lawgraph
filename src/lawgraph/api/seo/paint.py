@@ -39,6 +39,7 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import InstrumentSummaryDTO
 from lawgraph.api.schemas.completeness import COMPLETENESS_ADAPTER, completeness_dto
 from lawgraph.api.schemas.dossiers import DossierDocumentDTO
+from lawgraph.api.schemas.judgment_course import JudgmentCourseResponse
 from lawgraph.api.schemas.nodes import NodeGraphResponse
 from lawgraph.api.validity import article_validity_dto
 from lawgraph.config.constants import (
@@ -68,6 +69,7 @@ from lawgraph.db.queries.dossiers import (
     get_dossier_documents,
     load_dossier_names,
 )
+from lawgraph.db.queries.judgment_course import judgment_course
 from lawgraph.db.queries.nodes import NeighborFilter
 from lawgraph.db.queries.unlinked_references import (
     law_reference_counts,
@@ -295,7 +297,8 @@ def judgment_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | N
     ``/api/nodes/judgments/{key}?limit=1`` gives it, of its procesgang and conclusie, with
     the instances before its eerdere aanleg. None for one withdrawn, a translation, one with
     connected cases (their sentences come later), one without text, or one whose parties
-    were not read (the reader reads them from its whole text)."""
+    were not read (the reader reads them from its whole text). With its ``course``, the
+    answer of ``/api/judgments/{ecli}/course``."""
     ecli = ecli_of_key(row["key"])
     if not ecli:
         return None
@@ -347,7 +350,18 @@ def judgment_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | N
         ),
         "light": _band_light(store, row["key"]),
         "chain": _chain(store, row["key"]),
+        # its Verloop as ``/api/judgments/{ecli}/course`` gives it
+        "course": _course(store, ecli),
     }
+
+
+def _course(store: GraphStore, ecli: str) -> dict[str, Any] | None:
+    """The course of the case of the judgment *ecli*, as its route answers it."""
+    course = judgment_course(store, ecli)
+    if course is None:
+        return None
+    response = JudgmentCourseResponse.model_validate(course, from_attributes=True)
+    return response.model_dump(mode="json")
 
 
 def _band_light(store: GraphStore, key: str) -> dict[str, Any]:
