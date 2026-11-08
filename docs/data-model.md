@@ -373,15 +373,19 @@ its keys to the model of `REFERS_TO`.
 |  | `sections[].explanation` | `str` | What the match rests on, in Dutch. |
 | `APPEAL_OF` | `basis` | `Basis` | What names the other (core/provenance.py). |
 |  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+|  | `source_outcome` | `str` | How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`): `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent when neither judgment says. |
 | `CONTINUES` | `basis` | `Basis` | What names the other (core/provenance.py). |
 |  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+|  | `source_outcome` | `str` | How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`): `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent when neither judgment says. |
 |  | `reason` | `Reason` | `verplaatst`: an activity replaced a moved one; `alle_zetels`: a faction took over all the seats of another. |
 |  | `effective_date` | `str` | The first day of the new faction's seats (a faction). |
 |  | `seats` | `int` | The holders of the old faction's last day who sit in the new one (a faction). |
 | `REFERRED_BY` | `basis` | `Basis` | What names the other (core/provenance.py). |
 |  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+|  | `source_outcome` | `str` | How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`): `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent when neither judgment says. |
 | `ADVISES_ON` | `basis` | `Basis` | What names the other (core/provenance.py). |
 |  | `procedure_type` | `str` | The procedure as the source writes it: `Hoger beroep`, `Cassatie`. |
+|  | `source_outcome` | `str` | How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`): `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent when neither judgment says. |
 | `ANSWERS` | `basis` | `Basis` | What names the other (core/provenance.py). |
 |  | `text` | `str` | The subject, line or footnote that names the motion. |
 |  | `reference` | `str` | The reference as written. |
@@ -1190,7 +1194,7 @@ next (the text read joins them with a line break).
 | `names` | `list[str]` | What lawyers call it (`Haviltex`; `core.judgment_names`). |
 | `decision_kind` | `str` | `arrest`, `vonnis`, `beschikking`, `uitspraak`, `beslissing`, `conclusie` or `prejudiciële beslissing` (`core.judgment_kinds.judgment_kind`). |
 | `text` | `str` | Every paragraph as printed, a blank line between. |
-| `judgment_metadata` | `object` | Its RDF header: `type`, the procedure, `document_type` (`Uitspraak` or `Conclusie`), `court`, `date`, `case_number`, the related ECLIs, ... |
+| `judgment_metadata` | `object` | Its RDF header: `type`, the (first) procedure, `procedures`, every `psi:procedure` in order, `document_type` (`Uitspraak` or `Conclusie`), `court`, `date`, `case_number`, the related ECLIs, `relation_outcomes` (per earlier or later instance how its appeal ended, `psi:gevolg`), ... |
 | `subjects` | `list[str]` | Its areas of law as the metadata gives them ("Civiel recht; Verbintenissenrecht"). |
 | `paragraphs` | `list[object]` | The `<uitspraak>` (of a conclusion: the `<conclusie>`) in reading order; the first is the kop. |
 | `paragraphs[].id` | `str` | `rov-5.3`, `kop-5`, `p-3f2a9c1e`, `par-12`: unique in the judgment, for deep links. |

@@ -139,8 +139,8 @@ def judgments_with_related_eclis(
     store: Store, *, eclis: list[str] | None = None
 ) -> Iterator[dict[str, Any]]:
     """``{j_id, ecli, date, case_number, case_number_keys, procedure_type,
-    related_eclis, later_eclis}`` of every judgment that names an earlier or a later one,
-    only those of *eclis* when it is given."""
+    related_eclis, later_eclis, relation_outcomes}`` of every judgment that names an earlier
+    or a later one, only those of *eclis* when it is given."""
     related = "j.props -> 'related_eclis'"
     later = "j.props -> 'later_eclis'"
     sql = f"""
@@ -151,7 +151,8 @@ def judgments_with_related_eclis(
                {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
                j.props -> 'judgment_metadata' -> 'type' AS procedure_type,
                {truthy_or(related, EMPTY_ARRAY)} AS related_eclis,
-               {truthy_or(later, EMPTY_ARRAY)} AS later_eclis
+               {truthy_or(later, EMPTY_ARRAY)} AS later_eclis,
+               j.props -> 'judgment_metadata' -> 'relation_outcomes' AS relation_outcomes
         FROM judgments j
         WHERE ({json_length(related)} > 0 OR {json_length(later)} > 0) {_of_eclis(eclis)}
         ORDER BY j.key

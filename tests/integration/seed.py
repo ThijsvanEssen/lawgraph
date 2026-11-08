@@ -247,13 +247,20 @@ def seed_judgment_xml(number: int, paragraphs: int = 40) -> str:
     )
 
 
-def rechtspraak_relation(ecli: str, kind: str, instance: str) -> str:
+def rechtspraak_relation(
+    ecli: str, kind: str, instance: str, *, outcome: str | None = None
+) -> str:
     """A ``dcterms:relation`` of the metadata: to *ecli*, of *kind* (``conclusie``), in
-    *instance* (``eerdereAanleg``)."""
+    *instance* (``eerdereAanleg``); with *outcome* (``bekrachtiging/bevestiging``) a
+    ``psi:gevolg``, its text then "<ecli>, <outcome>" as the Rechtspraak writes it."""
+    gevolg = (
+        f' psi:gevolg="http://psi.rechtspraak.nl/gevolg#{outcome}"' if outcome else ""
+    )
+    text = f"{ecli}, {outcome.capitalize()}" if outcome else ecli
     return (
         f'<dcterms:relation ecli:resourceIdentifier="{ecli}" '
         f'psi:type="http://psi.rechtspraak.nl/{kind}" '
-        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}">{ecli}</dcterms:relation>'
+        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}"{gevolg}>{text}</dcterms:relation>'
     )
 
 

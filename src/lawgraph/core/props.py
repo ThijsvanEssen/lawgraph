@@ -638,8 +638,10 @@ class JudgmentProps(_CommonProps):
     text: str | None = None
     """Every paragraph as printed, a blank line between."""
     judgment_metadata: dict[str, Any] | None = None
-    """Its RDF header: `type`, the procedure, `document_type` (`Uitspraak` or
-    `Conclusie`), `court`, `date`, `case_number`, the related ECLIs, ..."""
+    """Its RDF header: `type`, the (first) procedure, `procedures`, every `psi:procedure`
+    in order, `document_type` (`Uitspraak` or `Conclusie`), `court`, `date`, `case_number`,
+    the related ECLIs, `relation_outcomes` (per earlier or later instance how its appeal
+    ended, `psi:gevolg`), ..."""
     subjects: list[str] | None = None
     """Its areas of law as the metadata gives them ("Civiel recht; Verbintenissenrecht")."""
     paragraphs: list[JudgmentParagraphProps] | None = None

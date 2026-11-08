@@ -316,6 +316,10 @@ class JudgmentLinkMeta(_Meta):
     """What names the other (core/provenance.py)."""
     procedure_type: str | None = None
     """The procedure as the source writes it: `Hoger beroep`, `Cassatie`."""
+    source_outcome: str | None = None
+    """How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`):
+    `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent
+    when neither judgment says."""
 
 
 class ContinuesMeta(JudgmentLinkMeta):
