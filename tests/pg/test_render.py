@@ -2567,6 +2567,16 @@ def test_a_judgment_is_painted_first_with_its_first_paragraphs_and_its_band(
         "ecli_nl_rbdha_2018_9",
         "ecli_nl_rbdha_2017_9",
     ]
+    # its Verloop, as /api/judgments/{ecli}/course gives it
+    course = painted["course"]
+    assert [(s["key"], s["current"]) for s in course["steps"]] == [
+        ("ecli_nl_rbdha_2017_9", False),
+        ("ecli_nl_rbdha_2018_9", False),
+        ("ecli_nl_ghdha_2019_9", False),
+        ("ecli_nl_phr_2020_9", False),
+        ("ecli_nl_hr_2020_9", True),
+    ]
+    assert course["truncated"] is False
 
 
 def test_a_law_is_painted_first_with_its_first_articles_and_their_text(

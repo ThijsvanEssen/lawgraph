@@ -131,6 +131,13 @@ the decisions an appeal names in its text that are not loaded (`court`, `date`,
 laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written, such as `Rv`,
 `article_number`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `paragraph_ids`,
 `mention_count`), one per law and article in reading order.
+`/api/judgments/{ecli}/course` (Verloop) gives the whole case in one answer: breadth-first over
+those four edges both ways (up to 8 edges and 24 judgments, `truncated` past them), the steps in
+the order of the case, each with `basis`, the article that gives its court its say, from the
+fixed list `data/route_articles.json` (tier, procedure and area of law → RO art. 42, 44, 45, 60,
+78, Awb art. 8:6, 8:105; null where it has none), `loaded` false for a stub and `links` with the
+outcome the Rechtspraak records (`source_outcome`). The first paint of a judgment holds the same
+answer as `course`.
 `judgment.criminal_decision` is what a criminal judgment of a rechtbank or gerechtshof decided
 on the charge: `proven` (`ja`, `deels`, `nee`), `sentences` (`kind`, `text` as the decision
 writes it) and, for a field left empty, its reason (`proven_missing`, `sentences_missing`); null
