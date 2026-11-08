@@ -317,9 +317,7 @@ class JudgmentLinkMeta(_Meta):
     procedure_type: str | None = None
     """The procedure as the source writes it: `Hoger beroep`, `Cassatie`."""
     source_outcome: str | None = None
-    """How the appeal ended as the Rechtspraak records it on the relation (`psi:gevolg`):
-    `Bekrachtiging/bevestiging`, `(Gedeeltelijke) vernietiging en zelf afgedaan`; absent
-    when neither judgment says."""
+    """How the appeal ended as a relation of either judgment says (`psi:gevolg`)."""
 
 
 class ContinuesMeta(JudgmentLinkMeta):
@@ -457,9 +455,7 @@ class VotedMeta(_Meta):
 @dataclass(frozen=True)
 class RelationSpec:
     name: str
-    ends: tuple[
-        tuple[str, str], ...
-    ]  # (collection it starts in, collection it ends in)
+    ends: tuple[tuple[str, str], ...]  # (from collection, to collection)
     description: str
     meta: type[_Meta] | None = None  # what ``meta`` may hold; None: nothing
     # the pairs the API derives on read (``db.queries.derived_neighbors``): a neighbour
