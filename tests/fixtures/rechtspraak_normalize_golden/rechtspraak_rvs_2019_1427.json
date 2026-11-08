@@ -1,5 +1,5 @@
 {
- "document": "fe8ca29cec2937a4",
+ "document": "2984ba57a7eb91be",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2019:1427",
@@ -16,7 +16,10 @@
    "date": "2019-05-01",
    "case_number": "201806603/1/R1",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - enkelvoudig"
+   "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig"
+   ]
   },
   "court": "Raad van State",
   "date": "2019-05-01",

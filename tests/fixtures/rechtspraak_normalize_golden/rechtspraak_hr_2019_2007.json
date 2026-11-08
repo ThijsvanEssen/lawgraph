@@ -1,5 +1,5 @@
 {
- "document": "2618b89de34c64e2",
+ "document": "89e67020566fd2dc",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2007",
@@ -16,7 +16,10 @@
    "date": "2019-12-20",
    "case_number": "19/00135 (Engels)",
    "document_type": "Uitspraak",
-   "type": "Cassatie"
+   "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ]
   },
   "court": "Hoge Raad",
   "date": "2019-12-20",

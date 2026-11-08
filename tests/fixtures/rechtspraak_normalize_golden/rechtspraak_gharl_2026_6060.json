@@ -1,5 +1,5 @@
 {
- "document": "d9fa2755da739982",
+ "document": "9a34c4ccf66339f1",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHARL:2026:6060",
@@ -17,6 +17,9 @@
    "case_number": "21-004300-25",
    "document_type": "Uitspraak",
    "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ],
    "related_eclis": [
     "ECLI:NL:RBGEL:2025:8713"
    ]

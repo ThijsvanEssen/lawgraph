@@ -1,5 +1,5 @@
 {
- "document": "ca46071ae264c3e6",
+ "document": "c30c3996718c9dc6",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBROT:2022:12313",
@@ -17,6 +17,9 @@
    "case_number": "ROT 21/3941",
    "document_type": "Uitspraak",
    "type": "Tussenuitspraak",
+   "procedures": [
+    "Tussenuitspraak"
+   ],
    "later_eclis": [
     "ECLI:NL:RBROT:2022:10632"
    ]

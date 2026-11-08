@@ -1,5 +1,5 @@
 {
- "document": "310df34a5cbd8c22",
+ "document": "40f69ba26ee87902",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2026:1434",
@@ -17,6 +17,11 @@
    "case_number": "25/01078",
    "document_type": "Uitspraak",
    "type": "Artikel 81 RO-zaken",
+   "procedures": [
+    "Artikel 81 RO-zaken",
+    "Cassatie",
+    "Beschikking"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:2026:630"
    ]

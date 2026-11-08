@@ -1,5 +1,5 @@
 {
- "document": "e7387d21d93d6144",
+ "document": "8c79d6484abf1eba",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHARL:2026:6033",
@@ -16,7 +16,11 @@
    "date": "2026-09-22",
    "case_number": "200.359.042",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep",
+    "Beslissing RC"
+   ]
   },
   "court": "Gerechtshof Arnhem-Leeuwarden",
   "date": "2026-09-22",

@@ -1,5 +1,5 @@
 {
- "document": "b73873ae99094270",
+ "document": "a77e1e76661e1b13",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2006",
@@ -17,12 +17,18 @@
    "case_number": "19/00135",
    "document_type": "Uitspraak",
    "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ],
    "related_eclis": [
     "ECLI:NL:GHDHA:2018:2591"
    ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:2019:887"
-   ]
+   ],
+   "relation_outcomes": {
+    "ECLI:NL:GHDHA:2018:2591": "Bekrachtiging/bevestiging"
+   }
   },
   "court": "Hoge Raad",
   "date": "2019-12-20",
