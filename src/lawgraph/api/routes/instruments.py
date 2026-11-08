@@ -6,9 +6,10 @@ import datetime as dt
 from collections import Counter
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import (
     After,
     DateSort,
@@ -89,7 +90,6 @@ from lawgraph.db.queries.instrument_scope import (
     scope_of_node,
 )
 from lawgraph.db.queries.instruments import (
-    INSTRUMENT_SORTS,
     LawOnADate,
     get_articles,
     get_articles_at,
@@ -136,6 +136,7 @@ router = APIRouter()
 )
 def list_instruments(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     facets: Annotated[
@@ -205,8 +206,6 @@ def list_instruments(
     after: After = None,
 ) -> InstrumentListResponse:
     not_both(after, offset)
-    if sort not in INSTRUMENT_SORTS:  # belt-and-braces; Literal already validates
-        sort = "title"
     data = get_instruments_list(
         store,
         q=q,
@@ -228,6 +227,7 @@ def list_instruments(
         validity=validity,
         facets=facets,
     )
+    no_store_if(response, bool(data.get("partial")))
     items = [InstrumentListItemDTO.from_document(row) for row in data.get("items", [])]
     return InstrumentListResponse(
         items=items,

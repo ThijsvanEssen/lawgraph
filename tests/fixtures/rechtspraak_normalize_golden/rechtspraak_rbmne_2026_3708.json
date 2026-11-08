@@ -1,5 +1,5 @@
 {
- "document": "b3d18aa465cd4bf4",
+ "document": "fc83dddd655938e0",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBMNE:2026:3708",
@@ -16,7 +16,10 @@
    "date": "2026-06-30",
    "case_number": "12014785 UM VERZ 25-6254",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - enkelvoudig"
+   "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig"
+   ]
   },
   "court": "Rechtbank Midden-Nederland",
   "date": "2026-06-30",
@@ -291,6 +294,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-strafvonnis",
+   "sentences": [],
+   "sentences_missing": "geen-strafvonnis"
+  },
   "names": [],
   "date_eff": "2026-06-30",
   "published_on": "2026-07-03",

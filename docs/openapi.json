@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.31",
+    "version": "0.80.32",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -1041,6 +1041,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/JudgmentDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/judgments/{ecli}/course": {
+      "get": {
+        "tags": [
+          "judgments",
+          "judgments"
+        ],
+        "summary": "The course of the case of a judgment (Verloop)",
+        "description": "The judgments of the case of a judgment, in one answer: breadth-first over `APPEAL_OF`, `REFERRED_BY`, `CONTINUES` and `ADVISES_ON`, both ways, up to 8 edges from it and 24 judgments (`truncated` when the case goes on). Each step has its court, date, procedure, outcome and area of law, `basis` the article of law that gives its court its say (RO art. 42, 44, 45, 60, 78; Awb art. 8:6, 8:105; from a fixed list, null where it has none), `loaded` (false for a stub) and `links`, its edges to other steps with the outcome the Rechtspraak records (`source_outcome`). 404 for a judgment not in the graph.",
+        "operationId": "get_judgment_course_api_judgments__ecli__course_get",
+        "parameters": [
+          {
+            "name": "ecli",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ecli"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgmentCourseResponse"
                 }
               }
             }
@@ -5546,7 +5590,7 @@
           "government"
         ],
         "summary": "Commitments",
-        "description": "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every match. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`). ``overdue`` keeps the `Openstaand` ones whose expected date has passed. ``facets`` counts per ``status``, ``cabinet`` and ``ministry`` the commitments under the other filters; ``facets=false`` leaves them out (null): the pages after the first need none.",
+        "description": "Commitments (toezeggingen) of bewindspersonen, paged; ``total`` counts every match; those of the Tweede Kamer (since 2022) and of the Eerste Kamer (since 2003), ``chamber``. ``status`` is the Toezegging.Status of the Tweede Kamer (`Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`) or the status of the Eerste Kamer with a capital (`Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`). ``overdue`` keeps the `Openstaand` ones whose expected date has passed. ``facets`` counts per ``status``, ``cabinet``, ``ministry`` and ``chamber`` the commitments under the other filters; ``facets=false`` leaves them out (null): the pages after the first need none.",
         "operationId": "list_commitments_api_commitments_get",
         "parameters": [
           {
@@ -5562,10 +5606,10 @@
                   "type": "null"
                 }
               ],
-              "description": "A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`.",
+              "description": "A status as the commitment has it: `Openstaand`, `Voldaan`.",
               "title": "Status"
             },
-            "description": "A Toezegging.Status as the Tweede Kamer writes it: `Openstaand`."
+            "description": "A status as the commitment has it: `Openstaand`, `Voldaan`."
           },
           {
             "name": "member",
@@ -5768,11 +5812,11 @@
             "required": false,
             "schema": {
               "type": "boolean",
-              "description": "Count per status, cabinet and ministry.",
+              "description": "Count per status, cabinet, ministry and chamber.",
               "default": true,
               "title": "Facets"
             },
-            "description": "Count per status, cabinet and ministry."
+            "description": "Count per status, cabinet, ministry and chamber."
           },
           {
             "name": "seat",
@@ -5791,6 +5835,28 @@
               "title": "Seat"
             },
             "description": "An office, by any of its names (``GET /api/seats/{seat}``): the commitments of the member who held it that day."
+          },
+          {
+            "name": "chamber",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "TK",
+                    "EK"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The chamber it was made to: `TK` or `EK`.",
+              "title": "Chamber"
+            },
+            "description": "The chamber it was made to: `TK` or `EK`."
           }
         ],
         "responses": {
@@ -17168,6 +17234,16 @@
             "type": "string",
             "title": "Key"
           },
+          "chamber": {
+            "type": "string",
+            "enum": [
+              "TK",
+              "EK"
+            ],
+            "title": "Chamber",
+            "description": "The chamber it was made to: `TK` or `EK`.",
+            "default": "TK"
+          },
           "number": {
             "anyOf": [
               {
@@ -17178,7 +17254,7 @@
               }
             ],
             "title": "Number",
-            "description": "How the Kamer cites it: `TZ202603-130`."
+            "description": "How the Kamer cites it: `TZ202603-130`; of the Eerste Kamer `T04275`."
           },
           "text": {
             "anyOf": [
@@ -17201,7 +17277,7 @@
               }
             ],
             "title": "Status",
-            "description": "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`; null when it gives none."
+            "description": "The status the Tweede Kamer gives the commitment (`Toezegging.Status`), as it writes it: `Openstaand`, `Afgedaan`, `Nagekomen`, `Niet nagekomen`, `Deels Afgedaan`, `Vervallen`; of the Eerste Kamer its status with a capital: `Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`; null when it gives none."
           },
           "date": {
             "anyOf": [
@@ -17261,7 +17337,19 @@
               }
             ],
             "title": "Minister Name",
-            "description": "As the source writes it."
+            "description": "As the source writes it; of the Eerste Kamer the name of who spoke in the office responsible in the passage it quotes (`Vijlbrief`)."
+          },
+          "minister_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minister Role",
+            "description": "The office it was made in, as the source writes it (`Minister van Sociale Zaken en Werkgelegenheid`)."
           },
           "member": {
             "anyOf": [
@@ -17273,6 +17361,33 @@
               }
             ],
             "description": "The member who made it; null when no member fits the name."
+          },
+          "member_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_name",
+                  "unmatched"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Missing",
+            "description": "Of the Eerste Kamer, without ``member``: why. `no_name`, the passage names no one who spoke in an office of its kind; `unmatched`, the name fits no one or several who held one that day. A gap, not filled by hand."
+          },
+          "ministry_held": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the Eerste Kamer: the ministry of the post the member held that day, when it is not ``ministry`` (that of the office the Kamer names): a conflict, not corrected."
           },
           "post": {
             "anyOf": [
@@ -17332,6 +17447,17 @@
             "title": "Fulfilled By",
             "description": "The letters that fulfil it (``ANSWERS``, from ``Toezegging.KamerbriefNakoming``), oldest first."
           },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EkSourceDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the Eerste Kamer: its page on eerstekamer.nl and the day it was read, to name with it; null for the Tweede Kamer."
+          },
           "path": {
             "anyOf": [
               {
@@ -17363,6 +17489,7 @@
         "type": "object",
         "required": [
           "key",
+          "chamber",
           "number",
           "text",
           "status",
@@ -17371,18 +17498,22 @@
           "expected_resolution",
           "expected_resolution_impossible",
           "minister_name",
+          "minister_role",
           "member",
+          "member_missing",
+          "ministry_held",
           "post",
           "ministry",
           "cabinet",
           "dossiers",
           "activity",
           "fulfilled_by",
+          "source",
           "path",
           "ministry_name"
         ],
         "title": "CommitmentDTO",
-        "description": "A commitment (toezegging) of a bewindspersoon to the Tweede Kamer."
+        "description": "A commitment (toezegging) of a bewindspersoon to the Tweede or the Eerste Kamer."
       },
       "CommitmentDossierDTO": {
         "properties": {
@@ -17430,7 +17561,8 @@
                 "type": "string",
                 "enum": [
                   "nakoming",
-                  "agenda"
+                  "agenda",
+                  "kamerstukken"
                 ]
               },
               {
@@ -17438,7 +17570,7 @@
               }
             ],
             "title": "Basis",
-            "description": "Why it is this dossier: `nakoming`, the dossier of a letter that fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of the debate it was made in, where it was discussed (a commitment no letter in a dossier fulfils yet)."
+            "description": "Why it is this dossier: `nakoming`, the dossier of a letter that fulfils it (`Toezegging.KamerbriefNakoming`); `agenda`, a dossier on the agenda of the debate it was made in, where it was discussed (a commitment no letter in a dossier fulfils yet); `kamerstukken`, of the Eerste Kamer, the dossier of a Kamerstuk its page names."
           },
           "path": {
             "anyOf": [
@@ -17488,6 +17620,13 @@
             },
             "type": "array",
             "title": "Ministry"
+          },
+          "chamber": {
+            "items": {
+              "$ref": "#/components/schemas/FacetCountDTO"
+            },
+            "type": "array",
+            "title": "Chamber"
           }
         },
         "additionalProperties": false,
@@ -17495,7 +17634,8 @@
         "required": [
           "status",
           "cabinet",
-          "ministry"
+          "ministry",
+          "chamber"
         ],
         "title": "CommitmentFacetsDTO",
         "description": "Per dimension the number of commitments per value under the current filters, each\ndimension counted without its own filter, the largest first: only the values that\nhave commitments (a ministry without any is not listed)."
@@ -18275,6 +18415,234 @@
         "title": "CommitteeSeatDTO",
         "description": "One period a member held a seat on a committee."
       },
+      "CourseBasis": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id",
+            "description": "The law: `BWBR0001830` (RO), `BWBR0005537` (Awb)."
+          },
+          "article_number": {
+            "type": "string",
+            "title": "Article Number",
+            "description": "Its article as numbered: `60`, `8:105`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "article_number"
+        ],
+        "title": "CourseBasis",
+        "description": "The article of law that gives the court its say in this step."
+      },
+      "CourseLink": {
+        "properties": {
+          "relation": {
+            "type": "string",
+            "title": "Relation",
+            "description": "`APPEAL_OF`, `REFERRED_BY` or `CONTINUES` (to an earlier step), `ADVISES_ON` (a conclusion to the judgment it advises on)."
+          },
+          "to": {
+            "type": "string",
+            "title": "To",
+            "description": "The ECLI of the other step."
+          },
+          "source_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Outcome",
+            "description": "How the appeal ended as the Rechtspraak records it (`psi:gevolg`: `Bekrachtiging/bevestiging`); null when neither judgment says."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "relation",
+          "to",
+          "source_outcome"
+        ],
+        "title": "CourseLink",
+        "description": "An edge from this step to another step of the course."
+      },
+      "CourseStep": {
+        "properties": {
+          "ecli": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ecli"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "court_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Code"
+          },
+          "court_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Name",
+            "description": "The court as its metadata names it; of a stub as the Instanties list names its code."
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          },
+          "court_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Kind"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Procedure",
+            "description": "The procedure as the source writes it (`psi:procedure`, the first)."
+          },
+          "decision_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Kind"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "How it ended as its text says (`judgment.outcome`)."
+          },
+          "area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area",
+            "description": "`civiel`, `straf`, `bestuur` or `belasting`, from its subjects."
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CourseBasis"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "From a fixed list (`data/route_articles.json`) by tier, procedure and area; null where the list has none (a gap, never a guess)."
+          },
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded",
+            "description": "False for a stub: named, not in the graph."
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current",
+            "description": "The judgment asked for."
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLink"
+            },
+            "type": "array",
+            "title": "Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ecli",
+          "key",
+          "court_code",
+          "court_name",
+          "tier",
+          "court_kind",
+          "date",
+          "procedure",
+          "decision_kind",
+          "outcome",
+          "area",
+          "basis",
+          "loaded",
+          "current",
+          "links"
+        ],
+        "title": "CourseStep",
+        "description": "One judgment of the case."
+      },
       "CourtKind": {
         "type": "string",
         "enum": [
@@ -18479,6 +18847,114 @@
         ],
         "title": "CoverageTierDTO",
         "description": "The judgments of one court tier in the graph."
+      },
+      "CriminalDecisionDTO": {
+        "properties": {
+          "proven": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ja",
+                  "deels",
+                  "nee"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proven",
+            "description": "`ja` (verklaart bewezen), `deels` (a charge proven, another acquitted or the prosecution inadmissible for it), `nee` (acquitted of all); null with `proven_missing`."
+          },
+          "proven_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "geen-dictum",
+                  "geen-strafvonnis",
+                  "niet-in-dictum",
+                  "niet-gevonden",
+                  "vrijgesproken"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proven Missing",
+            "description": "Why it is empty: `geen-dictum` (no decision read in the text), `geen-strafvonnis` (the decision neither proves nor sentences: a complaint, a confiscation order, an appeal court that confirms), `niet-in-dictum` (the decision sentences but does not say what was proven: an appeal court that changes only the sentence), `niet-gevonden` (proven, but no main sentence read: the decision may be cut off or impose a measure alone; never read it as no sentence), `vrijgesproken` (nothing proven); null when it is not empty."
+          },
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/CriminalSentenceDTO"
+            },
+            "type": "array",
+            "title": "Sentences",
+            "description": "The main punishments the decision imposes, in its order; empty with `sentences_missing`."
+          },
+          "sentences_missing": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "geen-dictum",
+                  "geen-strafvonnis",
+                  "niet-in-dictum",
+                  "niet-gevonden",
+                  "vrijgesproken"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentences Missing",
+            "description": "Why it is empty: `geen-dictum` (no decision read in the text), `geen-strafvonnis` (the decision neither proves nor sentences: a complaint, a confiscation order, an appeal court that confirms), `niet-in-dictum` (the decision sentences but does not say what was proven: an appeal court that changes only the sentence), `niet-gevonden` (proven, but no main sentence read: the decision may be cut off or impose a measure alone; never read it as no sentence), `vrijgesproken` (nothing proven); null when it is not empty."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "proven",
+          "proven_missing",
+          "sentences",
+          "sentences_missing"
+        ],
+        "title": "CriminalDecisionDTO",
+        "description": "What a criminal judgment of a rechtbank or gerechtshof decided on the charge, read\nfrom its decision (``core/criminal_decision.py``). It is the outcome of the whole case,\nnot of one article it cites: with more than one charge, `deels` says nothing of one."
+      },
+      "CriminalSentenceDTO": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gevangenisstraf",
+              "taakstraf",
+              "geldboete",
+              "jeugddetentie",
+              "hechtenis",
+              "tbs",
+              "meerdere"
+            ],
+            "title": "Kind",
+            "description": "`gevangenisstraf`, `taakstraf`, `geldboete`, `jeugddetentie`, `hechtenis`, `tbs`, or `meerdere` for one clause that imposes more than one."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The clause as the decision writes it, at most 240 characters: \"Veroordeelt verdachte tot een gevangenisstraf voor de duur van 3 (drie) jaren.\" Its duration or amount is text, not a number to sort on."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "text"
+        ],
+        "title": "CriminalSentenceDTO",
+        "description": "A main punishment as the decision imposes it."
       },
       "DataAsOfDTO": {
         "properties": {
@@ -20731,7 +21207,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           },
           "next_cursor": {
@@ -30905,6 +31381,18 @@
             "title": "Advocate General Role",
             "description": "For a conclusion, the role it is signed in (`advocaat-generaal`, `waarnemend advocaat-generaal`, ...), as on `/api/judgments/{ecli}`. Null for a judgment."
           },
+          "inbound_citation_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inbound Citation Count",
+            "description": "The judgments that cite it, each once (as in `/api/judgments`): what `sort=citation_count` orders by."
+          },
           "cited_articles": {
             "items": {
               "$ref": "#/components/schemas/CitedArticleRef"
@@ -30946,6 +31434,7 @@
           "date",
           "advocate_general",
           "advocate_general_role",
+          "inbound_citation_count",
           "cited_articles",
           "path"
         ],
@@ -31311,7 +31800,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           },
           "next_cursor": {
@@ -31536,7 +32025,8 @@
           },
           "total": {
             "type": "integer",
-            "title": "Total"
+            "title": "Total",
+            "description": "The references both ways together, so the same for `A/references/B` and `B/references/A`; per way, the items by `direction`."
           },
           "items": {
             "items": {
@@ -32862,6 +33352,49 @@
         "title": "JudgmentConclusionDTO",
         "description": "A conclusion a judgment names (``conclusion_eclis``), as its light node names it."
       },
+      "JudgmentCourseResponse": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/CourseStep"
+            },
+            "type": "array",
+            "title": "Steps",
+            "description": "The judgments of the case in its order: an earlier instance before the judgment that names it, a conclusion just before the judgment it advises on, judgments of one place by date."
+          },
+          "unresolved": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Unresolved",
+            "description": "The decisions the judgment asked for names in its text as the one it appeals that are not loaded (`unresolved_appeal_targets`: `court`, `date`, `case_number`)."
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "description": "The case goes on past 8 edges from the judgment or 24 judgments."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "steps",
+          "unresolved",
+          "truncated"
+        ],
+        "title": "JudgmentCourseResponse"
+      },
       "JudgmentCoverageResponse": {
         "properties": {
           "total": {
@@ -33131,6 +33664,17 @@
             "type": "array",
             "title": "Echr Findings",
             "description": "Of the ECHR, what it found per article, in the order of HUDOC; empty for any other judgment."
+          },
+          "criminal_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CriminalDecisionDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of a criminal judgment of a rechtbank or gerechtshof (no conclusion), what it decided on the charge; null for any other (the Hoge Raad rules on the cassation appeal, not on the charge) and for one `normalize rechtspraak` has not read since."
           },
           "outcome_paragraph_id": {
             "anyOf": [
@@ -33504,6 +34048,7 @@
           "conclusion_outcome",
           "conclusion_outcome_text",
           "echr_findings",
+          "criminal_decision",
           "outcome_paragraph_id",
           "conclusion_outcome_paragraph_id",
           "ecli",
@@ -34069,7 +34614,7 @@
           "partial": {
             "type": "boolean",
             "title": "Partial",
-            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted before them; ask again for them, they are counted on. The next page does not depend on them.",
+            "description": "The page is whole, but ``total`` and ``facets`` were not counted in time (a filter not counted since the data last changed: a request waits 3 s for them): empty facets now, and ``total`` null unless it was counted apart (the judgments and instruments wait 3 s more for it alone, after the page); ask again for them, they are counted on. The next page does not depend on them.",
             "default": false
           }
         },

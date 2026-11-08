@@ -1,5 +1,5 @@
 {
- "document": "9f55fcae645a7e8f",
+ "document": "ca2a0737a789a0c7",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2026:1530",
@@ -17,6 +17,9 @@
    "case_number": "26/01798",
    "document_type": "Uitspraak",
    "type": "Herziening",
+   "procedures": [
+    "Herziening"
+   ],
    "related_eclis": [
     "ECLI:NL:GHDHA:2024:621"
    ]
@@ -127,6 +130,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-22",
   "published_on": "2026-09-22",

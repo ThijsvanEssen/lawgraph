@@ -131,6 +131,18 @@ the decisions an appeal names in its text that are not loaded (`court`, `date`,
 laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written, such as `Rv`,
 `article_number`, `raw_match`, `qualifier`, `leden`, `onderdelen`, `aanhef`, `paragraph_ids`,
 `mention_count`), one per law and article in reading order.
+`/api/judgments/{ecli}/course` (Verloop) gives the whole case in one answer: breadth-first over
+those four edges both ways (up to 8 edges and 24 judgments, `truncated` past them), the steps in
+the order of the case, each with `basis`, the article that gives its court its say, from the
+fixed list `data/route_articles.json` (tier, procedure and area of law → RO art. 42, 44, 45, 60,
+78, Awb art. 8:6, 8:105; null where it has none), `loaded` false for a stub and `links` with the
+outcome the Rechtspraak records (`source_outcome`). The first paint of a judgment holds the same
+answer as `course`.
+`judgment.criminal_decision` is what a criminal judgment of a rechtbank or gerechtshof decided
+on the charge: `proven` (`ja`, `deels`, `nee`), `sentences` (`kind`, `text` as the decision
+writes it) and, for a field left empty, its reason (`proven_missing`, `sentences_missing`); null
+for any other judgment and for one not normalized since ([data model](data-model.md)). It is the
+outcome of the whole case, not of one article it cites.
 
 ### Parliament
 
@@ -686,7 +698,7 @@ activities by the date kept in `lg_led`), and `tests/pg/test_query_plans.py` run
 |------------|-----------|
 | CORS | origins from `LAWGRAPH_ALLOWED_ORIGINS` (default `localhost:5173`, `5174`, `127.0.0.1` variants); credentials allowed |
 | Rate limit | sliding window per client (an IPv4 address, an IPv6 /64), on a monotonic clock: `LAWGRAPH_RATE_LIMIT_CALLS` (200) per `LAWGRAPH_RATE_LIMIT_PERIOD` seconds (60); 429 with `Retry-After` (the seconds until the oldest request of the window leaves it), a small page to a request that accepts `text/html` (a browser asking for a page; it loads again by itself then), else the JSON of every error; each 429 has a line in the log (the network and the path, as the request log). `LAWGRAPH_RATE_LIMIT_EXEMPT` networks are not counted. Every request counts, whatever its `Origin`. `X-Forwarded-For` is honoured only from loopback or `LAWGRAPH_TRUSTED_PROXIES`, and then its right-most address that is no such proxy is the client. State is per process, so N workers allow N times the limit; clients without a request in the window are forgotten once per window |
-| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, the Atom feed (`/api/feed.atom`) `public, max-age=900`, any other success `private, max-age=60`, anything else (an error, a 429) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data. A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
+| Cache-Control, ETag | every GET and HEAD answer says how it may be kept: a success at `/api/articles/`, `/api/judgments/` and `/api/stats` `public, max-age=60`, the Atom feed (`/api/feed.atom`) `public, max-age=900`, any other success `private, max-age=60`, anything else (an error, a 429) and an answer with `partial` (counts or a search cut off by their budget: one to ask again) `no-store`. A success carries a weak `ETag` of the API version and the data version (`W/"<API version>-<data version>"`; `version_cache.current_version`: the revisions of the graph's collections, read at most every 2 s per process, on a thread of its own, a request waiting 0.5 s at most for a new read before it takes the version it knows), the same for every answer of one release and one version of the data (not on one with `partial`). A request with `If-None-Match` naming the current tag is 304; a write to the graph (a migration) or a new release changes the tag, so a browser that asks again after either gets the new answer within a minute |
 | Request log | `[id] client METHOD path -> status size latency cache=hit\|miss\|none db=<ms> worker=<pid>`; sets `X-Request-ID`; answers an error no handler answers with the 500 of `api/errors.py` |
 | Server-Timing | every answer that passes the request log: `total` (ms), `db` (ms in the statements the request ran itself, summed over its threads; a computation of the cache in the background is not in it) and, when the request asked the cache anything, `cache;desc=hit` (all kept) or `miss` (one computed: `dur` the longest it waited for one). Not on a 304 |
 | Compression | a response of 1 KB or more is sent gzip-compressed to a client that accepts it (`Accept-Encoding: gzip`), JSON and the Atom feed alike, with `Vary: Accept-Encoding`; a 304 has no body |

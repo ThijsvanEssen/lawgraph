@@ -1,5 +1,5 @@
 {
- "document": "f07c798e6bf52657",
+ "document": "c4f9a6cc6e8d9eaf",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:1965:AB7079",
@@ -17,6 +17,9 @@
    "case_number": "9885",
    "document_type": "Uitspraak",
    "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:1965:AB7079"
    ]
@@ -127,6 +130,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [
    "Kelderluik"
   ],

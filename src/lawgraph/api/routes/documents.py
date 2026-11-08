@@ -10,9 +10,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api.dependencies import get_store
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import (
     DOSSIER_NUMBER_PATTERN,
     After,
@@ -72,6 +73,7 @@ OFFSET_MAX = 10_000
 )
 def list_chamber_documents(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     chamber: Annotated[
         Chamber | None, Query(description="One chamber; both by default.")
     ] = None,
@@ -136,6 +138,7 @@ def list_chamber_documents(
         after=after,
         facets=facets,
     )
+    no_store_if(response, bool(raw.get("partial")))
     names = load_dossier_names(store)
     return DocumentListResponse(
         next_cursor=raw.get("next_cursor"),

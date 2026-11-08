@@ -1,5 +1,5 @@
 {
- "document": "8a83bba19ca8b954",
+ "document": "7ba635f9f12a1d22",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHDHA:2026:2908",
@@ -17,6 +17,9 @@
    "case_number": "22-002843-25",
    "document_type": "Uitspraak",
    "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ],
    "related_eclis": [
     "ECLI:NL:RBDHA:2025:16691"
    ]
@@ -103,6 +106,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-dictum",
+   "sentences": [],
+   "sentences_missing": "geen-dictum"
+  },
   "names": [],
   "date_eff": "2026-09-16",
   "published_on": "2026-09-22",

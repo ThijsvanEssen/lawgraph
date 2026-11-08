@@ -1,5 +1,5 @@
 {
- "document": "6413dbb3bfd722b5",
+ "document": "1d1ca7f8eb4c2a42",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBNNE:2026:2437",
@@ -17,6 +17,10 @@
    "case_number": "C/18/251280 HA RK 25-89",
    "document_type": "Uitspraak",
    "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig",
+    "Op tegenspraak"
+   ],
    "later_eclis": [
     "ECLI:NL:GHARL:2026:5284"
    ]
@@ -761,6 +765,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-06-22",
   "published_on": "2026-06-22",

@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from lawgraph.config.constants import (
+    CHAMBER_EK,
     COLLECTION_CASES,
     COLLECTION_DOSSIERS,
     RELATION_AUTHORED,
@@ -61,11 +62,16 @@ def cabinet_periods(store: Store) -> Iterator[dict[str, Any]]:
 
 
 def commitment_makers(
-    store: Store, ids: list[str] | None = None
+    store: Store,
+    ids: list[str] | None = None,
+    *,
+    ek: bool = False,
+    kept: tuple[str, ...] = ("member_key", "post", "ministry", "cabinet"),
 ) -> Iterator[dict[str, Any]]:
-    """``{key, name, role, ministry_name, text, date, props}`` of every commitment, or of
-    those with an ``id`` in *ids*: who made it as the source writes it, the ministry the
-    source gives it, its text, and what is stored now of who made it."""
+    """``{key, name, role, ministry_name, text, date, props}`` of every commitment of the
+    Tweede Kamer (with *ek* of the Eerste Kamer), or of those with an ``id`` in *ids*: who
+    made it as the source writes it, the ministry the source gives it, its text, and what is
+    stored now of who made it (the props *kept*)."""
     return store.query(
         f"""
         SELECT json_build_object(
@@ -75,13 +81,14 @@ def commitment_makers(
             'ministry_name', c.props -> 'ministry_name',
             'text', c.props -> 'text',
             'date', c.props -> 'made_on',
-            'props', {keep_props("c.props", "member_key", "post", "ministry", "cabinet")}
+            'props', {keep_props("c.props", *kept)}
         )
         FROM commitments c
-        WHERE %(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[])
+        WHERE (%(ids)s::text[] IS NULL OR c.id = ANY(%(ids)s::text[]))
+          AND coalesce(%(label)s = ANY(c.labels), false) = %(ek)s
         ORDER BY c.key
         """,
-        {"ids": ids},
+        {"ids": ids, "label": CHAMBER_EK, "ek": ek},
     )
 
 

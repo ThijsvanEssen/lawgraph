@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import EdgeMeta, is_node_id, parse_choices
 from lawgraph.api.schemas.nodes import (
     BaseNodeDTO,
@@ -59,6 +60,7 @@ def _node_ids(value: str) -> list[str]:
 )
 def get_paths_route(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     ids: Annotated[
         str, Query(description="Node ids, comma-separated: `members/x,articles/y`")
     ],
@@ -97,6 +99,7 @@ def get_paths_route(
         expand_cap=expand_cap if expand == "members" else 0,
         passages=edge_meta == "passages",
     )
+    no_store_if(response, data["partial"])
     membership: set[str] = data["membership"]
     # the notes of the publications among them, whose titles their titles read
     notes = seo_queries.notes_of(store, data["nodes"])

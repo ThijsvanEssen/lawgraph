@@ -1,5 +1,5 @@
 {
- "document": "33bb96055f274ced",
+ "document": "9e63ba9329eca607",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:PHR:2026:619",
@@ -273,6 +273,7 @@
   "conclusion_outcome": "vernietiging",
   "conclusion_outcome_text": "49e8d919c89ca539 Deze conclusie strekt tot vernietiging van de uitspraak van …",
   "conclusion_outcome_paragraph_id": "rov-3.4",
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-06-23",
   "published_on": "2026-06-25",

@@ -30,6 +30,7 @@ class Unexpected(StrEnum):
     BAD_ID = "ongeldig id"
     NOT_PDF = "geen PDF"
     NOT_DOCX = "geen DOCX"
+    NO_FORM = "geen formulier"
 
 
 class UnexpectedAnswer(RuntimeError):

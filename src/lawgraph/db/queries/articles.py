@@ -868,6 +868,15 @@ _YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
 _AREA_KEPT = "(%(area)s::text IS NULL OR h.areas @> ARRAY[%(area)s::text])"
 
 
+def _court_kept(row: str) -> str:
+    """SQL: the row *row* of ``lg_cited_by`` is of the court asked for, and has a passage
+    (an ECHR judgment without one is counted apart)."""
+    return (
+        f"({row}.mentions > 0 OR {row}.court_code IS DISTINCT FROM '{CODE_ECHR}')"
+        f" AND (%(court)s::text IS NULL OR {row}.court_code = %(court)s::text)"
+    )
+
+
 def _cited_by_facet(value: str, where: str, order: str, *, many: bool = False) -> str:
     """SQL: the judgments of ``hits`` under *where*, counted per *value*, in *order*; with
     *many*, *value* is an array and a judgment counts for each of its values."""
@@ -905,9 +914,7 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
                c.areas, substr(c.date_eff, 1, 4) AS year
         FROM {CITED_BY_TABLE} c
         CROSS JOIN LATERAL {_MENTIONS_OF_LID if lid else _EVERY_MENTION}
-        WHERE c.article_id = %(article_id)s
-          AND (%(court)s::text IS NULL OR c.court_code = %(court)s::text)
-          AND (c.mentions > 0 OR c.court_code IS DISTINCT FROM '{CODE_ECHR}')
+        WHERE c.article_id = %(article_id)s AND {_court_kept("c")}
     ),
     kept AS (
         SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
@@ -971,13 +978,11 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
 _CITED_BY_COUNTS = f"""
     SELECT
         count(*) FILTER (WHERE
-            (h.mentions > 0 OR h.court IS DISTINCT FROM '{CODE_ECHR}')
-            AND (%(court)s::text IS NULL OR h.court = %(court)s::text)
-            AND {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
+            {_court_kept("h")} AND {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
         )::int AS judgment_total,
-        count(*) FILTER (WHERE h.court = '{CODE_ECHR}')::int AS echr_judgment_total
+        count(*) FILTER (WHERE h.court_code = '{CODE_ECHR}')::int AS echr_judgment_total
     FROM (
-        SELECT c.mentions, c.court_code AS court, c.tier, c.areas,
+        SELECT c.mentions, c.court_code, c.tier, c.areas,
                substr(c.date_eff, 1, 4) AS year
         FROM {CITED_BY_TABLE} c
         WHERE c.article_id = %(article_id)s

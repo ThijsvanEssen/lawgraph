@@ -1,5 +1,5 @@
 {
- "document": "252a012753161f02",
+ "document": "51a30e9f69576551",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2025:118",
@@ -16,7 +16,10 @@
    "date": "2025-01-21",
    "case_number": "200.337.468/01",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ]
   },
   "court": "Gerechtshof Amsterdam",
   "date": "2025-01-21",
@@ -541,6 +544,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2025-01-21",
   "published_on": "2025-02-05",

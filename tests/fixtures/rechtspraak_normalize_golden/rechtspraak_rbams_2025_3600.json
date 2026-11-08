@@ -1,5 +1,5 @@
 {
- "document": "484fc4504ca42e96",
+ "document": "ea005b43136d1f15",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBAMS:2025:3600",
@@ -17,9 +17,15 @@
    "case_number": "24/4694",
    "document_type": "Uitspraak",
    "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ],
    "later_eclis": [
     "ECLI:NL:RVS:2026:2726"
-   ]
+   ],
+   "relation_outcomes": {
+    "ECLI:NL:RVS:2026:2726": "Bekrachtiging/bevestiging"
+   }
   },
   "court": "Rechtbank Amsterdam",
   "date": "2025-06-03",
@@ -136,6 +142,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2025-06-03",
   "published_on": "2025-10-17",

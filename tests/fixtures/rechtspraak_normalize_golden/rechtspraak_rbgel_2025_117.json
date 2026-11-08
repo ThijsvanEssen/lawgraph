@@ -1,5 +1,5 @@
 {
- "document": "25d034071f7f0450",
+ "document": "11787cc7d435a0f5",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBGEL:2025:117",
@@ -16,7 +16,10 @@
    "date": "2025-01-13",
    "case_number": "05.154568.24",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ]
   },
   "court": "Rechtbank Gelderland",
   "date": "2025-01-13",
@@ -702,6 +705,17 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": "ja",
+   "proven_missing": null,
+   "sentences": [
+    {
+     "kind": "gevangenisstraf",
+     "text": "veroordeelt verdachte tot een gevangenisstraf voor de duur van tien weken"
+    }
+   ],
+   "sentences_missing": null
+  },
   "names": [],
   "date_eff": "2025-01-13",
   "published_on": "2025-01-14",

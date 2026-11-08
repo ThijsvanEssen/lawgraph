@@ -456,6 +456,12 @@ def test_a_court_that_advises_itself_has_its_judgment_under_the_dossier_number()
             Instance("ECLI:NL:PHR:2019:9", "19/00001", is_conclusion=True),
             None,
         ),
+        # a conclusion of the Parket bij de Hoge Raad that is not loaded: no earlier instance
+        (
+            Instance("ECLI:NL:HR:2020:1", "19/00001", procedure="Cassatie"),
+            Instance("ECLI:NL:PHR:2019:9"),
+            None,
+        ),
         # a later instance the metadata does not call one (ECLI:NL:GHAMS:2015:5823)
         (
             Instance("ECLI:NL:GHAMS:2015:5823", "23-000949-15", date="2015-07-29"),

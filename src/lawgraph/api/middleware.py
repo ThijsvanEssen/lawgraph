@@ -13,7 +13,7 @@ import time
 import uuid
 from collections.abc import Callable
 
-from fastapi import Request
+from fastapi import Request, Response
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response as StarletteResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -47,12 +47,15 @@ ATOM_MAX_AGE = 900
 # How long a request waits for a new read of the data version when it knows one (seconds):
 # past it, it is tagged with the one it knows.
 VERSION_WAIT = 0.5
+# The ``Cache-Control`` of an answer no cache keeps: not a success, or one a route marked.
+NO_STORE = b"no-store"
 
 
 class CacheControlMiddleware:
     """An explicit ``Cache-Control`` on every GET and HEAD response (``no-store`` on one
-    that is not a success), and on a success a weak ``ETag`` of the API version and the
-    data version; a request whose ``If-None-Match`` names the current tag is 304.
+    that is not a success, or that its route marked so: ``no_store_if``), and on a
+    success a weak ``ETag`` of the API version and the data version; a request whose
+    ``If-None-Match`` names the current tag is 304.
 
     Every response of one API and data version has the same ``ETag``: a cache keeps it per
     URL, and after a migration (a write to the graph) or a release none of them matches
@@ -146,21 +149,30 @@ class CacheControlMiddleware:
 
         async def _send_with_cache(message: Message) -> None:
             if message["type"] == "http.response.start":
-                success = 200 <= message.get("status", 200) < 300
                 headers = [
                     (name, value)
                     for name, value in message.get("headers", [])
                     if name.lower() != b"cache-control"
                 ]
+                marked = (b"cache-control", NO_STORE) in message.get("headers", [])
+                kept = 200 <= message.get("status", 200) < 300 and not marked
                 headers.append(
-                    (b"cache-control", cache_value.encode() if success else b"no-store")
+                    (b"cache-control", cache_value.encode() if kept else NO_STORE)
                 )
-                if etag and success:
+                if etag and kept:
                     headers.append((b"etag", etag))
                 message = {**message, "headers": headers}
             await send(message)
 
         await self._app(scope, receive, _send_with_cache)
+
+
+def no_store_if(response: Response, partial: bool) -> None:
+    """A *partial* answer (counts or a search cut off by their budget) is one to ask
+    again: ``Cache-Control: no-store`` and no ``ETag`` (``CacheControlMiddleware``), so no
+    browser keeps it, nor gets a 304 for it until the data changes."""
+    if partial:
+        response.headers["cache-control"] = NO_STORE.decode()
 
 
 def _if_none_match(scope: Scope) -> list[bytes]:

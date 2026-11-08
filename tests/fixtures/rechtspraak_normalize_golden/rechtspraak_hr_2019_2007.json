@@ -1,5 +1,5 @@
 {
- "document": "c6077e75b8def7fb",
+ "document": "89e67020566fd2dc",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:2007",
@@ -16,7 +16,10 @@
    "date": "2019-12-20",
    "case_number": "19/00135 (Engels)",
    "document_type": "Uitspraak",
-   "type": "Cassatie"
+   "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ]
   },
   "court": "Hoge Raad",
   "date": "2019-12-20",
@@ -145,6 +148,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [
    "Urgenda"
   ],

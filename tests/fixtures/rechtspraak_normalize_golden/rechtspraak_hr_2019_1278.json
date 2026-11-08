@@ -1,5 +1,5 @@
 {
- "document": "26f476c495809cfc",
+ "document": "2be26874186052e6",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2019:1278",
@@ -17,6 +17,9 @@
    "case_number": "18/04298",
    "document_type": "Uitspraak",
    "type": "Prejudiciële beslissing",
+   "procedures": [
+    "Prejudiciële beslissing"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:2019:496"
    ]
@@ -230,6 +233,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2019-07-19",
   "published_on": "2019-07-19",

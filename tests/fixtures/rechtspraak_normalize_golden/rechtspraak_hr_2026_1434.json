@@ -1,5 +1,5 @@
 {
- "document": "bfa2108a417193e6",
+ "document": "40f69ba26ee87902",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2026:1434",
@@ -17,6 +17,11 @@
    "case_number": "25/01078",
    "document_type": "Uitspraak",
    "type": "Artikel 81 RO-zaken",
+   "procedures": [
+    "Artikel 81 RO-zaken",
+    "Cassatie",
+    "Beschikking"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:2026:630"
    ]
@@ -115,6 +120,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-22",
   "published_on": "2026-09-22",

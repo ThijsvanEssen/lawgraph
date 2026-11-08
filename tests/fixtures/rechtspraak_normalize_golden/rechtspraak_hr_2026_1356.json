@@ -1,5 +1,5 @@
 {
- "document": "f9a05e934c4be535",
+ "document": "119fac10bf73d909",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2026:1356",
@@ -17,6 +17,9 @@
    "case_number": "24/01260",
    "document_type": "Uitspraak",
    "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ],
    "related_eclis": [
     "ECLI:NL:GHDHA:2024:2957"
    ],
@@ -169,6 +172,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-08-25",
   "published_on": "2026-08-25",

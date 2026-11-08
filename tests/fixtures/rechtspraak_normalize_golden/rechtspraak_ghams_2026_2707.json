@@ -1,5 +1,5 @@
 {
- "document": "b2419cb3ae95e0b6",
+ "document": "6a07101ea5a5f26d",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2026:2707",
@@ -16,7 +16,11 @@
    "date": "2026-09-22",
    "case_number": "200.364.500/01 OK",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig",
+    "Beschikking"
+   ]
   },
   "court": "Gerechtshof Amsterdam",
   "date": "2026-09-22",
@@ -182,6 +186,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-22",
   "published_on": "2026-09-22",

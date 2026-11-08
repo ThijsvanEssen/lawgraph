@@ -25,7 +25,10 @@ from lawgraph.config.constants import (
 from lawgraph.core.case_numbers import same_case_number
 from lawgraph.core.dutch_dates import DATE, dutch_day
 from lawgraph.core.ecli import court_code
-from lawgraph.core.judgment_metadata import PROCEDURE_PRELIMINARY_RULING
+from lawgraph.core.judgment_metadata import (
+    CONCLUSION_ONLY_COURTS,
+    PROCEDURE_PRELIMINARY_RULING,
+)
 from lawgraph.core.xml import collapse_ws
 
 # The court that refers a case to another after setting aside its decision.
@@ -78,10 +81,11 @@ def earlier_instance_relation(later: Instance, earlier: Instance) -> str | None:
     The same court in the same case: ``CONTINUES``. A ruling of the Hoge Raad named by
     another court: ``REFERRED_BY`` (the case came back to it after cassation); a preliminary
     ruling the court asked for is none (``ANSWERS`` ties the two the other way). A conclusion
-    is none (``ADVISES_ON``), and so is a judgment given after *later*: a later instance the
-    metadata does not call one. Any other: ``APPEAL_OF``.
+    is none (``ADVISES_ON``), also one of a court that publishes nothing else (the Parket bij
+    de Hoge Raad) that is not loaded, and so is a judgment given after *later*: a later
+    instance the metadata does not call one. Any other: ``APPEAL_OF``.
     """
-    if earlier.is_conclusion:
+    if earlier.is_conclusion or court_code(earlier.ecli) in CONCLUSION_ONLY_COURTS:
         return None
     if later.date and earlier.date and earlier.date > later.date:
         return None

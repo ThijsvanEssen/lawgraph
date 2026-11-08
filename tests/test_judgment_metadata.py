@@ -176,6 +176,50 @@ def test_the_earlier_instance_is_read_from_the_attribute_and_nothing_else_is() -
         judgment_metadata.parse_judgment(_RELATIONS_XML)
     )
     assert meta["related_eclis"] == ["ECLI:NL:GHAMS:2024:3036"]
+    assert "relation_outcomes" not in meta
+
+
+# An appeal and the judgment it appeals, as the open data writes them (ECLI:NL:GHSHE:2026:2210
+# and ECLI:NL:RBLIM:2025:1984): the outcome in ``psi:gevolg`` and as a label in the text.
+_OUTCOME_XML = """<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:dcterms="http://purl.org/dc/terms/" xmlns:ecli="https://e-justice.europa.eu/ecli"
+    xmlns:psi="http://psi.rechtspraak.nl/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+  <rdf:Description>
+    <psi:procedure>Hoger beroep</psi:procedure>
+    <psi:procedure>Beslissing RC</psi:procedure>
+    <psi:procedure>Hoger beroep</psi:procedure>
+    <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:RBLIM:2025:1984"
+      psi:type="http://psi.rechtspraak.nl/hogerBeroep"
+      psi:aanleg="http://psi.rechtspraak.nl/eerdereAanleg"
+      psi:gevolg="http://psi.rechtspraak.nl/gevolg#bekrachtiging/bevestiging"
+      >Eerste aanleg: ECLI:NL:RBLIM:2025:1984, Bekrachtiging/bevestiging</dcterms:relation>
+    <dcterms:relation rdfs:label="Formele relatie" ecli:resourceIdentifier="ECLI:NL:HR:2027:2"
+      psi:type="http://psi.rechtspraak.nl/cassatie"
+      psi:aanleg="http://psi.rechtspraak.nl/latereAanleg"
+      psi:gevolg="http://psi.rechtspraak.nl/gevolg#vernietiging">ECLI:NL:HR:2027:2</dcterms:relation>
+  </rdf:Description>
+</rdf:RDF>"""
+
+
+def test_every_procedure_is_kept_in_order_and_the_first_is_the_type() -> None:
+    meta, _ = judgment_metadata.extract_rdf_metadata(
+        judgment_metadata.parse_judgment(_OUTCOME_XML)
+    )
+    assert meta["type"] == "Hoger beroep"
+    assert meta["procedures"] == ["Hoger beroep", "Beslissing RC"]
+
+
+def test_the_outcome_of_an_appeal_is_read_per_instance() -> None:
+    """The label of the text; the end of the address where the text gives none."""
+    meta, _ = judgment_metadata.extract_rdf_metadata(
+        judgment_metadata.parse_judgment(_OUTCOME_XML)
+    )
+    assert meta["related_eclis"] == ["ECLI:NL:RBLIM:2025:1984"]
+    assert meta["later_eclis"] == ["ECLI:NL:HR:2027:2"]
+    assert meta["relation_outcomes"] == {
+        "ECLI:NL:RBLIM:2025:1984": "Bekrachtiging/bevestiging",
+        "ECLI:NL:HR:2027:2": "vernietiging",
+    }
 
 
 def test_rechtspraak_extract_law_references() -> None:

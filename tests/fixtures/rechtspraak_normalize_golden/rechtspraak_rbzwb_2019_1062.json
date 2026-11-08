@@ -1,5 +1,5 @@
 {
- "document": "7309a10523672fdf",
+ "document": "1140cbbf07da2518",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBZWB:2019:1062",
@@ -17,12 +17,21 @@
    "case_number": "BRE - 17 _ 5071_5075",
    "document_type": "Uitspraak",
    "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ],
    "later_eclis": [
     "ECLI:NL:GHSHE:2020:4048",
     "ECLI:NL:GHSHE:2020:4050",
     "ECLI:NL:GHARL:2025:1600",
     "ECLI:NL:GHARL:2025:1602"
-   ]
+   ],
+   "relation_outcomes": {
+    "ECLI:NL:GHSHE:2020:4048": "Bekrachtiging/bevestiging",
+    "ECLI:NL:GHSHE:2020:4050": "Bekrachtiging/bevestiging",
+    "ECLI:NL:GHARL:2025:1600": "(Gedeeltelijke) vernietiging en zelf afgedaan",
+    "ECLI:NL:GHARL:2025:1602": "(Gedeeltelijke) vernietiging en zelf afgedaan"
+   }
   },
   "court": "Rechtbank Zeeland-West-Brabant",
   "date": "2019-02-13",
@@ -479,6 +488,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2019-02-13",
   "published_on": "2019-05-01",

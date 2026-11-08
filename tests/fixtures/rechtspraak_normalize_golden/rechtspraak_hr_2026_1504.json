@@ -1,5 +1,5 @@
 {
- "document": "36ca3f54f096ec09",
+ "document": "f4679c7b03a6cffa",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2026:1504",
@@ -17,6 +17,9 @@
    "case_number": "25/00349",
    "document_type": "Uitspraak",
    "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:2026:785"
    ]
@@ -127,6 +130,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-09-22",
   "published_on": "2026-09-22",

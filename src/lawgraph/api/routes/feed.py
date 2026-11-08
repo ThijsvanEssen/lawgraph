@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import (
     DOSSIER_PREFIX_PATTERN,
     LIST_MAX,
@@ -425,6 +426,7 @@ _Cursor = Annotated[
 )
 def get_feed_route(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     filters: Annotated[FeedFilters, Depends(feed_filters)],
     cursor: _Cursor = None,
     limit: PageLimit = 50,
@@ -433,6 +435,7 @@ def get_feed_route(
     ] = True,
 ) -> FeedResponse:
     page = _page(store, filters, cursor, limit, facets)
+    no_store_if(response, page.partial)
     mark_changes(store, [item.dossier for item in page.items if item.dossier])
     return page
 
@@ -744,6 +747,7 @@ def get_feed_summary_route(
 )
 def get_feed_periods_route(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     scope: Annotated[FeedFilters, Depends(scope_filters)],
     since: Annotated[dt.date | None, Query(description="On or after this day.")] = None,
     until: Annotated[
@@ -769,6 +773,7 @@ def get_feed_periods_route(
     with read_budget(COUNTS_BUDGET, "The feed per period"):
         raw = feed_events.get_periods(store, filters, per)
     partial = raw["written_at"] is None
+    no_store_if(response, partial)
     written = raw.get("written_at")
     return FeedPeriodsResponse(
         per=per,

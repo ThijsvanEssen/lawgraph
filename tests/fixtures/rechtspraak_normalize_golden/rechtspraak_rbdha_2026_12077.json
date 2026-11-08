@@ -1,5 +1,5 @@
 {
- "document": "ea91f39350d7e1c3",
+ "document": "c4270dd239e200f5",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBDHA:2026:12077",
@@ -16,7 +16,11 @@
    "date": "2026-04-16",
    "case_number": "C/09/698972 / FA RK 26-1119",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig",
+    "Beschikking"
+   ]
   },
   "court": "Rechtbank Den Haag",
   "date": "2026-04-16",
@@ -122,6 +126,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2026-04-16",
   "published_on": "2026-06-01",

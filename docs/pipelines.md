@@ -13,7 +13,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
 | Staatsblad | `staatsblad` | `staatsblad`, `staatsblad-laws` | `staatsblad`, `staatsblad-law-references` |
 | Staatscourant | `staatscourant`, `staatscourant-posts` | `staatscourant` (`normalize rijksoverheid` reads `staatscourant-posts`) | `staatscourant` |
-| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions` | `eerstekamer` |
+| Eerste Kamer | `eerstekamer`, `eerstekamer-votes`, `eerstekamer-composition-observed`, `eerstekamer-composition`, `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-motions`, `eerstekamer-commitments`, `eerstekamer-agenda`, `eerstekamer-bills` | `eerstekamer`, `eerstekamer-composition` (which also reads `eerstekamer-composition-observed`), `eerstekamer-mutations`, `eerstekamer-persons`, `eerstekamer-agenda`, `eerstekamer-bills`, `eerstekamer-votes`, `eerstekamer-motions`, `eerstekamer-commitments` | `eerstekamer`, `eerstekamer-government` |
 | Kamerstukken (KOOP SRU) | `kst-sru` | `kst-sru` | `kst-sru` |
 | ECHR | `echr` | `echr` | `echr`, `echr-versions` |
 | Verdragenbank | `verdragenbank` | `verdragenbank` | `verdragenbank` |
@@ -776,12 +776,15 @@ judgments that is and how long it takes: `docs/operations.md`, "Slow steps".
 
 **Normalize.** From `rs-content` XML: RDF header (`creator` as `court`, `date`, `zaaknummer` as
 `case_number` (and split, lower case and without spaces, as `case_number_keys`: `C/19/117301 /
-HA ZA 16-256` is `c/19/117301/haza16-256`), `procedure` as `judgment_metadata.type`, `type`
+HA ZA 16-256` is `c/19/117301/haza16-256`), the first `procedure` as `judgment_metadata.type`
+and every one, in order, as `judgment_metadata.procedures`, `type`
 (`Uitspraak` or `Conclusie`) as `judgment_metadata.document_type`, `subject`s, as
 `conclusion_eclis` every `dcterms:relation` of `psi:type` …/conclusie (the conclusion of a
 judgment, or the judgment of a conclusion), and as `related_eclis` the judgments of the earlier
 instance it ruled on: the `ecli:resourceIdentifier` of every other `dcterms:relation` that is not
-a later instance (`psi:aanleg` …/latereAanleg)), `inhoudsindicatie` as
+a later instance (`psi:aanleg` …/latereAanleg), and per earlier or later instance how its appeal
+ended (`psi:gevolg`, the label the relation's text gives: `Bekrachtiging/bevestiging`) as
+`judgment_metadata.relation_outcomes`), `inhoudsindicatie` as
 `summary`, `uitspraak` (of a conclusion: `conclusie`) as `text` and as `paragraphs` (below;
 [the fields](data-model.md#judgment)), `isReplacedBy` (an ECLI)
 as `replaced_by`, the parties its kop names as `parties` (with who acts for each, from the kop and
@@ -1000,13 +1003,15 @@ counts its citations with the one kept. One whose replacing publication is not l
 alone. Derived in full each run.
 
 **Semantic `rechtspraak-appeal`.** From a judgment to each of its `related_eclis`
-(`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`): `CONTINUES` when it is of the
+(`meta.basis` `formal_relation`, 0.95, `meta.procedure_type`, and `meta.source_outcome` where
+either judgment records how the appeal ended): `CONTINUES` when it is of the
 same court with a case number the two share (an interim judgment, then the final one), whatever
 the procedure; and from a judgment whose `judgment_metadata.type` contains `hoger beroep`,
 `cassatie`, `verwijzing`, `artikel 80a RO` or `artikel 81 RO` (`core/appeals.py`):
 `REFERRED_BY` when it is a ruling of the Hoge Raad and the judgment is of another court (the
 decision after referral), no edge when that ruling is a preliminary ruling the court asked for;
-no edge to a conclusion or to a judgment given later; `APPEAL_OF` otherwise. A judgment's
+no edge to a conclusion (also one of the Parket bij de Hoge Raad that is not loaded) or to a
+judgment given later; `APPEAL_OF` otherwise. A judgment's
 `later_eclis` (`psi:aanleg` latereAanleg) make the same edge from each later judgment that is
 loaded, by the same rules (`later_instance`, 0.95): a lower court names its appeal, which need
 not name it back. An appeal without
@@ -1530,8 +1535,26 @@ the `DC.title` of the metadata, else its `intitule` (`Wet van 8 juli 2026, houde
 the first `titel` that is not the masthead of the series (`Staatsblad`), `bwb_id` = the regulation retrieve found it
 for when its stored toestand names this publication, read from its XML as retrieve reads it (not
 from its `meta.staatsblad_ref`), else the first BWB id in the XML), key
-`stb_<identifier>`. No edges. The same Staatsblad number also exists as an amending Instrument;
-that node comes from `bwb-amendments`.
+`stb_<identifier>`, and who issued it (below). No edges. The same Staatsblad number also
+exists as an amending Instrument; that node comes from `bwb-amendments`.
+
+**Retrieve: who issued it** (the end of `retrieve staatsblad` and `staatscourant`, `retrieve/_creators.py`). The XML of a publication does
+not name who issued it; its SRU record does (`dcterms:creator` with its `scheme`: `Ministerie
+van Financiën`, `OVERHEID.Ministerie`; also a municipality or a court in the Staatscourant).
+For every stored `stb-amvb-xml` and `stcrt-regeling-xml` record whose meta lacks `creators`,
+the SRU is asked by identifier, fifty to a query (a hundred makes the URL too long), and
+`meta.creators` (`{name, scheme}` each) and `meta.published` (`dcterms:available`, the day of
+publication) are written into the record with a new `fetched_at`; the payload stays. A
+publication the SRU holds no record of gets `creators` empty. At most `--creators` (default
+5,000) a run, in key order; a record fetched again comes without them and is asked again. A
+failing SRU request is an error of the run; what was asked stays.
+
+**Normalize: who issued it** (`core/publication_creators.py`). Of a record whose meta holds
+`creators`: `creators` the names, `ministries` the keys each names as the ministry was named
+on `meta.published` (else the document's `date`; `core.ministries.ministry_of`, so
+`Binnenlandse Zaken` after 2010 is BZK), and `ministry_missing` when none does: `no_creator`
+(the SRU names none) or `unlinked` (its creators name no ministry that day). The source names
+no person; who held the post that day is derived on read. Nothing is filled by hand.
 
 **Semantic `staatsblad`.** `EXPLAINS` to the instrument with that `bwb_id` (0.85), else whose
 `citation_title` occurs in the title (0.60); the confidence says which.
@@ -1599,7 +1622,7 @@ unless it has a `--since`; a page that is not XML is not stored, and 25 failed d
 row fail the step.
 
 **Normalize.** Document (`kind` "Ministeriële regeling", `title`, `text`, `bwb_id`, `date`),
-key `stcrt_<identifier>`.
+key `stcrt_<identifier>`, and who issued it (as under Staatsblad).
 
 **Retrieve `staatscourant-posts`.** For every post on the stored Rijksoverheid cabinet pages
 whose function names no ministry, held from 1995 on (the repository holds the Staatscourant
@@ -1868,6 +1891,38 @@ chamber names its signers alike; and `AUTHORED` from each member. A signer is th
 their page as `normalize eerstekamer-persons` matches a page; one whose page is not stored, or
 of no member, is a name without a member and no `AUTHORED` (skipped). A motion whose Kamerstuk
 is not in the graph is skipped, and nothing is written of it.
+
+**Retrieve `eerstekamer-commitments`.** The register of commitments (`/toezeggingen_2`, sent
+as a form without a choice: every commitment since June 2003, the newest first, 50 a page,
+some 90 pages) and the page of each commitment (`/toezegging/…`; record `ek-commitment-html`,
+external id the path, `meta.status` the status the register gave it). A page is fetched when
+it is not stored or when the register gives another status. `--since` reads the register only
+down to the commitments made that day (a change of status of an older one is not seen);
+`retrieve all` reads it whole. `--limit` (default 300, some 10 minutes at the host's
+interval) caps the pages of one run; the log says how many are left after it.
+
+**Normalize `eerstekamer-commitments`.** `core/ek_commitments.py` reads the page by its
+structure: the commitment ("De minister van … zegt de Kamer … toe …"), the table of key data
+(`Nummer`, `Status`, `Datum toezegging`, `Deadline`, `Verantwoordelijke(n)` or, for an office
+since renamed, `Voormalige Verantwoordelijke(n)` and `Huidige Verantwoordelijke(n)`,
+`Kamerleden`, `Commissie`, `Soort activiteit`, `Categorie`, `Onderwerpen`, `Kamerstukken`)
+and, under "Uit de stukken", the citation and who spoke for the government (`Minister
+<strong>Vijlbrief:</strong>`). It writes a commitment `commitments/ek_<number>` beside those
+of the Tweede Kamer, labelled `EersteKamer` and `EK`: `number` (`T04275`), `text`, `status`
+with a capital (`Openstaand`, `Voldaan`, `Deels voldaan`, `Afgevoerd`), `made_on`,
+`expected_resolution` (the deadline), `minister_role` (the first office responsible, the
+years the Kamer adds to a later name left out), `minister_name` (the first who spoke in an
+office of that kind), and what only the Eerste Kamer gives (`core.ek_commitments.EkCommitmentProps`).
+Each stored dossier of its Kamerstukken is `ABOUT` it (`meta.basis` `kamerstukken`).
+
+**Semantic `eerstekamer-government`.** Reads every commitment of the Eerste Kamer as
+`semantic tk-government` reads those of the Tweede Kamer (`commitment_props`): the member who
+held a post of the office's kind that day and whose surname is `minister_name`; `post` and
+`ministry` of the office (or of the function the text names when that is another ministry),
+else of the post the member held; `cabinet` on the day; `AUTHORED` from the member
+(`toezegger`). It marks what does not fit: `member_missing` (`no_name`, `unmatched`) and
+`ministry_held`, the ministry of the post the member held that day when it is not that of the
+office (the Kamer names some offices by a later name), never corrected.
 
 **Normalize `eerstekamer-composition`.** `core/ek_composition.py` reads the pages'
 structure and labelled fields (`Anciënniteit`, `Woonplaats`, `Geboortedatum`, `<function>:
@@ -2237,7 +2292,8 @@ uses a name before its first period keeps that name.
 **Semantic `tooi-ministries`.** Every name of the table is a node `ministries/<key>`
 ([fields](data-model.md#ministry-ministries)), a name that followed another `CONTINUES` it. A
 regulation (its WTI, `normalize bwb`), a dossier and a commitment (`semantic tk-government`)
-whose `ministry` names one are `LED_BY` it; a member who held a post under one (`normalize
+whose `ministry` names one are `LED_BY` it, and a paper of the Staatsblad or the Staatscourant
+each of its `ministries` (`normalize staatsblad`, `staatscourant`); a member who held a post under one (`normalize
 rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
 what it no longer derives goes.
 
@@ -2283,8 +2339,10 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | normalize `eerstekamer-agenda` | `normalize tk-dossiers` (the cases and dossiers its activities are about) and `normalize eerstekamer-composition` (the committees that lead a meeting) |
 | normalize `eerstekamer-bills` | `normalize tk-dossiers` (the dossiers it writes the bill pages on) |
 | normalize `eerstekamer-votes` | `normalize tk-dossiers` (the dossiers the votes are about) |
+| normalize `eerstekamer-commitments` | `normalize tk-dossiers`, `normalize kst-sru` and `normalize eerstekamer` (the dossiers of their Kamerstukken) |
 | semantic `tk-government` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (commitments, documents, `AUTHORED` and `PART_OF` edges) |
-| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` (of a dossier and a commitment), `normalize rijksoverheid` (the posts) |
+| semantic `eerstekamer-government` | `normalize rijksoverheid` (cabinets and posts), `normalize eerstekamer-commitments` (the commitments of the Eerste Kamer) |
+| semantic `tooi-ministries` | `normalize bwb` (the ministry of a regulation), `semantic tk-government` and `semantic eerstekamer-government` (of a dossier and a commitment), `normalize staatsblad` and `staatscourant` (of a publication), `normalize rijksoverheid` (the posts) |
 | semantic `tk-person-duplicates` | `normalize tk-dossiers` (the members), `normalize rijksoverheid` and `normalize eerstekamer-persons` (their roles) |
 | semantic `tk-faction-succession` | `normalize tk-dossiers` (the seats of the members) |
 | semantic `tk-coalition-votes` | `normalize rijksoverheid` (cabinets and posts), `normalize tk-dossiers` (the votes and the seats of the members) |

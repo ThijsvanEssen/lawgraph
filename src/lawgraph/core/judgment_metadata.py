@@ -127,18 +127,6 @@ def is_conclusion_relation(element: ET.Element) -> bool:
     return attributes.get("type", "").endswith("/conclusie")
 
 
-def is_earlier_instance(element: ET.Element) -> bool:
-    """Is the judgment a relation names one this judgment ruled on appeal of?
-
-    Not the conclusion of the Advocate General (``psi:type`` .../conclusie), and not a later
-    instance (``psi:aanleg`` .../latereAanleg); a relation that says neither counts.
-    """
-    attributes = {local_name(name): value for name, value in element.attrib.items()}
-    return not attributes.get("type", "").endswith("/conclusie") and not attributes.get(
-        "aanleg", ""
-    ).endswith("/latereAanleg")
-
-
 def is_later_instance(element: ET.Element) -> bool:
     """Is the judgment a relation names a later instance of this one (``psi:aanleg``
     .../latereAanleg): the court that ruled on appeal of it, in cassation or after it?"""
@@ -146,6 +134,21 @@ def is_later_instance(element: ET.Element) -> bool:
     return not attributes.get("type", "").endswith("/conclusie") and attributes.get(
         "aanleg", ""
     ).endswith("/latereAanleg")
+
+
+def relation_outcome(element: ET.Element, ecli: str) -> str | None:
+    """How the appeal between this judgment and the one a relation names ended, as the
+    Rechtspraak records it (``psi:gevolg``): the label after the ECLI in the relation's text
+    ("Hoger beroep: ECLI:NL:GHSHE:2026:2210, Bekrachtiging/bevestiging"), else the end of
+    the ``psi:gevolg`` address. None when the relation has no ``psi:gevolg``."""
+    attributes = {local_name(name): value for name, value in element.attrib.items()}
+    uri = attributes.get("gevolg", "").strip()
+    if not uri:
+        return None
+    text = collapse_ws(element.text)
+    at = text.upper().find(ecli)
+    label = text[at + len(ecli) :].lstrip(" ,").strip() if at >= 0 else ""
+    return label or uri.rsplit("#", 1)[-1] or None
 
 
 # dc:/psi: element -> judgment_metadata field; the first non-empty one wins.
@@ -179,23 +182,30 @@ def replacing_ecli(value: str | None) -> str | None:
 
 
 def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
-    """Return ``(judgment_metadata, subjects)`` from ``<rdf:Description>``."""
+    """Return ``(judgment_metadata, subjects)`` from ``<rdf:Description>``.
+
+    Besides the fields of ``_METADATA_FIELDS``: ``procedures``, every ``psi:procedure`` in
+    order (``type`` is the first), the related ECLIs and ``relation_outcomes``, per earlier
+    or later instance how its appeal ended (``relation_outcome``)."""
     meta: dict[str, Any] = {}
     subjects: list[str] = []
-    related_eclis: list[str] = []
-    later_eclis: list[str] = []
-    conclusion_eclis: list[str] = []
+    relations: dict[str, list[str]] = {
+        "related_eclis": [],
+        "later_eclis": [],
+        "conclusion_eclis": [],
+    }
+    procedures: list[str] = []
+    outcomes: dict[str, str] = {}
 
     for el in root.iter():
         tag = local_name(el.tag)
         if tag == "relation":
-            ecli = relation_ecli(el)
-            if ecli and is_conclusion_relation(el):
-                conclusion_eclis.append(ecli)
-            elif ecli and is_later_instance(el):
-                later_eclis.append(ecli)
-            elif ecli and is_earlier_instance(el):
-                related_eclis.append(ecli)
+            if ecli := relation_ecli(el):
+                kind = _relation_field(el)
+                relations[kind].append(ecli)
+                outcome = relation_outcome(el, ecli)
+                if outcome and kind != "conclusion_eclis":
+                    outcomes.setdefault(ecli, outcome)
             continue
 
         text = (el.text or "").strip()
@@ -206,14 +216,24 @@ def extract_rdf_metadata(root: ET.Element) -> tuple[dict[str, Any], list[str]]:
             meta.setdefault(field, text)
         elif tag == "subject":
             subjects.append(text)
+        if tag == "procedure" and text not in procedures:
+            procedures.append(text)
 
-    if related_eclis:
-        meta["related_eclis"] = related_eclis
-    if later_eclis:
-        meta["later_eclis"] = later_eclis
-    if conclusion_eclis:
-        meta["conclusion_eclis"] = conclusion_eclis
+    if procedures:
+        meta["procedures"] = procedures
+    meta.update({field: eclis for field, eclis in relations.items() if eclis})
+    if outcomes:
+        meta["relation_outcomes"] = outcomes
     return meta, subjects
+
+
+def _relation_field(element: ET.Element) -> str:
+    """The list of ``extract_rdf_metadata`` a ``dcterms:relation`` goes in."""
+    if is_conclusion_relation(element):
+        return "conclusion_eclis"
+    if is_later_instance(element):
+        return "later_eclis"
+    return "related_eclis"
 
 
 # ── the laws a judgment names ────────────────────────────────────────────────

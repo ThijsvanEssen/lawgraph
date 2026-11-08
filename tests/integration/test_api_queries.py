@@ -40,6 +40,7 @@ def test_the_judgment_lists_carry_what_is_shown_not_whole_judgments(
         "tier",
         "court_kind",
         "date_eff",
+        "inbound_citation_count",  # what ``sort=citation_count`` orders by
         "advocate_general",  # of a conclusion (BE-47/BE-48)
         "advocate_general_role",
         # how it ended, from its light row

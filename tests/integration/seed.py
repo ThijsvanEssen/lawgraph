@@ -247,13 +247,20 @@ def seed_judgment_xml(number: int, paragraphs: int = 40) -> str:
     )
 
 
-def rechtspraak_relation(ecli: str, kind: str, instance: str) -> str:
+def rechtspraak_relation(
+    ecli: str, kind: str, instance: str, *, outcome: str | None = None
+) -> str:
     """A ``dcterms:relation`` of the metadata: to *ecli*, of *kind* (``conclusie``), in
-    *instance* (``eerdereAanleg``)."""
+    *instance* (``eerdereAanleg``); with *outcome* (``bekrachtiging/bevestiging``) a
+    ``psi:gevolg``, its text then "<ecli>, <outcome>" as the Rechtspraak writes it."""
+    gevolg = (
+        f' psi:gevolg="http://psi.rechtspraak.nl/gevolg#{outcome}"' if outcome else ""
+    )
+    text = f"{ecli}, {outcome.capitalize()}" if outcome else ecli
     return (
         f'<dcterms:relation ecli:resourceIdentifier="{ecli}" '
         f'psi:type="http://psi.rechtspraak.nl/{kind}" '
-        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}">{ecli}</dcterms:relation>'
+        f'psi:aanleg="http://psi.rechtspraak.nl/{instance}"{gevolg}>{text}</dcterms:relation>'
     )
 
 
@@ -267,10 +274,14 @@ def rechtspraak_xml(
     procedure: str | None = None,
     relations: str = "",
     text: str = "De rechter beslist.",
+    subject: str | None = None,
 ) -> str:
     """A judgment with the metadata that ties it to others: its case number, its type
-    (``Uitspraak`` or ``Conclusie``), its procedure and its *relations*."""
+    (``Uitspraak`` or ``Conclusie``), its procedure, its *relations* and its *subject*
+    ("Civiel recht; Verbintenissenrecht")."""
     procedure_xml = f"<psi:procedure>{procedure}</psi:procedure>" if procedure else ""
+    if subject:
+        procedure_xml += f"<dcterms:subject>{subject}</dcterms:subject>"
     return (
         f"<open-rechtspraak {RECHTSPRAAK_NS}><rdf:RDF><rdf:Description>"
         f"<dcterms:identifier>{ecli}</dcterms:identifier>"

@@ -1,5 +1,5 @@
 {
- "document": "f1bccbf68b84e45f",
+ "document": "f778e1bcba187a38",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHSHE:2026:2210",
@@ -17,9 +17,15 @@
    "case_number": "20-000751-25",
    "document_type": "Uitspraak",
    "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ],
    "related_eclis": [
     "ECLI:NL:RBLIM:2025:1984"
-   ]
+   ],
+   "relation_outcomes": {
+    "ECLI:NL:RBLIM:2025:1984": "Bekrachtiging/bevestiging"
+   }
   },
   "court": "Gerechtshof 's-Hertogenbosch",
   "date": "2026-08-10",
@@ -73,6 +79,12 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": {
+   "proven": null,
+   "proven_missing": "geen-dictum",
+   "sentences": [],
+   "sentences_missing": "geen-dictum"
+  },
   "names": [],
   "date_eff": "2026-08-10",
   "published_on": "2026-08-10",

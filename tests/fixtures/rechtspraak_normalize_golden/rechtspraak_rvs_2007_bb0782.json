@@ -1,5 +1,5 @@
 {
- "document": "a4ed1d173c785380",
+ "document": "e9acf270215739a5",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2007:BB0782",
@@ -16,7 +16,10 @@
    "date": "2007-08-01",
    "case_number": "200604968/1",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ]
   },
   "court": "Raad van State",
   "date": "2007-08-01",
@@ -482,6 +485,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2007-08-01",
   "published_on": "2007-08-01",

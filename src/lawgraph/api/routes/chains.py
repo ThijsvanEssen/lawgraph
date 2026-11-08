@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
+from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import is_node_id
 from lawgraph.api.schemas.chains import (
     ChainBlockDTO,
@@ -84,6 +85,7 @@ def _ends(value: str) -> tuple[str, str]:
 )
 def get_chains_route(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
     ids: Annotated[
         str,
         Query(
@@ -109,6 +111,7 @@ def get_chains_route(
             headers={"Retry-After": "3600"},
         )
     data = get_chains(store, ends, max_steps, limit)
+    no_store_if(response, data.partial)
     # the notes of the publications among them, whose titles their titles read
     notes = seo_queries.notes_of(store, data.nodes)
     return ChainsResponse(

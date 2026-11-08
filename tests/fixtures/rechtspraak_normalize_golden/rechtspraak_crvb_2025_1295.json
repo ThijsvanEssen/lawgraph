@@ -1,5 +1,5 @@
 {
- "document": "ee14c9a48a83f406",
+ "document": "f336e60ef3d95240",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:CRVB:2025:1295",
@@ -16,7 +16,10 @@
    "date": "2025-08-20",
    "case_number": "23/3411 WAJONG",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ]
   },
   "court": "Centrale Raad van Beroep",
   "date": "2025-08-20",
@@ -115,6 +118,7 @@
   "conclusion_outcome": null,
   "conclusion_outcome_text": null,
   "conclusion_outcome_paragraph_id": null,
+  "criminal_decision": null,
   "names": [],
   "date_eff": "2025-08-20",
   "published_on": "2025-09-01",

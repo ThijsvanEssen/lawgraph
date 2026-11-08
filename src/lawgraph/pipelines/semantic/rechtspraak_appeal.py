@@ -3,7 +3,9 @@
 Rechtspraak XML carries ``dcterms:relation`` (the earlier instances, and with ``psi:aanleg``
 latereAanleg the later ones) and ``psi:procedure`` (e.g. "Hoger beroep", "Cassatie",
 "Verwijzing na Hoge Raad") in its RDF header; normalize stores them as
-``props.related_eclis``, ``props.later_eclis`` and ``props.judgment_metadata.type``. From a
+``props.related_eclis``, ``props.later_eclis`` and ``props.judgment_metadata.type``, and how
+an appeal ended (``psi:gevolg`` on the relation) as ``judgment_metadata.relation_outcomes``,
+which goes on the edge as ``meta.source_outcome``. From a
 judgment to each earlier instance its metadata names (``core.appeals.earlier_instance_relation``):
 ``CONTINUES`` to an earlier judgment of the same court in the same case, whatever its
 procedure; and from a judgment on appeal, in cassation or after referral ``REFERRED_BY`` to the
@@ -76,19 +78,26 @@ class Link(NamedTuple):
     to_ecli: str
     basis: Basis
     procedure: str
+    outcome: str | None = None
 
 
-def _link(from_id: str, later: Instance, earlier: Instance, basis: Basis) -> list[Link]:
+def _link(
+    from_id: str,
+    later: Instance,
+    earlier: Instance,
+    basis: Basis,
+    outcome: str | None = None,
+) -> list[Link]:
     """The edge from *later* (node *from_id*) to *earlier*, if any: ``CONTINUES`` whatever
     the procedure of *later*, the others only from a judgment on appeal, in cassation or
-    after referral (``APPEAL_PROCEDURE``)."""
+    after referral (``APPEAL_PROCEDURE``); *outcome* how the appeal ended (``psi:gevolg``)."""
     relation = earlier_instance_relation(later, earlier)
     procedure = later.procedure or ""
     if relation is None or not (
         relation == RELATION_CONTINUES or APPEAL_PROCEDURE.search(procedure)
     ):
         return []
-    return [Link(from_id, relation, earlier.ecli, basis, procedure)]
+    return [Link(from_id, relation, earlier.ecli, basis, procedure, outcome)]
 
 
 class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
@@ -161,15 +170,24 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         links: list[Link] = []
         for row in rows:
             this = replace(Instance.of(row), procedure=row.get("procedure_type"))
+            outcomes = {
+                e.upper(): o for e, o in (row.get("relation_outcomes") or {}).items()
+            }
             for ecli in row["later_eclis"]:
                 later = known.get(ecli.upper())
                 if later is not None and later.ecli in ids:
                     later_links += _link(
-                        ids[later.ecli], later, this, BASIS_LATER_INSTANCE
+                        ids[later.ecli],
+                        later,
+                        this,
+                        BASIS_LATER_INSTANCE,
+                        outcomes.get(later.ecli),
                     )
             for ecli in row["related_eclis"]:
                 earlier = known.get(ecli.upper()) or Instance(ecli=ecli.upper())
-                links += _link(row["j_id"], this, earlier, BASIS_FORMAL)
+                links += _link(
+                    row["j_id"], this, earlier, BASIS_FORMAL, outcomes.get(earlier.ecli)
+                )
         return later_links + links
 
     def _text_links(
@@ -224,13 +242,21 @@ class RechtspraakAppealSemanticPipeline(SemanticPipelineBase):
         # in batches apart, took the one basis and then the other, on every run (133,000
         # edges each week on prod)
         once = {(link.from_id, link.relation, link.to_ecli): link for link in links}
-        for from_id, relation, ecli, basis, procedure_type in once.values():
+        # how the appeal ended, as either judgment of the pair records it
+        outcomes = {
+            (link.from_id, link.relation, link.to_ecli): link.outcome
+            for link in links
+            if link.outcome
+        }
+        for pair, (from_id, relation, ecli, basis, procedure_type, _) in once.items():
             to_id = ids.get(ecli)
             if not to_id:
                 continue
             meta: dict[str, Any] = {"basis": basis}
             if procedure_type:
                 meta["procedure_type"] = procedure_type
+            if pair in outcomes:
+                meta["source_outcome"] = outcomes[pair]
             edges.add(
                 from_id,
                 to_id,

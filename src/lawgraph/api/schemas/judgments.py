@@ -24,6 +24,7 @@ from lawgraph.api.schemas.common import (
     judgment_outcome_fields,
 )
 from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
+from lawgraph.api.schemas.criminal_decision import CriminalFields, criminal_decision
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, text_tables
 from lawgraph.config.constants import Collection
@@ -49,7 +50,7 @@ _NAMES = (
 )
 
 
-class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
+class JudgmentDTO(CriminalFields, JudgmentOutcomeFields, BaseNodeDTO):
     """Rich judgment DTO that hides raw XML but exposes metadata."""
 
     outcome_paragraph_id: str | None = Field(
@@ -267,6 +268,7 @@ class JudgmentDTO(JudgmentOutcomeFields, BaseNodeDTO):
             footnotes=_footnotes(raw_paragraphs, props.get("footnotes") or []),
             parties=None if parties is None else [JudgmentParty(**p) for p in parties],
             outcome_paragraph_id=props.get("outcome_paragraph_id"),
+            criminal_decision=criminal_decision(props),
             conclusion_outcome_paragraph_id=props.get(
                 "conclusion_outcome_paragraph_id"
             ),

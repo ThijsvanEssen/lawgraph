@@ -19,9 +19,10 @@ held that day; a Kamerlid makes it an ``initiative``; ``cabinet`` is the cabinet
 then. Both are null for a dossier none of
 whose documents a Kamerlid or bewindspersoon signed first.
 
-Runs over every commitment and dossier after ``normalize rijksoverheid`` has written the cabinets
-and posts, and writes only what changed; with ``--touched-since`` over those a poll touched
-since then (``semantic/_touched.py``).
+Those of the Eerste Kamer are read by ``semantic eerstekamer-government``. Runs over every
+commitment of the Tweede Kamer and every dossier after ``normalize rijksoverheid`` has written
+the cabinets and posts, and writes only what changed; with ``--touched-since`` over those a
+poll touched since then (``semantic/_touched.py``).
 """
 
 from __future__ import annotations

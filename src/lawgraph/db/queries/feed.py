@@ -43,7 +43,7 @@ from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed_events
-from lawgraph.db.queries._helpers import page_with_counts, with_counts
+from lawgraph.db.queries._helpers import Counted, page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import (
     EMPTY_ARRAY,
     array_or_empty,
@@ -783,7 +783,7 @@ def get_feed(
 
     if not facets:
         items, searched_from = read_page()
-        counted: dict[str, Any] | None = {"total": None, "facets": None}
+        counted = Counted({"total": None, "facets": None})
     else:
         (items, searched_from), counted = page_with_counts(
             read_page,
