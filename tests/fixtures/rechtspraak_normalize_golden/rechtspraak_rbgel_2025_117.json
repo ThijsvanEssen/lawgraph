@@ -1,5 +1,5 @@
 {
- "document": "c7051cb9d0aaa213",
+ "document": "11787cc7d435a0f5",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBGEL:2025:117",
@@ -16,7 +16,10 @@
    "date": "2025-01-13",
    "case_number": "05.154568.24",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ]
   },
   "court": "Rechtbank Gelderland",
   "date": "2025-01-13",

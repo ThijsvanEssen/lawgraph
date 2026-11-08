@@ -1,5 +1,5 @@
 {
- "document": "7a06037ecff421c5",
+ "document": "6a07101ea5a5f26d",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2026:2707",
@@ -16,7 +16,11 @@
    "date": "2026-09-22",
    "case_number": "200.364.500/01 OK",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig",
+    "Beschikking"
+   ]
   },
   "court": "Gerechtshof Amsterdam",
   "date": "2026-09-22",

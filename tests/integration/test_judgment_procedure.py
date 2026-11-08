@@ -47,12 +47,12 @@ RVS = "Raad van State"
 CBB = "College van Beroep voor het bedrijfsleven"
 
 
-def _earlier(ecli: str) -> str:
-    return rechtspraak_relation(ecli, "uitspraak", "eerdereAanleg")
+def _earlier(ecli: str, outcome: str | None = None) -> str:
+    return rechtspraak_relation(ecli, "uitspraak", "eerdereAanleg", outcome=outcome)
 
 
-def _later(ecli: str) -> str:
-    return rechtspraak_relation(ecli, "uitspraak", "latereAanleg")
+def _later(ecli: str, outcome: str | None = None) -> str:
+    return rechtspraak_relation(ecli, "uitspraak", "latereAanleg", outcome=outcome)
 
 
 def _conclusion(ecli: str, instance: str = "eerdereAanleg") -> str:
@@ -579,3 +579,67 @@ def test_a_pair_that_names_each_other_is_written_once(
     again = RechtspraakAppealSemanticPipeline(store=store).run()
     assert (first.created, again.created, again.updated) == (1, 0, 0)
     assert again.unchanged == 1
+
+
+def test_the_outcome_the_rechtspraak_records_goes_on_the_edge(
+    database: str, cli: Any
+) -> None:
+    """``psi:gevolg`` from either side (ECLI:NL:GHSHE:2026:2210 names it, as its rechtbank
+    does); a Parket bij de Hoge Raad named as an earlier instance is none."""
+    appeal, first = "ECLI:NL:GHSHE:2026:2210", "ECLI:NL:RBLIM:2025:1984"
+    later, lower = "ECLI:NL:GHAMS:2026:100", "ECLI:NL:RBAMS:2025:3600"
+    cassation = "ECLI:NL:HR:2026:1600"
+    outcome = "bekrachtiging/bevestiging"
+    store = GraphStore()
+    write_judgments(
+        store,
+        {
+            appeal: rechtspraak_xml(
+                appeal,
+                HOF_DB,
+                "2026-04-01",
+                "200.1/01",
+                procedure="Hoger beroep",
+                relations=_earlier(first, outcome),
+            ),
+            first: rechtspraak_xml(first, "Rechtbank Limburg", "2025-03-01", "C/03/1"),
+            # only the lower court records the outcome
+            later: rechtspraak_xml(
+                later,
+                "Gerechtshof Amsterdam",
+                "2026-03-01",
+                "200.2/01",
+                procedure="Hoger beroep",
+            ),
+            lower: rechtspraak_xml(
+                lower,
+                "Rechtbank Amsterdam",
+                "2025-01-01",
+                "C/13/2",
+                relations=_later(later, outcome),
+            ),
+            cassation: rechtspraak_xml(
+                cassation,
+                "Hoge Raad",
+                "2026-05-01",
+                "25/00001",
+                procedure="Cassatie",
+                relations=_earlier("ECLI:NL:PHR:2026:300"),
+            ),
+        },
+    )
+    cli("normalize", "rechtspraak")
+    cli("semantic", "rechtspraak-appeal")
+    sql = """
+    SELECT f.ecli AS from_ecli, t.ecli AS to_ecli,
+           e.doc -> 'meta' ->> 'source_outcome' AS outcome
+    FROM edges e
+    JOIN judgments f ON f.id = e.from_id
+    JOIN judgments t ON t.id = e.to_id
+    WHERE e.source = %(source)s
+    """
+    found = {tuple(r.values()) for r in store.query(sql, {"source": APPEAL_SOURCE})}
+    assert found == {
+        (appeal, first, "Bekrachtiging/bevestiging"),
+        (later, lower, "Bekrachtiging/bevestiging"),
+    }

@@ -1,5 +1,5 @@
 {
- "document": "7cbfbdb4e3b958ae",
+ "document": "ee5fcc460eb3d3ec",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBAMS:2024:81",
@@ -16,7 +16,10 @@
    "date": "2024-01-11",
    "case_number": "10071067 CV EXPL 22-11107 en 10071195 CV EXPL 22-11108",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - enkelvoudig"
+   "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig"
+   ]
   },
   "court": "Rechtbank Amsterdam",
   "date": "2024-01-11",

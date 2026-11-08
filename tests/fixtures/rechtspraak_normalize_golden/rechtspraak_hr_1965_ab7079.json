@@ -1,5 +1,5 @@
 {
- "document": "59e5b4cb3f12f6bc",
+ "document": "c4f9a6cc6e8d9eaf",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:1965:AB7079",
@@ -17,6 +17,9 @@
    "case_number": "9885",
    "document_type": "Uitspraak",
    "type": "Cassatie",
+   "procedures": [
+    "Cassatie"
+   ],
    "conclusion_eclis": [
     "ECLI:NL:PHR:1965:AB7079"
    ]

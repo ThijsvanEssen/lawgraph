@@ -1,5 +1,5 @@
 {
- "document": "0becc238113d183f",
+ "document": "4b620f9579650452",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBROT:2022:10632",
@@ -17,12 +17,18 @@
    "case_number": "ROT 21/3941",
    "document_type": "Uitspraak",
    "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig"
+   ],
    "related_eclis": [
     "ECLI:NL:RBROT:2022:12313"
    ],
    "later_eclis": [
     "ECLI:NL:RVS:2026:2737"
-   ]
+   ],
+   "relation_outcomes": {
+    "ECLI:NL:RVS:2026:2737": "(Gedeeltelijke) vernietiging en zelf afgedaan"
+   }
   },
   "court": "Rechtbank Rotterdam",
   "date": "2022-12-07",

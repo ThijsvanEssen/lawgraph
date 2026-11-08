@@ -1,5 +1,5 @@
 {
- "document": "c25484e141da7f8f",
+ "document": "67e16c569ceea707",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:CRVB:2011:BP0671",
@@ -16,7 +16,10 @@
    "date": "2011-01-12",
    "case_number": "09-3069 WAO",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ]
   },
   "court": "Centrale Raad van Beroep",
   "date": "2011-01-12",

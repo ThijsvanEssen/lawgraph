@@ -1,5 +1,5 @@
 {
- "document": "276fcfe3b302af71",
+ "document": "77cf5dcdc73a45bd",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:GHAMS:2025:109",
@@ -16,7 +16,10 @@
    "date": "2025-01-28",
    "case_number": "200.342.166/01 NOT",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ]
   },
   "court": "Gerechtshof Amsterdam",
   "date": "2025-01-28",

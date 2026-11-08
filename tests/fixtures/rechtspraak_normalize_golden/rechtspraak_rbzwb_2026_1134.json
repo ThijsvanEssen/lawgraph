@@ -1,5 +1,5 @@
 {
- "document": "ddcdc509625d3200",
+ "document": "539c851832edd678",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBZWB:2026:1134",
@@ -16,7 +16,10 @@
    "date": "2026-02-18",
    "case_number": "C/02/444429 FA RK 26-446",
    "document_type": "Uitspraak",
-   "type": "Rekestprocedure"
+   "type": "Rekestprocedure",
+   "procedures": [
+    "Rekestprocedure"
+   ]
   },
   "court": "Rechtbank Zeeland-West-Brabant",
   "date": "2026-02-18",

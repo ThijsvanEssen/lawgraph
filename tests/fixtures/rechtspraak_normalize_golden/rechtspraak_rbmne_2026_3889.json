@@ -1,5 +1,5 @@
 {
- "document": "b1935fa34d9690d1",
+ "document": "091ee690ea849218",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBMNE:2026:3889",
@@ -16,7 +16,10 @@
    "date": "2026-07-01",
    "case_number": "12045071 UM VERZ  26-109",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - enkelvoudig"
+   "type": "Eerste aanleg - enkelvoudig",
+   "procedures": [
+    "Eerste aanleg - enkelvoudig"
+   ]
   },
   "court": "Rechtbank Midden-Nederland",
   "date": "2026-07-01",

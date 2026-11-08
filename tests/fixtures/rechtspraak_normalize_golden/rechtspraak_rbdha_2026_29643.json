@@ -1,5 +1,5 @@
 {
- "document": "34f618cddcee4638",
+ "document": "f74d46c9584ed0c2",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RBDHA:2026:29643",
@@ -16,7 +16,10 @@
    "date": "2026-10-07",
    "case_number": "C/09/695432",
    "document_type": "Uitspraak",
-   "type": "Eerste aanleg - meervoudig"
+   "type": "Eerste aanleg - meervoudig",
+   "procedures": [
+    "Eerste aanleg - meervoudig"
+   ]
   },
   "court": "Rechtbank Den Haag",
   "date": "2026-10-07",

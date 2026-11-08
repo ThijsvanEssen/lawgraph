@@ -171,7 +171,11 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             date_eff="2020-05-01",
             case_number="19/01234",
             case_number_keys=["19/01234"],
-            judgment_metadata={"type": "Cassatie", "document_type": "Uitspraak"},
+            judgment_metadata={
+                "type": "Cassatie",
+                "document_type": "Uitspraak",
+                "relation_outcomes": {GH: "Vernietiging"},
+            },
             related_eclis=[GH],
         ),
         _rs(HR2, related_eclis=[]),
@@ -191,6 +195,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             "procedure_type": "Cassatie",
             "related_eclis": [GH],
             "later_eclis": [],
+            "relation_outcomes": {GH: "Vernietiging"},
         },
         {
             "j_id": _jid(RB),
@@ -202,6 +207,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             "procedure_type": None,
             "related_eclis": [GH, RB2],
             "later_eclis": [],
+            "relation_outcomes": None,
         },
         {
             "j_id": _jid(RB2),
@@ -212,6 +218,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
             "procedure_type": None,
             "related_eclis": [],
             "later_eclis": [GH],
+            "relation_outcomes": None,
         },
     ]
     assert list(rows[0]) == [
@@ -223,6 +230,7 @@ def test_judgments_with_related_eclis(store: GraphStore) -> None:
         "procedure_type",
         "related_eclis",
         "later_eclis",
+        "relation_outcomes",
     ]
 
 

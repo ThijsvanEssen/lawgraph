@@ -1,5 +1,5 @@
 {
- "document": "46f4475e5bce0b1e",
+ "document": "96e6d5f0b36f1936",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:HR:2021:1215",
@@ -16,7 +16,10 @@
    "date": "2021-09-03",
    "case_number": "21/02578",
    "document_type": "Uitspraak",
-   "type": "Wraking"
+   "type": "Wraking",
+   "procedures": [
+    "Wraking"
+   ]
   },
   "court": "Hoge Raad",
   "date": "2021-09-03",

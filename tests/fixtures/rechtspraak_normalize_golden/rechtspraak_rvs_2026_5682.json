@@ -1,5 +1,5 @@
 {
- "document": "98e75d7f7cbec5d9",
+ "document": "332637c1f3365db4",
  "props": {
   "source": "rechtspraak",
   "ecli": "ECLI:NL:RVS:2026:5682",
@@ -16,7 +16,10 @@
    "date": "2026-09-23",
    "case_number": "202406462/1/R2",
    "document_type": "Uitspraak",
-   "type": "Hoger beroep"
+   "type": "Hoger beroep",
+   "procedures": [
+    "Hoger beroep"
+   ]
   },
   "court": "Raad van State",
   "date": "2026-09-23",
