@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.32",
+    "version": "0.80.33",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -1007,6 +1007,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/judgments/routes": {
+      "get": {
+        "tags": [
+          "judgments",
+          "judgments"
+        ],
+        "summary": "The route of a case per area of law (Rechtsgang)",
+        "description": "Per area of law (`civiel`, `straf`, `bestuur`, `belasting`) the courts of its route, each with `basis`, the article a step of the Verloop gets, and `designations`, the articles of the Bevoegdheidsregeling bestuursrechtspraak that name it; the steps whose article is not read in the source as `gaps`. From the fixed list `data/route_articles.json`. `regeling`: the regeling (Awb bijlage 2) by chapter, each article with its heading and the laws its list names.",
+        "operationId": "get_judgment_routes_api_judgments_routes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgmentRoutesResponse"
                 }
               }
             }
@@ -11948,6 +11971,37 @@
         ],
         "title": "AppealTarget",
         "description": "A decision an appeal names in its text that is not loaded."
+      },
+      "AreaRoute": {
+        "properties": {
+          "area": {
+            "type": "string",
+            "title": "Area",
+            "description": "`civiel`, `straf`, `bestuur` or `belasting`."
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/RouteGap"
+            },
+            "type": "array",
+            "title": "Gaps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "area",
+          "steps",
+          "gaps"
+        ],
+        "title": "AreaRoute"
       },
       "ArticleCellSpanDTO": {
         "properties": {
@@ -34829,6 +34883,33 @@
         "title": "JudgmentRepresentative",
         "description": "Who acts for a party, as the kop (\"advocaat: mr. X\") or the account of the procedure\n(\"bijgestaan door mr. X, advocaat te Y\") names them."
       },
+      "JudgmentRoutesResponse": {
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaRoute"
+            },
+            "type": "array",
+            "title": "Areas",
+            "description": "Per area of law, the courts of its route from `data/route_articles.json` in their order, and its gaps."
+          },
+          "regeling": {
+            "items": {
+              "$ref": "#/components/schemas/RegelingChapter"
+            },
+            "type": "array",
+            "title": "Regeling",
+            "description": "The Bevoegdheidsregeling bestuursrechtspraak by chapter; empty when the Awb is not loaded."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "areas",
+          "regeling"
+        ],
+        "title": "JudgmentRoutesResponse"
+      },
       "JudgmentSummaryDTO": {
         "properties": {
           "cite": {
@@ -39021,6 +39102,110 @@
         "title": "ReferenceTargetDTO",
         "description": "The node a reference names, and whether the data holds it."
       },
+      "RegelingArticle": {
+        "properties": {
+          "number": {
+            "type": "string",
+            "title": "Number",
+            "description": "`bijlage 2 artikel 2`."
+          },
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "The article in the graph: `bwbr0005537_bijlage_2_artikel_2`."
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "laws": {
+            "items": {
+              "$ref": "#/components/schemas/RegelingLaw"
+            },
+            "type": "array",
+            "title": "Laws",
+            "description": "The laws its list names, each once, in the order of the text."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "number",
+          "key",
+          "heading",
+          "laws"
+        ],
+        "title": "RegelingArticle"
+      },
+      "RegelingChapter": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "`Hoofdstuk 2`."
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/RegelingArticle"
+            },
+            "type": "array",
+            "title": "Articles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "title",
+          "articles"
+        ],
+        "title": "RegelingChapter"
+      },
+      "RegelingLaw": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "Its citation title in the graph, else as the regeling names it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "name"
+        ],
+        "title": "RegelingLaw"
+      },
       "RegisterConceptDTO": {
         "properties": {
           "id": {
@@ -39654,6 +39839,74 @@
         ],
         "title": "ResolveResponse",
         "description": "The best match for a query and the others that fit; ``kind`` ``none`` when nothing does."
+      },
+      "RouteGap": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Procedures"
+          },
+          "why": {
+            "type": "string",
+            "title": "Why",
+            "description": "What is not read (in English)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tier",
+          "procedures",
+          "why"
+        ],
+        "title": "RouteGap",
+        "description": "A court in the route whose article is not read in the source: a gap, marked."
+      },
+      "RouteStep": {
+        "properties": {
+          "tier": {
+            "type": "string",
+            "title": "Tier",
+            "description": "`rechtbank`, `gerechtshof`, `hoge_raad`, ..."
+          },
+          "procedures": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Procedures",
+            "description": "The procedures the metadata names that fit (their start): `Eerste aanleg`, `Hoger beroep`, `Cassatie`."
+          },
+          "basis": {
+            "$ref": "#/components/schemas/CourseBasis",
+            "description": "The article a step of the Verloop gets (`/course`)."
+          },
+          "designations": {
+            "items": {
+              "$ref": "#/components/schemas/CourseBasis"
+            },
+            "type": "array",
+            "title": "Designations",
+            "description": "The articles of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2: `bijlage 2 artikel 2`) that name this court, besides `basis`; empty for a court the regeling does not name."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tier",
+          "procedures",
+          "basis",
+          "designations"
+        ],
+        "title": "RouteStep",
+        "description": "A court in the route of an area of law, with the article that gives it its say."
       },
       "ScheduledActivityDTO": {
         "properties": {
