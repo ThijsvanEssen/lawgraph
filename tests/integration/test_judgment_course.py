@@ -1,7 +1,7 @@
 """``GET /api/judgments/{ecli}/course`` (Verloop) on real ``normalize rechtspraak`` and the
 semantic steps that tie a case: a chain from the rechtbank to the Hoge Raad with its
 conclusion, a decision after referral, a gap (an earlier instance not loaded, a decision the
-text names), and the first and only instance at the Raad van State.
+text names), and the first and only instance at the Raad van State (art. 8:6 Awb).
 
 The cases are made up around the shape of real ones (ECLI:NL:GHSHE:2026:2210 for the outcome
 the Rechtspraak records, ECLI:NL:GHDHA:2021:1023 for a referral)."""
@@ -109,7 +109,8 @@ CASES = {
         "Gerechtshof Den Haag",
         "2021-01-01",
         "200.3/01",
-        procedure="Verwijzing na Hoge Raad",
+        # as the source often names it (ECLI:NL:GHDHA:2026:2845): the referral is the edge
+        procedure="Hoger beroep",
         relations=_earlier(HR_REF),
         subject=CIVIEL,
     ),
@@ -202,7 +203,7 @@ def test_a_decision_after_referral_follows_the_ruling(client: TestClient) -> Non
     assert steps[2]["links"] == [
         {"relation": "REFERRED_BY", "to": HR_REF, "source_outcome": None}
     ]
-    # no article in the list for a decision after referral: a gap
+    # no article for a decision after referral, though its procedure reads Hoger beroep
     assert [_basis(s) for s in steps] == [(RO, "60"), (RO, "78"), None]
 
 
@@ -229,18 +230,39 @@ def test_a_decision_the_text_names_and_the_graph_lacks_is_unresolved(
     ]
 
 
-def test_the_first_and_only_instance_at_the_raad_van_state_is_a_gap(
+def test_the_first_and_only_instance_at_the_raad_van_state_has_art_8_6(
     client: TestClient,
 ) -> None:
-    """The Bevoegdheidsregeling bestuursrechtspraak is not in the list: no basis."""
+    """Art. 8:6 Awb names the court of the Bevoegdheidsregeling or of another statute: the
+    article of the regeling is the route's (``/routes``), not the step's."""
     (step,) = _course(client, RVS_FIRST)["steps"]
     assert (step["tier"], step["procedure"], step["area"]) == (
         "raad_van_state",
         "Eerste aanleg - enkelvoudig",
         "bestuur",
     )
-    assert step["basis"] is None
+    assert _basis(step) == (AWB, "8:6")
     assert step["links"] == []
+
+
+def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None:
+    response = client.get("/api/judgments/routes")
+    assert_status(response, 200)
+    areas = {a["area"]: a for a in response.json()["areas"]}
+    assert list(areas) == ["civiel", "straf", "bestuur", "belasting"]
+    civiel = [
+        (s["tier"], s["basis"]["article_number"]) for s in areas["civiel"]["steps"]
+    ]
+    assert civiel == [("rechtbank", "42"), ("gerechtshof", "60"), ("hoge_raad", "78")]
+    rvs = next(s for s in areas["bestuur"]["steps"] if s["tier"] == "raad_van_state")
+    assert (rvs["basis"]["article_number"], rvs["designations"]) == (
+        "8:6",
+        [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 2"}],
+    )
+    # cassation in tax cases is not read in the source: a gap, marked
+    assert [g["tier"] for g in areas["belasting"]["gaps"]] == ["hoge_raad"]
+    # the Awb is not loaded here
+    assert response.json()["regeling"] == []
 
 
 def test_a_judgment_not_in_the_graph_is_404(client: TestClient) -> None:

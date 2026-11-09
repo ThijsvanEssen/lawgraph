@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.api.schemas.judgment_course import JudgmentCourseResponse
+from lawgraph.api.schemas.judgment_routes import JudgmentRoutesResponse
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
     JudgmentCitedJudgment,
@@ -34,6 +35,7 @@ from lawgraph.core.mentions import mention_texts
 from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgment_course import judgment_course
+from lawgraph.db.queries.judgment_routes import judgment_routes
 from lawgraph.db.queries.judgments import (
     JudgmentArticleRelation,
     JudgmentFilters,
@@ -213,6 +215,28 @@ def list_judgments(
         total=data.get("total"),
         facets=JudgmentFacets(**(data.get("facets") or {})) if facets else None,
         partial=bool(data.get("partial")),
+    )
+
+
+@router.get(
+    "/routes",
+    response_model=JudgmentRoutesResponse,
+    summary="The route of a case per area of law (Rechtsgang)",
+    description=(
+        "Per area of law (`civiel`, `straf`, `bestuur`, `belasting`) the courts of its "
+        "route, each with `basis`, the article a step of the Verloop gets, and "
+        "`designations`, the articles of the Bevoegdheidsregeling bestuursrechtspraak "
+        "that name it; the steps whose article is not read in the source as `gaps`. From "
+        "the fixed list `data/route_articles.json`. `regeling`: the regeling (Awb bijlage "
+        "2) by chapter, each article with its heading and the laws its list names."
+    ),
+    tags=["judgments"],
+)
+def get_judgment_routes(
+    store: Annotated[GraphStore, Depends(get_store)],
+) -> JudgmentRoutesResponse:
+    return JudgmentRoutesResponse.model_validate(
+        judgment_routes(store), from_attributes=True
     )
 
 

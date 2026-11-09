@@ -7,7 +7,15 @@ from collections.abc import Callable
 
 import pytest
 
-from lawgraph.core.judgment_course import Edge, area_of, basis_of, order_steps, reach
+from lawgraph.core.judgment_course import (
+    Edge,
+    area_of,
+    basis_of,
+    order_steps,
+    reach,
+    route_designations,
+    route_gaps,
+)
 
 RO, AWB = "BWBR0001830", "BWBR0005537"
 
@@ -42,8 +50,9 @@ def test_the_area_of_law_is_read_from_the_subjects(
         ("hoge_raad", "Artikel 81 RO-zaken", "straf", (RO, "78")),
         ("raad_van_state", "Hoger beroep", "bestuur", (AWB, "8:105")),
         ("centrale_raad_van_beroep", "Hoger beroep", "bestuur", (AWB, "8:105")),
+        ("raad_van_state", "Eerste aanleg - enkelvoudig", "bestuur", (AWB, "8:6")),
+        ("college_van_beroep_bedrijfsleven", "Eerste aanleg", "bestuur", (AWB, "8:6")),
         # gaps: not in the list, never guessed
-        ("raad_van_state", "Eerste aanleg - enkelvoudig", "bestuur", None),
         ("hoge_raad", "Cassatie", "belasting", None),
         ("gerechtshof", "Verwijzing na Hoge Raad", "civiel", None),
         ("rechtbank", "Eerste en enige aanleg", "civiel", None),
@@ -127,3 +136,16 @@ def test_a_decision_after_referral_comes_after_all_it_names() -> None:
 def test_a_cycle_in_the_edges_still_gives_every_judgment_once() -> None:
     edges = [Edge("a", "b", "APPEAL_OF"), Edge("b", "a", "APPEAL_OF")]
     assert sorted(order_steps("a", edges, {})) == ["a", "b"]
+
+
+def test_a_court_the_regeling_names_has_its_basis_in_the_list() -> None:
+    """Each article of the Bevoegdheidsregeling names a court the list gives an article."""
+    for d in route_designations():
+        assert basis_of(d["tier"], d["procedure"], "bestuur"), d
+
+
+def test_a_gap_is_a_step_the_list_has_no_article_for() -> None:
+    for gap in route_gaps():
+        for tier in gap["tiers"]:
+            for area in gap["areas"]:
+                assert basis_of(tier, gap["procedures"][0], area) is None, (tier, area)
