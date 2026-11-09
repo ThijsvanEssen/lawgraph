@@ -11,6 +11,8 @@ the API.
 - The article count of the Awb counts its articles, not its annex.
 - An article of a bijlage (which has no versie-id) has a version per text, not per toestand.
 - The parts of an article of a bijlage cover its whole text, the lines between its lists too.
+- The route of a case (``/api/judgments/routes``) holds the Bevoegdheidsregeling by chapter,
+  each article with its heading and the laws its list names.
 """
 
 from __future__ import annotations
@@ -214,3 +216,19 @@ def test_the_table_of_contents_of_a_law_holds_its_annexes(api: Api) -> None:
     assert annex["text_preview"] is None
     numbers = [item["article_number"] for item in listed["items"]]
     assert numbers[-2:] == ["bijlage 2 artikel 1", "bijlage 2 artikel 4"]
+
+
+def test_the_routes_hold_the_regeling_by_chapter(api: Api) -> None:
+    regeling = api.get_json("/api/judgments/routes")["regeling"]
+    assert [(c["label"], [a["number"] for a in c["articles"]]) for c in regeling] == [
+        ("Hoofdstuk 1", ["bijlage 2 artikel 1"]),
+        ("Hoofdstuk 2", ["bijlage 2 artikel 4"]),
+    ]
+    cbb = regeling[1]["articles"][0]
+    assert cbb["key"] == "bwbr0005537_bijlage_2_artikel_4"
+    assert cbb["heading"] == "Beroep bij het College van Beroep voor het bedrijfsleven"
+    laws = [law["bwb_id"] for law in cbb["laws"]]
+    # each once, the Awb itself left out
+    assert len(laws) == len(set(laws)) and LAW not in laws
+    # named as the regeling names it where the graph does not hold the law, else null
+    assert {"bwb_id": "BWBR0045754", "name": "Wet open overheid"} in cbb["laws"]

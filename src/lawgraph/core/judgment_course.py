@@ -43,6 +43,8 @@ _AREAS = (
     ("Strafrecht", "straf"),
     ("Bestuursrecht", "bestuur"),
 )
+# The areas of law in the order a route lists them.
+AREAS = ("civiel", "straf", "bestuur", "belasting")
 
 
 @dataclass(frozen=True)
@@ -63,8 +65,27 @@ def area_of(subjects: Iterable[str] | None) -> str | None:
 
 
 @cache
-def _rules() -> tuple[dict[str, Any], ...]:
-    return tuple(json.loads(DATA.read_text(encoding="utf-8"))["rules"])
+def _data() -> dict[str, Any]:
+    return json.loads(DATA.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
+
+
+def route_rules() -> tuple[dict[str, Any], ...]:
+    """The rules of ``data/route_articles.json``: ``tiers``, ``procedures``, ``areas``,
+    ``bwb_id`` and ``article_number``, the article that gives the court its say."""
+    return tuple(_data()["rules"])
+
+
+def route_designations() -> tuple[dict[str, Any], ...]:
+    """The articles of the Bevoegdheidsregeling bestuursrechtspraak that name a bijzondere
+    bestuursrechter (``tier``, ``procedure``, ``bwb_id``, ``article_number``): the route,
+    not a step, since another statute may name the court too."""
+    return tuple(_data()["designations"])
+
+
+def route_gaps() -> tuple[dict[str, Any], ...]:
+    """The steps of a route whose article is not read in the source (``tiers``,
+    ``procedures``, ``areas``, ``why``): a gap, marked, never filled by hand."""
+    return tuple(_data()["gaps"])
 
 
 def basis_of(
@@ -76,7 +97,7 @@ def basis_of(
     if not (tier and procedure and area):
         return None
     written = procedure.casefold()
-    for rule in _rules():
+    for rule in route_rules():
         if (
             tier in rule["tiers"]
             and area in rule["areas"]

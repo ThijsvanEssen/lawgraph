@@ -135,9 +135,18 @@ laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written
 those four edges both ways (up to 8 edges and 24 judgments, `truncated` past them), the steps in
 the order of the case, each with `basis`, the article that gives its court its say, from the
 fixed list `data/route_articles.json` (tier, procedure and area of law → RO art. 42, 44, 45, 60,
-78, Awb art. 8:6, 8:105; null where it has none), `loaded` false for a stub and `links` with the
-outcome the Rechtspraak records (`source_outcome`). The first paint of a judgment holds the same
-answer as `course`.
+78, Awb art. 8:6, 8:105; null where it has none, as after a referral), `loaded` false for a stub
+and `links` with the outcome the Rechtspraak records (`source_outcome`). The first paint of a
+judgment holds the same answer as `course`. The first instance at the Afdeling, the CRvB or the
+CBb has art. 8:6 Awb, which names the court of chapter 2 of the Bevoegdheidsregeling
+bestuursrechtspraak (Awb bijlage 2) or of another statute.
+`/api/judgments/routes` (Rechtsgang) is the route per area of law from the same list: each court
+with `basis` and `designations` (the articles of the regeling that name it: `bijlage 2 artikel
+2`, 3, 4 in first instance, 9, 10, 11 on appeal), `gaps` for a court whose article is not read
+in the source (cassation in tax cases and against the CRvB, with `why`), and `regeling`, the
+regeling by chapter: each article (an article of the Awb in the graph) with its heading and the
+laws its list names, the Awb itself left out, a law the graph lacks by the name the regeling
+gives it or null.
 `judgment.criminal_decision` is what a criminal judgment of a rechtbank or gerechtshof decided
 on the charge: `proven` (`ja`, `deels`, `nee`), `sentences` (`kind`, `text` as the decision
 writes it) and, for a field left empty, its reason (`proven_missing`, `sentences_missing`); null
