@@ -7,7 +7,7 @@
 # Goes on where it stopped (out/renormalize-judgments.after); stops at the first failure and says so through the alert.
 . "$(dirname "$0")/_night.sh"
 STATE="$D/out/renormalize-judgments.after"
-until [ "$(cat "$STATE" 2>/dev/null)" = done ]; do
+until [ "$(cat "$STATE" 2>/dev/null)" = "done" ]; do
   wait_night
   echo "######## slice after $(cat "$STATE" 2>/dev/null || echo the start) start $(date -u +%T)"
   sh "$D/renormalize-judgments-slice.sh"
