@@ -379,6 +379,20 @@ def references_from_props(
     return sorted(references, key=lambda ref: (ref.footnote or 0, ref.start, ref.end))
 
 
+OFFICIAL_URL = (
+    "The article in force on wetten.overheid.nl (its JCI); the regulation for an article "
+    "without a number the JCI can address; the enacting Staatsblad publication of a law "
+    "the BWB does not hold (yet); null outside both (an EU act)."
+)
+
+
+def official_article_url(props: dict[str, Any]) -> str | None:
+    """``OFFICIAL_URL`` of an article of *props*."""
+    return article_url(
+        props.get("bwb_id"), props.get("article_number")
+    ) or enacting_publication_url(props.get("official_id"))
+
+
 class ArticleSummaryDTO(WithPath):
     """Summary of an article: its identifiers and text."""
 
@@ -410,11 +424,7 @@ class ArticleSummaryDTO(WithPath):
         "the first toestand without it).",
     )
     display_name: str | None
-    official_url: str | None = Field(
-        None,
-        description="The article in force on wetten.overheid.nl (its JCI); the "
-        "regulation for an article without a number the JCI can address.",
-    )
+    official_url: str | None = Field(None, description=OFFICIAL_URL)
     text: str | None
     parts: list[ArticlePartDTO] = Field(
         default_factory=list,
@@ -456,8 +466,7 @@ class ArticleSummaryDTO(WithPath):
             repealed=bool(props.get("repealed")),
             validity=validity,
             display_name=article_cite(props) or None,
-            official_url=article_url(props.get("bwb_id"), props.get("article_number"))
-            or enacting_publication_url(props.get("official_id")),
+            official_url=official_article_url(props),
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),

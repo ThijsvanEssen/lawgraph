@@ -9,7 +9,9 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.articles import (
+    OFFICIAL_URL,
     headings_from_props,
+    official_article_url,
     parts_from_props,
     wording,
 )
@@ -181,6 +183,7 @@ class ArticleTextDTO(WithPath):
         description="The title of its kop: `(toezichthouders)`."
     )
     display_name: str | None = Field(description="How it is cited: `Art. 68 Cbw`.")
+    official_url: str | None = Field(description=OFFICIAL_URL)
     repealed: bool
     stub: bool = Field(
         description="Known only from what cites it: the data has no text of it and no "
@@ -226,6 +229,7 @@ class ArticleTextDTO(WithPath):
             label=props.get("label"),
             heading=props.get("heading"),
             display_name=article_cite(props) or None,
+            official_url=official_article_url(props),
             repealed=bool(props.get("repealed")),
             stub=bool(props.get("stub")),
             valid_from=text_since(data.versions, dutch_today().isoformat()),

@@ -118,6 +118,14 @@ class StrictModel(BaseModel):
     )
 
 
+class ErrorDTO(StrictModel):
+    """The body of every error of the API (``api/errors.py``)."""
+
+    detail: str = Field(
+        description="A sentence: `Article 'bwbr0005289_999' not found.`"
+    )
+
+
 # The fields a readable address is built from (``core.readable_paths.path_of``), under the
 # names the props of a node have them.
 PATH_FIELDS = (

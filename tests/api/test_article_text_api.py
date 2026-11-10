@@ -92,8 +92,19 @@ def test_a_ref_names_its_law_and_its_article(monkeypatch) -> None:
 
 def test_an_article_the_data_does_not_hold_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "articles", get_article_texts=_texts)
-    assert_status(client.get("/api/articles/BWBR0052875/999/text"), 404)
+    missing = client.get("/api/articles/BWBR0052875/999/text")
+    assert_status(missing, 404)
+    assert missing.json() == {"detail": "Article 'bwbr0052875_999' not found."}
     assert_status(client.get("/api/articles/BWBR0052875/19/text"), 200)
+
+
+def test_the_text_links_the_official_page(monkeypatch) -> None:
+    stub_route(monkeypatch, "articles", get_article_texts=_texts)
+    body = client.get("/api/articles/BWBR0052875/19/text").json()
+
+    assert body["official_url"] == (
+        "https://wetten.overheid.nl/jci1.3:c:BWBR0052875&artikel=19"
+    )
 
 
 def test_a_stub_and_the_divisions_of_an_article(monkeypatch) -> None:
