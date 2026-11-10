@@ -14,6 +14,7 @@ from lawgraph.api.schemas.nodes import NeighborDTO
 from lawgraph.api.schemas.parties import PartyRefDTO
 from lawgraph.config.constants import Chamber
 from lawgraph.core.member_role import has_role
+from lawgraph.core.member_slugs import member_name
 from lawgraph.core.tk_records.decisions import VoteKind
 
 
@@ -24,14 +25,21 @@ class PersonRefDTO(WithPath):
 
     key: str
     name: str | None = Field(None, description="The name they go by: Sophie Hermans.")
+    first_name_missing: bool | None = Field(
+        None,
+        description="true: no official source gives their first name (neither the Kamer "
+        "nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given "
+        "on a cabinet, office, ministry and commitment; null elsewhere.",
+    )
 
     @classmethod
     def from_row(cls, person: dict[str, Any], **fields: Any) -> Self:
-        """From a member as a query gives it, ``{key, name, slug}``: its slug makes its
-        address."""
+        """From a member as a query gives it, ``{key, name, slug, first_name_missing}``:
+        its slug makes its address."""
         return cls(
             key=person["key"],
             name=person.get("name"),
+            first_name_missing=person.get("first_name_missing"),
             path_props={"slug": person.get("slug")},
             **fields,
         )
@@ -345,10 +353,7 @@ class MemberDTO(WithPath):
         return {
             "id": doc["id"],
             "key": doc["key"],
-            # a minister who never sat in parliament has a TK person without a name
-            "name": props.get("name")
-            or props.get("known_as")
-            or props.get("government_name"),
+            "name": member_name(props),
             "full_name": props.get("full_name"),
             "slug": props.get("slug"),
             "family_name": props.get("family_name"),

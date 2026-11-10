@@ -135,7 +135,7 @@ def test_schoof_phases() -> None:
 def test_schoof_keeps_the_overlap_the_source_gives() -> None:
     # Rijksoverheid lists Keijzer as minister voor Asiel en Migratie from 19 June 2025,
     # while Van Hijum held that post until 22 August 2025.
-    seat = "-/minister_zonder_portefeuille/asiel-en-migratie"
+    seat = "minister_zonder_portefeuille/asiel-en-migratie"
     overlapping = {
         p["person"]: p["overlaps_with"]
         for p in _cabinet("schoof")["posts"]
@@ -240,7 +240,7 @@ def test_an_ai_line_is_a_stand_in_between_two_holders() -> None:
 def test_a_holder_listed_after_one_who_resigned_starts_when_that_one_left() -> None:
     # Biesheuvel: De Brauw resigned 20 July 1972; "Deze taken werden vervolgens opgedragen
     # aan: mr. C. van Veen" without a day
-    seat = "-/minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
+    seat = "minister_zonder_portefeuille/wetenschapsbeleid-en-het-wetenschappelijk-onderwijs"
     (van_veen,) = [
         p
         for p in _cabinet("biesheuvel")["posts"]
@@ -414,7 +414,7 @@ def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> No
     # Schoof: the page lists Idsinga under "Staatssecretaris Fiscaliteit, Belastingdienst en
     # Douane", his line naming the post as it was then
     fiscaliteit = _held(
-        "schoof", "-/staatssecretaris/fiscaliteit-belastingdienst-en-douane"
+        "schoof", "staatssecretaris/fiscaliteit-belastingdienst-en-douane"
     )
     assert [p[0] for p in fiscaliteit] == [
         "fl idsinga",
@@ -424,9 +424,9 @@ def test_the_holders_of_one_heading_who_follow_one_another_hold_one_seat() -> No
     (idsinga,) = [p for p in _cabinet("schoof")["posts"] if p["person"] == "fl idsinga"]
     assert idsinga["also_named"] == ["staatssecretaris Fiscaliteit en Belastingdienst"]
     seats = {p["seat"] for p in _cabinet("schoof")["posts"]}
-    assert "-/staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
-    assert "-/staatssecretaris/toeslagen-en-douane" not in seats
-    assert "-/staatssecretaris/buitenlandse-handel" not in seats
+    assert "staatssecretaris/fiscaliteit-en-belastingdienst" not in seats
+    assert "staatssecretaris/toeslagen-en-douane" not in seats
+    assert "staatssecretaris/buitenlandse-handel" not in seats
 
 
 def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -> None:

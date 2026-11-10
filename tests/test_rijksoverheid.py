@@ -199,19 +199,19 @@ def test_a_heading_names_its_posts() -> None:
         ("Minister van Verkeer en Waterstaat", "ienw/minister", True),
         (
             "Minister van Werk en Participatie",
-            "-/minister/werk-en-participatie",
+            "minister/werk-en-participatie",
             True,
         ),
         (
             "Minister voor Buitenlandse Handel en Ontwikkelingshulp",
-            "-/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp",
+            "minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp",
             True,
         ),
-        ("Minister zonder Portefeuille", "-/minister_zonder_portefeuille", False),
+        ("Minister zonder Portefeuille", "minister_zonder_portefeuille", False),
         ("staatssecretaris van Financiën", "fin/staatssecretaris", False),
         (
             "Staatssecretaris Rechtsbescherming",
-            "-/staatssecretaris/rechtsbescherming",
+            "staatssecretaris/rechtsbescherming",
             True,
         ),
         ("Vice-minister-president", "viceminister-president", True),

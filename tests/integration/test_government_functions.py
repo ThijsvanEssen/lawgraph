@@ -105,7 +105,7 @@ def test_a_member_gets_the_posts_of_the_holder_with_their_surname_and_initials(
     ] == [
         (
             "rutte_iv",
-            "-/minister_zonder_portefeuille/klimaat-en-energie",
+            "minister_zonder_portefeuille/klimaat-en-energie",
             "2022-01-10",
             "2026-02-23",
             D66,
@@ -152,7 +152,13 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
                     collection=COLLECTION_MEMBERS,
                     key=VAN_WEEL,
                     labels=["TK"],
-                    props={"external_id": VAN_WEEL_ID, "name": "", "display_name": ""},
+                    # a Persoon the Kamer gives no name: the name his signatures gave
+                    # (``name_nameless_members``), initials only
+                    props={
+                        "external_id": VAN_WEEL_ID,
+                        "name": "D.M. van Weel",
+                        "display_name": "D.M. van Weel",
+                    },
                 ),
                 Node(
                     collection=COLLECTION_DOCUMENTS,
@@ -194,6 +200,8 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
                     "Minister van Justitie en Veiligheid",
                     ["D.M. (David) van Weel (VVD)"],
                 ),
+                # no first name on the page, nor a Tweede Kamer person: a gap
+                ("Minister van Financiën", ["E. Heinen (VVD)"]),
             )
         },
     )
@@ -207,6 +215,13 @@ def test_a_minister_outside_parliament_is_found_by_signatures(
         "D.M. van Weel",
     )
     assert van_weel["government_functions"][0]["seat"] == "jenv/minister"
+
+    def holders(seat: str) -> list[tuple[str, bool]]:
+        found = _get(store, f"/api/seats/{seat}")["holders"]
+        return [(h["member"]["name"], h["member"]["first_name_missing"]) for h in found]
+
+    assert holders("jenv/minister") == [("David van Weel", False)]
+    assert holders("fin/minister") == [("E. Heinen", True)]
 
 
 # ── The ministry of a post whose function names none ─────────────────────────

@@ -62,6 +62,7 @@ from lawgraph.db._rows import NEIGHBOR_SUMMARY_CHARS
 from lawgraph.db._sql import (
     INSTRUMENT_SORT_TITLE,
     instrument_dossier_numbers,
+    member_name_sql,
     sql_text_list,
 )
 
@@ -711,16 +712,9 @@ COLUMNS: dict[str, tuple[Column, ...]] = {
         ),
         _str("name"),
         Column("search_names", "text", "lg_member_names(props)"),
-        # what the member lists filter and sort on (``queries/members.py``): the name a
-        # member goes by (``name OR known_as OR government_name``), whether they ever held
-        # a seat, hold one now, and are in the Eerste Kamer list
-        Column(
-            "list_name",
-            "text",
-            "CASE WHEN lg_truthy(props -> 'name') THEN props ->> 'name'"
-            " WHEN lg_truthy(props -> 'known_as') THEN props ->> 'known_as'"
-            " ELSE props ->> 'government_name' END",
-        ),
+        # what the member lists filter and sort on (``queries/members.py``): their name,
+        # whether they ever held a seat, hold one now, and are in the Eerste Kamer list
+        Column("list_name", "text", member_name_sql("props")),
         Column(
             "in_parliament",
             "boolean",
