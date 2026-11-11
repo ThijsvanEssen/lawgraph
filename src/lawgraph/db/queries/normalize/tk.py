@@ -626,11 +626,12 @@ def members_born_on(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
 
 def member_slug_rows(store: Store) -> Iterator[dict[str, Any]]:
     """What a member's slug is made of, of every member (``core.member_slugs.new_slugs``):
-    ``key``, ``slug``, ``name``, ``known_as``, ``government_name``, ``birth_date``,
-    ``number``."""
+    ``key``, ``slug``, ``name``, ``family_name``, ``known_as``, ``government_name``,
+    ``birth_date``, ``number``."""
     return store.query(
         f"""
         SELECT m.key, lg_str(c.p -> 'slug') AS slug, lg_str(c.p -> 'name') AS name,
+               lg_str(c.p -> 'family_name') AS family_name,
                lg_str(c.p -> 'known_as') AS known_as,
                lg_str(c.p -> 'government_name') AS government_name,
                lg_str(c.p -> 'birth_date') AS birth_date,
@@ -648,6 +649,7 @@ def member_slug_rows(store: Store) -> Iterator[dict[str, Any]]:
             "fields": [
                 "slug",
                 "name",
+                "family_name",
                 "known_as",
                 "government_name",
                 "birth_date",

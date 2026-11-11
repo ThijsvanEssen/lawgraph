@@ -42,6 +42,7 @@ from lawgraph.core.feed import (
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.time import day_before, dutch_today
 from lawgraph.db import GraphStore
+from lawgraph.db._sql import member_name_sql
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries._helpers import Counted, page_with_counts, with_counts
 from lawgraph.db.queries._json_sql import (
@@ -272,10 +273,7 @@ _SIGNATURES = f"""CASE pg.kind
 _PERSON_KEY = "replace(lower(s.p ->> 'person_id'), '-', '_')"
 # The member's name is the expression of ``members.list_name`` on its props: read as the
 # column, the planner turns the join of the page.
-_MEMBER_NAME = truthy_or(
-    truthy_or("m.props -> 'name'", "m.props -> 'known_as'"),
-    "m.props -> 'government_name'",
-)
+_MEMBER_NAME = member_name_sql("m.props")
 _PERSONS = f"""CROSS JOIN LATERAL (
             SELECT coalesce(json_agg(
                 CASE WHEN json_typeof(s.p) = 'object' THEN lg_update(s.p, json_build_object(

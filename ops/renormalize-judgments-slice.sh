@@ -2,12 +2,15 @@
 # One slice of renormalize-judgments.sh: `normalize rechtspraak` over the next judgment records past the key
 # out/renormalize-judgments.after holds, under the lock. How many: out/renormalize-judgments.limit, else LIMIT (default
 # 90000). A slice that took longer than 25 minutes sets the next one's to what fits in 20. The first slice
-# counts before, the slice that reads nothing counts after and marks the pass done.
+# counts before, the slice that reads nothing counts after and marks the pass done: COUNTS_SQL (default
+# judgment-footnotes-counts.sql) under the block COUNTS_BLOCK (default footnotes).
 . "$(dirname "$0")/_steps.sh"
 STATE="$OPS/out/renormalize-judgments.after"
 after=$(cat "$STATE" 2>/dev/null)
-[ "$after" = done ] && { echo "== the pass is done; remove $STATE for a new one"; exit 0; }
-[ -n "$after" ] || counts footnotes before judgment-footnotes-counts.sql
+[ "$after" = "done" ] && { echo "== the pass is done; remove $STATE for a new one"; exit 0; }
+block=${COUNTS_BLOCK:-footnotes}
+sql=${COUNTS_SQL:-judgment-footnotes-counts.sql}
+[ -n "$after" ] || counts "$block" before "$sql"
 LIMITS="$OPS/out/renormalize-judgments.limit"
 limit=$(cat "$LIMITS" 2>/dev/null)
 limit=${limit:-${LIMIT:-90000}}
@@ -23,8 +26,8 @@ if [ "$took" -gt 1500 ]; then
 fi
 next=$(sed -n 's/.*go on with --after \([^)]*\)).*/\1/p' "$OUT/$label.log" | tail -1)
 if [ -z "$next" ] || [ "$next" = None ]; then
-  echo done > "$STATE"
-  counts footnotes after judgment-footnotes-counts.sql
+  echo "done" > "$STATE"
+  counts "$block" after "$sql"
   echo "== the pass is done"
 else
   echo "$next" > "$STATE"

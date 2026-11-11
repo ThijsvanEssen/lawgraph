@@ -2084,9 +2084,10 @@ resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 `core/cabinet_phases.py` its facts into phases; `core/cabinet_sources.py` puts the cabinets
 together.
 
-A post is held in a **seat**: `<ministry>/<post>[/<portfolio>]` (`ienw/minister`,
-`-/minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
-`-/staatssecretaris/rechtsbescherming`: `-` where the function names no ministry); the
+A post is held in a **seat**: `[<ministry>/]<post>[/<portfolio>]` (`ienw/minister`,
+`minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
+`staatssecretaris/rechtsbescherming`: no ministry where the function names none; a post is
+never the key of a ministry); the
 minister-president and the minister of Algemene Zaken are one seat (`az/minister-president`),
 every viceminister-president sits in the shared seat `viceminister-president`. A heading can
 name several posts (`Vice-minister-president en minister van Financiën`, `Minister-president,

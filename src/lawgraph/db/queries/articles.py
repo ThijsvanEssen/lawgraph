@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -411,13 +412,19 @@ class CurrentReferences:
     present: set[tuple[str, str]]
 
 
+def _md5(text: str | None) -> str:
+    """What ``md5(text)`` gives in the database."""
+    return hashlib.md5((text or "").encode(), usedforsecurity=False).hexdigest()
+
+
 def get_current_references(
     store: GraphStore, versions: list[dict[str, Any]]
 ) -> CurrentReferences:
     """Of each version in *versions* that is the current version of its article (its
-    ``versie_id`` that of the article), the references and citations of the article: those
-    are spans of the current text. Three queries at most and one per collection of the
-    targets, whatever the number of versions."""
+    ``versie_id`` and text those of the article), the references and citations of the
+    article: spans of its text, so a version stored with another text gets none. Three
+    queries at most and one per collection of the targets, whatever the number of
+    versions."""
     keys: dict[str, str] = {}
     for version in versions:
         props = version.get("props") or {}
@@ -429,10 +436,12 @@ def get_current_references(
         if key:
             keys[key] = version["key"]
     versie = {v["key"]: (v.get("props") or {}).get("versie_id") for v in versions}
+    texts = {v["key"]: _md5((v.get("props") or {}).get("text")) for v in versions}
     rows = (
         store.query(
             f"""
             SELECT id, key, lg_str(props -> 'versie_id') AS versie_id,
+                   md5(coalesce(lg_str(props -> 'text'), '')) AS text_md5,
                    props -> 'references' AS refs
             FROM {COLLECTION_ARTICLES} WHERE key = ANY(%(keys)s)
             """,
@@ -448,6 +457,7 @@ def get_current_references(
         )
         for row in rows
         if row["versie_id"] == versie.get(keys[row["key"]])
+        and row["text_md5"] == texts[keys[row["key"]]]
     }
     citations = get_citations_of(store, list(of_version))
     wanted: dict[str, set[str]] = {}

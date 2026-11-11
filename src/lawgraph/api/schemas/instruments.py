@@ -25,6 +25,7 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    ARTICLE_NUMBER,
     OFFICIAL_ID,
     OFFICIAL_URL,
     PARTIAL_COUNTS,
@@ -73,8 +74,8 @@ from lawgraph.core.division_anchor import breadcrumb_on, division_anchors
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.models import Direction, node_id
 from lawgraph.core.official_urls import (
+    article_page,
     article_url,
-    enacting_publication_url,
     instrument_url,
 )
 from lawgraph.core.publications import instrument_key, koop_citation
@@ -187,10 +188,7 @@ class InstrumentArticleNodeDTO(WithPath):
     bwb_id: str | None
     celex: str | None = None
     official_id: str | None = Field(None, description=OFFICIAL_ID)
-    article_number: str | None = Field(
-        None,
-        description="Null for an article with only a heading, and for a repealed one.",
-    )
+    article_number: str | None = Field(None, description=ARTICLE_NUMBER)
     label: str | None = Field(
         None,
         description="`Artikel 287`, or the heading of an article without a number "
@@ -234,8 +232,7 @@ class InstrumentArticleNodeDTO(WithPath):
             heading=props.get("heading"),
             address=address_of(doc),
             display_name=props.get("display_name"),
-            official_url=article_url(props.get("bwb_id"), props.get("article_number"))
-            or enacting_publication_url(props.get("official_id")),
+            official_url=article_page(props),
             breadcrumb=breadcrumb_dtos(props.get("breadcrumb")),
             stub=bool(props.get("stub", False)),
             repealed=bool(props.get("repealed")),

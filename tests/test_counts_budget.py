@@ -237,13 +237,16 @@ def test_instruments_counts_of_a_search_are_computed_inline(
     monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
     monkeypatch.setattr(instruments, "_legal_area_tree", lambda rows: [])
     inline: list[bool] = []
+    store = cast(GraphStore, object())
 
-    def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
-        inline.append(k["inline"])
+    def rows(of: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
+        # Only the calls of this test's store: a count a former test left running in the
+        # shared pool reaches ``instruments.cached_rows`` late, as this patch (B134).
+        if of is store:
+            inline.append(k["inline"])
         return [0] if "AS total" in str(sql) else []
 
     monkeypatch.setattr(instruments, "cached_rows", rows)
-    store = cast(GraphStore, object())
     instruments.get_instruments_list(store, facets=facets)
     assert inline and not any(inline)
     inline.clear()

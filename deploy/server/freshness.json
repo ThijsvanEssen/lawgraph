@@ -37,22 +37,22 @@
    "kind": "tier",
    "tier": "raad_van_state",
    "unit": "workdays",
-   "warn": 4,
-   "alert": 7
+   "warn": 6,
+   "alert": 10
   },
   {
    "kind": "tier",
    "tier": "college_van_beroep_bedrijfsleven",
    "unit": "workdays",
-   "warn": 4,
-   "alert": 7
+   "warn": 6,
+   "alert": 10
   },
   {
    "kind": "tier",
    "tier": "centrale_raad_van_beroep",
    "unit": "days",
-   "warn": 10,
-   "alert": 21
+   "warn": 18,
+   "alert": 30
   },
   {
    "kind": "tier",

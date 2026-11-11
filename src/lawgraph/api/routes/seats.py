@@ -31,7 +31,7 @@ router = APIRouter()
         "count the lists filtered on ``seat``, and what may be its own but fits nobody. "
         "Something is attributed by who did it and the day: the post of that kind they "
         "held; with two such posts that day the ministry decides, else it is attributed to "
-        "neither. A seat without a ministry (``-/…``) has no other names. The "
+        "neither. A seat without a ministry (``staatssecretaris/…``) has no other names. The "
         "viceminister-president, a seat beside a minister's own, has nothing attributed."
     ),
     tags=["government"],

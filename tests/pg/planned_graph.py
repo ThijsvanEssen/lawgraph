@@ -125,6 +125,7 @@ def seed(store: GraphStore, filler: int = FILLER) -> None:
                 valid_from="2010-01-01",
                 breadcrumb=[{"type": "hoofdstuk", "label": "Hoofdstuk 1"}],
                 versie_id="v1",
+                text="Hij die jegens een ander een onrechtmatige daad pleegt.",
                 current=True,
             )
         ],

@@ -15,6 +15,7 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    ARTICLE_NUMBER,
     OFFICIAL_ID,
     PathSource,
     QualifierFields,
@@ -30,6 +31,7 @@ from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.core.article_blocks import Block, article_blocks
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
+from lawgraph.core.official_urls import article_page
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import reference_target
 from lawgraph.core.time import dutch_today
@@ -98,7 +100,7 @@ class ArticleNeighborDTO(WithPath):
     bwb_id: str | None
     celex: str | None
     official_id: str | None
-    article_number: str | None
+    article_number: str | None = Field(description=ARTICLE_NUMBER)
     label: str | None = Field(description="`Artikel 67`.")
     address: str = Field(description=ARTICLE_ADDRESS)
 
@@ -174,13 +176,18 @@ class ArticleTextDTO(WithPath):
     bwb_id: str | None
     celex: str | None
     official_id: str | None = Field(description=OFFICIAL_ID)
-    article_number: str | None
+    article_number: str | None = Field(description=ARTICLE_NUMBER)
     address: str = Field(description=ARTICLE_ADDRESS)
     label: str | None = Field(description="`Artikel 68`.")
     heading: str | None = Field(
         description="The title of its kop: `(toezichthouders)`."
     )
     display_name: str | None = Field(description="How it is cited: `Art. 68 Cbw`.")
+    official_url: str | None = Field(
+        description="The article in force on wetten.overheid.nl (its JCI); the "
+        "regulation for an article without a number the JCI can address; the enacting "
+        "Staatsblad publication of a law the BWB does not hold (yet)."
+    )
     repealed: bool
     stub: bool = Field(
         description="Known only from what cites it: the data has no text of it and no "
@@ -226,6 +233,7 @@ class ArticleTextDTO(WithPath):
             label=props.get("label"),
             heading=props.get("heading"),
             display_name=article_cite(props) or None,
+            official_url=article_page(props),
             repealed=bool(props.get("repealed")),
             stub=bool(props.get("stub")),
             valid_from=text_since(data.versions, dutch_today().isoformat()),

@@ -282,6 +282,7 @@ def test_the_cabinets_newest_first_with_their_counts(
     assert cabinets[0]["prime_minister"] == {
         "key": "jetten",
         "name": "Rob Arnoldus Adrianus Jetten",
+        "first_name_missing": False,
         "path": "/leden/rob-arnoldus-adrianus-jetten",
     }
     assert (cabinets[0]["bills"], cabinets[0]["commitments"]) == (1, 2)
@@ -363,6 +364,7 @@ def test_the_commitments_of_a_ministry_overdue_or_of_a_dossier(
     assert first["member"] == {
         "key": "heinen",
         "name": "Eelco Heinen",
+        "first_name_missing": False,
         "function": "Minister van Financiën",
         "path": "/leden/eelco-heinen",
     }

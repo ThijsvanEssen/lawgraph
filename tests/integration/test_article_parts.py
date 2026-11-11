@@ -7,6 +7,7 @@ toestand as a process of their own, on the test server; the answers are the API'
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 
@@ -334,6 +335,68 @@ def test_the_law_of_a_day_carries_the_references_and_citations_when_asked(
         i for i in plain if not (i["references"] is None and i["citations"] is None)
     ]
     assert not failing, show_items(failing)
+
+
+def _references_not_on_their_text(items: list[dict[str, Any]]) -> list[str]:
+    """The references of *items* whose ``text`` is not what ``text[start:end]`` reads."""
+    return [
+        f"{item['article_number']}: {ref['text']!r}"
+        for item in items
+        for ref in item["references"] or []
+        if (item["text"] or "")[ref["start"] : ref["end"]] != ref["text"]
+    ]
+
+
+def test_the_references_of_the_law_of_a_day_fit_its_text(api: Api) -> None:
+    """A reference is a span of the text it comes with: ``text[start:end]`` reads its
+    ``text``, for every article of the law."""
+    items = api.get_json(
+        f"/api/instruments/{BWB}/articles/at/2020-06-01",
+        text_preview_chars=0,
+        include_text="true",
+        include="references",
+    )["items"]
+
+    assert any(item["references"] for item in items), "no article has references"
+    misfits = _references_not_on_their_text(items)
+    assert not misfits, show_items(misfits)
+
+
+def test_a_version_with_another_text_than_its_article_gets_no_references(
+    api: Api, store: GraphStore
+) -> None:
+    """The references are spans of the text of the article. A version stored before the
+    article was last read can hold another text: it gets none rather than spans that do not
+    fit it, and the others keep theirs."""
+    url = f"/api/instruments/{BWB}/articles/at/2020-06-01"
+    asked = {"text_preview_chars": 0, "include_text": "true", "include": "references"}
+    versions = api.get_json(f"/api/articles/{BWB}/1/history")["versions"]
+    (version,) = versions
+    (text,) = store.query(
+        "SELECT lg_str(props -> 'text') FROM article_versions WHERE key = %(key)s",
+        {"key": version["key"]},
+    )
+    try:
+        store.execute(
+            """UPDATE article_versions
+               SET props = lg_update(props, json_build_object('text', %(text)s::text))
+               WHERE key = %(key)s""",
+            {"key": version["key"], "text": "  " + text},
+        )
+        items = api.get_json(url, **asked)["items"]
+    finally:
+        store.execute(
+            """UPDATE article_versions
+               SET props = lg_update(props, json_build_object('text', %(text)s::text))
+               WHERE key = %(key)s""",
+            {"key": version["key"], "text": text},
+        )
+    by_number = {item["article_number"]: item for item in items}
+
+    assert by_number["1"]["references"] is None
+    assert by_number["5"]["references"] != []
+    misfits = _references_not_on_their_text(items)
+    assert not misfits, show_items(misfits)
 
 
 def test_a_heading_and_a_specificatielijst_come_out_of_the_api(

@@ -67,10 +67,8 @@ def test_a_merger_is_no_rename() -> None:
 def test_lanes_are_one_seat_and_a_seat_without_a_ministry_has_no_family() -> None:
     assert base_seat("bz/staatssecretaris#2") == "bz/staatssecretaris"
     assert family("bz/staatssecretaris#2") == ["bz/staatssecretaris"]
-    assert family("-/minister/immigratie-en-asiel") == [
-        "-/minister/immigratie-en-asiel"
-    ]
-    assert ministries_of("-/minister/immigratie-en-asiel") == []
+    assert family("minister/immigratie-en-asiel") == ["minister/immigratie-en-asiel"]
+    assert ministries_of("minister/immigratie-en-asiel") == []
     assert family("viceminister-president") == ["viceminister-president"]
     assert merged_from("viceminister-president") == []
 
@@ -127,5 +125,5 @@ def test_two_names_of_one_office_are_one_seat() -> None:
 
 def test_the_kind_of_a_seat() -> None:
     assert is_of_kind("fin/staatssecretaris#2", "Staatssecretaris van Financiën")
-    assert is_of_kind("-/minister_zonder_portefeuille/medische-zorg", "Minister voor X")
+    assert is_of_kind("minister_zonder_portefeuille/medische-zorg", "Minister voor X")
     assert not is_of_kind("fin/minister", "Staatssecretaris van Financiën")
