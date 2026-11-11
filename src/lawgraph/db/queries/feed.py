@@ -86,6 +86,7 @@ from lawgraph.db.queries.feed_sql import (
     party_choice,
     per_coalition,
     per_faction,
+    per_subject_area,
     rows_of,
     shared_filters,
 )
@@ -695,15 +696,11 @@ def lower_filters(filters: FeedFilters) -> FeedFilters | None:
 def _lower_courts(dimensions: str) -> str:
     """SQL: the days of ``events`` under *dimensions* (a WHERE), counted per area of law."""
     return f""",
-    matching AS (SELECT id, date FROM events {dimensions}),
+    matching AS (SELECT date, subject_areas FROM events {dimensions}),
     per_area AS (
-        SELECT m.date, a.area, count(*)::int AS count
-        FROM matching m
-        JOIN {COLLECTION_JUDGMENTS} j ON j.id = m.id
-        CROSS JOIN LATERAL (SELECT lg_subject_areas(j.subjects) AS v) s
-        CROSS JOIN LATERAL unnest(CASE WHEN cardinality(s.v) > 0 THEN s.v
-                                       ELSE ARRAY[NULL]::text[] END) AS a(area)
-        GROUP BY m.date, a.area
+        SELECT date, ax.value AS area, count(*)::int AS count
+        FROM {per_subject_area("matching")}
+        GROUP BY date, ax.value
     )
     SELECT d.date, d.total,
            json_agg(json_build_object('value', p.area, 'count', p.count)
@@ -795,10 +792,13 @@ def get_feed(
     return answer
 
 
-# Words, a faction or a law without a first day (``q``, ``faction`` or ``instrument``, and no
-# ``since``): a word that few events hold, a faction that signs few events of a kind (a
-# letter of the government: none) or a law few events are tied to, has every event of every
-# kind tested for it, the whole history (over 30 s for ``faction=vvd`` on prod, 11 Oct). The page is read back in windows,
+# Words, a faction, a law, a tier or an area of law without a first day (``q``, ``faction``,
+# ``party``, ``instrument``, ``tier`` or ``subject_area``, and no ``since``): a word that few
+# events hold, a faction that signs few events of a kind (a letter of the government: none),
+# a law few events are tied to or an area few judgments of a tier are in, has every event of
+# every kind tested for it, the whole history (over 30 s for ``faction=vvd`` on prod, 11 Oct;
+# for ``subject_area=Strafrecht``, 11 Nov). Where ``lg_feed_events`` tells the first day of
+# the page (``_bounded_page``) it is read once from there; else the page is read back in windows,
 # newest first, each of these many days further back from where it starts, then the rest,
 # until it is full or ``WORDS_BUDGET`` seconds are spent: then what was found is answered,
 # ``partial``, with the first day searched (``searched_from``), and a request with ``until``
@@ -813,7 +813,12 @@ def _page_items(
     """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
     before the first event, the first day it searched."""
     if filters.since or not (
-        filters.q or filters.faction or filters.party or filters.instrument
+        filters.q
+        or filters.faction
+        or filters.party
+        or filters.instrument
+        or filters.tiers
+        or filters.subject_area
     ):
         return _rows(store, filters, cursor, limit), None
     bounded = _bounded_page(store, filters, cursor, limit)
@@ -847,8 +852,8 @@ def _page_items(
 def _bounded_page(
     store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
 ) -> list[dict[str, Any]] | None:
-    """The page under words or a faction without a first day, read once from the first
-    day it reaches back to (``feed_events.first_day_of_page``: by the index on the words of the events,
+    """The page under words, a faction, a tier or an area without a first day, read once
+    from the first day it reaches back to (``feed_events.first_day_of_page``: by the index on the words of the events,
     not window after window); None where that table cannot tell, or the page read from that
     day is short of what it counted (an event gone since it was written): then the
     windows."""
@@ -1034,14 +1039,20 @@ def _facet_per_set(name: str) -> str:
                       GROUP BY set_id, date) per_day
             ) dated GROUP BY set_id, value"""
     elif name == "faction":
-        counted = f"""SELECT set_id, value, count(*)::int AS count FROM (
-                SELECT DISTINCT set_id, fx.faction AS value, id
-                FROM {per_faction("in_set")}
-            ) once GROUP BY set_id, value"""
+        counted = f"""SELECT set_id, fx.faction AS value, count(*)::int AS count
+            FROM {per_faction("in_set")}
+            GROUP BY set_id, value"""
     elif name == "coalition":
         counted = f"""SELECT set_id, value, count(*)::int AS count
             FROM {per_coalition("in_set")}
             GROUP BY set_id, value"""
+    elif name == "subject_area":
+        counted = f"""SELECT set_id, ax.value, count(*)::int AS count
+            FROM {per_subject_area("in_set")}
+            GROUP BY set_id, ax.value"""
+    elif name == "tier":
+        counted = """SELECT set_id, tier AS value, count(*)::int AS count
+            FROM in_set WHERE tier IS NOT NULL GROUP BY set_id, value"""
     else:
         counted = f"""SELECT set_id, {name} AS value, count(*)::int AS count
             FROM in_set GROUP BY set_id, value"""

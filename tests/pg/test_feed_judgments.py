@@ -5,7 +5,7 @@ and its summary."""
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,7 +13,11 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import feed
+from lawgraph.db.queries.feed_events import get_counts, write_all
+from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.asserts import assert_status
+from tests.optional import present
 
 
 def _judgment(key: str, tier: str, published_on: str | None, **props: Any) -> dict:
@@ -339,7 +343,128 @@ def test_an_area_of_law_keeps_the_judgments_in_it(
     assert _ids(_feed(lower, kind="Motie", subject_area="Strafrecht", **day)) == []
 
 
-def test_an_area_of_law_is_not_counted_per_period(client: TestClient) -> None:
-    assert_status(
-        client.get("/api/feed/periods", params={"subject_area": "Strafrecht"}), 422
-    )
+# Of the events written (``lg_feed_events``): a judgment of every tier, with its tier and
+# main areas of law, so a tier or an area is filtered and counted there.
+
+
+@pytest.fixture()
+def written(lower: TestClient, store: GraphStore) -> TestClient:
+    write_all(store)
+    return lower
+
+
+def _facet(answer: dict[str, Any], name: str) -> dict[str | None, int]:
+    return {f["value"]: f["count"] for f in answer["facets"][name]}
+
+
+def test_a_tier_or_area_is_counted_per_period(written: TestClient) -> None:
+    def periods(**params: Any) -> dict[str, dict[str, int]]:
+        response = written.get("/api/feed/periods", params={"per": "month", **params})
+        assert response.status_code == 200, response.text
+        return {p["period"]: p["counts"] for p in response.json()["periods"]}
+
+    assert periods(tier="rechtbank") == {"2026-09-01": {"uitspraak": 2}}
+    assert periods(subject_area="Strafrecht") == {"2026-09-01": {"uitspraak": 1}}
+    assert periods(tier="rechtbank", subject_area="none") == {
+        "2026-09-01": {"uitspraak": 1}
+    }
+    # without a tier, the feed's own: the highest courts and the Parket
+    assert periods(kind="uitspraak") == {"2026-09-01": {"uitspraak": 4}}
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"tier": "rechtbank"},
+        {"subject_area": "Strafrecht"},
+        {"tier": "gerechtshof,rechtbank,tuchtcollege", "subject_area": "Civiel recht"},
+        {"tier": "rechtbank", "subject_area": "none"},
+    ],
+    ids=repr,
+)
+def test_a_tier_or_area_is_counted_in_the_table(
+    written: TestClient, params: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Not by a read of every judgment (a 503 after 30 s for ``subject_area`` on prod)."""
+
+    def every_event(*a: Any, **k: Any) -> Any:
+        raise AssertionError("counted over every event")
+
+    monkeypatch.setattr(feed, "feed_counts", every_event)
+    answer = _feed(written, **params)
+    assert answer["total"] == len(answer["items"]) > 0
+    assert not answer["partial"]
+    assert sum(_facet(answer, "kind").values()) == answer["total"]
+
+
+def test_the_facets_of_tier_and_area(written: TestClient) -> None:
+    answer = _feed(written)
+    # every tier, also those the feed shows only under ``tier``
+    assert _facet(answer, "tier") == {
+        "hoge_raad": 2,
+        "rechtbank": 2,
+        "raad_van_state": 1,
+        "parket": 1,
+        "hvj_eu": 1,
+        "gerechtshof": 1,
+        "tuchtcollege": 1,
+        "buitenlandse_instantie": 1,
+    }
+    # the judgments of the feed's own tiers, each in every area it has, none in null
+    assert _facet(answer, "subject_area") == {None: 3, "Strafrecht": 1}
+    # each under the other filters, not its own
+    criminal = _feed(written, subject_area="Strafrecht")
+    assert _facet(criminal, "tier") == {
+        "hoge_raad": 1,
+        "rechtbank": 1,
+        "buitenlandse_instantie": 1,
+    }
+    assert _facet(criminal, "subject_area") == {None: 3, "Strafrecht": 1}
+    assert criminal["total"] == 1
+    lower = _feed(written, tier="gerechtshof,rechtbank")
+    assert _facet(lower, "subject_area") == {
+        None: 1,
+        "Bestuursrecht": 1,
+        "Civiel recht": 1,
+        "Strafrecht": 1,
+    }
+    assert _facet(lower, "kind") == {"uitspraak": 3}
+
+
+def test_the_table_counts_what_the_feed_counts(written: TestClient) -> None:
+    """Under a tier and an area, what the feed counts of its own rows; but the facets
+    ``tier`` and ``subject_area`` count every tier and area under the other filters (the
+    feed reads only those asked for)."""
+    store = cast(GraphStore, app.dependency_overrides[get_store]())
+    for filters in (
+        FeedFilters(tiers=("rechtbank", "gerechtshof")),
+        FeedFilters(subject_area="Strafrecht"),
+        FeedFilters(tiers=("rechtbank",), subject_area="none"),
+        FeedFilters(kinds=("uitspraak",)),
+    ):
+        table = present(get_counts(store, filters, 60.0))
+        own = feed._counts(store, filters)
+        assert table["total"] == own["total"], filters
+        own_filters = {"tier"} | ({"subject_area"} if filters.subject_area else set())
+        names = [name for name in table["facets"] if name not in own_filters]
+        assert {n: table["facets"][n] for n in names} == {
+            n: own["facets"][n] for n in names
+        }, filters
+
+
+def test_a_page_of_a_tier_reads_once_from_its_first_day(
+    written: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without a first day, from the day the table says the page reaches back to, not
+    the whole history (an area of law: a 503 after 30 s on prod)."""
+    read: list[str | None] = []
+    rows = feed._rows
+
+    def recorded(store: Any, filters: FeedFilters, *a: Any, **k: Any) -> Any:
+        read.append(filters.since)
+        return rows(store, filters, *a, **k)
+
+    monkeypatch.setattr(feed, "_rows", recorded)
+    answer = _feed(written, subject_area="Strafrecht", facets="false")
+    assert _ids(answer) == ["judgments/ecli_nl_hr_2026_14"]
+    assert len(read) == 1 and read[0] is not None

@@ -1956,11 +1956,14 @@ it names the node's table (`n.collection = 'documents'`), or reads the node thro
 `lg_feed_events` holds one light row per event of the feed (`kind`, `id`, `date`, `chamber`,
 `ministry`, `factions`, `labels`, and its title (of a publication with the names of the laws it
 changes or enacts, and the official title of a law it enacts) and that of its first dossier in
-lower case, with `words`, their tokens of letters and digits, `lg_alnum_tokens`), written by `lawgraph
-feed-events` from the feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET
-/api/feed` under `q` its total and facets.
+lower case, with `words`, their tokens of letters and digits, `lg_alnum_tokens`); a judgment of
+every tier has one, with its `tier` and its main areas of law (`subject_areas`,
+`lg_subject_areas`), both null for the other kinds. Written by `lawgraph feed-events` from the
+feed's own reading of the events; `GET /api/feed/periods` counts it, and `GET /api/feed` its
+total and facets and, under `q`, `faction`, `tier` or `subject_area` without a first day, the
+first day of its page.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
-superset the feed's pattern then checks) and `factions` (GIN). `lg_feed_events_state` keeps
+superset the feed's pattern then checks), `factions` (GIN) and `(tier, date)` of the judgments. `lg_feed_events_state` keeps
 when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
 `lg_unlinked_references` holds per node a step read the references of how many its text makes
