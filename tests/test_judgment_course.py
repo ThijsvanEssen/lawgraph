@@ -3,11 +3,13 @@ a court its say, how far a course reaches and the order of its steps."""
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 
 import pytest
 
 from lawgraph.core.judgment_course import (
+    DATA,
     Edge,
     area_of,
     basis_of,
@@ -15,9 +17,10 @@ from lawgraph.core.judgment_course import (
     reach,
     route_designations,
     route_gaps,
+    route_rules,
 )
 
-RO, AWB = "BWBR0001830", "BWBR0005537"
+RO, AWB, AWR = "BWBR0001830", "BWBR0005537", "BWBR0002320"
 
 
 @pytest.mark.parametrize(
@@ -52,8 +55,13 @@ def test_the_area_of_law_is_read_from_the_subjects(
         ("centrale_raad_van_beroep", "Hoger beroep", "bestuur", (AWB, "8:105")),
         ("raad_van_state", "Eerste aanleg - enkelvoudig", "bestuur", (AWB, "8:6")),
         ("college_van_beroep_bedrijfsleven", "Eerste aanleg", "bestuur", (AWB, "8:6")),
+        ("gerechtshof", "Eerste aanleg", "bestuur", (AWB, "8:6")),
+        ("gerechtshof", "Hoger beroep", "bestuur", (AWB, "8:105")),
+        ("gerechtshof", "Hoger beroep", "belasting", (RO, "60")),
+        ("hoge_raad", "Cassatie", "belasting", (AWR, "28")),
+        ("hoge_raad", "Artikel 81 RO-zaken", "belasting", (AWR, "28")),
+        ("hoge_raad", "Cassatie", "bestuur", (RO, "78")),
         # gaps: not in the list, never guessed
-        ("hoge_raad", "Cassatie", "belasting", None),
         ("gerechtshof", "Verwijzing na Hoge Raad", "civiel", None),
         ("rechtbank", "Eerste en enige aanleg", "civiel", None),
         ("rechtbank", "Eerste aanleg - meervoudig", None, None),
@@ -138,10 +146,36 @@ def test_a_cycle_in_the_edges_still_gives_every_judgment_once() -> None:
     assert sorted(order_steps("a", edges, {})) == ["a", "b"]
 
 
-def test_a_court_the_regeling_names_has_its_basis_in_the_list() -> None:
-    """Each article of the Bevoegdheidsregeling names a court the list gives an article."""
+def test_a_court_an_article_names_has_its_basis_in_the_list() -> None:
+    """Each other article of a step (the regeling, a law that opens cassation) names a
+    court the list gives an article in each of its areas."""
     for d in route_designations():
-        assert basis_of(d["tier"], d["procedure"], "bestuur"), d
+        assert d["areas"], d
+        for area in d["areas"]:
+            assert basis_of(d["tier"], d["procedure"], area), (d, area)
+
+
+def test_every_article_of_the_list_is_of_a_law_read_in_the_source() -> None:
+    sources = json.loads(DATA.read_text(encoding="utf-8"))["sources"]
+    for item in (*route_rules(), *route_designations()):
+        assert item["bwb_id"] in sources, item
+
+
+def test_cassation_in_bestuur_is_only_against_the_centrale_raad_van_beroep() -> None:
+    (rule,) = [
+        r
+        for r in route_rules()
+        if "hoge_raad" in r["tiers"] and "bestuur" in r["areas"]
+    ]
+    assert rule["after_tier"] == "centrale_raad_van_beroep"
+    laws = {
+        (d["bwb_id"], d["article_number"])
+        for d in route_designations()
+        if d["tier"] == "hoge_raad" and "bestuur" in d["areas"]
+    }
+    assert ("BWBR0002221", "53") in laws  # AOW
+    assert ("BWBR0019057", "116") in laws  # WIA
+    assert len(laws) == 15
 
 
 def test_a_gap_is_a_step_the_list_has_no_article_for() -> None:

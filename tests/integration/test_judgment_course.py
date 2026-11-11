@@ -23,7 +23,7 @@ from tests.integration.seed import (
     write_judgments,
 )
 
-RO, AWB = "BWBR0001830", "BWBR0005537"
+RO, AWB, AWR = "BWBR0001830", "BWBR0005537", "BWBR0002320"
 CIVIEL = "Civiel recht; Verbintenissenrecht"
 
 
@@ -50,6 +50,7 @@ HOF_AMS, HR_REF, HOF_REF = (
 RVS_APPEAL, RB_STUB = "ECLI:NL:RVS:2026:40", "ECLI:NL:RBGEL:2025:41"
 CRVB_TEXT = "ECLI:NL:CRVB:2026:50"
 RVS_FIRST = "ECLI:NL:RVS:2026:60"
+HR_TAX = "ECLI:NL:HR:2026:70"
 
 CASES = {
     RB: rechtspraak_xml(
@@ -142,6 +143,15 @@ CASES = {
         "202500002/1/R1",
         procedure="Eerste aanleg - enkelvoudig",
         subject="Bestuursrecht; Omgevingsrecht",
+    ),
+    # cassation in a tax case (as ECLI:NL:HR:2026:1016)
+    HR_TAX: rechtspraak_xml(
+        HR_TAX,
+        "Hoge Raad",
+        "2026-06-01",
+        "25/00070",
+        procedure="Cassatie",
+        subject="Bestuursrecht; Belastingrecht",
     ),
 }
 
@@ -245,6 +255,15 @@ def test_the_first_and_only_instance_at_the_raad_van_state_has_art_8_6(
     assert step["links"] == []
 
 
+def test_cassation_in_a_tax_case_has_art_28_awr(client: TestClient) -> None:
+    (step,) = _course(client, HR_TAX)["steps"]
+    assert (step["tier"], step["area"], _basis(step)) == (
+        "hoge_raad",
+        "belasting",
+        (AWR, "28"),
+    )
+
+
 def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None:
     response = client.get("/api/judgments/routes")
     assert_status(response, 200)
@@ -259,8 +278,37 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
         "8:6",
         [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 2"}],
     )
-    # cassation in tax cases is not read in the source: a gap, marked
-    assert [g["tier"] for g in areas["belasting"]["gaps"]] == ["hoge_raad"]
+    assert all(not a["gaps"] for a in areas.values())
+    belasting = {
+        s["tier"]: (
+            _basis(s),
+            [(d["bwb_id"], d["article_number"]) for d in s["designations"]],
+        )
+        for s in areas["belasting"]["steps"]
+    }
+    assert belasting == {
+        "rechtbank": ((RO, "44"), [(AWB, "8:6")]),
+        "gerechtshof": ((RO, "60"), [(AWB, "8:105"), (AWB, "bijlage 2 artikel 12")]),
+        "hoge_raad": ((AWR, "28"), [(RO, "78")]),
+    }
+    bestuur = areas["bestuur"]["steps"]
+    hofs = [s for s in bestuur if s["tier"] == "gerechtshof"]
+    assert [(s["procedures"][0], _basis(s), s["designations"]) for s in hofs] == [
+        (
+            "Eerste aanleg",
+            (AWB, "8:6"),
+            [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 5"}],
+        ),
+        (
+            "Hoger beroep",
+            (AWB, "8:105"),
+            [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 12"}],
+        ),
+    ]
+    (hr,) = [s for s in bestuur if s["tier"] == "hoge_raad"]
+    assert (hr["after_tier"], _basis(hr)) == ("centrale_raad_van_beroep", (RO, "78"))
+    assert {"bwb_id": "BWBR0002221", "article_number": "53"} in hr["designations"]
+    assert all(s["after_tier"] is None for s in areas["civiel"]["steps"])
     # the Awb is not loaded here
     assert response.json()["regeling"] == []
 

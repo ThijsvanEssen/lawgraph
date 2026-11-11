@@ -1,34 +1,72 @@
 {
- "about": "The article of law that gives a court its say in a step of a case: by the tier of the court, the procedure the metadata names (psi:procedure, its start) and the area of law (dc:subject). Read by core/judgment_course.py. Kept by hand from the text of the laws; a step none of them fits has no basis (a gap), never a guessed one. The first instance at a bijzondere bestuursrechter has art. 8:6 Awb, which names the court of chapter 2 of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2) or of another statute; which article of the regeling names which court is under designations (the route, not a step). Known gaps, not read in the source: under gaps.",
+ "about": "The article of law that gives a court its say in a step of a case: by the tier of the court, the procedure the metadata names (psi:procedure, its start) and the area of law (dc:subject). Read by core/judgment_course.py. Kept by hand from the text of the laws; a step none of them fits has no basis (a gap), never a guessed one. A rule with after_tier hears only the judgments of that court (cassation in bestuur: only against the Centrale Raad van Beroep). The other articles that give the court its say in a step of the route, by tier, procedure and area, are under designations (the route, not a step of the Verloop): the article of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2) that names a court, the Awb beside the RO in tax cases, the laws that open cassation against the Centrale Raad van Beroep (those read, not all there may be). Known gaps, not read in the source: under gaps.",
  "sources": {
   "BWBR0001830": {
-   "what": "Wet op de rechterlijke organisatie, art. 42 (rechtbank, burgerlijke zaken), 44 (belastingzaken), 45 (strafzaken), 60 (hoger beroep bij het gerechtshof), 78 (cassatie)",
-   "read_on": "2026-11-07"
+   "what": "Wet op de rechterlijke organisatie, art. 42 (rechtbank, burgerlijke zaken), 44 (belastingzaken), 45 (strafzaken), 60 (hoger beroep bij het gerechtshof), 78 (cassatie; lid 4: tegen uitspraken van de bestuursrechter voor zover bij wet bepaald)",
+   "read_on": "2026-11-11"
   },
   "BWBR0005537": {
-   "what": "Algemene wet bestuursrecht, art. 8:6 (beroep bij de rechtbank, tenzij hoofdstuk 2 van de Bevoegdheidsregeling of een ander voorschrift een andere bestuursrechter aanwijst), 8:105 (hoger beroep bij de Afdeling, tenzij hoofdstuk 4); bijlage 2 (Bevoegdheidsregeling bestuursrechtspraak) art. 2, 3, 4 (beroep in eerste aanleg bij de Afdeling, de Centrale Raad van Beroep, het College van Beroep voor het bedrijfsleven), 9, 10, 11 (hoger beroep bij de Centrale Raad van Beroep, met en zonder schorsende werking, en bij het College)",
-   "read_on": "2026-11-09"
-  }
+   "what": "Algemene wet bestuursrecht, art. 8:6 (beroep bij de rechtbank, tenzij hoofdstuk 2 van de Bevoegdheidsregeling of een ander voorschrift een andere bestuursrechter aanwijst), 8:105 (hoger beroep bij de Afdeling, tenzij hoofdstuk 4); bijlage 2 (Bevoegdheidsregeling bestuursrechtspraak) art. 2, 3, 4, 5 (beroep in eerste aanleg bij de Afdeling, de Centrale Raad van Beroep, het College van Beroep voor het bedrijfsleven, een gerechtshof), 9, 10, 11, 12 (hoger beroep bij de Centrale Raad van Beroep, met en zonder schorsende werking, bij het College en bij een gerechtshof)",
+   "read_on": "2026-11-11"
+  },
+  "BWBR0002320": {
+   "what": "Algemene wet inzake rijksbelastingen, art. 28 (beroep in cassatie bij de Hoge Raad tegen uitspraken van het gerechtshof)",
+   "read_on": "2026-11-11"
+  },
+  "BWBR0002368": {"what": "Algemene Kinderbijslagwet, art. 31 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0007795": {"what": "Algemene nabestaandenwet, art. 66 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0002221": {"what": "Algemene Ouderdomswet, art. 53 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0004044": {"what": "Wet inkomensvoorziening oudere en gedeeltelijk arbeidsongeschikte werkloze werknemers, art. 60b (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0004163": {"what": "Wet inkomensvoorziening oudere en gedeeltelijk arbeidsongeschikte gewezen zelfstandigen, art. 60b (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0024394": {"what": "Wet inkomensvoorziening oudere werklozen, art. 47 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0015703": {"what": "Participatiewet, art. 80 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0004043": {"what": "Toeslagenwet, art. 39 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0008657": {"what": "Wet arbeidsongeschiktheidsvoorziening jonggehandicapten, art. 6:5 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0002524": {"what": "Wet op de arbeidsongeschiktheidsverzekering, art. 87f (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0008656": {"what": "Wet arbeidsongeschiktheidsverzekering zelfstandigen, art. 98 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0019057": {"what": "Wet werk en inkomen naar arbeidsvermogen, art. 116 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0035917": {"what": "Wet langdurige zorg, art. 10.3.2 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0004045": {"what": "Werkloosheidswet, art. 129d (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
+  "BWBR0001888": {"what": "Ziektewet, art. 75m (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"}
  },
  "rules": [
   {"tiers": ["rechtbank"], "procedures": ["Eerste aanleg"], "areas": ["civiel"], "bwb_id": "BWBR0001830", "article_number": "42"},
   {"tiers": ["rechtbank"], "procedures": ["Eerste aanleg"], "areas": ["belasting"], "bwb_id": "BWBR0001830", "article_number": "44"},
   {"tiers": ["rechtbank"], "procedures": ["Eerste aanleg"], "areas": ["straf"], "bwb_id": "BWBR0001830", "article_number": "45"},
-  {"tiers": ["rechtbank", "raad_van_state", "centrale_raad_van_beroep", "college_van_beroep_bedrijfsleven"], "procedures": ["Eerste aanleg"], "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "8:6"},
+  {"tiers": ["rechtbank", "raad_van_state", "centrale_raad_van_beroep", "college_van_beroep_bedrijfsleven", "gerechtshof"], "procedures": ["Eerste aanleg"], "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "8:6"},
   {"tiers": ["gerechtshof"], "procedures": ["Hoger beroep"], "areas": ["civiel", "straf", "belasting"], "bwb_id": "BWBR0001830", "article_number": "60"},
   {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["civiel", "straf"], "bwb_id": "BWBR0001830", "article_number": "78"},
-  {"tiers": ["raad_van_state", "centrale_raad_van_beroep", "college_van_beroep_bedrijfsleven"], "procedures": ["Hoger beroep"], "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "8:105"}
+  {"tiers": ["raad_van_state", "centrale_raad_van_beroep", "college_van_beroep_bedrijfsleven", "gerechtshof"], "procedures": ["Hoger beroep"], "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "8:105"},
+  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["bestuur"], "after_tier": "centrale_raad_van_beroep", "bwb_id": "BWBR0001830", "article_number": "78"},
+  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["belasting"], "bwb_id": "BWBR0002320", "article_number": "28"}
  ],
  "designations": [
-  {"tier": "raad_van_state", "procedure": "Eerste aanleg", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 2"},
-  {"tier": "centrale_raad_van_beroep", "procedure": "Eerste aanleg", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 3"},
-  {"tier": "college_van_beroep_bedrijfsleven", "procedure": "Eerste aanleg", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 4"},
-  {"tier": "centrale_raad_van_beroep", "procedure": "Hoger beroep", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 9"},
-  {"tier": "centrale_raad_van_beroep", "procedure": "Hoger beroep", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 10"},
-  {"tier": "college_van_beroep_bedrijfsleven", "procedure": "Hoger beroep", "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 11"}
+  {"tier": "raad_van_state", "procedure": "Eerste aanleg", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 2"},
+  {"tier": "centrale_raad_van_beroep", "procedure": "Eerste aanleg", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 3"},
+  {"tier": "college_van_beroep_bedrijfsleven", "procedure": "Eerste aanleg", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 4"},
+  {"tier": "gerechtshof", "procedure": "Eerste aanleg", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 5"},
+  {"tier": "centrale_raad_van_beroep", "procedure": "Hoger beroep", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 9"},
+  {"tier": "centrale_raad_van_beroep", "procedure": "Hoger beroep", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 10"},
+  {"tier": "college_van_beroep_bedrijfsleven", "procedure": "Hoger beroep", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 11"},
+  {"tier": "rechtbank", "procedure": "Eerste aanleg", "areas": ["belasting"], "bwb_id": "BWBR0005537", "article_number": "8:6"},
+  {"tier": "gerechtshof", "procedure": "Hoger beroep", "areas": ["belasting"], "bwb_id": "BWBR0005537", "article_number": "8:105"},
+  {"tier": "gerechtshof", "procedure": "Hoger beroep", "areas": ["bestuur", "belasting"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 12"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["belasting"], "bwb_id": "BWBR0001830", "article_number": "78"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0002368", "article_number": "31"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0007795", "article_number": "66"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0002221", "article_number": "53"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0004044", "article_number": "60b"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0004163", "article_number": "60b"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0024394", "article_number": "47"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0015703", "article_number": "80"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0004043", "article_number": "39"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0008657", "article_number": "6:5"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0002524", "article_number": "87f"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0008656", "article_number": "98"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0019057", "article_number": "116"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0035917", "article_number": "10.3.2"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0004045", "article_number": "129d"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0001888", "article_number": "75m"}
  ],
- "gaps": [
-  {"tiers": ["hoge_raad"], "procedures": ["Cassatie"], "areas": ["belasting"], "why": "Cassation in tax cases (Algemene wet inzake rijksbelastingen): not read in the source."},
-  {"tiers": ["hoge_raad"], "procedures": ["Cassatie"], "areas": ["bestuur"], "why": "Cassation against the Centrale Raad van Beroep: not read in the source."}
- ]
+ "gaps": []
 }
