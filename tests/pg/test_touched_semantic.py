@@ -1,6 +1,6 @@
-"""``--touched-since`` on a real PostgreSQL: ``semantic tk-dossier-outcomes`` and
-``semantic tk-government`` come to the same for what a poll touched as a run over all, and
-leave the rest alone."""
+"""``--touched-since`` on a real PostgreSQL: ``semantic tk-dossier-outcomes``,
+``semantic tk-government`` and the replacements of ``semantic tk-dossier-relations`` come to
+the same for what a poll touched as a run over all, and leave the rest alone."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from lawgraph.config.constants import (
     RAW_KIND_TK_DOSSIER,
     RAW_KIND_TK_STEMMING,
     RAW_KIND_TK_TOEZEGGING,
+    RAW_KIND_TK_ZAAK,
     SOURCE_TK,
 )
 from lawgraph.core.tk_records.actors import (
@@ -27,6 +28,12 @@ from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.pipelines.semantic import _touched as touched
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
+)
+from lawgraph.pipelines.semantic.tk_dossier_relations import (
+    EDGE_SOURCE as RELATIONS_SOURCE,
+)
+from lawgraph.pipelines.semantic.tk_dossier_relations import (
+    TKDossierRelationsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
 
@@ -146,6 +153,81 @@ def _fill(store: GraphStore) -> None:
             _raw(RAW_KIND_TK_DOSSIER, G_DOSSIER, NEW),
         ]
     )
+
+
+def _revises(store: GraphStore) -> set[tuple[str, str, str, str]]:
+    rows = store.query(
+        "SELECT json_build_object('f', from_id, 't', to_id, 's', source, 'r', "
+        "doc -> 'meta' ->> 'rule') FROM edges WHERE relation = 'REVISES'"
+    )
+    return {(row["f"], row["t"], row["s"], row["r"]) for row in rows}
+
+
+def test_a_new_replacement_is_written_as_a_run_over_all_writes_it(
+    store: GraphStore,
+) -> None:
+    """An amended amendment fetched in the window revises the papers of the case it
+    replaces at once, as a run over all would; a replacement of long ago waits for that
+    run, and an edge no rule gives any more stays until then."""
+    new, old, late, early, other, gone = (
+        "a1000000-aaaa-4bbb-8ccc-000000000001",  # the amended amendment, fetched now
+        "a2000000-aaaa-4bbb-8ccc-000000000002",  # the amendment it replaces
+        "a3000000-aaaa-4bbb-8ccc-000000000003",  # replaced, its paper joined it now
+        "a4000000-aaaa-4bbb-8ccc-000000000004",  # replaces late, fetched long ago
+        "a5000000-aaaa-4bbb-8ccc-000000000005",  # replaces gone, all long ago
+        "a6000000-aaaa-4bbb-8ccc-000000000006",
+    )
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [
+            _node(_key(new), replaces_cases=[old]),
+            _node(_key(old)),
+            _node(_key(late)),
+            _node(_key(early), replaces_cases=[late]),
+            _node(_key(other), replaces_cases=[gone]),
+            _node(_key(gone)),
+        ],
+    )
+    papers = ("p80", "p35", "p21", "p22", "p50", "p40")
+    store.bulk_insert_or_update_nodes("documents", [_node(p) for p in papers])
+    joined = (NEW, OLD, NEW, OLD, OLD, OLD)
+    store.bulk_insert_or_update_edges(
+        [
+            _edge(f"documents/{paper}", f"cases/{_key(case)}", "PART_OF", at)
+            for paper, case, at in zip(
+                papers, (new, old, late, early, other, gone), joined, strict=True
+            )
+        ]
+        + [
+            {
+                **_edge("documents/p35", "documents/p40", "REVISES", OLD),
+                "source": RELATIONS_SOURCE,
+                "meta": {"rule": "vervanging"},
+            }
+        ]
+    )
+    store.insert_raw_sources(
+        [_raw(RAW_KIND_TK_ZAAK, new, NEW), _raw(RAW_KIND_TK_ZAAK, other, OLD)]
+    )
+    assert set(touched.touched_cases(store, SINCE)) == {
+        f"cases/{_key(case)}" for case in (new, late)
+    }
+
+    TKDossierRelationsSemanticPipeline(store=store).run(touched_since=SINCE)
+    some = _revises(store)
+    stale = ("documents/p35", "documents/p40", RELATIONS_SOURCE, "vervanging")
+    assert some == {
+        ("documents/p80", "documents/p35", RELATIONS_SOURCE, "vervanging"),
+        ("documents/p22", "documents/p21", RELATIONS_SOURCE, "vervanging"),
+        stale,
+    }
+    TKDossierRelationsSemanticPipeline(store=store).run()
+    everything = _revises(store)
+    assert some - {stale} < everything
+    assert everything - some == {
+        ("documents/p50", "documents/p40", RELATIONS_SOURCE, "vervanging")
+    }
+    assert stale not in everything
 
 
 def _props(store: GraphStore, collection: str) -> dict[str, dict[str, Any]]:
