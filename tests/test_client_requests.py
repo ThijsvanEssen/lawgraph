@@ -504,7 +504,7 @@ EXPECTED: dict[str, list[tuple[str, dict[str, str], Any, bool]]] = {
     ],
     "rechtspraak-index": [
         (
-            "https://data.rechtspraak.nl/uitspraken/zoeken?type=Uitspraak&return=DOC&max=1000&creator=http%3A%2F%2Fstandaarden.overheid.nl%2Fowms%2Fterms%2FHoge_Raad_der_Nederlanden&date=2026-09-01&date=2026-10-01&from=0",
+            "https://data.rechtspraak.nl/uitspraken/zoeken?return=DOC&max=1000&creator=http%3A%2F%2Fstandaarden.overheid.nl%2Fowms%2Fterms%2FHoge_Raad_der_Nederlanden&date=2026-09-01&date=2026-10-01&from=0",
             {"Accept": "*/*"},
             30,
             False,
