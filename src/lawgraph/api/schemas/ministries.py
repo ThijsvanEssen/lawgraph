@@ -11,6 +11,7 @@ from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.members import PersonRefDTO
 from lawgraph.core.ministries import MINISTRIES, MINISTRY_BY_KEY, Ministry, Source
+from lawgraph.core.readable_paths import path_of
 
 
 class WithMinistry(StrictModel):
@@ -28,6 +29,17 @@ class WithMinistry(StrictModel):
     def ministry_name(self) -> str | None:
         found = MINISTRY_BY_KEY.get(str(self.ministry)) if self.ministry else None
         return found.name if found else None
+
+
+class WithMinistryPath(WithMinistry):
+    """A source that names its ministry by key, with the ministry's name and address."""
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The address of ``ministry``: ``/ministeries/fin``; null without one."
+    )
+    @property
+    def ministry_path(self) -> str | None:
+        return path_of(f"ministries/{self.ministry}") if self.ministry else None
 
 
 class MinistryPeriodDTO(StrictModel):
@@ -107,6 +119,11 @@ class MinistryPostDTO(StrictModel):
     post: Post | None = None
     function: str | None = Field(None, description="As Rijksoverheid names the post.")
     portfolio: str | None = None
+    seat: str | None = Field(
+        None,
+        description="The office (``GET /api/seats/{seat}``), with its lane: "
+        "``fin/staatssecretaris#2``.",
+    )
     from_date: str | None = Field(None, description="The day it began.")
     to_date: str | None = Field(None, description=END_OF_OFFICE)
     acting: bool = Field(False, description="A stand-in (ad interim).")
@@ -177,6 +194,7 @@ class MinistryDetailDTO(MinistryDTO):
                     post=post.get("post"),
                     function=post.get("function"),
                     portfolio=post.get("portfolio"),
+                    seat=post.get("seat"),
                     from_date=post.get("from_date"),
                     to_date=post.get("to_date"),
                     acting=bool(post.get("acting")),

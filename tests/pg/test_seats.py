@@ -11,7 +11,7 @@ from lawgraph.db import GraphStore
 from lawgraph.db.queries.commitments import get_commitments
 from lawgraph.db.queries.dossier_filters import DossierFilters
 from lawgraph.db.queries.dossiers import get_dossiers
-from lawgraph.db.queries.seats import get_seat
+from lawgraph.db.queries.seats import get_seat, list_seats
 from tests.pg.cabinet_graph import node
 
 
@@ -136,6 +136,7 @@ def test_the_holders_of_an_office_over_its_renames(offices: GraphStore) -> None:
     assert seat is not None
     assert seat == get_seat(offices, "ienw/minister")
     assert seat["seat"] == "ienw/minister"
+    assert seat["ministry"] == "ienw"
     assert seat["names"] == ["ienm/minister", "ienw/minister"]
     assert [p["member"]["key"] for p in seat["holders"]] == ["schultz", "harbers"]
     assert seat["holders"][1]["member"]["slug"] == "mark-harbers"
@@ -189,3 +190,27 @@ def test_two_seats_that_day_the_ministry_decides(offices: GraphStore) -> None:
     assert _keys(lane) == ["one-of-two"]
     other = get_commitments(offices, seat="ienw/staatssecretaris", facets=False)
     assert _keys(other) == []
+
+
+def test_every_office_once_over_its_renames(offices: GraphStore) -> None:
+    rows = {row["seat"]: row for row in list_seats(offices, "2024-01-01")}
+    assert sorted(rows) == [
+        "fin/staatssecretaris",
+        "ienw/minister",
+        "ienw/staatssecretaris",
+    ]
+    minister = rows["ienw/minister"]
+    # one office over ienm and ienw: two holders, held since 2012 and still held
+    assert minister["holder_count"] == 2
+    assert (minister["from_date"], minister["to_date"]) == ("2012-01-01", None)
+    assert "ienm" in minister["ministries"] and "ienw" in minister["ministries"]
+    assert [p["member"]["key"] for p in minister["current"]] == ["harbers"]
+    # a lane is the same office, by its seat without the lane
+    assert rows["fin/staatssecretaris"]["current"][0]["member"]["key"] == "double"
+
+
+def test_who_holds_an_office_depends_on_the_day(offices: GraphStore) -> None:
+    rows = {row["seat"]: row for row in list_seats(offices, "2015-01-01")}
+    assert [p["member"]["key"] for p in rows["ienw/minister"]["current"]] == ["schultz"]
+    # not yet held: no one, not filled in
+    assert rows["ienw/staatssecretaris"]["current"] == []

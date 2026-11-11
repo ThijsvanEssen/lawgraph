@@ -92,6 +92,7 @@ ROUTES = [
     ("GET", "/api/documents/{key}/passages"),
     ("GET", "/api/resolve"),
     ("GET", "/api/search"),
+    ("GET", "/api/seats"),
     ("GET", "/api/seats/{seat}"),
     ("GET", "/api/stats"),
     ("GET", "/api/stats/coverage"),
