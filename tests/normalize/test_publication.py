@@ -145,14 +145,12 @@ def test_the_day_of_publication_comes_from_the_meta_of_its_record() -> None:
     xml = "<r><datum>2026-10-01</datum></r>"
     pipeline = StaatscourantNormalizePipeline(store=cast(GraphStore, _NoStore()))
     meta = {"published": "2026-10-15"}
-    assert (
-        pipeline._parse_publication("stcrt-2026-1", xml, None, meta).props["date"]
-        == "2026-10-15"
-    )
+    node = pipeline._parse_publication("stcrt-2026-1", xml, None, meta)
+    assert node is not None and node.props["date"] == "2026-10-15"
     assert _stcrt("stcrt-2026-1", xml).props["date"] == "2026-10-01"
     # not asked yet, or no day: no date
     assert "date" not in _stcrt("stcrt-2026-1", "<r/>").props
     node = pipeline._parse_publication(
         "stcrt-2026-1", "<r/>", None, {"published": None}
     )
-    assert "date" not in node.props
+    assert node is not None and "date" not in node.props
