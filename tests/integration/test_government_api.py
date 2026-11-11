@@ -424,7 +424,7 @@ def test_the_offices_of_a_ministry_and_who_holds_them(api: Api) -> None:
         {h["member"]["key"] for h in api.get_json("/api/seats/fin/minister")["holders"]}
     )
     held = api.get_json("/api/seats?current=true")["items"]
-    assert all(item["current"] for item in held)
+    assert [item["seat"] for item in held if not item["current"]] == []
     in_jetten = api.get_json("/api/seats?cabinet=jetten")["items"]
     assert "fin/minister" in {item["seat"] for item in in_jetten}
     assert api.get_json("/api/seats?cabinet=geen")["total"] == 0
