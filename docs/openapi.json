@@ -13008,7 +13008,8 @@
                 "type": "null"
               }
             ],
-            "title": "Article Number"
+            "title": "Article Number",
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -13025,7 +13026,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
           },
           "path": {
             "anyOf": [
@@ -13844,7 +13845,7 @@
               }
             ],
             "title": "Article Number",
-            "description": "Null for an article with only a heading, and for a repealed one."
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -13873,7 +13874,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
           },
           "repealed": {
             "type": "boolean",
@@ -14232,12 +14233,13 @@
                 "type": "null"
               }
             ],
-            "title": "Article Number"
+            "title": "Article Number",
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
           },
           "label": {
             "anyOf": [
@@ -29526,7 +29528,7 @@
               }
             ],
             "title": "Article Number",
-            "description": "Null for an article with only a heading, and for a repealed one."
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -29555,7 +29557,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
           },
           "display_name": {
             "anyOf": [

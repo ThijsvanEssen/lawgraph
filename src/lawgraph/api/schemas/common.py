@@ -19,6 +19,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.bwb_definitions import definition_ref
 from lawgraph.core.bwb_xml import article_address
+from lawgraph.core.code_families import cited_number
 from lawgraph.core.delegations import regulation_order
 from lawgraph.core.dossier_numbers import short_title
 from lawgraph.core.echr_findings import EchrAspect, EchrFinding
@@ -38,10 +39,17 @@ OFFICIAL_URL = (
 )
 
 ARTICLE_ADDRESS = (
-    "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or "
-    "for an article without one the rest of its key (`stam_16464063` of the Algemene "
-    "bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the "
-    "same across versions."
+    "The `{article_number}` segment of the article routes: the number as it is cited "
+    "(`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an "
+    "article without one the rest of its key (`stam_16464063` of the Algemene bepaling of "
+    "the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across "
+    "versions."
+)
+
+ARTICLE_NUMBER = (
+    "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose "
+    "cited form is `address`. Null for an article with only a heading, and for a "
+    "repealed one."
 )
 
 
@@ -51,7 +59,9 @@ def address_of(doc: dict[str, Any]) -> str:
     law_id = props.get("bwb_id") or props.get("celex")
     if not law_id:
         return str(props.get("article_number") or doc["key"])
-    return article_address(law_id, doc["key"], props.get("article_number"))
+    number = props.get("article_number")
+    cited = cited_number(props.get("bwb_id"), number) if number else None
+    return article_address(law_id, doc["key"], cited)
 
 
 OFFICIAL_ID = (

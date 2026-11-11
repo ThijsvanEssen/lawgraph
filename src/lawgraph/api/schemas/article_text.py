@@ -17,6 +17,7 @@ from lawgraph.api.schemas.articles import (
 )
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    ARTICLE_NUMBER,
     OFFICIAL_ID,
     PathSource,
     QualifierFields,
@@ -100,7 +101,7 @@ class ArticleNeighborDTO(WithPath):
     bwb_id: str | None
     celex: str | None
     official_id: str | None
-    article_number: str | None
+    article_number: str | None = Field(description=ARTICLE_NUMBER)
     label: str | None = Field(description="`Artikel 67`.")
     address: str = Field(description=ARTICLE_ADDRESS)
 
@@ -176,7 +177,7 @@ class ArticleTextDTO(WithPath):
     bwb_id: str | None
     celex: str | None
     official_id: str | None = Field(description=OFFICIAL_ID)
-    article_number: str | None
+    article_number: str | None = Field(description=ARTICLE_NUMBER)
     address: str = Field(description=ARTICLE_ADDRESS)
     label: str | None = Field(description="`Artikel 68`.")
     heading: str | None = Field(

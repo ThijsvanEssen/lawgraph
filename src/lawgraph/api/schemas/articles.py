@@ -9,6 +9,7 @@ from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    ARTICLE_NUMBER,
     OFFICIAL_ID,
     SEMANTIC_CONFIDENCE,
     SEMANTIC_PATTERN,
@@ -402,10 +403,7 @@ class ArticleSummaryDTO(WithPath):
     key: str
     bwb_id: str | None
     official_id: str | None = Field(None, description=OFFICIAL_ID)
-    article_number: str | None = Field(
-        None,
-        description="Null for an article with only a heading, and for a repealed one.",
-    )
+    article_number: str | None = Field(None, description=ARTICLE_NUMBER)
     label: str | None = Field(
         None,
         description="`Artikel 287`, or the heading of an article without a number "
