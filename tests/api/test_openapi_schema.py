@@ -376,3 +376,23 @@ def test_the_schema_says_how_a_client_paces_itself() -> None:
         "calls": RATE_LIMIT_CALLS,
         "period_seconds": RATE_LIMIT_PERIOD,
     }
+
+
+ARTICLE_ROUTES = [
+    (method, path, operation)
+    for method, path, operation in OPERATIONS
+    if path.startswith("/api/articles/{bwb_id}/{article_number}")
+]
+
+
+@pytest.mark.parametrize(("method", "path", "operation"), ARTICLE_ROUTES)
+def test_an_article_route_that_answers_404_says_so(
+    method: str, path: str, operation: dict[str, Any]
+) -> None:
+    """A route whose description promises a 404 lists it, with the body of every error."""
+    answers_404 = "404 when" in operation.get("description", "")
+    listed = operation["responses"].get("404")
+    assert bool(listed) == answers_404, f"{method} {path}"
+    if listed:
+        schema = listed["content"]["application/json"]["schema"]
+        assert schema == {"$ref": "#/components/schemas/ErrorDTO"}
