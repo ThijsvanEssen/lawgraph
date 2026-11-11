@@ -92,8 +92,19 @@ def test_a_ref_names_its_law_and_its_article(monkeypatch) -> None:
 
 def test_an_article_the_data_does_not_hold_is_a_404(monkeypatch) -> None:
     stub_route(monkeypatch, "articles", get_article_texts=_texts)
-    assert_status(client.get("/api/articles/BWBR0052875/999/text"), 404)
+    missing = client.get("/api/articles/BWBR0052875/999/text")
+    assert_status(missing, 404)
+    assert missing.json() == {"detail": "Article 'bwbr0052875_999' not found."}
     assert_status(client.get("/api/articles/BWBR0052875/19/text"), 200)
+
+
+def test_the_text_links_the_official_page(monkeypatch) -> None:
+    stub_route(monkeypatch, "articles", get_article_texts=_texts)
+    body = client.get("/api/articles/BWBR0052875/19/text").json()
+
+    assert body["official_url"] == (
+        "https://wetten.overheid.nl/jci1.3:c:BWBR0052875&artikel=19"
+    )
 
 
 def test_a_stub_and_the_divisions_of_an_article(monkeypatch) -> None:
@@ -155,3 +166,29 @@ def test_no_text_since_without_a_version_that_holds() -> None:
     assert text_since([], "2026-11-05") is None
     assert text_since([_version("2030-01-01", None, "Nieuw.")], "2026-11-05") is None
     assert text_since([_version(None, None, "Zonder datum.")], "2026-11-05") is None
+
+
+def test_a_book_of_a_code_has_its_cited_number_as_address(monkeypatch) -> None:
+    """6:162 BW: `address` is cited with its book, `article_number` stays the number the
+    BWB gives it in Boek 6; the neighbours as well."""
+
+    def bw6(number: str) -> dict[str, Any]:
+        key = f"bwbr0005289_{number}"
+        props = {"bwb_id": "BWBR0005289", "article_number": number}
+        return {"id": f"articles/{key}", "key": key, "props": props}
+
+    data = ArticleTextData(
+        article=bw6("162"), instrument=None, ended=None, next=bw6("163")
+    )
+    stub_route(
+        monkeypatch,
+        "articles",
+        get_article_texts=lambda store, keys: ({data.article["key"]: data}, set()),
+    )
+    response = client.get("/api/articles/BWBR0005289/6:162/text")
+    assert_status(response, 200)
+    body = response.json()
+
+    assert (body["article_number"], body["address"]) == ("162", "6:162")
+    assert (body["next"]["article_number"], body["next"]["address"]) == ("163", "6:163")
+    assert body["official_url"].endswith("BWBR0005289&artikel=162")

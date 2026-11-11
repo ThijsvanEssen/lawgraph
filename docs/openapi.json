@@ -98,6 +98,16 @@
               }
             }
           },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -118,7 +128,7 @@
           "articles"
         ],
         "summary": "One article with its references",
-        "description": "Looks up an article by `bwb_id` and `article_number`, adds its parent instrument, the number of judgments that cite it (`metadata.judgment_count`; `/cited-by` pages them), and the article references recorded on the article itself; `successors` and `predecessors` give its place in a recodification (`TRANSPOSED_TO`) both ways.",
+        "description": "Looks up an article by `bwb_id` and `article_number`, adds its parent instrument, the number of judgments that cite it (`metadata.judgment_count`; `/cited-by` pages them), and the article references recorded on the article itself; `successors` and `predecessors` give its place in a recodification (`TRANSPOSED_TO`) both ways. 404 when the article is unknown.",
         "operationId": "get_article_detail_api_articles__bwb_id___article_number__get",
         "parameters": [
           {
@@ -147,6 +157,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDetailResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
                 }
               }
             }
@@ -338,6 +358,16 @@
               }
             }
           },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -387,6 +417,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleHistoryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
                 }
               }
             }
@@ -449,6 +489,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleVersionDTO"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
                 }
               }
             }
@@ -698,6 +748,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDelegatedResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
                 }
               }
             }
@@ -6874,7 +6934,7 @@
           "government"
         ],
         "summary": "Office",
-        "description": "One office (``seat`` of a post in ``GET /api/cabinets/{key}``: ``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``), under every name its ministry went by: any of its names gives the same answer. A merger of ministries is no rename (`merged_from`, `merged_into`). The holders with their periods, `gaps` without a holder, and per list what can be attributed to it: `commitments` and `dossiers` count the lists filtered on ``seat``, and what may be its own but fits nobody. Something is attributed by who did it and the day: the post of that kind they held; with two such posts that day the ministry decides, else it is attributed to neither. A seat without a ministry (``-/…``) has no other names. The viceminister-president, a seat beside a minister's own, has nothing attributed.",
+        "description": "One office (``seat`` of a post in ``GET /api/cabinets/{key}``: ``ienw/minister``, ``jenv/staatssecretaris/rechtsbescherming``), under every name its ministry went by: any of its names gives the same answer. A merger of ministries is no rename (`merged_from`, `merged_into`). The holders with their periods, `gaps` without a holder, and per list what can be attributed to it: `commitments` and `dossiers` count the lists filtered on ``seat``, and what may be its own but fits nobody. Something is attributed by who did it and the day: the post of that kind they held; with two such posts that day the ministry decides, else it is attributed to neither. A seat without a ministry (``staatssecretaris/…``) has no other names. The viceminister-president, a seat beside a minister's own, has nothing attributed.",
         "operationId": "get_seat_detail_api_seats__seat__get",
         "parameters": [
           {
@@ -12948,7 +13008,8 @@
                 "type": "null"
               }
             ],
-            "title": "Article Number"
+            "title": "Article Number",
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -12965,7 +13026,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "path": {
             "anyOf": [
@@ -13784,7 +13845,7 @@
               }
             ],
             "title": "Article Number",
-            "description": "Null for an article with only a heading, and for a repealed one."
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -13813,7 +13874,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "repealed": {
             "type": "boolean",
@@ -14172,12 +14233,13 @@
                 "type": "null"
               }
             ],
-            "title": "Article Number"
+            "title": "Article Number",
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "label": {
             "anyOf": [
@@ -14214,6 +14276,18 @@
             ],
             "title": "Display Name",
             "description": "How it is cited: `Art. 68 Cbw`."
+          },
+          "official_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Official Url",
+            "description": "The article in force on wetten.overheid.nl (its JCI); the regulation for an article without a number the JCI can address; the enacting Staatsblad publication of a law the BWB does not hold (yet)."
           },
           "repealed": {
             "type": "boolean",
@@ -14321,6 +14395,7 @@
           "label",
           "heading",
           "display_name",
+          "official_url",
           "repealed",
           "stub",
           "valid_from",
@@ -17874,6 +17949,18 @@
             "title": "Name",
             "description": "The name they go by: Sophie Hermans."
           },
+          "first_name_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name Missing",
+            "description": "true: no official source gives their first name (neither the Kamer nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given on a cabinet, office, ministry and commitment; null elsewhere."
+          },
           "function": {
             "anyOf": [
               {
@@ -17904,6 +17991,7 @@
         "required": [
           "key",
           "name",
+          "first_name_missing",
           "function",
           "path"
         ],
@@ -25181,6 +25269,22 @@
         "title": "EnactedPublicationDTO",
         "description": "A publication the dossier's law was enacted in: one ``LEGISLATED_IN`` the dossier."
       },
+      "ErrorDTO": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "A sentence: `Article 'bwbr0005289_999' not found.`"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorDTO",
+        "description": "The body of every error above."
+      },
       "EuLinkDTO": {
         "properties": {
           "instrument": {
@@ -29424,7 +29528,7 @@
               }
             ],
             "title": "Article Number",
-            "description": "Null for an article with only a heading, and for a repealed one."
+            "description": "Its number in the BWB, in its own regulation: `162` for 6:162 of BW Boek 6, whose cited form is `address`. Null for an article with only a heading, and for a repealed one."
           },
           "label": {
             "anyOf": [
@@ -29453,7 +29557,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number (`287`, `8:54`), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "display_name": {
             "anyOf": [
@@ -38810,6 +38914,18 @@
             "title": "Name",
             "description": "The name they go by: Sophie Hermans."
           },
+          "first_name_missing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name Missing",
+            "description": "true: no official source gives their first name (neither the Kamer nor Rijksoverheid), so `name` is initials and surname: a gap, not filled in. Given on a cabinet, office, ministry and commitment; null elsewhere."
+          },
           "path": {
             "anyOf": [
               {
@@ -38829,6 +38945,7 @@
         "required": [
           "key",
           "name",
+          "first_name_missing",
           "path"
         ],
         "title": "PersonRefDTO",

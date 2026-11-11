@@ -187,9 +187,7 @@ _READERS: dict[str, str] = {
                           WHERE a.celex = i.celex AND a.stub IS NOT TRUE))
     """,
     COLLECTION_MEMBERS: f"""
-        SELECT m.id,
-               coalesce(lg_str(m.props -> 'name'), lg_str(m.props -> 'display_name'))
-                   AS name,
+        SELECT m.id, m.list_name AS name,
                lg_str(m.props -> 'slug') AS slug
         FROM {COLLECTION_MEMBERS} m
         WHERE m.id = ANY(%(ids)s::text[]) AND lg_str(m.props -> 'slug') IS NOT NULL

@@ -9,6 +9,7 @@ from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import (
     ARTICLE_ADDRESS,
+    ARTICLE_NUMBER,
     OFFICIAL_ID,
     SEMANTIC_CONFIDENCE,
     SEMANTIC_PATTERN,
@@ -59,8 +60,8 @@ from lawgraph.core.documents import number_in_dossier, numbered_in
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
 from lawgraph.core.official_urls import (
+    article_page,
     article_url,
-    enacting_publication_url,
     source_url,
 )
 from lawgraph.core.qualifiers import Qualifier
@@ -388,10 +389,7 @@ class ArticleSummaryDTO(WithPath):
     key: str
     bwb_id: str | None
     official_id: str | None = Field(None, description=OFFICIAL_ID)
-    article_number: str | None = Field(
-        None,
-        description="Null for an article with only a heading, and for a repealed one.",
-    )
+    article_number: str | None = Field(None, description=ARTICLE_NUMBER)
     label: str | None = Field(
         None,
         description="`Artikel 287`, or the heading of an article without a number "
@@ -456,8 +454,7 @@ class ArticleSummaryDTO(WithPath):
             repealed=bool(props.get("repealed")),
             validity=validity,
             display_name=article_cite(props) or None,
-            official_url=article_url(props.get("bwb_id"), props.get("article_number"))
-            or enacting_publication_url(props.get("official_id")),
+            official_url=article_page(props),
             text=props.get("text"),
             parts=parts_from_props(props),
             tables=tables_from_props(props),

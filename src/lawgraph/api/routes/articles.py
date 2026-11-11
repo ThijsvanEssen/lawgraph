@@ -5,7 +5,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lawgraph.api.dependencies import get_store
-from lawgraph.api.errors import Invalid
+from lawgraph.api.errors import NOT_FOUND, Invalid
 from lawgraph.api.params import (
     ArticleAddress,
     ArticleRef,
@@ -183,6 +183,7 @@ def get_article_text_batch(
     response_model=ArticleTextDTO,
     summary="The narrow form of an article",
     description=f"{_TEXT} 404 when the article is unknown.",
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_article_text(
@@ -204,8 +205,9 @@ def get_article_text(
         "instrument, the number of judgments that cite it (`metadata.judgment_count`; "
         "`/cited-by` pages them), and the article references recorded on the article "
         "itself; `successors` and `predecessors` give its place in a recodification "
-        "(`TRANSPOSED_TO`) both ways."
+        "(`TRANSPOSED_TO`) both ways. 404 when the article is unknown."
     ),
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_article_detail(
@@ -341,6 +343,7 @@ def _build_relationship_dtos(
         "`subject_area` filter, each under the other filters. "
         "404 when the article is unknown."
     ),
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_article_cited_by_passages(
@@ -439,6 +442,7 @@ def get_article_cited_by_passages(
         "its text as enacted, without a validity, made (`amended_by`) by the "
         "publication its text comes from. 404 when the article is unknown."
     ),
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_article_version_history(
@@ -465,6 +469,7 @@ def get_article_version_history(
         "Two of them side by side are the difference between two versions. "
         "404 when the article is unknown or the version is not one of it."
     ),
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_article_version_text(
@@ -598,6 +603,7 @@ def get_explanations(
         'krachtens algemene maatregel van bestuur"), each with the regulations that '
         "fill it, or none yet. 404 when the article is unknown."
     ),
+    responses=NOT_FOUND,
     tags=["articles"],
 )
 def get_delegated(

@@ -28,7 +28,7 @@ def government_graph(store: GraphStore) -> None:
     and four commitments."""
     nodes = {
         "members": [
-            node("m1", name="Eelco Heinen", slug="eelco-heinen"),
+            node("m1", name="Eelco Heinen", family_name="Heinen", slug="eelco-heinen"),
             # no name: the name it is known as, else the one Rijksoverheid gives
             node("m2", name="", known_as="Bert"),
             node(

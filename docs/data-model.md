@@ -414,7 +414,7 @@ its keys to the model of `REFERS_TO`.
 |  | `posts[].ministry` | `str` | The key of its ministry (`core.ministries.MINISTRIES`; `core/post_ministries.py`). |
 |  | `posts[].ministry_source` | `str` | Where the ministry comes from: `page`, `tk_signatures`, `tk_commitments`, `staatscourant`. |
 |  | `posts[].ministry_missing` | `str` | When `ministry` is null, why: `no_source`, `ambiguous`. |
-|  | `posts[].seat` | `str` | `ienw/minister`, `-/staatssecretaris/rechtsbescherming`, `viceminister-president`. |
+|  | `posts[].seat` | `str` | `ienw/minister`, `staatssecretaris/rechtsbescherming`, `viceminister-president`. |
 |  | `posts[].portfolio` | `str` | The portfolio. |
 |  | `posts[].from_date` | `str` | The first day held. |
 |  | `posts[].to_date` | `str` | The last day held; null while held. |
@@ -1634,7 +1634,7 @@ with `name` and `birth_date` from the page).
 | `government_functions[].ministry` | `str` | The key of its ministry (`core.ministries.MINISTRIES`; `core/post_ministries.py`). |
 | `government_functions[].ministry_source` | `str` | Where the ministry comes from: `page`, `tk_signatures`, `tk_commitments`, `staatscourant`. |
 | `government_functions[].ministry_missing` | `str` | When `ministry` is null, why: `no_source`, `ambiguous`. |
-| `government_functions[].seat` | `str` | `ienw/minister`, `-/staatssecretaris/rechtsbescherming`, `viceminister-president`. |
+| `government_functions[].seat` | `str` | `ienw/minister`, `staatssecretaris/rechtsbescherming`, `viceminister-president`. |
 | `government_functions[].portfolio` | `str` | The portfolio. |
 | `government_functions[].from_date` | `str` | The first day held. |
 | `government_functions[].to_date` | `str` | The last day held; null while held. |

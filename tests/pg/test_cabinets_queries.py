@@ -44,12 +44,22 @@ def test_the_cabinets_newest_first_with_their_counts(government: GraphStore) -> 
     ]
     assert jetten["cabinet"]["id"] == "cabinets/jetten"
     assert json.dumps(jetten["prime_minister"]) == json.dumps(
-        {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
+        {
+            "key": "m1",
+            "name": "Eelco Heinen",
+            "slug": "eelco-heinen",
+            "first_name_missing": False,
+        }
     )
     # every SERVED_IN edge; the government bills; the commitments made under it
     assert (jetten["members"], jetten["bills"], jetten["commitments"]) == (4, 1, 3)
     schoof = cabinets[1]
-    assert schoof["prime_minister"] == {"key": "m2", "name": "Bert", "slug": None}
+    assert schoof["prime_minister"] == {
+        "key": "m2",
+        "name": "Bert",
+        "slug": None,
+        "first_name_missing": False,
+    }
     assert (schoof["members"], schoof["bills"], schoof["commitments"]) == (2, 1, 1)
     # a prime minister nobody knows, and none
     assert [c["prime_minister"] for c in cabinets[2:]] == [None, None]
@@ -88,20 +98,31 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
         "key": "m1",
         "name": "Eelco Heinen",
         "slug": "eelco-heinen",
+        "first_name_missing": False,
     }
     assert (jetten["bills"], jetten["commitments"]) == (1, 3)
     # by edge key; a member that is gone is left out
     assert json.dumps(jetten["members"]) == json.dumps(
         [
             {
-                "member": {"key": "m4", "name": "Dirk", "slug": None},
+                "member": {
+                    "key": "m4",
+                    "name": "Dirk",
+                    "slug": None,
+                    "first_name_missing": True,
+                },
                 "posts": [],
                 "dossiers": 0,
                 "bills": 0,
                 "open_commitments": 0,
             },
             {
-                "member": {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"},
+                "member": {
+                    "key": "m1",
+                    "name": "Eelco Heinen",
+                    "slug": "eelco-heinen",
+                    "first_name_missing": False,
+                },
                 "posts": [{"post": "minister", "ministry": "fin"}],
                 # d1 (directly and through the case), d2 and the one that is gone
                 "dossiers": 3,
@@ -110,7 +131,12 @@ def test_a_cabinet_with_its_members_and_what_they_signed(
                 "open_commitments": 2,
             },
             {
-                "member": {"key": "m3", "name": "C. de Vries", "slug": None},
+                "member": {
+                    "key": "m3",
+                    "name": "C. de Vries",
+                    "slug": None,
+                    "first_name_missing": True,
+                },
                 "posts": [{"z": 1, "a": 2}],
                 "dossiers": 0,
                 "bills": 0,
@@ -284,7 +310,12 @@ def test_the_commitments_newest_first_with_their_facets(
     assert list(k1["commitment"]) == ["key", "id", "type", "labels", "props"]
     assert k1["commitment"]["props"]["text"] == "Een brief over Box 3"
     assert json.dumps(k1["member"]) == json.dumps(
-        {"key": "m1", "name": "Eelco Heinen", "slug": "eelco-heinen"}
+        {
+            "key": "m1",
+            "name": "Eelco Heinen",
+            "slug": "eelco-heinen",
+            "first_name_missing": False,
+        }
     )
     # by label, null first, each with the basis of its edge; the first activity by id
     # that is there

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from lawgraph.core.member_slugs import new_slugs
+from lawgraph.core.member_slugs import member_name, new_slugs
 from lawgraph.core.text_fold import ascii_slug
 
 
@@ -24,6 +24,18 @@ def test_a_member_is_named_as_the_api_names_them() -> None:
         ]
     )
     assert found == {"a": "rob-jetten", "b": "sophie-hermans", "c": "g-moes"}
+
+
+def test_the_first_name_rijksoverheid_gives_goes_before_a_name_of_initials() -> None:
+    # the name the Kamer gives (it has a family name) stays first
+    kamer = {"name": "Mona Keijzer", "family_name": "Keijzer", "known_as": "M. Keijzer"}
+    assert member_name(kamer) == "Mona Keijzer"
+    # a Persoon without a name, named by its signatures: Rijksoverheid's first name wins
+    signed = {"name": "T.B.W. Berendsen", "known_as": "Tom Berendsen"}
+    assert member_name(signed) == "Tom Berendsen"
+    # without a first name anywhere the initials stay: a gap of the sources
+    assert member_name({"name": "J.N.J. Nobel"}) == "J.N.J. Nobel"
+    assert member_name({"government_name": "G. Moes"}) == "G. Moes"
 
 
 def test_a_slug_once_given_stays_and_a_later_namesake_gets_the_year() -> None:

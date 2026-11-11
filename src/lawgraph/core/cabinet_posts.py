@@ -271,7 +271,9 @@ def seat_of(
         own = re.sub(r"^minister\s+van\s+", "", function, flags=re.I).strip()
         if not ministry_named(own):
             portfolio = own
-    seat = f"{ministry or '-'}/{post or 'onbekend'}"
+    # without a ministry the seat is the post alone (``minister/werk-en-participatie``): a
+    # post is never the key of a ministry
+    seat = "/".join(filter(None, [ministry, post or "onbekend"]))
     if portfolio:
         seat = f"{seat}/{slug(portfolio)}"
     named = post == POST_MINISTER or (portfolio is not None)
