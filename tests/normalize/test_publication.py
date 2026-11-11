@@ -128,3 +128,29 @@ def test_who_issued_it_comes_from_the_meta_of_its_record() -> None:
     assert node.props["ministry_missing"] is None
     # not asked yet: nothing written, so an upsert keeps what was there
     assert "creators" not in _stcrt("stcrt-2011-5", "<r/>").props
+
+
+def test_the_day_of_publication_comes_from_the_meta_of_its_record() -> None:
+    # The XML of a regulation names no day (stcrt-2026-36050); the SRU does, and the
+    # creators step keeps it in the meta of the record.
+    for pipeline_class, identifier in (
+        (StaatscourantNormalizePipeline, "stcrt-2026-36050"),
+        (StaatsbladNormalizePipeline, "stb-2026-12"),
+    ):
+        pipeline = pipeline_class(store=cast(GraphStore, _NoStore()))
+        meta = {"creators": [], "published": "2026-10-15"}
+        node = pipeline._parse_publication(identifier, "<r/>", None, meta)
+        assert node is not None and node.props["date"] == "2026-10-15"
+    # it wins over a day the XML names; without it, that day stays
+    xml = "<r><datum>2026-10-01</datum></r>"
+    pipeline = StaatscourantNormalizePipeline(store=cast(GraphStore, _NoStore()))
+    meta = {"published": "2026-10-15"}
+    node = pipeline._parse_publication("stcrt-2026-1", xml, None, meta)
+    assert node is not None and node.props["date"] == "2026-10-15"
+    assert _stcrt("stcrt-2026-1", xml).props["date"] == "2026-10-01"
+    # not asked yet, or no day: no date
+    assert "date" not in _stcrt("stcrt-2026-1", "<r/>").props
+    node = pipeline._parse_publication(
+        "stcrt-2026-1", "<r/>", None, {"published": None}
+    )
+    assert node is not None and "date" not in node.props

@@ -1,7 +1,8 @@
 """Who issued a publication, from retrieve to edge on a real PostgreSQL: the creators step of
 ``retrieve staatscourant`` writes what the SRU says into the meta of the stored record (its
 payload stays, a second run asks nothing), ``normalize staatscourant`` reads the ministry on
-the day of publication, and ``semantic tooi-ministries`` makes the paper ``LED_BY`` it."""
+the day of publication (also its ``date``: the XML names none), and ``semantic
+tooi-ministries`` makes the paper ``LED_BY`` it."""
 
 from __future__ import annotations
 
@@ -112,6 +113,16 @@ def test_creators_from_retrieve_to_led_by(store: GraphStore) -> None:
         "stcrt_stcrt_2011_2": ([], "unlinked"),
         "stcrt_stcrt_2011_3": ([], "no_creator"),
     }
+    # the day of publication the SRU gives is the date ``data_as_of`` reads
+    dated = store.query(
+        "SELECT key, date FROM documents WHERE source = %(source)s ORDER BY key",
+        {"source": SOURCE_STAATSCOURANT},
+    )
+    assert [(r["key"], str(r["date"]) if r["date"] else None) for r in dated] == [
+        ("stcrt_stcrt_2011_1", "2011-06-01"),
+        ("stcrt_stcrt_2011_2", "2011-06-01"),
+        ("stcrt_stcrt_2011_3", None),
+    ]
 
     assert not TooiMinistriesSemanticPipeline(store=store).run().errors
     led = store.query(
