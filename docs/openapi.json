@@ -13026,7 +13026,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "path": {
             "anyOf": [
@@ -13874,7 +13874,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "repealed": {
             "type": "boolean",
@@ -13913,7 +13913,7 @@
               }
             ],
             "title": "Official Url",
-            "description": "The article in force on wetten.overheid.nl (its JCI); the regulation for an article without a number the JCI can address; the enacting Staatsblad publication of a law the BWB does not hold (yet); null outside both (an EU act)."
+            "description": "The article in force on wetten.overheid.nl (its JCI); the regulation for an article without a number the JCI can address."
           },
           "text": {
             "anyOf": [
@@ -14239,7 +14239,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "label": {
             "anyOf": [
@@ -14287,7 +14287,7 @@
               }
             ],
             "title": "Official Url",
-            "description": "The article in force on wetten.overheid.nl (its JCI); the regulation for an article without a number the JCI can address; the enacting Staatsblad publication of a law the BWB does not hold (yet); null outside both (an EU act)."
+            "description": "The article in force on wetten.overheid.nl (its JCI); the regulation for an article without a number the JCI can address; the enacting Staatsblad publication of a law the BWB does not hold (yet)."
           },
           "repealed": {
             "type": "boolean",
@@ -25283,7 +25283,7 @@
           "detail"
         ],
         "title": "ErrorDTO",
-        "description": "The body of every error of the API (``api/errors.py``)."
+        "description": "The body of every error above."
       },
       "EuLinkDTO": {
         "properties": {
@@ -29557,7 +29557,7 @@
           "address": {
             "type": "string",
             "title": "Address",
-            "description": "The `{article_number}` segment of the article routes: the number as it is cited (`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063` of the Algemene bepaling of the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across versions."
+            "description": "The `{article_number}` segment of the article routes: the number as cited (`287`, `8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key (`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
           },
           "display_name": {
             "anyOf": [

@@ -20,10 +20,11 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from pydantic import Field
 from starlette.responses import JSONResponse
 from starlette.responses import Response as StarletteResponse
 
-from lawgraph.api.schemas.common import ErrorDTO
+from lawgraph.api.schemas.common import StrictModel
 from lawgraph.core.logging import get_logger
 from lawgraph.db.queries._keyset import InvalidCursor
 from lawgraph.db.queries.not_found import NotFound
@@ -44,6 +45,15 @@ _DATABASE_ERRORS: dict[type[Exception], str] = {
     SchemaOutdated: "The database schema is outdated.",
     CollationMismatch: "The database sorts by another collation.",
 }
+
+
+class ErrorDTO(StrictModel):
+    """The body of every error above."""
+
+    detail: str = Field(
+        description="A sentence: `Article 'bwbr0005289_999' not found.`"
+    )
+
 
 # The ``responses`` of a route that answers 404 for what it does not find (``NotFound``).
 NOT_FOUND: dict[int | str, dict[str, Any]] = {

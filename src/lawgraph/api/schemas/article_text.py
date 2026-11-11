@@ -9,9 +9,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.articles import (
-    OFFICIAL_URL,
     headings_from_props,
-    official_article_url,
     parts_from_props,
     wording,
 )
@@ -33,6 +31,7 @@ from lawgraph.api.schemas.validity import VALIDITY, ValidityDTO
 from lawgraph.core.article_blocks import Block, article_blocks
 from lawgraph.core.models import node_id, parse_node_id
 from lawgraph.core.names import article_cite
+from lawgraph.core.official_urls import article_page
 from lawgraph.core.qualifiers import Qualifier
 from lawgraph.core.reference_targets import reference_target
 from lawgraph.core.time import dutch_today
@@ -184,7 +183,11 @@ class ArticleTextDTO(WithPath):
         description="The title of its kop: `(toezichthouders)`."
     )
     display_name: str | None = Field(description="How it is cited: `Art. 68 Cbw`.")
-    official_url: str | None = Field(description=OFFICIAL_URL)
+    official_url: str | None = Field(
+        description="The article in force on wetten.overheid.nl (its JCI); the "
+        "regulation for an article without a number the JCI can address; the enacting "
+        "Staatsblad publication of a law the BWB does not hold (yet)."
+    )
     repealed: bool
     stub: bool = Field(
         description="Known only from what cites it: the data has no text of it and no "
@@ -230,7 +233,7 @@ class ArticleTextDTO(WithPath):
             label=props.get("label"),
             heading=props.get("heading"),
             display_name=article_cite(props) or None,
-            official_url=official_article_url(props),
+            official_url=article_page(props),
             repealed=bool(props.get("repealed")),
             stub=bool(props.get("stub")),
             valid_from=text_since(data.versions, dutch_today().isoformat()),

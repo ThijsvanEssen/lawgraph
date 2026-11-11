@@ -93,6 +93,14 @@ def enacting_publication_url(official: object) -> str | None:
     return publication_url({"id": official, "year": parsed[1]})
 
 
+def article_page(props: dict[str, Any]) -> str | None:
+    """The official page of the article of *props*: its JCI (``article_url``), else the
+    Staatsblad publication that enacted its law (``enacting_publication_url``)."""
+    return article_url(
+        props.get("bwb_id"), props.get("article_number")
+    ) or enacting_publication_url(props.get("official_id"))
+
+
 def document_url(props: dict[str, Any]) -> str | None:
     """The official page of a document (its props) on zoek.officielebekendmakingen.nl: of
     the Eerste Kamer the page its record names, of the Staatsblad or the Staatscourant its

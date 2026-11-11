@@ -39,11 +39,9 @@ OFFICIAL_URL = (
 )
 
 ARTICLE_ADDRESS = (
-    "The `{article_number}` segment of the article routes: the number as it is cited "
-    "(`287`, `8:54`; with its book for a book of a code, `6:162` of BW Boek 6), or for an "
-    "article without one the rest of its key (`stam_16464063` of the Algemene bepaling of "
-    "the Grondwet; a repealed identity `2_10_stam_2866303`). It stays the same across "
-    "versions."
+    "The `{article_number}` segment of the article routes: the number as cited (`287`, "
+    "`8:54`, `6:162` of BW Boek 6), or for an article without one the rest of its key "
+    "(`stam_16464063`; a repealed identity `2_10_stam_2866303`). Same across versions."
 )
 
 ARTICLE_NUMBER = (
@@ -60,8 +58,7 @@ def address_of(doc: dict[str, Any]) -> str:
     if not law_id:
         return str(props.get("article_number") or doc["key"])
     number = props.get("article_number")
-    cited = cited_number(props.get("bwb_id"), number) if number else None
-    return article_address(law_id, doc["key"], cited)
+    return article_address(law_id, doc["key"], number and cited_number(law_id, number))
 
 
 OFFICIAL_ID = (
@@ -125,14 +122,6 @@ class StrictModel(BaseModel):
 
     model_config = ConfigDict(
         extra="forbid", json_schema_serialization_defaults_required=True
-    )
-
-
-class ErrorDTO(StrictModel):
-    """The body of every error of the API (``api/errors.py``)."""
-
-    detail: str = Field(
-        description="A sentence: `Article 'bwbr0005289_999' not found.`"
     )
 
 
