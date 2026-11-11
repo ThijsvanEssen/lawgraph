@@ -3,15 +3,13 @@
 the Bevoegdheidsregeling bestuursrechtspraak that name a bijzondere bestuursrechter, and the
 gaps. The articles of the
 regeling (Awb bijlage 2) are articles of the Awb in the graph (``normalize bwb``): each with
-its chapter, its heading and the laws its list names (its extrefs). The answer is kept while
-the articles and instruments stand still, and computed in the warm-up (``api/warm.py``)."""
+its chapter, its heading and the laws its list names (its extrefs)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.judgment_course import (
     AREAS,
     route_designations,
@@ -19,15 +17,11 @@ from lawgraph.core.judgment_course import (
     route_rules,
 )
 from lawgraph.db import GraphStore
-from lawgraph.db.version_cache import cached
 
 # The Bevoegdheidsregeling bestuursrechtspraak: bijlage 2 of the Awb, its articles numbered
 # "bijlage 2 artikel 1" and keyed ``bwbr0005537_bijlage_2_artikel_1``.
 REGELING_BWB_ID = "BWBR0005537"
 REGELING_PREFIX = "bijlage 2 artikel "
-
-# The tables the routes read.
-TABLES = (COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS)
 
 
 @dataclass
@@ -39,14 +33,7 @@ class Routes:
 
 
 def judgment_routes(store: GraphStore) -> Routes:
-    """The routes of ``data/route_articles.json`` per area, and the regeling: kept while
-    their tables stand still."""
-    return cached(
-        store, ("judgment-routes",), lambda: _judgment_routes(store), tables=TABLES
-    )
-
-
-def _judgment_routes(store: GraphStore) -> Routes:
+    """The routes of ``data/route_articles.json`` per area, and the regeling."""
     designations = route_designations()
     gaps = route_gaps()
     areas = []

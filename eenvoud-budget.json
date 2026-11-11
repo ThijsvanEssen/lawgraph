@@ -3,11 +3,11 @@
     "lines_per_file": 800
   },
   "counts": {
-    "cached": 26,
+    "cached": 25,
     "lasting": 19,
     "cached_rows": 4,
     "lasting_rows": 4,
-    "warm_parts": 28,
+    "warm_parts": 27,
     "warm_hourly": 3,
     "count_functions": 69
   },

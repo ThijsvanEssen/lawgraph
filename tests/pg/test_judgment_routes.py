@@ -1,6 +1,5 @@
 """The routes of Rechtsgang (``/api/judgments/routes``) find the articles of the regeling by
-an index on their BWB id, not by reading every article, and keep their answer while the
-articles and instruments stand still."""
+an index on their BWB id, not by reading every article."""
 
 from __future__ import annotations
 
@@ -8,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from lawgraph.db import GraphStore, version_cache
+from lawgraph.db import GraphStore
 from lawgraph.db.queries.judgment_routes import judgment_routes
 from tests.pg.plans import explain, plan_nodes, recorded
 
@@ -29,11 +28,10 @@ def _article(number: int) -> dict[str, Any]:
     }
 
 
-def test_the_regeling_is_found_by_the_index_and_kept(
+def test_the_regeling_is_found_by_an_index_on_its_bwb_id(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store.bulk_insert_or_update_nodes("articles", [_article(2), _article(1)])
-    version_cache.clear()
     calls = recorded(store, monkeypatch)
 
     routes = judgment_routes(store)
@@ -48,7 +46,3 @@ def test_the_regeling_is_found_by_the_index_and_kept(
     scans = [n for n in plan_nodes(plan) if n.get("Relation Name") == "articles"]
     assert scans
     assert all("bwb_id" in (n.get("Index Cond") or "") for n in scans), plan
-
-    calls.clear()
-    assert judgment_routes(store) == routes
-    assert not [c for c in calls if "lg_data_version" not in c.text]
