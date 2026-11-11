@@ -67,6 +67,8 @@ from lawgraph.db.queries.instruments import (
     get_instruments_list,
     most_cited_laws,
 )
+from lawgraph.db.queries.judgment_routes import TABLES as ROUTE_TABLES
+from lawgraph.db.queries.judgment_routes import judgment_routes
 from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.law_names import load_law_names
 from lawgraph.db.queries.members import load_member_slugs
@@ -336,6 +338,8 @@ PARTS: tuple[Part, ...] = (
     # the laws a dossier title names (``get_laws_named``)
     Part("dossier law names", load_law_names, (COLLECTION_INSTRUMENTS,)),
     Part("dossier names", load_dossier_names, (COLLECTION_DOSSIERS,)),
+    # the routes of Rechtsgang (``/api/judgments/routes``)
+    Part("judgment routes", judgment_routes, ROUTE_TABLES),
     Part("member slugs", load_member_slugs, (COLLECTION_MEMBERS,)),
     # the open proposed changes per node, which the explorer asks on every page
     Part("in flux", get_in_flux_counts, IN_FLUX_TABLES),
