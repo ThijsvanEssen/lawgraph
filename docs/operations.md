@@ -641,8 +641,9 @@ publishes on workdays) or `hours`; the lag has to be past it. Past `warn` is `wa
 | `tk` | `newest` | workdays | 4 | 7 | stukken keep coming in recess; the poll runs every half hour |
 | `tk toezeggingen` | `commitments_registered` (newest `registered_on`) | workdays | 10 | 25 | commitments are fetched apart from the papers; 2023–2026 the Kamer registered none for at most 9 workdays outside recess, 11–16 in recess, 21 around the elections of 2025 |
 | `eerstekamer` | `newest` | days | 10 | 21 | recess; votes on Tuesdays |
-| `hoge_raad`, `raad_van_state`, `college_van_beroep_bedrijfsleven` | last judgment of the tier | workdays | 4 | 7 | judgments on workdays |
-| `centrale_raad_van_beroep` | last judgment | days | 10 | 21 | publishes in batches |
+| `hoge_raad` | last judgment of the tier | workdays | 4 | 7 | judgments on workdays |
+| `raad_van_state`, `college_van_beroep_bedrijfsleven` | last judgment of the tier | workdays | 6 | 10 | a batch once a week (RvS Wednesday, CBb Tuesday), often after the watch of that day |
+| `centrale_raad_van_beroep` | last judgment | days | 18 | 30 | published about two weeks after the judgment |
 | `parket` | last conclusion | days | 14 | 30 | the source thins out in recess; 43 days (since 15 September 2026) is past that |
 | `gerechten` | courts of `gerechtshof`/`rechtbank` with ≥ 1,000 judgments, a last judgment 14–365 days old | count | 1 | 3 | small courts lag; older than a year is a court that ended in 2013 |
 | `staatsblad` | `newest` | workdays | 5 | 10 | |

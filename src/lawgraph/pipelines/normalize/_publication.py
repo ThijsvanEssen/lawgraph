@@ -15,9 +15,10 @@ from lawgraph.config.constants import COLLECTION_DOCUMENTS
 from lawgraph.core.identifiers import find_bwb_id
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key
-from lawgraph.core.publication_creators import creator_props
+from lawgraph.core.publication_creators import META_PUBLISHED, creator_props
 from lawgraph.core.publication_xml import publication_title
 from lawgraph.core.raw_records import meta, payload_text
+from lawgraph.core.time import iso_date
 from lawgraph.core.xml import find_text
 from lawgraph.db import NodeWriter
 from lawgraph.db.counting import Store
@@ -52,7 +53,8 @@ class PublicationSpec:
     key_prefix: str
     label: str
     kind: str
-    # the props of its own: ``text``, ``display_name`` and, when known, ``date``
+    # the props of its own: ``text``, ``display_name`` and, when its XML names one,
+    # ``date`` (the SRU's day of publication in the meta of the record wins)
     own_props: Callable[[ET.Element, Parsed], dict[str, Any]]
     # Of ``{identifier: bwb_id}``, the regulation retrieve fetched each publication for, the
     # identifiers whose regulation its source confirms names that publication; None: all.
@@ -127,8 +129,9 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
         bwb_id: str | None = None,
         record_meta: dict[str, Any] | None = None,
     ) -> Node | None:
-        """The document of a publication's XML, with who issued it from the meta of its
-        record (*record_meta*); None for XML that does not parse."""
+        """The document of a publication's XML, with who issued it and its day of
+        publication from the meta of its record (*record_meta*); None for XML that does not
+        parse."""
         spec = self.spec
         try:
             root = ET.fromstring(xml_text)
@@ -159,7 +162,12 @@ class PublicationNormalizePipeline(NormalizePipelineBase[Records]):
             # would otherwise stay
             "bwb_id": bwb_id or find_bwb_id(xml_text),
         }
-        props.update(creator_props(record_meta or {}, props.get("date")))
+        record_meta = record_meta or {}
+        # The day of publication as the SRU gives it (``dcterms:available``, in the meta
+        # since the creators were asked); the XML of a publication mostly names none.
+        if published := iso_date(record_meta.get(META_PUBLISHED)):
+            props["date"] = published
+        props.update(creator_props(record_meta, props.get("date")))
         return Node(
             collection=COLLECTION_DOCUMENTS,
             key=make_node_key(spec.key_prefix, identifier),
