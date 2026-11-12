@@ -6,7 +6,7 @@ SET statement_timeout = '300s';
 \pset pager off
 
 \echo '== stored XML'
-SELECT kind, count(*) AS records, sum(payload_chars) AS chars, max(fetched_at) AS last_fetch
+SELECT kind, count(*) AS records, sum(lg_num(doc -> 'payload_chars'))::bigint AS chars, max(fetched_at) AS last_fetch
 FROM raw_sources
 WHERE source = 'tk' AND kind IN ('tk-kamerstuk-xml', 'tk-kamerstuk-xml-missing')
 GROUP BY kind

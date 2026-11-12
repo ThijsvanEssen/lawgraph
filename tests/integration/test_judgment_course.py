@@ -190,6 +190,7 @@ def test_a_chain_from_the_rechtbank_to_the_hoge_raad(client: TestClient) -> None
     assert [s["ecli"] for s in steps] == [RB, HOF, PHR, HR]
     assert [s["current"] for s in steps] == [True, False, False, False]
     assert [_basis(s) for s in steps] == [(RO, "42"), (RO, "60"), None, (RO, "78")]
+    assert steps[0]["basis"]["key"] == "bwbr0001830_42"
     assert [s["area"] for s in steps] == ["civiel"] * 4
     assert steps[1]["links"] == [
         {
@@ -283,8 +284,15 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
     rvs = next(s for s in areas["bestuur"]["steps"] if s["tier"] == "raad_van_state")
     assert (rvs["basis"]["article_number"], rvs["designations"]) == (
         "8:6",
-        [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 2"}],
+        [
+            {
+                "bwb_id": AWB,
+                "article_number": "bijlage 2 artikel 2",
+                "key": "bwbr0005537_bijlage_2_artikel_2",
+            }
+        ],
     )
+    assert rvs["basis"]["key"] == "bwbr0005537_8_6"
     with_gaps = [a for a in areas.values() if a["gaps"]]
     assert not with_gaps, show_items(with_gaps)
     belasting = {
@@ -306,17 +314,33 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
         (
             "Eerste aanleg",
             (AWB, "8:6"),
-            [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 5"}],
+            [
+                {
+                    "bwb_id": AWB,
+                    "article_number": "bijlage 2 artikel 5",
+                    "key": "bwbr0005537_bijlage_2_artikel_5",
+                }
+            ],
         ),
         (
             "Hoger beroep",
             (AWB, "8:105"),
-            [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 12"}],
+            [
+                {
+                    "bwb_id": AWB,
+                    "article_number": "bijlage 2 artikel 12",
+                    "key": "bwbr0005537_bijlage_2_artikel_12",
+                }
+            ],
         ),
     ]
     (hr,) = [s for s in bestuur if s["tier"] == "hoge_raad"]
     assert (hr["after_tier"], _basis(hr)) == ("centrale_raad_van_beroep", (RO, "78"))
-    assert {"bwb_id": "BWBR0002221", "article_number": "53"} in hr["designations"]
+    assert {
+        "bwb_id": "BWBR0002221",
+        "article_number": "53",
+        "key": "bwbr0002221_53",
+    } in hr["designations"]
     # the HR in first and only instance for ambtsmisdrijven (art. 76 RO), no step before it
     (ambts,) = [
         s

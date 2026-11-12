@@ -441,6 +441,11 @@ def test_a_new_version_says_its_articles_publication_and_basis(
     cbw = _item(items, f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0052872_2026_08_15")
     commenced = cbw["commencement"]
     assert commenced["articles"] == ["1", "3", "16"]
+    assert commenced["article_keys"] == [
+        "bwbr0052872_1",
+        "bwbr0052872_3",
+        "bwbr0052872_16",
+    ]
     assert commenced["new"] is True
     assert commenced["publication"] == {
         "key": "stb_2026_187",
@@ -467,6 +472,7 @@ def test_a_new_version_says_its_articles_publication_and_basis(
     tw = _item(items, f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0009950_2026_08_15")
     assert tw["commencement"]["new"] is False
     assert tw["commencement"]["publication"] is None
+    assert tw["commencement"]["article_keys"] == []
 
 
 @ON_THE_GRAPH
@@ -567,47 +573,61 @@ def test_the_events_of_a_law_say_how_they_are_tied_to_it(
         f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0052872_2026_08_15": {
             "relation": "version_of",
             "article": None,
+            "article_key": None,
             "dossier": None,
         },
         f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0052875_2026_08_15": {
             "relation": "based_on",
             "article": "3",
+            "article_key": "bwbr0052872_3",
             "dossier": None,
         },
-        PUBLICATION: {"relation": "establishes", "article": None, "dossier": None},
+        PUBLICATION: {
+            "relation": "establishes",
+            "article": None,
+            "article_key": None,
+            "dossier": None,
+        },
         f"{COLLECTION_DOCUMENTS}/letter_40": {
             "relation": "legislated_in",
             "article": None,
+            "article_key": None,
             "dossier": "36764",
         },
         f"{COLLECTION_COMMITMENTS}/tz_1": {
             "relation": "legislated_in",
             "article": None,
+            "article_key": None,
             "dossier": "36764",
         },
         f"{COLLECTION_DECISIONS}/vote_31": {
             "relation": "legislated_in",
             "article": None,
+            "article_key": None,
             "dossier": "36764",
         },
         f"{COLLECTION_DOCUMENTS}/motion_31": {
             "relation": "legislated_in",
             "article": None,
+            "article_key": None,
             "dossier": "36764",
         },
         f"{COLLECTION_DOCUMENTS}/amendment_20": {
             "relation": "proposes",
             "article": "3",
+            "article_key": "bwbr0052872_3",
             "dossier": None,
         },
         f"{COLLECTION_DOCUMENTS}/motion_19": {
             "relation": "legislated_in",
             "article": None,
+            "article_key": None,
             "dossier": "36764",
         },
         f"{COLLECTION_JUDGMENTS}/ecli_nl_rvs_2026_9": {
             "relation": "refers_to",
             "article": "1",
+            "article_key": "bwbr0052872_1",
             "dossier": None,
         },
     }
@@ -616,6 +636,7 @@ def test_the_events_of_a_law_say_how_they_are_tied_to_it(
         f"{COLLECTION_JUDGMENTS}/ecli_nl_rvs_2026_9": {
             "relation": "refers_to",
             "article": "1",
+            "article_key": "bwbr0052872_1",
             "dossier": None,
         }
     }
@@ -633,21 +654,25 @@ def test_the_events_of_an_article(client: TestClient) -> None:
         f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0052872_2026_08_15": {
             "relation": "version_of",
             "article": None,
+            "article_key": None,
             "dossier": None,
         },
         f"{COLLECTION_INSTRUMENT_VERSIONS}/bwbr0052875_2026_08_15": {
             "relation": "based_on",
             "article": "16",
+            "article_key": "bwbr0052872_16",
             "dossier": None,
         },
         f"{COLLECTION_DOCUMENTS}/amendment_20": {
             "relation": "proposes",
             "article": "16",
+            "article_key": "bwbr0052872_16",
             "dossier": None,
         },
         f"{COLLECTION_JUDGMENTS}/ecli_nl_rvs_2026_9": {
             "relation": "refers_to",
             "article": "16",
+            "article_key": "bwbr0052872_16",
             "dossier": None,
         },
     }
@@ -657,11 +682,13 @@ def test_the_events_of_an_article(client: TestClient) -> None:
     assert via.pop(f"{COLLECTION_INSTRUMENTS}/stb_2026_200") == {
         "relation": "amends",
         "article": "15.1",
+        "article_key": "bwbr0009950_15_1",
         "dossier": None,
     }
     assert via.pop(PUBLICATION) == {
         "relation": "amends",
         "article": "15.1",
+        "article_key": "bwbr0009950_15_1",
         "dossier": None,
     }
     assert set(via) == {

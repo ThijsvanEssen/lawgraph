@@ -7,8 +7,10 @@ for one successor (``venw`` and ``vrom`` into ``ienm``) stay offices of their ow
 ``merged_from`` and ``merged_into`` name. Lanes of an unnamed seat (``bz/staatssecretaris#2``,
 a numbering by date, no office of its own) are one seat: ``base_seat``.
 
-A seat without a ministry (``staatssecretaris/herstel-en-toeslagen``) has no family, and a
-portfolio spelled otherwise on a later page is another seat: both are gaps of the source.
+A seat whose heading names no ministry sits in the one the official sources give its posts
+(``core.cabinet_posts.seats_in_their_ministry``). One they give none (``staatssecretaris/…``)
+has no family, and a portfolio spelled otherwise on a later page is another seat: both are
+gaps of the source.
 
 ``seat_acted_from`` attributes something a person did, as ``core.signatories`` does: the
 post of the kind of the function they did it in, held that day. The function's wording is not

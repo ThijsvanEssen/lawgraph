@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSBLAD,
 )
 from lawgraph.core.dossier_numbers import published_number
+from lawgraph.core.identifiers import STB_ID_PATTERN
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.publication_xml import UNREAD_TOESTAND, staatsblad_ref_from_bwb_xml
@@ -29,6 +30,10 @@ from .base import (
 )
 
 logger = get_logger(__name__)
+
+# The note of a toestand that names a Staatsblad number no identifier can hold: one of the
+# letter series of 1945-1950 (``Stb. 1946, G 158``), which the repository has no XML of.
+UNASKABLE_NUMBER = "Staatsblad number of a letter series, not asked for"
 
 
 class StaatsbladRetrievePipeline(RetrievePipelineBase):
@@ -153,13 +158,20 @@ class StaatsbladRetrievePipeline(RetrievePipelineBase):
 
         Retrieve bwb keeps the publication of each toestand in its meta, so no payload is
         read; a toestand stored without it is read once and gets it (``_fill_refs``). A
-        publication several regulations refer to is listed once.
+        publication several regulations refer to is listed once. A number that is no
+        identifier (``stb-1946-G 158``) names none and is a note: asked for, it failed
+        without a request, and 25 of those in a row stopped the step as if the source was
+        down (daily of 10 and 12 November 2026).
         """
         candidates: dict[str, str] = {}
         without = 0
         rows = [*raw_queries.toestand_staatsblad_refs(store), *self._fill_refs(store)]
         for row in rows:
             if row["ref"] is None:
+                without += 1
+                continue
+            if not STB_ID_PATTERN.fullmatch(row["ref"]):
+                self.progress.note(UNASKABLE_NUMBER, row["ref"])
                 without += 1
                 continue
             candidates.setdefault(row["ref"], row["bwb_id"])
