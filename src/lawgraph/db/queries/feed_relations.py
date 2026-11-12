@@ -442,15 +442,17 @@ def _of_law(alias: str, article: bool) -> str:
 def via(article: bool) -> str:
     """SQL: how the item ``pg`` is tied to the law followed (``followed_ctes``): its
     ``relation``, the ``article`` of the law it touches (the first in the order of the law)
-    and the ``dossier`` it came through; the closest tie of all it has."""
+    with its node key (``article_key``) and the ``dossier`` it came through; the closest tie
+    of all it has."""
     law_id = "(SELECT id FROM law)"
     to_law = "" if article else f" OR e.to_id = {law_id}"
     numbers = array_or_empty("n.props -> 'dossier_numbers'")
     labels = f"ARRAY(SELECT x.v #>> '{{}}' FROM json_array_elements({numbers}) AS x(v))"
     ties = f"""
             -- the publication that enacted the law
-            SELECT 'establishes' AS relation, NULL::text AS article, NULL::text AS dossier,
-                   0 AS rank, NULL::float8 AS position
+            SELECT 'establishes' AS relation, NULL::text AS article,
+                   NULL::text AS article_key, NULL::text AS dossier, 0 AS rank,
+                   NULL::float8 AS position
             FROM law
             WHERE pg.kind = '{EVENT_PUBLICATION}' AND {"false" if article else "true"}
               AND law.enacted = {PUBLICATION_IDENTIFIER}
@@ -458,7 +460,7 @@ def via(article: bool) -> str:
             -- a change of the law or an article of it: made, or proposed by a paper
             SELECT CASE WHEN pg.kind = '{EVENT_PUBLICATION}' THEN lower(e.relation)
                         ELSE 'proposes' END,
-                   a.article_number, NULL, 1, a.position
+                   a.article_number, a.key, NULL, 1, a.position
             FROM {COLLECTION_EDGES} e
             LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind IN ({sql_text_list((EVENT_PUBLICATION, *DOCUMENT_EVENTS))})
@@ -466,10 +468,10 @@ def via(article: bool) -> str:
               AND (({_of_law("a", article)}){to_law})
             UNION ALL
             -- a version of the law, or of a regulation issued under it
-            SELECT 'version_of', NULL, NULL, 1, NULL
+            SELECT 'version_of', NULL, NULL, NULL, 1, NULL
             WHERE pg.kind = '{EVENT_COMMENCEMENT}' AND {_BWB} = %(instrument)s
             UNION ALL
-            SELECT 'based_on', a.article_number, NULL, 2, a.position
+            SELECT 'based_on', a.article_number, a.key, NULL, 2, a.position
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind = '{EVENT_COMMENCEMENT}' AND {_BWB} IS NOT NULL
@@ -478,7 +480,7 @@ def via(article: bool) -> str:
               AND e.to_collection = '{COLLECTION_ARTICLES}' AND {_of_law("a", article)}
             UNION ALL
             -- a judgment that cites it
-            SELECT 'refers_to', a.article_number, NULL, 1, a.position
+            SELECT 'refers_to', a.article_number, a.key, NULL, 1, a.position
             FROM {COLLECTION_EDGES} e
             LEFT JOIN {COLLECTION_ARTICLES} a ON a.id = e.to_id
             WHERE pg.kind = '{EVENT_JUDGMENT}'
@@ -486,14 +488,14 @@ def via(article: bool) -> str:
               AND (({_of_law("a", article)}){to_law})
             UNION ALL
             -- an event of a dossier of the law
-            SELECT f.relation, NULL, f.label, CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END,
-                   NULL
+            SELECT f.relation, NULL, NULL, f.label,
+                   CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END, NULL
             FROM followed_dossiers f
             WHERE pg.kind IN ({sql_text_list((*DOCUMENT_EVENTS, EVENT_VOTE))})
               AND (f.label = pg.dossier OR f.label = ANY({labels}))
             UNION ALL
-            SELECT f.relation, NULL, f.label, CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END,
-                   NULL
+            SELECT f.relation, NULL, NULL, f.label,
+                   CASE f.relation WHEN 'proposes' THEN 4 ELSE 3 END, NULL
             FROM {COLLECTION_EDGES} e
             JOIN {COLLECTION_DOSSIERS} d ON d.id = e.to_id
             JOIN followed_dossiers f ON f.label = d.label
@@ -502,7 +504,8 @@ def via(article: bool) -> str:
               AND e.to_collection = '{COLLECTION_DOSSIERS}'"""
     return f"""(
             SELECT json_build_object(
-                'relation', t.relation, 'article', t.article, 'dossier', t.dossier)
+                'relation', t.relation, 'article', t.article,
+                'article_key', t.article_key, 'dossier', t.dossier)
             FROM ({ties}
             ) t
             ORDER BY t.rank, t.position NULLS LAST, t.article ASC NULLS LAST,

@@ -47,7 +47,7 @@ from lawgraph.core.feed import (
     PersonRole,
     person_role,
 )
-from lawgraph.core.models import node_id, parse_node_id
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.publications import (
@@ -303,6 +303,11 @@ class FeedCommencementDTO(StrictModel):
         default_factory=list,
         description="Their numbers, in the order of the law; at most fifty.",
     )
+    article_keys: list[str] = Field(
+        default_factory=list,
+        description="The node keys of those articles (``bwbr0005537_3_2``), in the same "
+        "order.",
+    )
     new: bool = Field(
         False,
         description="The law itself comes into force: the day is the one it came into "
@@ -396,6 +401,11 @@ class FeedViaDTO(StrictModel):
         None,
         description="The number of the article of the law it touches, the first in the "
         "order of the law; null where it is tied to the law as a whole or by a dossier.",
+    )
+    article_key: str | None = Field(
+        None,
+        description="The node key of that article (``bwbr0005537_3_2``); null with "
+        "``article``.",
     )
     dossier: str | None = Field(
         None, description="The label of the dossier it is tied by; null for the others."
@@ -852,11 +862,14 @@ def _commencement(row: dict[str, Any]) -> FeedCommencementDTO:
     basis = commenced.get("based_on")
     in_force = (instrument or {}).get("date_in_force")
     kind = (instrument or {}).get("kind")
+    bwb_id = (instrument or {}).get("bwb_id")
+    numbers = [str(a) for a in commenced.get("articles") or [] if a is not None]
     return FeedCommencementDTO(
         instrument=_instrument(instrument) if instrument else None,
         article_count=(instrument or {}).get("article_count"),
         changed_articles=int(row.get("changed_articles") or 0),
-        articles=[str(a) for a in commenced.get("articles") or [] if a is not None],
+        articles=numbers,
+        article_keys=[make_node_key(bwb_id, n) for n in numbers] if bwb_id else [],
         new=bool(in_force) and in_force == row.get("date"),
         publication=_publication_ref(commenced.get("publication")),
         based_on=(
