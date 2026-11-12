@@ -24,6 +24,7 @@ from tests.integration.seed import (
 )
 
 RO, AWB, AWR = "BWBR0001830", "BWBR0005537", "BWBR0002320"
+RV, SV = "BWBR0001827", "BWBR0001903"
 CIVIEL = "Civiel recht; Verbintenissenrecht"
 
 
@@ -213,8 +214,8 @@ def test_a_decision_after_referral_follows_the_ruling(client: TestClient) -> Non
     assert steps[2]["links"] == [
         {"relation": "REFERRED_BY", "to": HR_REF, "source_outcome": None}
     ]
-    # no article for a decision after referral, though its procedure reads Hoger beroep
-    assert [_basis(s) for s in steps] == [(RO, "60"), (RO, "78"), None]
+    # the article of the referral, though its procedure reads Hoger beroep
+    assert [_basis(s) for s in steps] == [(RO, "60"), (RO, "78"), (RV, "424")]
 
 
 def test_an_earlier_instance_not_loaded_is_a_stub_without_basis(
@@ -272,7 +273,13 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
     civiel = [
         (s["tier"], s["basis"]["article_number"]) for s in areas["civiel"]["steps"]
     ]
-    assert civiel == [("rechtbank", "42"), ("gerechtshof", "60"), ("hoge_raad", "78")]
+    assert civiel == [
+        ("rechtbank", "42"),
+        ("gerechtshof", "60"),
+        ("hoge_raad", "78"),
+        ("hoge_raad", "78"),
+        ("gerechtshof", "424"),
+    ]
     rvs = next(s for s in areas["bestuur"]["steps"] if s["tier"] == "raad_van_state")
     assert (rvs["basis"]["article_number"], rvs["designations"]) == (
         "8:6",
@@ -286,6 +293,7 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
             [(d["bwb_id"], d["article_number"]) for d in s["designations"]],
         )
         for s in areas["belasting"]["steps"]
+        if s["after_tier"] is None
     }
     assert belasting == {
         "rechtbank": ((RO, "44"), [(AWB, "8:6")]),
@@ -309,10 +317,66 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
     (hr,) = [s for s in bestuur if s["tier"] == "hoge_raad"]
     assert (hr["after_tier"], _basis(hr)) == ("centrale_raad_van_beroep", (RO, "78"))
     assert {"bwb_id": "BWBR0002221", "article_number": "53"} in hr["designations"]
-    after = [s for s in areas["civiel"]["steps"] if s["after_tier"] is not None]
-    assert not after, show_items(after)
+    # the HR in first and only instance for ambtsmisdrijven (art. 76 RO), no step before it
+    (ambts,) = [
+        s
+        for s in areas["straf"]["steps"]
+        if s["procedures"] == ["Eerste en enige aanleg"]
+    ]
+    assert (ambts["tier"], ambts["after_tier"], _basis(ambts)) == (
+        "hoge_raad",
+        None,
+        (RO, "76"),
+    )
     # the Awb is not loaded here
     assert response.json()["regeling"] == []
+
+
+@pytest.mark.parametrize(
+    ("area", "basis", "designations"),
+    [
+        ("civiel", (RO, "78"), [(RV, "398")]),
+        ("belasting", (AWR, "28"), [(RO, "78")]),
+    ],
+)
+def test_leapfrog_cassation_is_a_step_after_the_rechtbank(
+    client: TestClient,
+    area: str,
+    basis: tuple[str, str],
+    designations: list[tuple[str, str]],
+) -> None:
+    response = client.get("/api/judgments/routes")
+    assert_status(response, 200)
+    (steps,) = [a["steps"] for a in response.json()["areas"] if a["area"] == area]
+    leap = [s for s in steps if s["after_tier"] == "rechtbank"]
+    assert len(leap) == 1, show_items(leap)
+    assert (leap[0]["tier"], _basis(leap[0])) == ("hoge_raad", basis)
+    assert [(d["bwb_id"], d["article_number"]) for d in leap[0]["designations"]] == (
+        designations
+    )
+    # art. 398 Rv belongs to the leapfrog only, not to cassation after the hof
+    plain = [s for s in steps if s["tier"] == "hoge_raad" and s["after_tier"] is None]
+    with_rv = [s for s in plain if any(d["bwb_id"] == RV for d in s["designations"])]
+    assert not with_rv, show_items(with_rv)
+
+
+@pytest.mark.parametrize(
+    ("area", "basis"),
+    [("civiel", (RV, "424")), ("straf", (SV, "440")), ("belasting", (AWR, "29e"))],
+)
+def test_the_hof_after_a_referral_is_a_step_after_the_hoge_raad(
+    client: TestClient, area: str, basis: tuple[str, str]
+) -> None:
+    response = client.get("/api/judgments/routes")
+    assert_status(response, 200)
+    (steps,) = [a["steps"] for a in response.json()["areas"] if a["area"] == area]
+    referred = [s for s in steps if s["after_tier"] == "hoge_raad"]
+    assert len(referred) == 1, show_items(referred)
+    assert (
+        referred[0]["tier"],
+        referred[0]["procedures"],
+        _basis(referred[0]),
+    ) == ("gerechtshof", ["Verwijzing na Hoge Raad"], basis)
 
 
 def test_a_judgment_not_in_the_graph_is_404(client: TestClient) -> None:
