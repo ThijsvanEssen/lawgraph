@@ -397,6 +397,7 @@ def test_the_open_dossiers_of_a_ministry_or_of_the_members(
 def test_an_office_with_its_holders_and_what_is_its_own(api: Api) -> None:
     seat = api.get_json("/api/seats/fin/minister")
     assert seat["seat"] == "fin/minister"
+    assert (seat["ministry"], seat["ministry_path"]) == ("fin", "/ministeries/fin")
     heinen = seat["holders"][-1]
     assert heinen["member"]["path"] == "/leden/eelco-heinen"
     assert heinen["ministry_name"] == "Financiën"
@@ -411,6 +412,23 @@ def test_an_office_with_its_holders_and_what_is_its_own(api: Api) -> None:
     assert lane == seat
     assert_status(api.get("/api/seats/fin/geen"), 404)
     assert api.get_json("/api/commitments?seat=fin/geen")["total"] == 0
+
+
+def test_the_offices_of_a_ministry_and_who_holds_them(api: Api) -> None:
+    listed = api.get_json("/api/seats?ministry=fin")
+    assert listed["total"] == len(listed["items"]) > 0
+    by_seat = {item["seat"]: item for item in listed["items"]}
+    minister = by_seat["fin/minister"]
+    assert minister["ministry_path"] == "/ministeries/fin"
+    assert minister["holder_count"] == len(
+        {h["member"]["key"] for h in api.get_json("/api/seats/fin/minister")["holders"]}
+    )
+    held = api.get_json("/api/seats?current=true")["items"]
+    assert [item["seat"] for item in held if not item["current"]] == []
+    in_jetten = api.get_json("/api/seats?cabinet=jetten")["items"]
+    assert "fin/minister" in {item["seat"] for item in in_jetten}
+    assert api.get_json("/api/seats?cabinet=geen")["total"] == 0
+    assert_status(api.get("/api/seats?ministry=nope"), 422)
 
 
 def test_an_unknown_cabinet_is_404_and_an_unknown_ministry_422(
@@ -432,6 +450,7 @@ def test_a_ministry_with_its_bewindspersonen_and_what_is_its_own(api: Api) -> No
         "heinen",
         "/leden/eelco-heinen",
     )
+    assert heinen["seat"].partition("#")[0] == "fin/minister"
     assert (fin["laws"], fin["open_dossiers"], fin["open_commitments"]) == (1, 1, 2)
     # a post stands under the ministry of its day: Heinen as acting minister of EZ
     acting = [

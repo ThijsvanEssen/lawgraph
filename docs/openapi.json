@@ -6927,6 +6927,87 @@
         }
       }
     },
+    "/api/seats": {
+      "get": {
+        "tags": [
+          "seats",
+          "government"
+        ],
+        "summary": "Offices",
+        "description": "Every office someone held (the ``seat`` of a post), each once over the names of its ministry, by ``seat``: its latest name, post and ministry, its first and last day, how many held it and who holds it today (`current`). `ministry` keeps the offices held under that ministry or one of its names; `cabinet` those held in that cabinet (key); `current` those someone holds today. A seat nobody holds today has an empty `current`: a gap or a former office, not filled in.",
+        "operationId": "get_seats_api_seats_get",
+        "parameters": [
+          {
+            "name": "ministry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/MinistryKey"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ministry"
+            }
+          },
+          {
+            "name": "cabinet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the offices held in this cabinet (key).",
+              "title": "Cabinet"
+            },
+            "description": "Only the offices held in this cabinet (key)."
+          },
+          {
+            "name": "current",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only the offices someone holds today.",
+              "default": false,
+              "title": "Current"
+            },
+            "description": "Only the offices someone holds today."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeatListDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/seats/{seat}": {
       "get": {
         "tags": [
@@ -37008,6 +37089,18 @@
             ],
             "title": "Portfolio"
           },
+          "seat": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seat",
+            "description": "The office (``GET /api/seats/{seat}``), with its lane: ``fin/staatssecretaris#2``."
+          },
           "from_date": {
             "anyOf": [
               {
@@ -37046,6 +37139,7 @@
           "post",
           "function",
           "portfolio",
+          "seat",
           "from_date",
           "to_date",
           "acting"
@@ -40588,12 +40682,82 @@
         "title": "SeatCountsDTO",
         "description": "How much of a list can be attributed to the seat."
       },
+      "SeatCurrentDTO": {
+        "properties": {
+          "member": {
+            "$ref": "#/components/schemas/PersonRefDTO"
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "As Rijksoverheid names the post."
+          },
+          "cabinet_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cabinet Key"
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date",
+            "description": "The day the post began."
+          },
+          "acting": {
+            "type": "boolean",
+            "title": "Acting",
+            "description": "A stand-in (ad interim).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "member",
+          "function",
+          "cabinet_key",
+          "from_date",
+          "acting"
+        ],
+        "title": "SeatCurrentDTO",
+        "description": "Someone who holds the seat on the day asked."
+      },
       "SeatDTO": {
         "properties": {
           "seat": {
             "type": "string",
             "title": "Seat",
             "description": "By its latest name: ``ienw/minister``, without a lane."
+          },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry of its latest post; null for a seat without one (``viceminister-president``)."
           },
           "names": {
             "items": {
@@ -40639,19 +40803,48 @@
           },
           "dossiers": {
             "$ref": "#/components/schemas/SeatCountsDTO"
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
+          },
+          "ministry_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Path",
+            "description": "The address of ``ministry``: ``/ministeries/fin``; null without one.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "seat",
+          "ministry",
           "names",
           "merged_from",
           "merged_into",
           "holders",
           "gaps",
           "commitments",
-          "dossiers"
+          "dossiers",
+          "ministry_name",
+          "ministry_path"
         ],
         "title": "SeatDTO",
         "description": "An office, over the names of its ministry."
@@ -40897,6 +41090,29 @@
         "title": "SeatHolderDTO",
         "description": "A post in the seat: one person, in one cabinet, under one name of the ministry."
       },
+      "SeatListDTO": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SeatSummaryDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "SeatListDTO",
+        "description": "The offices that match, by ``seat``."
+      },
       "SeatStretchDTO": {
         "properties": {
           "from_date": {
@@ -40973,6 +41189,127 @@
         ],
         "title": "SeatStretchDTO",
         "description": "A stretch of days in which neither the coalition nor any faction's seats changed."
+      },
+      "SeatSummaryDTO": {
+        "properties": {
+          "seat": {
+            "type": "string",
+            "title": "Seat",
+            "description": "By its latest name, without a lane: ``fin/minister``."
+          },
+          "post": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Post"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "function": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Function",
+            "description": "Its latest post as Rijksoverheid names it."
+          },
+          "ministry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MinistryKey"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ministry of its latest post; null without one."
+          },
+          "from_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Date",
+            "description": "The first day someone held it."
+          },
+          "to_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Date",
+            "description": "The last day someone held it; null while it is held."
+          },
+          "holder_count": {
+            "type": "integer",
+            "title": "Holder Count",
+            "description": "How many people held it, as ``holders`` of the seat counts them."
+          },
+          "current": {
+            "items": {
+              "$ref": "#/components/schemas/SeatCurrentDTO"
+            },
+            "type": "array",
+            "title": "Current",
+            "description": "Who holds it on the day asked, oldest post first; empty for a seat nobody holds then: a gap or a former office, not filled in."
+          },
+          "ministry_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Name",
+            "description": "The name of ``ministry`` (``GET /api/ministries/{key}``): ``Financiën``; null without one.",
+            "readOnly": true
+          },
+          "ministry_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ministry Path",
+            "description": "The address of ``ministry``: ``/ministeries/fin``; null without one.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seat",
+          "post",
+          "function",
+          "ministry",
+          "from_date",
+          "to_date",
+          "holder_count",
+          "current",
+          "ministry_name",
+          "ministry_path"
+        ],
+        "title": "SeatSummaryDTO",
+        "description": "An office in the list: its latest name and post, its period and who holds it now."
       },
       "SeatingPlanDTO": {
         "properties": {
