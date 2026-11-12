@@ -348,6 +348,19 @@ def test_a_post_gets_its_ministry_from_the_official_sources(
         "Staatssecretaris Herstel en Toeslagen": ("fin", "tk_signatures", None),
         "Minister zonder Portefeuille": (None, None, "no_source"),
     }
+    # the seat sits in that ministry (B149), by its name when the seat ended
+    assert {function: p["seat"] for function, p in posts.items()} == {
+        "Minister van Volksgezondheid, Welzijn en Sport": "vws/minister",
+        "Minister voor Klimaat en Energie": (
+            "ezk/minister_zonder_portefeuille/klimaat-en-energie"
+        ),
+        "Staatssecretaris Herstel en Toeslagen": "fin/staatssecretaris/herstel-en-toeslagen",
+        "Minister zonder Portefeuille": "minister_zonder_portefeuille",
+    }
+    under_finance = _get(store, "/api/seats?ministry=fin")["items"]
+    assert [s["seat"] for s in under_finance] == [
+        "fin/staatssecretaris/herstel-en-toeslagen"
+    ]
     # matched by what he signed, not made a member of his own
     assert posts["Minister van Volksgezondheid, Welzijn en Sport"]["member"] == (
         HOOGERVORST

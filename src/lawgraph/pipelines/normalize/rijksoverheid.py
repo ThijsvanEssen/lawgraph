@@ -43,7 +43,7 @@ from lawgraph.config.constants import (
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER
+from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER, seats_in_their_ministry
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
 from lawgraph.core.cabinets import faction_of
 from lawgraph.core.logging import get_logger
@@ -283,7 +283,8 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
     ) -> None:
         """Give every post whose function names no ministry the ministry the official
         sources give it (``core.post_ministries``), with ``ministry_source``; a post they
-        give none keeps ``ministry`` null, with ``ministry_missing``."""
+        give none keeps ``ministry`` null, with ``ministry_missing``. Then its seat sits
+        in that ministry (``seats_in_their_ministry``)."""
         signed = self._signatures()
         commitments = list(government_queries.commitment_makers(self.store))
         records = {
@@ -315,6 +316,7 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
                 post["ministry_source"] = source
                 post["ministry_missing"] = missing
                 found[source or missing or ""] += 1
+            seats_in_their_ministry(cabinet["posts"], cabinet)
         logger.info(
             "Rijksoverheid: posts whose function names no ministry: %s.",
             ", ".join(f"{n} {what}" for what, n in sorted(found.items())) or "none",

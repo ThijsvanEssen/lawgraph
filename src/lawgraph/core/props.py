@@ -1377,7 +1377,7 @@ class GovernmentFunctionProps(_StrictBase):
     ministry_missing: str | None = None
     """When `ministry` is null, why: `no_source`, `ambiguous`."""
     seat: str | None = None
-    """`ienw/minister`, `staatssecretaris/rechtsbescherming`,
+    """`ienw/minister`, `fin/staatssecretaris/fiscaliteit-en-belastingdienst`,
     `viceminister-president`."""
     portfolio: str | None = None
     """The portfolio."""

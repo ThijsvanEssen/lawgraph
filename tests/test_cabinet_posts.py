@@ -7,6 +7,7 @@ read on 25 September 2026).
 
 from __future__ import annotations
 
+import copy
 import datetime as dt
 from functools import cache
 from typing import Any, get_args
@@ -24,9 +25,11 @@ from lawgraph.core.cabinet_posts import (
     SEAT_DEPUTY,
     cabinet_posts,
     seat_gaps,
+    seats_in_their_ministry,
 )
 from lawgraph.core.cabinet_sources import build_cabinets
 from lawgraph.core.rijksoverheid import SECTION_MINISTERS, parse_page
+from lawgraph.core.seats import ministries_of
 from tests.asserts import show_items
 from tests.paths import FIXTURES
 
@@ -276,6 +279,51 @@ def test_seat_gaps_are_longer_than_two_weeks() -> None:
         "from_date": "1959-08-01",
         "to_date": "1959-09-07",
     } in gaps
+
+
+def test_a_seat_without_a_ministry_sits_in_the_one_the_sources_give() -> None:
+    # Rutte IV: "Staatssecretaris Fiscaliteit en Belastingdienst" names no ministry; the
+    # sources give Van Rij's post Financiën (B149: no gap under Financiën 2022-2026)
+    cabinet = copy.deepcopy(_cabinet("rutte_iv"))
+    posts = cabinet["posts"]
+    given = {
+        "mla van rij": "fin",  # staatssecretaris/fiscaliteit-en-belastingdienst
+        "g uslu": "ocw",  # staatssecretaris/cultuur-en-media, with two more
+        "f graper van koolwijk": "ocw",
+        "ja vijlbrief": "ez",  # staatssecretaris/mijnbouw: EZK by the seat's end
+        "enaj schreinemacher": "bz",  # two ministries for one seat: it stays
+        "gew van leeuwen": "ienw",
+    }
+    for post in posts:
+        if post["seat"] != SEAT_DEPUTY and post["person"] in given:
+            post["ministry"] = given[post["person"]]
+    stand_in = {**posts[0], "acting_other_seat": {"seat": "staatssecretaris/mijnbouw"}}
+    posts.append(stand_in)
+
+    seats_in_their_ministry(posts, cabinet)
+
+    def seats(portfolio: str) -> set[str]:
+        """The seats of every post of *portfolio*, by its holders."""
+        return {p["seat"] for p in posts if p["seat"].endswith(f"/{portfolio}")}
+
+    assert seats("fiscaliteit-en-belastingdienst") == {
+        "fin/staatssecretaris/fiscaliteit-en-belastingdienst"
+    }
+    assert ministries_of("fin/staatssecretaris/fiscaliteit-en-belastingdienst") == [
+        "fin"
+    ]
+    # every post of the seat moves, also Van Weyenberg's, given no ministry
+    assert seats("cultuur-en-media") == {"ocw/staatssecretaris/cultuur-en-media"}
+    assert seats("mijnbouw") == {"ezk/staatssecretaris/mijnbouw"}
+    assert stand_in["acting_other_seat"]["seat"] == "ezk/staatssecretaris/mijnbouw"
+    assert seats("buitenlandse-handel-en-ontwikkelingssamenwerking") == {
+        "minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingssamenwerking"
+    }
+    # no source gave Schouten a ministry; the deputy seat never gets one
+    assert seats("armoedebeleid-participatie-en-pensioenen") == {
+        "minister_zonder_portefeuille/armoedebeleid-participatie-en-pensioenen"
+    }
+    assert SEAT_DEPUTY in {p["seat"] for p in posts}
 
 
 # ── The rules on their own ───────────────────────────────────────────────────
