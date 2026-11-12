@@ -1,7 +1,9 @@
 """The route of a case per area of law (``GET /api/judgments/routes``): the steps from
 ``data/route_articles.json`` with the article that gives each court its say, the other
 articles that do so in the step (the Bevoegdheidsregeling bestuursrechtspraak that names a
-court, the laws that open cassation), and the gaps. The articles of the
+court, the laws that open cassation), and the gaps. A step with ``after_tier`` hears only
+the judgments of that court: cassation against the Centrale Raad van Beroep, leapfrog
+cassation against the rechtbank, the gerechtshof after a referral by the Hoge Raad. The articles of the
 regeling (Awb bijlage 2) are articles of the Awb in the graph (``normalize bwb``): each with
 its chapter, its heading and the laws its list names (its extrefs)."""
 
@@ -50,6 +52,7 @@ def judgment_routes(store: GraphStore) -> Routes:
                     if d["tier"] == tier
                     and area in d["areas"]
                     and d["procedure"] in rule["procedures"]
+                    and d.get("after_tier") in (None, rule.get("after_tier"))
                 ],
             }
             for rule in route_rules()

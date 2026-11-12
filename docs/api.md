@@ -135,8 +135,9 @@ laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written
 those four edges both ways (up to 8 edges and 24 judgments, `truncated` past them), the steps in
 the order of the case, each with `basis`, the article that gives its court its say, from the
 fixed list `data/route_articles.json` (tier, procedure and area of law → RO art. 42, 44, 45, 60,
-78, Awb art. 8:6, 8:105, AWR art. 28 for cassation in tax cases; null where it has none, as after
-a referral), `loaded` false for a stub
+76, 78, Awb art. 8:6, 8:105, AWR art. 28 for cassation in tax cases; a decision after referral,
+`REFERRED_BY` or `Verwijzing na Hoge Raad`, art. 424 Rv, 440 Sv or 29e AWR by its area; null
+where it has none), `loaded` false for a stub
 and `links` with the outcome the Rechtspraak records (`source_outcome`). The first paint of a
 judgment holds the same answer as `course`. The first instance at the Afdeling, the CRvB, the
 CBb or a gerechtshof has art. 8:6 Awb, which names the court of chapter 2 of the
@@ -146,8 +147,11 @@ bestuur has art. 78 RO (lid 4: as far as a law provides).
 with `basis`, `designations` (the other articles that give it its say in the step: the regeling,
 `bijlage 2 artikel 2` to 5 in first instance and 9 to 12 on appeal; in tax cases Awb art. 8:6 and
 8:105 beside the RO and art. 78 RO beside art. 28 AWR; the laws that open cassation against the
-CRvB, as art. 53 AOW), `after_tier` for a court that hears only the judgments of that one
-(cassation in bestuur: `centrale_raad_van_beroep`), `gaps` for a court whose article is not read
+CRvB, as art. 53 AOW; art. 398 Rv for leapfrog cassation), `after_tier` for a court that hears
+only the judgments of that one (cassation in bestuur: `centrale_raad_van_beroep`; leapfrog
+cassation in civiel and belasting: `rechtbank`; the gerechtshof after a referral, `Verwijzing na
+Hoge Raad`: `hoge_raad`), the Hoge Raad in first and only instance for ambtsmisdrijven (straf,
+`Eerste en enige aanleg`, art. 76 RO), `gaps` for a court whose article is not read
 in the source (with `why`), and `regeling`, the
 regeling by chapter: each article (an article of the Awb in the graph) with its heading and the
 laws its list names, the Awb itself left out, a law the graph lacks by the name the regeling
