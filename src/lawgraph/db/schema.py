@@ -2379,8 +2379,10 @@ CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
 # reading of every event per request. ``title`` and ``dossier_title`` are the texts the
 # feed matches ``q`` against (its title and that of its first dossier), in lower case;
 # ``words`` their tokens of letters and digits (``lg_alnum_tokens``), a superset of what
-# matches, which the feed's own pattern then checks. Not a table of the graph: writing it
-# raises no data version; ``lg_feed_events_state`` says when it was written.
+# matches, which the feed's own pattern then checks. A judgment has a row whatever its tier,
+# with its ``tier`` and main areas of law (``subject_areas``, ``lg_subject_areas``); both are
+# null for every other kind. Not a table of the graph: writing it raises no data version;
+# ``lg_feed_events_state`` says when it was written.
 FEED_EVENTS_TABLE = "lg_feed_events"
 FEED_EVENTS_COLUMNS = """
     kind text NOT NULL,
@@ -2393,6 +2395,8 @@ FEED_EVENTS_COLUMNS = """
     title text,
     dossier_title text,
     words tsvector NOT NULL,
+    tier text,
+    subject_areas text[],
     PRIMARY KEY (kind, id)
 """
 # The indexes of the table, per name a definition on ``{table}`` (the table itself, or the
@@ -2402,6 +2406,9 @@ FEED_EVENTS_INDEXES = {
     "lg_feed_events_words": "CREATE INDEX IF NOT EXISTS {name} ON {table} USING gin (words)",
     "lg_feed_events_factions": (
         "CREATE INDEX IF NOT EXISTS {name} ON {table} USING gin (factions)"
+    ),
+    "lg_feed_events_tier": (
+        "CREATE INDEX IF NOT EXISTS {name} ON {table} (tier, date) WHERE tier IS NOT NULL"
     ),
 }
 
@@ -2475,6 +2482,8 @@ def source_steps() -> list[str]:
 def feed_events() -> list[str]:
     statements = [
         f"CREATE TABLE IF NOT EXISTS {FEED_EVENTS_TABLE} ({FEED_EVENTS_COLUMNS})",
+        f"ALTER TABLE {FEED_EVENTS_TABLE} ADD COLUMN IF NOT EXISTS tier text",
+        f"ALTER TABLE {FEED_EVENTS_TABLE} ADD COLUMN IF NOT EXISTS subject_areas text[]",
         """CREATE TABLE IF NOT EXISTS lg_feed_events_state (
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     written_at timestamptz NOT NULL,

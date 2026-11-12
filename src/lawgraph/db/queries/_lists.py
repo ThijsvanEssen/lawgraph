@@ -42,11 +42,11 @@ FACET_AGG = (
 )
 
 
-def counted(value: str, rows: str, condition: str = "") -> str:
+def counted(value: str, rows: str, condition: str = "", count: str = "count(*)") -> str:
     """SQL: the rows *rows* (a ``FROM`` item) under *condition* (a ``WHERE``) per *value*:
-    ``value`` and ``count``."""
+    ``value`` and ``count`` (*count*: of rows that stand for several, ``sum(n)``)."""
     return (
-        f"SELECT {value} AS value, count(*)::int AS count"
+        f"SELECT {value} AS value, {count}::int AS count"
         f" FROM {rows} {condition} GROUP BY 1"
     )
 
@@ -56,10 +56,10 @@ def facet_of(rows: str) -> str:
     return f"(SELECT {FACET_AGG} FROM ({rows}) counted)"
 
 
-def facet(value: str, rows: str, condition: str = "") -> str:
+def facet(value: str, rows: str, condition: str = "", count: str = "count(*)") -> str:
     """SQL: the facet of the rows *rows* under *condition* per *value* (``counted``), as
     a JSON array (``FACET_AGG``)."""
-    return facet_of(counted(value, rows, condition))
+    return facet_of(counted(value, rows, condition, count))
 
 
 def facet_rows(

@@ -1012,6 +1012,8 @@ def test_the_answer_and_its_items_keep_their_keys_in_order(store: GraphStore) ->
         "cabinet",
         "chamber",
         "coalition",
+        "tier",
+        "subject_area",
     ]
     for facet in raw["facets"].values():
         for row in facet:
@@ -1116,6 +1118,8 @@ def test_an_empty_graph_has_no_events(store: GraphStore) -> None:
             "cabinet": [],
             "chamber": [],
             "coalition": [],
+            "tier": [],
+            "subject_area": [],
         },
     }
     assert get_feed(store, FeedFilters(), facets=False) == {

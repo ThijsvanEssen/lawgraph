@@ -6,8 +6,11 @@ The rows are written from the reading of every kind of event the feed itself mak
 so a period counts what the feed's facets count under the same filters. Each row keeps what
 those filters read: its kind, date, chamber, ministry, factions and dossier labels, and the
 texts the feed matches ``q`` against, its title (of a publication with the names of the
-laws it changes or enacts) and that of its first dossier, in lower case. ``words`` (their tokens of letters and digits) finds the rows that may hold ``q`` by
-index; the feed's own pattern then decides, on those texts.
+laws it changes or enacts) and that of its first dossier, in lower case. ``words`` (their
+tokens of letters and digits) finds the rows that may hold ``q`` by index; the feed's own
+pattern then decides, on those texts. A judgment has a row whatever its tier, with its
+``tier`` and main areas of law (``subject_areas``): the feed's own tiers (``FEED_TIERS``)
+are read unless ``tier`` asks for others, and the facet ``tier`` counts every tier.
 
 ``lawgraph feed-events`` writes them: all of them into a new table that then takes the
 place of the old one, or (``since``) those dated from a day on, in place.
@@ -22,17 +25,25 @@ from typing import Any
 import psycopg
 
 from lawgraph.config.constants import RELATION_REVISES
-from lawgraph.core.feed import EVENT_AMENDMENT, EVENT_VOTE, FEED_KINDS, PeriodUnit
+from lawgraph.core.courts import TIERS
+from lawgraph.core.feed import (
+    EVENT_AMENDMENT,
+    EVENT_JUDGMENT,
+    EVENT_VOTE,
+    FEED_KINDS,
+    PeriodUnit,
+)
 from lawgraph.core.time import dutch_today
 from lawgraph.core.tk_records.kinds import KIND_AMENDMENT
 from lawgraph.core.votes import ADOPTED, CHAIN_OTHER, CHAIN_OUTCOMES, REJECTED
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import _words
 from lawgraph.db.queries._json_sql import array_or_empty, as_text
-from lawgraph.db.queries._lists import FacetFilters
+from lawgraph.db.queries._lists import FacetFilters, facet
 from lawgraph.db.queries.feed_sql import (
     CABINET_PERIOD,
     DIMENSIONS,
+    JUDGMENT_AREAS,
     PREAMBLE,
     FeedFilters,
     Kind,
@@ -44,9 +55,12 @@ from lawgraph.db.queries.feed_sql import (
     elements,
     every_word,
     in_period,
+    in_subject_area,
+    judgments_of,
     kinds_to_read,
     lit,
     party_voted,
+    tier_filter,
     words_of,
 )
 from lawgraph.db.schema import (
@@ -68,6 +82,8 @@ COLUMNS = (
     "title",
     "dossier_title",
     "words",
+    "tier",
+    "subject_areas",
 )
 
 # A plan that reads every kind for the facets (the factions of a row), with the title of
@@ -80,6 +96,7 @@ _PLAN = Plan(
     cursor=None,
     read_titles=True,
 )
+_EVERY_TIER = FeedFilters(tiers=TIERS)
 _LABELS = (
     f"ARRAY(SELECT x.v #>> '{{}}' FROM {elements('l.labels')}"
     " WHERE json_typeof(x.v) IN ('string', 'number', 'boolean'))"
@@ -94,6 +111,7 @@ _COALITION = coalition_of("e.id")
 def _rows_of_kind(kind: Kind) -> str:
     """SQL: the rows of one kind (``COLUMNS``), dated from ``%(since)s``."""
     source = kind.source
+    judgment = source.kind == EVENT_JUDGMENT
     title = f"lower({as_text('t.title')})"
     if source.laws:
         # with the names of its laws, which the feed matches as its title
@@ -110,6 +128,8 @@ def _rows_of_kind(kind: Kind) -> str:
         title,
         dossier_title,
         f"lg_alnum_tokens(concat_ws(' ', {title}, {dossier_title}))",
+        "n.tier" if judgment else "NULL::text",
+        JUDGMENT_AREAS if judgment else "NULL::text[]",
     )
     select = ",\n            ".join(
         f"{value} AS {name}" for value, name in zip(values, COLUMNS, strict=True)
@@ -122,8 +142,13 @@ def _rows_of_kind(kind: Kind) -> str:
 
 
 def insert_query(table: str) -> str:
-    """SQL: insert into *table* every event of the feed dated from ``%(since)s``."""
-    sources = kinds_to_read(FeedFilters(), facets=True)
+    """SQL: insert into *table* every event of the feed dated from ``%(since)s``, the
+    judgments of every tier (``TIERS``; the feed's own, ``FEED_TIERS``, unless ``tier``
+    asks for others)."""
+    sources = [
+        judgments_of(s, _EVERY_TIER) if s.kind == EVENT_JUDGMENT else s
+        for s in kinds_to_read(FeedFilters(), facets=True)
+    ]
     union = "\n    UNION ALL ".join(_rows_of_kind(Kind(s, _PLAN)) for s in sources)
     return (
         f"WITH {PREAMBLE}\n"
@@ -312,12 +337,17 @@ def _words_filter(
 
 
 def _matching(
-    filters: FeedFilters, queries: list[str | None] | None
+    filters: FeedFilters, queries: list[str | None] | None, *, every_tier: bool = False
 ) -> tuple[str, list[str], dict[str, Any]]:
     """The CTEs, conditions (on ``e``) and parameters of the rows of ``lg_feed_events``
-    under *filters*: every kind unless ``kinds`` names some."""
+    under *filters*: every kind unless ``kinds`` names some; the judgments of the tiers
+    asked for, else of ``FEED_TIERS`` (of every tier: *every_tier*)."""
     bind: dict[str, Any] = {"since": filters.since or "0"}
     where = ["e.date >= %(since)s"]
+    if not every_tier:
+        where.append(tier_filter(filters, bind, "e."))
+    if filters.subject_area:
+        where.append(in_subject_area("e.subject_areas", filters.subject_area))
     ctes = ""
     if filters.until:
         # as the feed bounds a kind's dates
@@ -433,8 +463,11 @@ def counts_query(
     filters: FeedFilters, queries: list[str | None] | None = None
 ) -> tuple[str, dict[str, Any]]:
     """SQL and parameters: the ``total`` and ``facets`` of the feed under *filters*, from
-    ``lg_feed_events``: as the feed counts them (``feed_sql.dimension_facet``, each facet under every
-    filter but its own) on rows that hold what the feed's ``events`` hold."""
+    ``lg_feed_events``: as the feed counts them (``feed_sql.dimension_facet``, each facet
+    under every filter but its own) on rows that hold what the feed's ``events`` hold,
+    those alike counted once with their number (``n``). Those are of the
+    tiers the feed reads; the facet ``tier`` counts the judgments of every tier
+    (``judgments``), read on their own."""
     shared = replace(
         filters,
         kinds=None,
@@ -443,35 +476,63 @@ def counts_query(
         faction=None,
         cabinet=None,
         coalition=None,
+        tiers=None,
+        subject_area=None,
     )
-    _, where, bind = _matching(shared, queries)
+    _, where, bind = _matching(shared, queries, every_tier=True)
     if filters.faction:
         # as the feed reads its rows: only the kinds a faction can sign, for every facet
         where.append("e.kind = ANY(%(faction_kinds)s)")
         bind["faction_kinds"] = [s.kind for s in kinds_to_read(filters, facets=True)]
+    tiers = [tier_filter(filters, bind, "e.")]
+    if filters.subject_area:  # it keeps judgments alone, for every facet but its own
+        tiers.append("e.tier IS NOT NULL")
     dimensions = dimension_filters(filters, bind)
     plan = Plan(
         filters=filters, facets=True, shared=[], dimensions=dimensions, cursor=None
     )
     cabinet = CABINET_PERIOD if filters.cabinet else ""
+    every_tier = f"(SELECT tier FROM judgments {dimensions.where('tier')}) r"
     facets = ",\n            ".join(
-        f"{lit(name)}, {dimension_facet(plan, name)}" for name in DIMENSIONS
+        f"{lit(name)}, "
+        + (
+            facet("tier", every_tier)
+            if name == "tier"
+            else dimension_facet(plan, name, "sum(n)")
+        )
+        for name in DIMENSIONS
     )
     return (
         f"""WITH {PREAMBLE}{cabinet},
     events AS MATERIALIZED (
-        SELECT e.kind, e.id, e.date, e.chamber, e.ministry, e.factions,
-               CASE WHEN e.kind = {lit(EVENT_VOTE)} THEN {_COALITION}
-                    ELSE '{{}}'::text[] END AS coalition
-        FROM {FEED_EVENTS_TABLE} e
-        WHERE {" AND ".join(f"({clause})" for clause in where)}
-    )
-    SELECT (SELECT count(*)::int FROM events {dimensions.where()}) AS total,
+        SELECT {_COLUMNS}, count(*) AS n FROM ({_events(where + tiers)}) e
+        GROUP BY {_COLUMNS}
+    ),
+    judgments AS ({_events([*where, "e.tier IS NOT NULL"])})
+    SELECT (SELECT coalesce(sum(n), 0)::int FROM events {dimensions.where()}) AS total,
         json_build_object(
             {facets}
         ) AS facets""",
         bind,
     )
+
+
+# The columns the facets read (``_events``). The facets count rows alike as one, with the
+# number of them (``n``): a page of judgments of one tier is a few rows a day.
+_COLUMNS = "kind, date, chamber, ministry, factions, tier, subject_areas, coalition"
+
+
+def _events(where: list[str]) -> str:
+    """SQL: the rows of ``lg_feed_events`` under *where*, with the columns the facets read
+    (``_COLUMNS``)."""
+    return f"""
+        SELECT e.kind, e.date, e.chamber, e.ministry, e.factions, e.tier,
+               e.subject_areas,
+               CASE WHEN e.kind = {lit(EVENT_VOTE)} THEN {_COALITION}
+                    ELSE '{{}}'::text[] END AS coalition
+        FROM {FEED_EVENTS_TABLE} e
+        WHERE {" AND ".join(f"({clause})" for clause in where)}
+    """
 
 
 def get_counts(
@@ -604,10 +665,6 @@ def unsupported(filters: FeedFilters) -> list[str]:
     found = []
     if filters.member:
         found.append("member")
-    if filters.tiers:
-        found.append("tier")
-    if filters.subject_area:
-        found.append("subject_area")
     if filters.instrument:
         found.append("instrument")
     return found

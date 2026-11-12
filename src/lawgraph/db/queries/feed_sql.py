@@ -317,10 +317,9 @@ def _tier_part(tier: str) -> str:
     return f"n.tier = {lit(tier)}"
 
 
-def _in_subject_area(area: str) -> str:
-    """SQL: a judgment ``n`` in the main area of law *area*; of ``NO_SUBJECT_AREA``, one
-    without any."""
-    areas = "lg_subject_areas(n.subjects)"
+def in_subject_area(areas: str, area: str) -> str:
+    """SQL: the main areas of law *areas* (``lg_subject_areas``) hold *area*; of
+    ``NO_SUBJECT_AREA``, they are none. Null areas (not a judgment) hold neither."""
     if area == NO_SUBJECT_AREA:
         return f"cardinality({areas}) = 0"
     return f"{areas} @> ARRAY[{lit(area)}]::text[]"
@@ -331,7 +330,7 @@ def judgments_of(source: Source, filters: FeedFilters) -> Source:
     if filters.tiers:
         source = replace(source, parts=tuple(_tier_part(t) for t in filters.tiers))
     if filters.subject_area:
-        area = _in_subject_area(filters.subject_area)
+        area = in_subject_area(JUDGMENT_AREAS, filters.subject_area)
         source = replace(source, where=f"{source.where} AND {area}")
     return source
 
@@ -482,8 +481,11 @@ SOURCES: dict[str, Source] = {
 # The kinds that are no event of either chamber: a filter on the chamber leaves them out.
 _NO_CHAMBER = (EVENT_PUBLICATION, EVENT_COMMENCEMENT, EVENT_JUDGMENT)
 
-# The dimensions that are counted as facets; each is a filter on the rows too.
-DIMENSIONS = ("kind", "ministry", "faction", "cabinet", "chamber", "coalition")
+# The dimensions that are counted as facets; each is a filter on the rows too. ``tier`` and
+# ``subject_area`` count the judgments alone.
+DIMENSIONS = tuple(
+    "kind ministry faction cabinet chamber coalition tier subject_area".split()
+)
 
 # What every request reads first: factions by the ids of their Fractie records (an id two
 # factions claim goes to the first by key) and the cabinets with a start; each read once
@@ -594,7 +596,20 @@ def dimension_filters(filters: FeedFilters, bind: dict[str, Any]) -> FacetFilter
     if filters.coalition:
         clauses["coalition"] = "%(coalition)s = ANY(coalition)"
         bind["coalition"] = filters.coalition
+    clauses["tier"] = tier_filter(filters, bind)
+    if filters.subject_area:
+        clauses["subject_area"] = in_subject_area("subject_areas", filters.subject_area)
     return FacetFilters(own=clauses)
+
+
+def tier_filter(filters: FeedFilters, bind: dict[str, Any], row: str = "") -> str:
+    """SQL: the tier of a row (``tier``, of *row*: null but for a judgment) is one asked
+    for (``tiers``, which keeps judgments alone), else a judgment is of ``FEED_TIERS``."""
+    if filters.tiers:
+        bind["tiers"] = list(filters.tiers)
+        return f"{row}tier = ANY(%(tiers)s)"
+    bind["feed_tiers"] = list(FEED_TIERS)
+    return f"({row}tier IS NULL OR {row}tier = ANY(%(feed_tiers)s))"
 
 
 # The filters that hold for every facet, on the laterals of a kind's rows: ``l.labels``
@@ -802,6 +817,9 @@ _FACTIONS = f"""array_remove(ARRAY(
                 WHERE lg_str(x.v -> 'capacity') = {lit(CAPACITY_MEMBER)}
             ), NULL)"""
 
+# The main areas of law of a judgment ``n``, never null.
+JUDGMENT_AREAS = "coalesce(lg_subject_areas(n.subjects), '{}'::text[])"
+
 # The columns of a light row, in the order of every kind's SELECT.
 _ROW_COLUMNS = (
     ("kind", "text"),
@@ -816,6 +834,8 @@ _ROW_COLUMNS = (
     ("passed", "boolean"),
     ("margin", "float8"),
     ("coalition", "text[]"),
+    ("tier", "text"),
+    ("subject_areas", "text[]"),
 )
 
 
@@ -974,6 +994,7 @@ class Kind:
     def select(self) -> str:
         """The columns of the light row (``_ROW_COLUMNS``)."""
         vote = self.source.kind == EVENT_VOTE
+        judgment = self.source.kind == EVENT_JUDGMENT
         values = (
             lit(self.source.kind),
             str(KIND_RANK[self.source.kind]),
@@ -987,6 +1008,9 @@ class Kind:
             "n.passed" if vote else "NULL",
             _MARGIN if vote else "NULL",
             self.coalition,
+            "n.tier" if judgment else "NULL",
+            # counted only with the facets
+            JUDGMENT_AREAS if judgment and self.plan.facets else "NULL",
         )
         return ",\n            ".join(
             f"({value})::{sql_type} AS {name}"
@@ -1077,10 +1101,23 @@ def _first_page(source: Source, head: list[str]) -> str:
 
 
 def per_faction(rows: str) -> str:
-    """SQL: the rows *rows* once per faction (``fx.faction``), a row without one once."""
+    """SQL: the rows *rows* once per faction (``fx.faction``), however many of its signers
+    signed for it; a row without one once."""
     return (
-        f"{rows} CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 0"
-        " THEN factions ELSE ARRAY[NULL]::text[] END) AS fx(faction)"
+        f"{rows} CROSS JOIN LATERAL unnest(CASE WHEN cardinality(factions) > 1"
+        " THEN ARRAY(SELECT DISTINCT f FROM unnest(factions) AS f)"
+        " WHEN cardinality(factions) = 1 THEN factions"
+        " ELSE ARRAY[NULL]::text[] END) AS fx(faction)"
+    )
+
+
+def per_subject_area(rows: str) -> str:
+    """SQL: the judgments of *rows* once per main area of law (``ax.value``), one without
+    any once (null); the other kinds not at all."""
+    return (
+        f"{rows} CROSS JOIN LATERAL unnest(CASE WHEN cardinality(subject_areas) > 0"
+        " THEN subject_areas ELSE ARRAY[NULL]::text[] END) AS ax(value)"
+        " WHERE subject_areas IS NOT NULL"
     )
 
 
@@ -1089,28 +1126,30 @@ def per_coalition(rows: str) -> str:
     return f"{rows} CROSS JOIN LATERAL unnest(coalition) AS cx(value)"
 
 
-def dimension_facet(plan: Plan, name: str) -> str:
-    """A facet: the rows under every filter but its own, counted per value."""
-    others = plan.dimensions.where(name)
+def dimension_facet(plan: Plan, name: str, count: str = "count(*)") -> str:
+    """A facet: the rows under every filter but its own, counted per value (*count*: of
+    rows that stand for several, ``sum(n)``)."""
+    rows = f"(SELECT * FROM events {plan.dimensions.where(name)}) r"
     if name == "cabinet":
         return facet_of(f"""
             SELECT value, sum(n)::int AS count
             FROM (
                 SELECT {cabinet_on("per_day.date")} AS value, per_day.n
-                FROM (SELECT date, count(*) AS n FROM events {others}
-                      GROUP BY date) per_day
+                FROM (SELECT date, {count} AS n FROM {rows} GROUP BY date) per_day
             ) dated
             GROUP BY value""")
     if name == "faction":
-        # a row counts once for a faction, however many of its signers signed for it
-        once = f"""(
-                SELECT DISTINCT fx.faction AS value, id FROM {per_faction("events")} {others}
-            ) once"""
-        return facet("value", once)
+        return facet("fx.faction", per_faction(rows), count=count)
     if name == "coalition":
         # a vote counts for each that holds; an event without one counts for none
-        return facet("value", per_coalition("events"), others)
-    return facet(name, "events", others)
+        return facet("cx.value", per_coalition(rows), count=count)
+    if name == "subject_area":
+        # a judgment counts in each of its areas, one without any in the null one
+        return facet("ax.value", per_subject_area(rows), count=count)
+    if name == "tier":
+        # the judgments alone, of every tier (the feed's own under no ``tier``)
+        return facet("tier", rows, "WHERE tier IS NOT NULL", count)
+    return facet(name, rows, count=count)
 
 
 def rows_of(filters: FeedFilters, plan: Plan, *, facets: bool) -> str:

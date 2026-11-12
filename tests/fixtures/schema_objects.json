@@ -352,6 +352,7 @@
   "CREATE INDEX IF NOT EXISTS lg_faction_votes_period ON lg_faction_votes (faction_id, date DESC, decision_key ASC)",
   "CREATE INDEX IF NOT EXISTS lg_feed_events_date ON lg_feed_events (date, kind)",
   "CREATE INDEX IF NOT EXISTS lg_feed_events_factions ON lg_feed_events USING gin (factions)",
+  "CREATE INDEX IF NOT EXISTS lg_feed_events_tier ON lg_feed_events (tier, date) WHERE tier IS NOT NULL",
   "CREATE INDEX IF NOT EXISTS lg_feed_events_words ON lg_feed_events USING gin (words)",
   "CREATE INDEX IF NOT EXISTS lg_heat_highest ON lg_heat (months, count DESC, id)",
   "CREATE INDEX IF NOT EXISTS lg_judgment_persons_words ON lg_judgment_persons USING gin (words gin_trgm_ops)",
