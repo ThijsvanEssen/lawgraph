@@ -1050,12 +1050,10 @@ def _facet_per_set(name: str) -> str:
         counted = f"""SELECT set_id, ax.value, count(*)::int AS count
             FROM {per_subject_area("in_set")}
             GROUP BY set_id, ax.value"""
-    elif name == "tier":
-        counted = """SELECT set_id, tier AS value, count(*)::int AS count
-            FROM in_set WHERE tier IS NOT NULL GROUP BY set_id, value"""
-    else:
+    else:  # ``tier`` counts the judgments alone
+        judgments = "WHERE tier IS NOT NULL" if name == "tier" else ""
         counted = f"""SELECT set_id, {name} AS value, count(*)::int AS count
-            FROM in_set GROUP BY set_id, value"""
+            FROM in_set {judgments} GROUP BY set_id, value"""
     return f"""(SELECT json_object_agg(set_id, facet) FROM (
             SELECT set_id, {FACET_AGG} AS facet
             FROM ({counted}) counted
