@@ -2103,9 +2103,8 @@ resignation sentences); `core/cabinet_posts.py` turns its seats into posts;
 together.
 
 A post is held in a **seat**: `[<ministry>/]<post>[/<portfolio>]` (`ienw/minister`,
-`minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`,
-`staatssecretaris/rechtsbescherming`: no ministry where the function names none; a post is
-never the key of a ministry); the
+`minister_zonder_portefeuille/buitenlandse-handel-en-ontwikkelingshulp`: no ministry where
+the function names none; a post is never the key of a ministry); the
 minister-president and the minister of Algemene Zaken are one seat (`az/minister-president`),
 every viceminister-president sits in the shared seat `viceminister-president`. A heading can
 name several posts (`Vice-minister-president en minister van Financiën`, `Minister-president,
@@ -2207,6 +2206,11 @@ Milieu en Wonen, Infrastructuur en Waterstaat 50 and BZK 32 publications) or `no
 had enough: a minister without portfolio before 1995, a typo on a page). Nothing decides by
 the words of a portfolio: the sources are better at it (Van der Wal, Minister voor Natuur en
 Stikstof in 2022: LNV, not the LVVN of 2024). A viceminister-president has no ministry.
+
+A seat without a ministry then sits in the one these sources give its posts, by the name it
+had when the seat ended (Rutte IV: `staatssecretaris/fiscaliteit-en-belastingdienst` becomes
+`fin/staatssecretaris/fiscaliteit-en-belastingdienst`); every post of the seat moves. When
+they give its posts no ministry, or two, the seat stays without one.
 
 Every cabinet becomes a node of `cabinets` ([its props](data-model.md#cabinet-cabinets)): it
 ends at the beëdiging of the next, its `prime_minister` is the member who held

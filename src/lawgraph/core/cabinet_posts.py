@@ -37,6 +37,9 @@ then applies the rules of a seat:
 - **Overlaps.** Two holders of one named seat at the same time after these rules are not
   hidden: both get ``overlaps_with``.
 
+A seat whose heading names no ministry gets one later, from the official sources the
+pipeline reads (``seats_in_their_ministry``).
+
 A holder is a person by ``person_key``: initials and surname as written, which the
 pipeline then matches to a member.
 """
@@ -472,6 +475,13 @@ def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return posts
 
 
+def _last_day(post: dict[str, Any], cabinet: dict[str, Any]) -> str:
+    """The last day *post* was held: the day before its end, the cabinet's or today."""
+    end = post["to_date"] or cabinet.get("to_date") or dutch_today().isoformat()
+    first: str = post["from_date"]
+    return max(day_before(end), first)
+
+
 def _seats_by_their_last_name(
     posts: list[dict[str, Any]], cabinet: dict[str, Any]
 ) -> None:
@@ -481,10 +491,7 @@ def _seats_by_their_last_name(
     keeps the ``ministry`` of its own first day."""
     ends: dict[str, str] = {}
     for post in posts:
-        end = post["to_date"] or cabinet.get("to_date") or dutch_today().isoformat()
-        last = day_before(end)
-        last = max(last, post["from_date"])
-        ends[post["seat"]] = max(ends.get(post["seat"], ""), last)
+        ends[post["seat"]] = max(ends.get(post["seat"], ""), _last_day(post, cabinet))
     for post in posts:
         ministry, slash, rest = post["seat"].partition("/")
         if not slash or ministry not in MINISTRY_BY_KEY:
@@ -671,6 +678,34 @@ def cabinet_posts(
         for key in (_HEADING, _HEADING_SEAT, _OWN_NAME):
             post.pop(key, None)
     return sorted(posts, key=lambda p: (p["seat"], p["from_date"], p["person"]))
+
+
+def seats_in_their_ministry(
+    posts: list[dict[str, Any]], cabinet: dict[str, Any]
+) -> None:
+    """A seat whose heading names no ministry (``staatssecretaris/fiscaliteit-en-
+    belastingdienst``) sits in the ministry the official sources give its posts
+    (``ministry``, from ``core.post_ministries``): ``fin/staatssecretaris/fiscaliteit-en-
+    belastingdienst``, by the name the ministry had when the seat ended. Every post of the
+    seat moves, ``acting_other_seat`` with it, so the rules of a seat still hold. A seat
+    whose posts the sources give no ministry, or two, stays without one: a gap of the
+    source."""
+    moved: dict[str, str] = {}
+    for seat, held in posts_by_seat(posts).items():
+        if not seat or seat.partition("/")[0] in MINISTRY_BY_KEY:
+            continue
+        ministries = {p["ministry"] for p in held if p.get("ministry")}
+        if len(ministries) != 1:
+            continue
+        (ministry,) = ministries
+        last = max(_last_day(p, cabinet) for p in held)
+        moved[seat] = f"{current_on(ministry, last) or ministry}/{seat}"
+    for post in posts:
+        if post.get("seat") in moved:
+            post["seat"] = moved[post["seat"]]
+        other = post.get("acting_other_seat")
+        if other and other["seat"] in moved:
+            other["seat"] = moved[other["seat"]]
 
 
 # ── What a cabinet's seats show ──────────────────────────────────────────────
