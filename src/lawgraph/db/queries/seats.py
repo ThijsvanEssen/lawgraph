@@ -152,6 +152,62 @@ def _existing(seats: list[str], people: list[dict[str, Any]]) -> list[str]:
     return [seat for seat in seats if seat in known]
 
 
+def _names(held: list[dict[str, Any]]) -> list[str]:
+    """The names *held* (one seat's posts, oldest first) went by, oldest first: the last is
+    the seat by its latest name."""
+    return list(dict.fromkeys(base_seat(post["seat"]) for post in held))
+
+
+def _holding(post: dict[str, Any], today: str) -> bool:
+    """Whether *post* is held on *today*: begun, and not ended before it."""
+    return (post.get("from_date") or "") <= today and (
+        post.get("to_date") is None or post["to_date"] > today
+    )
+
+
+def _summary(held: list[dict[str, Any]], today: str) -> dict[str, Any]:
+    """One seat in the list: its latest name and post, its period and who holds it now."""
+    latest = held[-1]
+    ends: list[str | None] = [post.get("to_date") for post in held]
+    closed = [end for end in ends if end is not None]
+    return {
+        "seat": _names(held)[-1],
+        "post": latest.get("post"),
+        "function": latest.get("function"),
+        "ministry": latest.get("ministry"),
+        "ministries": sorted(
+            set(ministries_of(latest["seat"]))
+            | {post["ministry"] for post in held if post.get("ministry")}
+        ),
+        "cabinets": sorted(
+            {post["cabinet_key"] for post in held if post.get("cabinet_key")}
+        ),
+        "from_date": held[0].get("from_date"),
+        "to_date": max(closed) if closed and len(closed) == len(ends) else None,
+        "holder_count": len({post["member"]["key"] for post in held}),
+        "current": [post for post in held if _holding(post, today)],
+    }
+
+
+def list_seats(store: GraphStore, today: str) -> list[dict[str, Any]]:
+    """Every office someone held, over its renames: ``seat`` by its latest name, its latest
+    ``post``, ``function`` and ``ministry``, every ``ministries`` and ``cabinets`` it was held
+    under, its first and last day, how many people held it and the posts held on *today*;
+    by ``seat``."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for person in _people(store):
+        for post in person["posts"]:
+            seat = base_seat(post.get("seat") or "")
+            if seat:
+                own = family(seat)[0]
+                groups.setdefault(own, []).append({**post, "member": person["member"]})
+    summaries = [
+        _summary(sorted(held, key=lambda post: post.get("from_date") or ""), today)
+        for held in groups.values()
+    ]
+    return sorted(summaries, key=lambda row: row["seat"])
+
+
 def get_seat(store: GraphStore, seat: str) -> dict[str, Any] | None:
     """An office over its renames: ``seat`` by its latest name, ``names`` oldest first,
     ``holders``, ``gaps`` (longer than ``GAP_DAYS`` without a holder), the seats of a merger
@@ -160,10 +216,11 @@ def get_seat(store: GraphStore, seat: str) -> dict[str, Any] | None:
     held = _held(people, seat)
     if not held:
         return None
-    names = list(dict.fromkeys(base_seat(post["seat"]) for post in held))
+    names = _names(held)
     dated = [post for post in held if post.get("from_date")]
     return {
         "seat": names[-1],
+        "ministry": held[-1].get("ministry"),
         "names": names,
         "merged_from": _existing(merged_from(seat), people),
         "merged_into": _existing(merged_into(seat), people),

@@ -9,7 +9,7 @@ from pydantic import Field
 from lawgraph.api.params import MinistryKey, Post
 from lawgraph.api.schemas.common import END_OF_OFFICE, StrictModel
 from lawgraph.api.schemas.members import PersonRefDTO
-from lawgraph.api.schemas.ministries import WithMinistry
+from lawgraph.api.schemas.ministries import WithMinistry, WithMinistryPath
 from lawgraph.db.queries.seats import Attribution
 
 
@@ -84,11 +84,16 @@ class SeatCountsDTO(StrictModel):
         )
 
 
-class SeatDTO(StrictModel):
+class SeatDTO(WithMinistryPath):
     """An office, over the names of its ministry."""
 
     seat: str = Field(
         ..., description="By its latest name: ``ienw/minister``, without a lane."
+    )
+    ministry: MinistryKey | None = Field(
+        None,
+        description="The ministry of its latest post; null for a seat without one "
+        "(``viceminister-president``).",
     )
     names: list[str] = Field(
         ..., description="Every name it was held under, oldest first."
@@ -111,6 +116,7 @@ class SeatDTO(StrictModel):
     def from_row(cls, row: dict[str, Any]) -> SeatDTO:
         return cls(
             seat=row["seat"],
+            ministry=row.get("ministry"),
             names=row["names"],
             merged_from=row["merged_from"],
             merged_into=row["merged_into"],
@@ -119,3 +125,70 @@ class SeatDTO(StrictModel):
             commitments=SeatCountsDTO.of(row["commitments"]),
             dossiers=SeatCountsDTO.of(row["dossiers"]),
         )
+
+
+class SeatCurrentDTO(StrictModel):
+    """Someone who holds the seat on the day asked."""
+
+    member: PersonRefDTO
+    function: str | None = Field(None, description="As Rijksoverheid names the post.")
+    cabinet_key: str | None = None
+    from_date: str | None = Field(None, description="The day the post began.")
+    acting: bool = Field(False, description="A stand-in (ad interim).")
+
+
+class SeatSummaryDTO(WithMinistryPath):
+    """An office in the list: its latest name and post, its period and who holds it now."""
+
+    seat: str = Field(
+        ..., description="By its latest name, without a lane: ``fin/minister``."
+    )
+    post: Post | None = None
+    function: str | None = Field(
+        None, description="Its latest post as Rijksoverheid names it."
+    )
+    ministry: MinistryKey | None = Field(
+        None, description="The ministry of its latest post; null without one."
+    )
+    from_date: str | None = Field(None, description="The first day someone held it.")
+    to_date: str | None = Field(
+        None, description="The last day someone held it; null while it is held."
+    )
+    holder_count: int = Field(
+        ...,
+        description="How many people held it, as ``holders`` of the seat counts them.",
+    )
+    current: list[SeatCurrentDTO] = Field(
+        default_factory=list,
+        description="Who holds it on the day asked, oldest post first; empty for a seat "
+        "nobody holds then: a gap or a former office, not filled in.",
+    )
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any]) -> SeatSummaryDTO:
+        return cls(
+            seat=row["seat"],
+            post=row.get("post"),
+            function=row.get("function"),
+            ministry=row.get("ministry"),
+            from_date=row.get("from_date"),
+            to_date=row.get("to_date"),
+            holder_count=row["holder_count"],
+            current=[
+                SeatCurrentDTO(
+                    member=PersonRefDTO.from_row(post["member"]),
+                    function=post.get("function"),
+                    cabinet_key=post.get("cabinet_key"),
+                    from_date=post.get("from_date"),
+                    acting=bool(post.get("acting")),
+                )
+                for post in row["current"]
+            ],
+        )
+
+
+class SeatListDTO(StrictModel):
+    """The offices that match, by ``seat``."""
+
+    total: int
+    items: list[SeatSummaryDTO]

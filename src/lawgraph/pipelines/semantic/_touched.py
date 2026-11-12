@@ -10,6 +10,10 @@ signature, document or law) that the step reads (``GOVERNMENT_EDGES``, ``OUTCOME
 a wave of edges it does not read (the actors of every case, the links between documents)
 touches nothing of it. What is touched in another way (a cabinet, a post, the date of a
 publication) waits for the nightly run over all.
+
+``semantic tk-dossier-relations`` reads only the replacements then: the cases of the records
+fetched since then (a case that now replaces another) and both ends of a ``PART_OF`` edge
+written since then (a document that joins a case).
 """
 
 from __future__ import annotations
@@ -68,6 +72,8 @@ OUTCOME_EDGES: dict[str, tuple[str, ...]] = {
     RELATION_LEGISLATED_IN: (),
     RELATION_PART_OF: (),
 }
+# ``tk-dossier-relations`` (replacements): a document that joins a case.
+REPLACEMENT_EDGES: dict[str, tuple[str, ...]] = {RELATION_PART_OF: ()}
 
 
 def edge_moment(since: dt.datetime) -> str:
@@ -137,4 +143,15 @@ def touched_commitments(
         seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(
         store, COLLECTION_COMMITMENTS, seeds, edge_moment(since), GOVERNMENT_EDGES
+    )
+
+
+def touched_cases(store: Store, since: dt.datetime) -> list[str]:
+    """The ``id`` of the cases touched at or after *since* for their replacements."""
+    return semantic_tk.touched_ids(
+        store,
+        COLLECTION_CASES,
+        tk_nodes_fetched_since(store, since),
+        edge_moment(since),
+        REPLACEMENT_EDGES,
     )

@@ -45,6 +45,15 @@ def test_every_step_of_a_poll_is_a_pipeline_of_the_registry(name) -> None:
     assert phases[0] == "retrieve"
 
 
+@pytest.mark.parametrize("name", list(poll.POLLS))
+def test_the_semantic_steps_of_a_poll_run_in_the_order_of_semantic_all(name) -> None:
+    from lawgraph.sources.registry import SEMANTIC
+
+    order = [pipeline.address for pipeline in SEMANTIC]
+    steps = [p.address for p, _ in poll.chain(name) if p.phase == "semantic"]
+    assert steps == sorted(steps, key=order.index)
+
+
 def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -> None:
     ran, result = _ran(monkeypatch, ["tk", "--since", "2h"])
     assert not result.errors
@@ -57,9 +66,12 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "normalize tk-dossiers",
         "normalize tk-document-links",
         "normalize tk-case-actors",
+        "semantic tk-amends",
+        "semantic tk-dossier-relations",
+        "semantic tk-cited-papers",
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
-        "semantic tk-cited-papers",
+        "semantic tk-coalition-votes",
         "semantic tk-motion-kinds",
     ]
     since = {argv[-1] for _, argv in ran}
@@ -70,10 +82,19 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
     assert "--skip-members" in dict(ran)["retrieve tk-dossiers"]
     # the steps that would read every dossier read what was touched since then
     touched = dict(ran)["normalize tk"][-1]
-    for step in ("semantic tk-dossier-outcomes", "semantic tk-government"):
+    for step in (
+        "semantic tk-dossier-outcomes",
+        "semantic tk-government",
+        "semantic tk-dossier-relations",
+    ):
         assert dict(ran)[step] == ["--touched-since", touched]
     assert dict(ran)["semantic tk-cited-papers"] == ["--since", touched]
-    assert dict(ran)["semantic tk-motion-kinds"] == ["--since", touched]
+    for step in (
+        "semantic tk-amends",
+        "semantic tk-coalition-votes",
+        "semantic tk-motion-kinds",
+    ):
+        assert dict(ran)[step] == ["--since", touched]
 
 
 def _nightly(monkeypatch, store: PipelineStateFake, state: State) -> None:
@@ -132,6 +153,9 @@ def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> 
     assert courts == list(FEED_TIERS)
     assert len(owms_terms(courts)) == len(FEED_TIERS)  # each a known tier
     assert "--since" in dict(ran)["normalize rechtspraak"]
+    since = dict(ran)["normalize rechtspraak"][-1]
+    for step in ("appeal", "referrals", "related", "citations"):
+        assert dict(ran)[f"semantic rechtspraak-{step}"] == ["--since", since]
 
 
 def test_a_poll_of_the_eerste_kamer_closes_the_dossiers_it_voted_on(
@@ -216,6 +240,6 @@ def test_only_a_poll_asks_for_what_was_touched() -> None:
     still read every dossier there, the safety net for what a poll does not see."""
     from lawgraph.sources.registry import find
 
-    for name in ("tk-government", "tk-dossier-outcomes"):
+    for name in ("tk-government", "tk-dossier-outcomes", "tk-dossier-relations"):
         command = present(find("semantic", name)).command
         assert command.accepts_touched_since and not command.accepts_since
