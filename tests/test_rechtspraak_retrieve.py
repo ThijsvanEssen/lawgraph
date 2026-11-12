@@ -152,13 +152,13 @@ def test_the_index_is_asked_for_the_courts_and_the_decision_dates() -> None:
         OWMS_TERMS + "Raad_van_State",
     ]
     assert params["date"] == ["2024-09-20", "2026-09-20"]
-    assert params["type"] == "Uitspraak" and params["return"] == "DOC"
+    # every document, the conclusions of the Parket too: they are no ``Uitspraak``
+    assert params["return"] == "DOC" and "type" not in params
     assert "modifiedsince" not in params
 
 
 def test_the_index_of_every_ecli_asks_for_no_type_and_no_document() -> None:
-    """Only an index without ``return=DOC`` lists what was withdrawn; a withdrawn
-    conclusion is no ``Uitspraak``."""
+    """Only an index without ``return=DOC`` lists what was withdrawn."""
     calls: list[dict] = []
     since = dt.datetime(2026, 10, 14, tzinfo=UTC)
     list(_client([_page(0)], calls).iter_index(modified_from=since, documents=False))

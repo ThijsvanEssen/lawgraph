@@ -225,8 +225,10 @@ def list_judgments(
     description=(
         "Per area of law (`civiel`, `straf`, `bestuur`, `belasting`) the courts of its "
         "route, each with `basis`, the article a step of the Verloop gets, and "
-        "`designations`, the articles of the Bevoegdheidsregeling bestuursrechtspraak "
-        "that name it; the steps whose article is not read in the source as `gaps`. From "
+        "`designations`, the other articles that give it its say in the step (the "
+        "Bevoegdheidsregeling bestuursrechtspraak, the laws that open cassation), and "
+        "`after_tier` for a court that hears only the judgments of that one; the steps "
+        "whose article is not read in the source as `gaps`. From "
         "the fixed list `data/route_articles.json`. `regeling`: the regeling (Awb bijlage "
         "2) by chapter, each article with its heading and the laws its list names."
     ),

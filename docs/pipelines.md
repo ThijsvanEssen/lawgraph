@@ -741,8 +741,9 @@ for a `--since` up to 60 days back, also by when a judgment was published or cha
 filter: the Rechtspraak republished nearly its whole corpus. For each judgment of the index one `rs-content` record is stored, as soon as it is
 downloaded. A judgment that is stored and was fetched after its last change (`updated` in the
 index) is skipped, so a re-run or a resumed run only downloads the rest. The index is asked
-for `type=Uitspraak` only, so a conclusion arrives through `--ecli` or `--mode gaps` (a
-conclusion that is cited). A judgment that answers HTTP 404 becomes an `rs-content-missing`
+for every document (`return=DOC`, no `type`): the judgments (`Uitspraak`) and the conclusions
+(`Conclusie`: the Parket bij de Hoge Raad, an advocate-general of the Raad van State) alike.
+Two `type`s match nothing (they are both at once), so there is none. A judgment that answers HTTP 404 becomes an `rs-content-missing`
 record (data model, raw_sources), which `--mode gaps` leaves out while it waits. A page that is
 not XML is not stored, and 25 failed downloads in a row fail the step.
 

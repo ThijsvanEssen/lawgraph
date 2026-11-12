@@ -16,13 +16,21 @@ class RouteStep(StrictModel):
         description="The procedures the metadata names that fit (their start): "
         "`Eerste aanleg`, `Hoger beroep`, `Cassatie`."
     )
+    after_tier: str | None = Field(
+        default=None,
+        description="The court whose judgments this step hears, when only that one's: "
+        "`centrale_raad_van_beroep` for cassation in `bestuur`; null when it hears those "
+        "of the step before it.",
+    )
     basis: CourseBasis = Field(
         description="The article a step of the Verloop gets (`/course`)."
     )
     designations: list[CourseBasis] = Field(
-        description="The articles of the Bevoegdheidsregeling bestuursrechtspraak (Awb "
-        "bijlage 2: `bijlage 2 artikel 2`) that name this court, besides `basis`; empty "
-        "for a court the regeling does not name."
+        description="The other articles that give this court its say in this step, "
+        "besides `basis`: the article of the Bevoegdheidsregeling bestuursrechtspraak "
+        "(Awb bijlage 2: `bijlage 2 artikel 2`) that names it, the Awb beside the RO in "
+        "`belasting` (`8:6`, `8:105`), the laws that open cassation against the Centrale "
+        "Raad van Beroep (`BWBR0002221` art. `53`, ...); empty when there are none."
     )
 
 
