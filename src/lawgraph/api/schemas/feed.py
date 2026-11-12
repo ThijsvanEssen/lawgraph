@@ -47,7 +47,7 @@ from lawgraph.core.feed import (
     PersonRole,
     person_role,
 )
-from lawgraph.core.models import node_id, parse_node_id
+from lawgraph.core.models import make_node_key, node_id, parse_node_id
 from lawgraph.core.motion_kinds import MotionKind
 from lawgraph.core.official_urls import instrument_url, judgment_url
 from lawgraph.core.publications import (
@@ -240,11 +240,9 @@ _CITATION = "How it is cited: ``Stb. 2026, 94``; null when its series, year or n
 def _citation(
     series: PublicationSeries | None, year: int | None, number: str | None
 ) -> str | None:
-    return (
-        publication_citation(series, year, number)
-        if series and year and number
-        else None
-    )
+    if series and year and number:
+        return publication_citation(series, year, number)
+    return None
 
 
 class FeedPublicationDTO(StrictModel):
@@ -302,6 +300,10 @@ class FeedCommencementDTO(StrictModel):
     articles: list[str] = Field(
         default_factory=list,
         description="Their numbers, in the order of the law; at most fifty.",
+    )
+    article_keys: list[str] = Field(
+        default_factory=list,
+        description="Their node keys (``bwbr0005537_3_2``), alike.",
     )
     new: bool = Field(
         False,
@@ -396,6 +398,9 @@ class FeedViaDTO(StrictModel):
         None,
         description="The number of the article of the law it touches, the first in the "
         "order of the law; null where it is tied to the law as a whole or by a dossier.",
+    )
+    article_key: str | None = Field(
+        None, description="Its node key (``bwbr0005537_3_2``); null with ``article``."
     )
     dossier: str | None = Field(
         None, description="The label of the dossier it is tied by; null for the others."
@@ -847,16 +852,18 @@ def _publication(props: dict[str, Any], row: dict[str, Any]) -> FeedPublicationD
 
 
 def _commencement(row: dict[str, Any]) -> FeedCommencementDTO:
-    instrument = row.get("instrument")
+    instrument = row.get("instrument") or {}
     commenced = row.get("commenced") or {}
     basis = commenced.get("based_on")
-    in_force = (instrument or {}).get("date_in_force")
-    kind = (instrument or {}).get("kind")
+    in_force, kind = instrument.get("date_in_force"), instrument.get("kind")
+    bwb_id = instrument.get("bwb_id")
+    numbers = [str(a) for a in commenced.get("articles") or [] if a is not None]
     return FeedCommencementDTO(
         instrument=_instrument(instrument) if instrument else None,
-        article_count=(instrument or {}).get("article_count"),
+        article_count=instrument.get("article_count"),
         changed_articles=int(row.get("changed_articles") or 0),
-        articles=[str(a) for a in commenced.get("articles") or [] if a is not None],
+        articles=numbers,
+        article_keys=[make_node_key(bwb_id, n) for n in numbers] if bwb_id else [],
         new=bool(in_force) and in_force == row.get("date"),
         publication=_publication_ref(commenced.get("publication")),
         based_on=(
@@ -878,8 +885,7 @@ def _publication_ref(found: dict[str, Any] | None) -> FeedPublicationRefDTO | No
     publication = found.get("publication") or {}
     series = publication_series(publication.get("kind"))
     year = publication.get("year") if isinstance(publication.get("year"), int) else None
-    number = publication.get("number")
-    number = str(number) if number is not None else None
+    number = None if (n := publication.get("number")) is None else str(n)
     return FeedPublicationRefDTO(
         key=found.get("key"),
         series=series,

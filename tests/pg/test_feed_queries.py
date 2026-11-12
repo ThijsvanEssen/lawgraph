@@ -322,6 +322,7 @@ def test_every_kind_is_an_event_newest_first(client: TestClient) -> None:
         "changed_articles": 2,
         # versions without a number; a law without its day in force, nor a basis
         "articles": [],
+        "article_keys": [],
         "new": False,
         "publication": None,
         "based_on": None,

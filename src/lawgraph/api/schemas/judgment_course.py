@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from lawgraph.api.schemas.common import StrictModel
+from lawgraph.core.models import make_node_key
 from lawgraph.db.queries.judgment_course import COURSE_DEPTH, COURSE_LIMIT
 
 
@@ -13,6 +14,14 @@ class CourseBasis(StrictModel):
 
     bwb_id: str = Field(description="The law: `BWBR0001830` (RO), `BWBR0005537` (Awb).")
     article_number: str = Field(description="Its article as numbered: `60`, `8:105`.")
+
+    @computed_field(  # type: ignore[prop-decorator]
+        description="The node key of the article: `bwbr0001830_60`, "
+        "`bwbr0005537_bijlage_2_artikel_2`."
+    )
+    @property
+    def key(self) -> str:
+        return make_node_key(self.bwb_id, self.article_number)
 
 
 class CourseLink(StrictModel):

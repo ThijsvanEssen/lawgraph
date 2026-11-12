@@ -18649,13 +18649,20 @@
             "type": "string",
             "title": "Article Number",
             "description": "Its article as numbered: `60`, `8:105`."
+          },
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "The node key of the article: `bwbr0001830_60`, `bwbr0005537_bijlage_2_artikel_2`.",
+            "readOnly": true
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "bwb_id",
-          "article_number"
+          "article_number",
+          "key"
         ],
         "title": "CourseBasis",
         "description": "The article of law that gives the court its say in this step."
@@ -26466,6 +26473,14 @@
             "title": "Articles",
             "description": "Their numbers, in the order of the law; at most fifty."
           },
+          "article_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Article Keys",
+            "description": "Their node keys (``bwbr0005537_3_2``), alike."
+          },
           "new": {
             "type": "boolean",
             "title": "New",
@@ -26502,6 +26517,7 @@
           "article_count",
           "changed_articles",
           "articles",
+          "article_keys",
           "new",
           "publication",
           "based_on"
@@ -28417,6 +28433,18 @@
             "title": "Article",
             "description": "The number of the article of the law it touches, the first in the order of the law; null where it is tied to the law as a whole or by a dossier."
           },
+          "article_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Article Key",
+            "description": "Its node key (``bwbr0005537_3_2``); null with ``article``."
+          },
           "dossier": {
             "anyOf": [
               {
@@ -28435,6 +28463,7 @@
         "required": [
           "relation",
           "article",
+          "article_key",
           "dossier"
         ],
         "title": "FeedViaDTO",
