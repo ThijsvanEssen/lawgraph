@@ -26479,7 +26479,7 @@
             },
             "type": "array",
             "title": "Article Keys",
-            "description": "The node keys of those articles (``bwbr0005537_3_2``), in the same order."
+            "description": "Their node keys (``bwbr0005537_3_2``), alike."
           },
           "new": {
             "type": "boolean",
@@ -28443,7 +28443,7 @@
               }
             ],
             "title": "Article Key",
-            "description": "The node key of that article (``bwbr0005537_3_2``); null with ``article``."
+            "description": "Its node key (``bwbr0005537_3_2``); null with ``article``."
           },
           "dossier": {
             "anyOf": [

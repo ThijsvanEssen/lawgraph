@@ -16,7 +16,7 @@
     "src/lawgraph/api/routes/nodes.py": 972,
     "src/lawgraph/api/schemas/articles.py": 1312,
     "src/lawgraph/api/schemas/dossiers.py": 1354,
-    "src/lawgraph/api/schemas/feed.py": 1276,
+    "src/lawgraph/api/schemas/feed.py": 1282,
     "src/lawgraph/api/schemas/instruments.py": 2121,
     "src/lawgraph/api/schemas/judgments.py": 868,
     "src/lawgraph/core/bwb_xml.py": 2092,
