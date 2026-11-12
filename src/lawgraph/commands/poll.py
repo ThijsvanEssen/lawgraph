@@ -49,11 +49,15 @@ class Step:
     options: tuple[str, ...] = ()
 
 
-# The chains, in the order their steps run. tk-dossier-outcomes: a vote that rejects a bill
-# (Tweede or Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a
-# new document or commitment; tk-cited-papers: the motion a new letter answers;
-# tk-motion-kinds: a new motion of censure or of no confidence. A judgment is in the feed when
-# it is normalized.
+# The chains, in the order their steps run (a semantic step in the order of ``semantic all``).
+# tk-amends: the law a new paper amends; tk-dossier-relations: only the amended amendment or
+# motion that replaces another (REVISES vervanging), the rest at night; tk-cited-papers: the
+# motion a new letter answers; tk-dossier-outcomes: a vote that rejects a bill (Tweede or
+# Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a new document
+# or commitment; tk-coalition-votes: what the coalition did on a new vote; tk-motion-kinds: a
+# new motion of censure or of no confidence. A judgment is in the feed when it is normalized;
+# its earlier and later instances, the preliminary ruling it asks or answers, the cases it
+# names as connected and its citations follow in the same poll.
 POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (
         Step("retrieve", "tk"),
@@ -64,9 +68,12 @@ POLLS: dict[str, tuple[Step, ...]] = {
         Step("normalize", "tk-dossiers"),
         Step("normalize", "tk-document-links"),
         Step("normalize", "tk-case-actors"),
+        Step("semantic", "tk-amends"),
+        Step("semantic", "tk-dossier-relations"),
+        Step("semantic", "tk-cited-papers"),
         Step("semantic", "tk-dossier-outcomes"),
         Step("semantic", "tk-government"),
-        Step("semantic", "tk-cited-papers"),
+        Step("semantic", "tk-coalition-votes"),
         Step("semantic", "tk-motion-kinds"),
     ),
     "ek": (
@@ -82,6 +89,10 @@ POLLS: dict[str, tuple[Step, ...]] = {
             tuple(option for tier in FEED_TIERS for option in ("--court", tier)),
         ),
         Step("normalize", "rechtspraak"),
+        Step("semantic", "rechtspraak-appeal"),
+        Step("semantic", "rechtspraak-referrals"),
+        Step("semantic", "rechtspraak-related"),
+        Step("semantic", "rechtspraak-citations"),
     ),
     "echr": (
         Step("retrieve", "echr"),
