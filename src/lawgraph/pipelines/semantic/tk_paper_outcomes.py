@@ -13,7 +13,7 @@ Eerste Kamer states, else ``vervangen`` for a document a newer one replaces), ``
 ``documents`` keeps the light row with it, which the lists of documents read.
 
 With ``--touched-since`` it reads only the papers a poll touched since then
-(``semantic/_touched.py``, ``touched_papers``) and comes to the same for them as a run over
+(``semantic/_touched.py``, ``touched_documents``) and comes to the same for them as a run over
 all. It removes nothing, so the nightly run over all is only needed for what is touched in
 another way (the status on the page of a motion of the Eerste Kamer, a replacement that went).
 """
@@ -45,15 +45,15 @@ class TKPaperOutcomesSemanticPipeline(SemanticPipelineBase):
 
     def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        papers = (
+        touched_ids = (
             None
             if touched_since is None
-            else touched.touched_papers(self.store, touched_since)
+            else touched.touched_documents(self.store, touched_since)
         )
-        decisions = queries.document_decisions(self.store, papers)
-        replaced = queries.replaced_documents(self.store, papers)
-        stated = queries.stated_statuses(self.store, papers)
-        kept = queries.kept_outcomes(self.store, papers)
+        decisions = queries.document_decisions(self.store, touched_ids)
+        replaced = queries.replaced_documents(self.store, touched_ids)
+        stated = queries.stated_statuses(self.store, touched_ids)
+        kept = queries.kept_outcomes(self.store, touched_ids)
         changed: list[dict[str, Any]] = []
         documents = sorted(set(decisions) | replaced | set(stated) | set(kept))
         for document in self._track(documents, "papers", total=len(documents)):

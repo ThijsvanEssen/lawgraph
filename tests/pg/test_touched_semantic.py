@@ -585,7 +585,7 @@ def test_outcomes_of_the_touched_papers_are_those_of_a_run_over_all(
             _edge("decisions/ek_d6", "documents/ek6", "ABOUT", NEW),
         ]
     )
-    papers = touched.touched_papers(store, SINCE)
+    papers = touched.touched_documents(store, SINCE)
     assert {f"documents/{p}" for p in ("m1", "m4", "m5", "m5b", "ek6")} <= set(papers)
     assert "documents/m2" not in papers
 
