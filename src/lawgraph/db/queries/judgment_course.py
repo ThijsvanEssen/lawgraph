@@ -12,6 +12,7 @@ from lawgraph.core.courts import court_of
 from lawgraph.core.ecli import court_code
 from lawgraph.core.judgment_course import (
     COURSE_RELATIONS,
+    REFERRAL_PROCEDURE,
     Edge,
     area_of,
     basis_of,
@@ -118,8 +119,9 @@ def _step(
 ) -> dict[str, Any]:
     """One step: the judgment *node*, the article that gives its court its say, and its
     *edges* to earlier steps (of a conclusion: to the judgment it advises on). A decision
-    after referral has no article: the source often names its procedure ``Hoger beroep``,
-    but the court hears the case by the referral, which the list does not hold."""
+    after referral has the article of the referral (``REFERRAL_PROCEDURE``): the source
+    often names its procedure ``Hoger beroep``, but the court hears the case by the
+    referral."""
     code = node["court_code"] or (court_code(node["ecli"]) if node["ecli"] else None)
     known = court_of(code, node["court"])
     tier = node["tier"] or (known.tier if known else None)
@@ -136,9 +138,13 @@ def _step(
         "decision_kind": node["decision_kind"],
         "outcome": node["outcome"],
         "area": area,
-        "basis": None
-        if any(e.relation == RELATION_REFERRED_BY for e in edges)
-        else basis_of(tier, node["procedure"], area),
+        "basis": basis_of(
+            tier,
+            REFERRAL_PROCEDURE
+            if any(e.relation == RELATION_REFERRED_BY for e in edges)
+            else node["procedure"],
+            area,
+        ),
         "loaded": not node["stub"],
         "current": current,
         "links": [

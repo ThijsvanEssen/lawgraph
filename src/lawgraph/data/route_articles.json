@@ -1,17 +1,25 @@
 {
- "about": "The article of law that gives a court its say in a step of a case: by the tier of the court, the procedure the metadata names (psi:procedure, its start) and the area of law (dc:subject). Read by core/judgment_course.py. Kept by hand from the text of the laws; a step none of them fits has no basis (a gap), never a guessed one. A rule with after_tier hears only the judgments of that court (cassation in bestuur: only against the Centrale Raad van Beroep). The other articles that give the court its say in a step of the route, by tier, procedure and area, are under designations (the route, not a step of the Verloop): the article of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2) that names a court, the Awb beside the RO in tax cases, the laws that open cassation against the Centrale Raad van Beroep (those read, not all there may be). Known gaps, not read in the source: under gaps.",
+ "about": "The article of law that gives a court its say in a step of a case: by the tier of the court, the procedure the metadata names (psi:procedure, its start) and the area of law (dc:subject). Read by core/judgment_course.py. Kept by hand from the text of the laws; a step none of them fits has no basis (a gap), never a guessed one. A rule with after_tier hears only the judgments of that court: cassation in bestuur only against the Centrale Raad van Beroep, leapfrog cassation (sprongcassatie) against the rechtbank, the gerechtshof after the Hoge Raad sent a case to it (procedure Verwijzing na Hoge Raad). A designation with after_tier belongs to the step of that after_tier only; one without it to each step of its tier, procedure and area. The other articles that give the court its say in a step of the route, by tier, procedure and area, are under designations (the route, not a step of the Verloop): the article of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2) that names a court, the Awb beside the RO in tax cases, the laws that open cassation against the Centrale Raad van Beroep (those read, not all there may be), the Rv beside the RO in leapfrog cassation. Known gaps, not read in the source: under gaps.",
  "sources": {
   "BWBR0001830": {
-   "what": "Wet op de rechterlijke organisatie, art. 42 (rechtbank, burgerlijke zaken), 44 (belastingzaken), 45 (strafzaken), 60 (hoger beroep bij het gerechtshof), 78 (cassatie; lid 4: tegen uitspraken van de bestuursrechter voor zover bij wet bepaald)",
-   "read_on": "2026-11-11"
+   "what": "Wet op de rechterlijke organisatie, art. 42 (rechtbank, burgerlijke zaken), 44 (belastingzaken), 45 (strafzaken), 60 (hoger beroep bij het gerechtshof), 76 (de Hoge Raad in eerste instantie, tevens in hoogste ressort: ambtsmisdrijven en ambtsovertredingen), 78 (cassatie tegen gerechtshoven en rechtbanken; lid 4: tegen uitspraken van de bestuursrechter voor zover bij wet bepaald)",
+   "read_on": "2026-11-12"
   },
   "BWBR0005537": {
    "what": "Algemene wet bestuursrecht, art. 8:6 (beroep bij de rechtbank, tenzij hoofdstuk 2 van de Bevoegdheidsregeling of een ander voorschrift een andere bestuursrechter aanwijst), 8:105 (hoger beroep bij de Afdeling, tenzij hoofdstuk 4); bijlage 2 (Bevoegdheidsregeling bestuursrechtspraak) art. 2, 3, 4, 5 (beroep in eerste aanleg bij de Afdeling, de Centrale Raad van Beroep, het College van Beroep voor het bedrijfsleven, een gerechtshof), 9, 10, 11, 12 (hoger beroep bij de Centrale Raad van Beroep, met en zonder schorsende werking, bij het College en bij een gerechtshof)",
    "read_on": "2026-11-11"
   },
   "BWBR0002320": {
-   "what": "Algemene wet inzake rijksbelastingen, art. 28 (beroep in cassatie bij de Hoge Raad tegen uitspraken van het gerechtshof)",
-   "read_on": "2026-11-11"
+   "what": "Algemene wet inzake rijksbelastingen, art. 28 (beroep in cassatie bij de Hoge Raad tegen uitspraken van het gerechtshof; lid 3: tegen een uitspraak van de rechtbank als de belanghebbenden en de minister schriftelijk instemmen), 29e (lid 2: verwijzing naar een gerechtshof of een rechtbank)",
+   "read_on": "2026-11-12"
+  },
+  "BWBR0001827": {
+   "what": "Wetboek van Burgerlijke Rechtsvordering, art. 398 (beroep in cassatie; 2°: van vonnissen in eerste ressort als partijen zijn overeengekomen het hoger beroep over te slaan), 424 (de rechter naar wie het geding is verwezen zet de behandeling voort)",
+   "read_on": "2026-11-12"
+  },
+  "BWBR0001903": {
+   "what": "Wetboek van Strafvordering, art. 440 (lid 2: na vernietiging terugwijzen of verwijzen naar het gerechtshof van het ressort of een ander gerechtshof)",
+   "read_on": "2026-11-12"
   },
   "BWBR0002368": {"what": "Algemene Kinderbijslagwet, art. 31 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
   "BWBR0007795": {"what": "Algemene nabestaandenwet, art. 66 (beroep in cassatie tegen uitspraken van de Centrale Raad van Beroep)", "read_on": "2026-11-11"},
@@ -38,7 +46,13 @@
   {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["civiel", "straf"], "bwb_id": "BWBR0001830", "article_number": "78"},
   {"tiers": ["raad_van_state", "centrale_raad_van_beroep", "college_van_beroep_bedrijfsleven", "gerechtshof"], "procedures": ["Hoger beroep"], "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "8:105"},
   {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["bestuur"], "after_tier": "centrale_raad_van_beroep", "bwb_id": "BWBR0001830", "article_number": "78"},
-  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["belasting"], "bwb_id": "BWBR0002320", "article_number": "28"}
+  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["belasting"], "bwb_id": "BWBR0002320", "article_number": "28"},
+  {"tiers": ["hoge_raad"], "procedures": ["Eerste en enige aanleg"], "areas": ["straf"], "bwb_id": "BWBR0001830", "article_number": "76"},
+  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["civiel"], "after_tier": "rechtbank", "bwb_id": "BWBR0001830", "article_number": "78"},
+  {"tiers": ["hoge_raad"], "procedures": ["Cassatie", "Artikel 80a RO", "Artikel 81 RO"], "areas": ["belasting"], "after_tier": "rechtbank", "bwb_id": "BWBR0002320", "article_number": "28"},
+  {"tiers": ["gerechtshof"], "procedures": ["Verwijzing na Hoge Raad"], "areas": ["civiel"], "after_tier": "hoge_raad", "bwb_id": "BWBR0001827", "article_number": "424"},
+  {"tiers": ["gerechtshof"], "procedures": ["Verwijzing na Hoge Raad"], "areas": ["straf"], "after_tier": "hoge_raad", "bwb_id": "BWBR0001903", "article_number": "440"},
+  {"tiers": ["gerechtshof"], "procedures": ["Verwijzing na Hoge Raad"], "areas": ["belasting"], "after_tier": "hoge_raad", "bwb_id": "BWBR0002320", "article_number": "29e"}
  ],
  "designations": [
   {"tier": "raad_van_state", "procedure": "Eerste aanleg", "areas": ["bestuur"], "bwb_id": "BWBR0005537", "article_number": "bijlage 2 artikel 2"},
@@ -66,7 +80,8 @@
   {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0019057", "article_number": "116"},
   {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0035917", "article_number": "10.3.2"},
   {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0004045", "article_number": "129d"},
-  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0001888", "article_number": "75m"}
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["bestuur"], "bwb_id": "BWBR0001888", "article_number": "75m"},
+  {"tier": "hoge_raad", "procedure": "Cassatie", "areas": ["civiel"], "after_tier": "rechtbank", "bwb_id": "BWBR0001827", "article_number": "398"}
  ],
  "gaps": []
 }

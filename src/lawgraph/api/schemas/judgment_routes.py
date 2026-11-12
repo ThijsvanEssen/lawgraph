@@ -14,13 +14,17 @@ class RouteStep(StrictModel):
     tier: str = Field(description="`rechtbank`, `gerechtshof`, `hoge_raad`, ...")
     procedures: list[str] = Field(
         description="The procedures the metadata names that fit (their start): "
-        "`Eerste aanleg`, `Hoger beroep`, `Cassatie`."
+        "`Eerste aanleg`, `Hoger beroep`, `Cassatie`, `Eerste en enige aanleg`, "
+        "`Verwijzing na Hoge Raad`."
     )
     after_tier: str | None = Field(
         default=None,
         description="The court whose judgments this step hears, when only that one's: "
-        "`centrale_raad_van_beroep` for cassation in `bestuur`; null when it hears those "
-        "of the step before it.",
+        "`centrale_raad_van_beroep` for cassation in `bestuur`, `rechtbank` for leapfrog "
+        "cassation (sprongcassatie) in `civiel` and `belasting`, `hoge_raad` for the "
+        "`gerechtshof` the Hoge Raad sent the case to (`Verwijzing na Hoge Raad`); null "
+        "when it hears those of the step before it, or none (`Eerste en enige aanleg`: "
+        "the Hoge Raad for ambtsmisdrijven, art. 76 RO).",
     )
     basis: CourseBasis = Field(
         description="The article a step of the Verloop gets (`/course`)."
@@ -30,7 +34,8 @@ class RouteStep(StrictModel):
         "besides `basis`: the article of the Bevoegdheidsregeling bestuursrechtspraak "
         "(Awb bijlage 2: `bijlage 2 artikel 2`) that names it, the Awb beside the RO in "
         "`belasting` (`8:6`, `8:105`), the laws that open cassation against the Centrale "
-        "Raad van Beroep (`BWBR0002221` art. `53`, ...); empty when there are none."
+        "Raad van Beroep (`BWBR0002221` art. `53`, ...), art. `398` Rv (`BWBR0001827`) "
+        "for leapfrog cassation in `civiel`; empty when there are none."
     )
 
 
