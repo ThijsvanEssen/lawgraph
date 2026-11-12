@@ -32,7 +32,7 @@
     "src/lawgraph/db/queries/chains.py": 885,
     "src/lawgraph/db/queries/decisions.py": 916,
     "src/lawgraph/db/queries/dossiers.py": 1498,
-    "src/lawgraph/db/queries/feed.py": 1063,
+    "src/lawgraph/db/queries/feed.py": 1061,
     "src/lawgraph/db/queries/feed_sql.py": 1171,
     "src/lawgraph/db/queries/instruments.py": 1525,
     "src/lawgraph/db/queries/nodes.py": 928,
