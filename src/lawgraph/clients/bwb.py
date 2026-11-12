@@ -97,32 +97,55 @@ class BWBClient(BaseClient):
     def __init__(self, session: Session | None = None) -> None:
         super().__init__(base_url=BWB_SEARCH.base_url, session=session)
 
-    def _sru_page(self, query: str, start: int) -> ET.Element:
-        """One result page of *query*. The service sometimes answers a page that is valid but
-        empty although records remain (it reports ``numberOfRecords`` and a next position);
-        that is retried with smaller pages, and raised when it persists: taking it for the end
-        of the list left out most of the large laws.
+    def _sru_page(self, query: str, start: int, listed: set[str]) -> ET.Element:
+        """One result page of *query*; *listed* holds the locations of the pages before it.
+
+        The service sometimes answers a page that is valid but wrong: empty although records
+        remain (it reports ``numberOfRecords`` and a next position), or the records of the
+        first page again under the positions asked for. Such a page is asked again, with
+        smaller pages, and raised when it persists: taking an empty one for the end of the
+        list left out most of the large laws, and a repeated one stayed repeated through
+        three listings in a row (12 November 2026).
         """
+        problem = ""
         for attempt, size in enumerate(EMPTY_PAGE_SIZES):
             params = sru_params(query, size=size, start=start, connection="BWB")
             resp = self.get(BWB_SRU, params=params, timeout=QUERY_TIMEOUT)
             root = parse_response(resp.content, context=f"BWB {query} start={start}")
-            if start > number_of_records(root) or records(root):
+            problem = self._page_problem(root, start, listed)
+            if not problem:
                 return root
             if attempt + 1 == len(EMPTY_PAGE_SIZES):
                 break
             logger.warning(
-                "BWB SRU returned an empty page at startRecord=%d of %s "
-                "(%d records asked); trying again with a smaller page.",
+                "BWB SRU returned %s at startRecord=%d of %s (%d records asked); "
+                "trying again with a smaller page.",
+                problem,
                 start,
                 query,
                 size,
             )
             time.sleep(min(2**attempt, 8))
         raise RuntimeError(
-            f"BWB SRU error ({query}): an empty page at startRecord={start} "
+            f"BWB SRU error ({query}): {problem} at startRecord={start} "
             "although records remain"
         )
+
+    def _page_problem(self, root: ET.Element, start: int, listed: set[str]) -> str:
+        """What is wrong with a page of records from *start*, or ``""``."""
+        if start > number_of_records(root):
+            return ""
+        page = records(root)
+        if not page:
+            return "an empty page"
+        locations = {
+            meta["locatie_toestand"]
+            for meta in map(self._parse_record, page)
+            if meta is not None
+        }
+        if locations and locations <= listed:
+            return "a page of records listed before"
+        return ""
 
     def _toestanden_of_query(
         self, query: str, max_records: int
@@ -160,14 +183,16 @@ class BWBClient(BaseClient):
         """Walk the pages of *query* once, adding to *toestanden*; the reported total."""
         total = 0
         start = 1
+        listed: set[str] = set()
         while start <= max_records:
-            root = self._sru_page(query, start)
+            root = self._sru_page(query, start, listed)
             total = number_of_records(root)
             page = records(root)
             for element in page:
                 meta = self._parse_record(element)
                 if meta and meta["bwb_id"]:
                     toestanden[meta["locatie_toestand"]] = meta
+                    listed.add(meta["locatie_toestand"])
             start += len(page)
             if start > total:
                 break

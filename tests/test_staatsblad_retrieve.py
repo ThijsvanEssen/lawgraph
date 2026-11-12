@@ -182,6 +182,20 @@ def test_toestanden_without_a_reference_are_counted_not_fetched() -> None:
     assert result.skipped == 2
 
 
+def test_a_number_of_a_letter_series_is_a_note_not_a_failed_download() -> None:
+    """Daily of 10 and 12 November 2026: the BWB names Stb. 1946, G 158; ``stb-1946-G 158``
+    is no identifier, and 25 of those in a row stopped the step as if the source was down."""
+    rows = [_row(f"BWBR{n:07d}", _ref("1946", f"G {n}")) for n in range(30)]
+    rows.append(_row("BWBR0000099", _ref("2001", "1")))
+    result, _, client = _run(rows)
+    assert client.fetched == ["stb-2001-1"]
+    assert result.errors == [] and result.skipped == 30
+    (note,) = result.notes
+    assert note == (
+        "30 x Staatsblad number of a letter series, not asked for (first: stb-1946-G 0)"
+    )
+
+
 def test_a_publication_several_regulations_refer_to_is_fetched_once() -> None:
     rows = [
         _row("BWBR0000001", _ref("2001", "1")),
