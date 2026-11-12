@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
 from lawgraph.db import GraphStore
-from tests.asserts import assert_status
+from tests.asserts import assert_status, show_items
 from tests.integration.seed import (
     rechtspraak_relation,
     rechtspraak_xml,
@@ -278,7 +278,8 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
         "8:6",
         [{"bwb_id": AWB, "article_number": "bijlage 2 artikel 2"}],
     )
-    assert all(not a["gaps"] for a in areas.values())
+    with_gaps = [a for a in areas.values() if a["gaps"]]
+    assert not with_gaps, show_items(with_gaps)
     belasting = {
         s["tier"]: (
             _basis(s),
@@ -308,7 +309,8 @@ def test_the_routes_name_each_court_with_its_article(client: TestClient) -> None
     (hr,) = [s for s in bestuur if s["tier"] == "hoge_raad"]
     assert (hr["after_tier"], _basis(hr)) == ("centrale_raad_van_beroep", (RO, "78"))
     assert {"bwb_id": "BWBR0002221", "article_number": "53"} in hr["designations"]
-    assert all(s["after_tier"] is None for s in areas["civiel"]["steps"])
+    after = [s for s in areas["civiel"]["steps"] if s["after_tier"] is not None]
+    assert not after, show_items(after)
     # the Awb is not loaded here
     assert response.json()["regeling"] == []
 
