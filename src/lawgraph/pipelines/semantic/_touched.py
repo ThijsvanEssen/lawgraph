@@ -14,6 +14,12 @@ publication) waits for the nightly run over all.
 ``semantic tk-dossier-relations`` reads only the replacements then: the cases of the records
 fetched since then (a case that now replaces another) and both ends of a ``PART_OF`` edge
 written since then (a document that joins a case).
+
+``semantic tk-paper-outcomes`` reads only the documents whose outcome can change: those made
+of the records fetched since then or at an end of an edge of ``DOCUMENT_EDGES`` written since
+then, every document of a case among those or of the case such a document is part of, and the
+documents of the decisions among them (the case a decision singles out, the document it is
+about).
 """
 
 from __future__ import annotations
@@ -36,6 +42,7 @@ from lawgraph.config.constants import (
     RELATION_AUTHORED,
     RELATION_LEGISLATED_IN,
     RELATION_PART_OF,
+    RELATION_REVISES,
     RELATION_VOTED,
     SOURCE_TK,
 )
@@ -43,6 +50,7 @@ from lawgraph.core.models import make_node_key, node_id
 from lawgraph.core.time import iso_timestamp
 from lawgraph.core.tk_records.decisions import decision_key
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import document_outcomes
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.semantic import tk as semantic_tk
@@ -74,6 +82,14 @@ OUTCOME_EDGES: dict[str, tuple[str, ...]] = {
 }
 # ``tk-dossier-relations`` (replacements): a document that joins a case.
 REPLACEMENT_EDGES: dict[str, tuple[str, ...]] = {RELATION_PART_OF: ()}
+# ``tk-paper-outcomes``: a document that joins a case, a decision about a paper (a vote of
+# the Eerste Kamer), a vote on a decision, and a paper a newer one replaces.
+DOCUMENT_EDGES: dict[str, tuple[str, ...]] = {
+    RELATION_PART_OF: (),
+    RELATION_ABOUT: (),
+    RELATION_VOTED: (),
+    RELATION_REVISES: (),
+}
 
 
 def edge_moment(since: dt.datetime) -> str:
@@ -143,6 +159,20 @@ def touched_commitments(
         seeds = tk_nodes_fetched_since(store, since)
     return semantic_tk.touched_ids(
         store, COLLECTION_COMMITMENTS, seeds, edge_moment(since), GOVERNMENT_EDGES
+    )
+
+
+def touched_documents(store: Store, since: dt.datetime) -> list[str]:
+    """The ``id`` of the documents whose outcome what was touched at or after *since* can
+    change: those touched themselves, every document of a touched case, and the documents of
+    the touched decisions (``document_outcomes.touched_documents``)."""
+    seeds, moment = tk_nodes_fetched_since(store, since), edge_moment(since)
+    decisions = semantic_tk.touched_ids(
+        store, COLLECTION_DECISIONS, seeds, moment, DOCUMENT_EDGES
+    )
+    cases = document_outcomes.primary_cases(store, decisions)
+    return document_outcomes.touched_documents(
+        store, sorted({*seeds, *decisions, *cases}), moment, DOCUMENT_EDGES
     )
 
 

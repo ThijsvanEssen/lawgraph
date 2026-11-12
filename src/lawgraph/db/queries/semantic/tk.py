@@ -876,14 +876,14 @@ def documents_of_cases(store: Store, cases: list[str]) -> dict[str, list[str]]:
 
 # The edges written since *since* that a step reads: of the relations *written*, and not
 # to a collection that *skipped* names for its relation (``AUTHORED>cases``).
-_WRITTEN = """
+WRITTEN_SQL = """
     e.created_at >= %(since)s AND e.relation = ANY(%(written)s::text[])
     AND NOT (e.relation || '>' || e.to_collection) = ANY(%(skipped)s::text[])
 """
 
 # What a poll touched: the nodes *ids* (made of the raw records it fetched), the dossiers of
 # the Kamerstukdossier records *guids* (a dossier's key is its number), and both ends of
-# every edge written since *since* that the step reads (``_WRITTEN``); and the dossiers
+# every edge written since *since* that the step reads (``WRITTEN_SQL``); and the dossiers
 # they belong to: a touched dossier, the dossier a touched document, case, decision or
 # instrument is PART_OF, ABOUT or LEGISLATED_IN, directly or through its case.
 # ``created_at`` is set when an edge is inserted, never after.
@@ -894,9 +894,9 @@ WITH seeds AS (
     SELECT d.id FROM {COLLECTION_DOSSIERS} d
     WHERE lg_str(d.props -> 'external_id') = ANY(%(guids)s::text[])
     UNION
-    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
+    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {WRITTEN_SQL}
     UNION
-    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
+    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {WRITTEN_SQL}
 ),
 parts AS (
     SELECT id FROM seeds
@@ -930,7 +930,7 @@ def touched_dossier_ids(
         "ids": ids,
         "guids": guids,
         "since": since_iso,
-        **_written_params(written),
+        **written_params(written),
         "part_of": RELATION_PART_OF,
         "relations": [RELATION_PART_OF, RELATION_ABOUT, RELATION_LEGISLATED_IN],
     }
@@ -951,16 +951,16 @@ def touched_ids(
             f"""
             SELECT n.id FROM {collection} n
             WHERE n.id = ANY(%(ids)s::text[])
-               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN})
-               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN})
+               OR n.id IN (SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {WRITTEN_SQL})
+               OR n.id IN (SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {WRITTEN_SQL})
             ORDER BY n.key
             """,
-            {"ids": ids, "since": since_iso, **_written_params(written)},
+            {"ids": ids, "since": since_iso, **written_params(written)},
         )
     )
 
 
-def _written_params(written: dict[str, tuple[str, ...]]) -> dict[str, list[str]]:
+def written_params(written: dict[str, tuple[str, ...]]) -> dict[str, list[str]]:
     return {
         "written": sorted(written),
         "skipped": sorted(

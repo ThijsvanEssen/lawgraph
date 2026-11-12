@@ -11,10 +11,16 @@ Eerste Kamer states, else ``vervangen`` for a document a newer one replaces), ``
 60,000) and writes only the documents whose outcome changed, compared with what
 ``lg_document_light`` keeps of them; a document that lost its outcome gets nulls. The trigger on
 ``documents`` keeps the light row with it, which the lists of documents read.
+
+With ``--touched-since`` it reads only the papers a poll touched since then
+(``semantic/_touched.py``, ``touched_documents``) and comes to the same for them as a run over
+all. It removes nothing, so the nightly run over all is only needed for what is touched in
+another way (the status on the page of a motion of the Eerste Kamer, a replacement that went).
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any
 
 from lawgraph.config.constants import COLLECTION_DOCUMENTS
@@ -24,6 +30,7 @@ from lawgraph.core.models import NodeType, PipelineResult, key_of
 from lawgraph.core.votes import document_outcome
 from lawgraph.db.queries import document_outcomes as queries
 
+from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -36,12 +43,17 @@ class TKPaperOutcomesSemanticPipeline(SemanticPipelineBase):
     """Write ``outcome``, ``decided_on``, ``tally`` and ``decision`` on every motion and
     amendment whose outcome changed."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        decisions = queries.document_decisions(self.store)
-        replaced = queries.replaced_documents(self.store)
-        stated = queries.stated_statuses(self.store)
-        kept = queries.kept_outcomes(self.store)
+        touched_ids = (
+            None
+            if touched_since is None
+            else touched.touched_documents(self.store, touched_since)
+        )
+        decisions = queries.document_decisions(self.store, touched_ids)
+        replaced = queries.replaced_documents(self.store, touched_ids)
+        stated = queries.stated_statuses(self.store, touched_ids)
+        kept = queries.kept_outcomes(self.store, touched_ids)
         changed: list[dict[str, Any]] = []
         documents = sorted(set(decisions) | replaced | set(stated) | set(kept))
         for document in self._track(documents, "papers", total=len(documents)):

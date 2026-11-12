@@ -1,6 +1,7 @@
 """``--touched-since`` on a real PostgreSQL: ``semantic tk-dossier-outcomes``,
-``semantic tk-government`` and the replacements of ``semantic tk-dossier-relations`` come to
-the same for what a poll touched as a run over all, and leave the rest alone."""
+``semantic tk-government``, ``semantic tk-paper-outcomes`` and the replacements of ``semantic
+tk-dossier-relations`` come to the same for what a poll touched as a run over all, and leave
+the rest alone."""
 
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from lawgraph.core.tk_records.actors import (
     CAPACITY_MEMBER,
     FIRST_SIGNATORY,
 )
+from lawgraph.core.tk_records.decisions import decision_key
 from lawgraph.db import GraphStore, raw_source_doc
 from lawgraph.db.queries import tk_government as government_queries
 from lawgraph.pipelines.semantic import _touched as touched
@@ -36,6 +38,9 @@ from lawgraph.pipelines.semantic.tk_dossier_relations import (
     TKDossierRelationsSemanticPipeline,
 )
 from lawgraph.pipelines.semantic.tk_government import TKGovernmentSemanticPipeline
+from lawgraph.pipelines.semantic.tk_paper_outcomes import (
+    TKPaperOutcomesSemanticPipeline,
+)
 
 NOW = dt.datetime.now(dt.UTC)
 SINCE = NOW - dt.timedelta(hours=2)
@@ -499,3 +504,103 @@ def test_the_dossiers_whose_first_may_change_are_found_in_one_pass(
     ).fetchone()
     loops = _loops_of_subplans_on_edges(plan[0]["Plan"])
     assert all(n <= 1 for n in loops), loops
+
+
+def _outcome_of(store: GraphStore) -> dict[str, tuple[Any, ...]]:
+    return {
+        key: tuple(props.get(name) for name in ("outcome", "decided_on", "decision"))
+        for key, props in _props(store, "documents").items()
+    }
+
+
+def _motion(key: str, date: str, kind: str = "Motie") -> dict[str, Any]:
+    return _node(key, kind=kind, date=date)
+
+
+def _vote(key: str, case: str | None, kind: str, **props: Any) -> dict[str, Any]:
+    on = (
+        {"primary_case_id": case, "primary_case_kind": kind} if case else {"kind": kind}
+    )
+    return _node(key, date="2026-10-01", **on, **props)
+
+
+def test_outcomes_of_the_touched_papers_are_those_of_a_run_over_all(
+    store: GraphStore,
+) -> None:
+    """A Besluit fetched again that now says how the vote went, a paper a newer one replaces,
+    a paper dated before the oldest of its case, and a vote of the Eerste Kamer: the papers
+    they touch end as a run over all ends them. A decision that changed without a record or
+    an edge in the window waits for that run."""
+    voted = decision_key(G_VOTE)
+    store.bulk_insert_or_update_nodes(
+        "cases",
+        [_node(f"z_{n}", external_id=f"Z-{n}") for n in (1, 2, 5)],
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _motion("m1", "2026-09-01"),
+            _motion("m2", "2026-09-02"),
+            _motion("m4", "2026-09-04", kind="Amendement"),
+            _motion("m4b", "2026-09-20", kind="Amendement (gewijzigd/nader)"),
+            _motion("m5", "2026-09-05"),
+            _motion("m5b", "2026-08-01"),
+            _motion("ek6", "2026-09-06"),
+        ],
+    )
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _vote(voted, "Z-1", "Motie", decision_kind="Stemmen - aangehouden"),
+            _vote("d2", "Z-2", "Motie", passed=True),
+            _vote("d5", "Z-5", "Motie", passed=False),
+            _vote("ek_d6", None, "Motie", passed=False),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge(f"documents/m{n}", f"cases/z_{n}", "PART_OF", OLD) for n in (1, 2, 5)]
+    )
+    TKPaperOutcomesSemanticPipeline(store=store).run()
+    before = _outcome_of(store)
+    assert before["m1"][0] == "aangehouden"
+    assert before["m5"][0] == "verworpen"
+
+    # the window
+    store.bulk_insert_or_update_nodes(
+        "decisions",
+        [
+            _vote(voted, "Z-1", "Motie", passed=True),  # its Besluit fetched again
+            _vote("d2", "Z-2", "Motie", passed=False),  # no record: outside the window
+        ],
+    )
+    store.insert_raw_sources([_raw(RAW_KIND_TK_BESLUIT, G_VOTE, NEW)])
+    store.bulk_insert_or_update_edges(
+        [
+            {
+                **_edge("documents/m4b", "documents/m4", "REVISES", NEW),
+                "source": RELATIONS_SOURCE,
+                "meta": {"rule": "vervanging"},
+            },
+            _edge("documents/m5b", "cases/z_5", "PART_OF", NEW),
+            _edge("decisions/ek_d6", "documents/ek6", "ABOUT", NEW),
+        ]
+    )
+    papers = touched.touched_documents(store, SINCE)
+    assert {f"documents/{p}" for p in ("m1", "m4", "m5", "m5b", "ek6")} <= set(papers)
+    assert "documents/m2" not in papers
+
+    TKPaperOutcomesSemanticPipeline(store=store).run(touched_since=SINCE)
+    some = _outcome_of(store)
+    assert some["m2"] == before["m2"]  # untouched: as it was
+    TKPaperOutcomesSemanticPipeline(store=store).run()
+    everything = _outcome_of(store)
+    for key in ("m1", "m4", "m5", "m5b", "ek6"):
+        assert some[key] == everything[key], key
+    assert everything["m2"] != before["m2"]
+    assert [everything[key][0] for key in ("m1", "m4", "m5", "m5b", "ek6")] == [
+        "aangenomen",
+        "vervangen",
+        None,  # m5b is the oldest paper of its case now: the vote is on it
+        "verworpen",
+        "verworpen",
+    ]

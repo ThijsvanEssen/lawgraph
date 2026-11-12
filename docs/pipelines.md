@@ -496,7 +496,14 @@ data model, Document): `outcome`, `decided_on`, `tally` and `decision` from the 
 on it, the status the page of a motion of the Eerste Kamer states, and `REVISES` for a paper a
 newer one replaces. A decision comes days after its paper and can change it again (held, then
 voted), so every run reads every decision on a motion or an amendment and writes only the
-papers whose outcome changed against `lg_document_light`.
+papers whose outcome changed against `lg_document_light`. With `--touched-since` (`lawgraph
+poll tk` and `ek`) it reads only the papers whose outcome what was touched since then can
+change, and gives them what a run over all gives them: the papers made of the TK records
+fetched since then, those at an end of a `PART_OF`, `ABOUT`, `VOTED` or `REVISES` edge written
+since then, every paper of a case among them (which paper is the oldest of its case can
+change), and the papers of the decisions among them (the case a decision singles out, the paper
+a vote of the Eerste Kamer is `ABOUT`). It removes nothing; the status on the page of a motion
+of the Eerste Kamer and a replacement that went wait for the nightly run over all.
 
 **Semantic `tk-motion-kinds`.** Which motions are of censure (`censure`, motie van afkeuring) or
 of no confidence (`no_confidence`, motie van wantrouwen), and which votes are on one
@@ -1042,7 +1049,15 @@ itself asks for the conclusion under a number of its own (the staatsraad advocaa
 the Raad van State: conclusion `201406676/2/A3`, judgment `201406676/1/A3`): such a conclusion
 without a pair goes to the decisions of its court of the three years after it that share its
 dossier number (`same_case_number`; `case_number`). A judgment named but not loaded becomes a
-stub; an edge no longer derived is removed.
+stub; an edge no longer derived is removed. With `--touched-since` (`lawgraph poll
+rechtspraak`) it derives in full, removals included, only the conclusions the judgments
+retrieved since then can change, and gives them what a run over all gives them: those
+judgments, the conclusions they name, the conclusions of an `ADVISES_ON` edge to or from them,
+the conclusions that share one of their `case_number_keys`, and the conclusions of their own
+court (one that advises itself) of the three years before them with their dossier number. What
+names such a conclusion it reads from those judgments and from the edges the conclusion
+already has; a loaded judgment that turns out to be a conclusion after all waits for the
+nightly run over all.
 
 **Semantic `rechtspraak-referrals`.** `ANSWERS` from a preliminary ruling
 (`judgment_metadata.type` `Prejudiciële beslissing`) to the decision that asked its questions:
