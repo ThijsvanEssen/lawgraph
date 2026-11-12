@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.36",
+    "version": "0.80.37",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -1081,7 +1081,7 @@
           "judgments"
         ],
         "summary": "The route of a case per area of law (Rechtsgang)",
-        "description": "Per area of law (`civiel`, `straf`, `bestuur`, `belasting`) the courts of its route, each with `basis`, the article a step of the Verloop gets, and `designations`, the articles of the Bevoegdheidsregeling bestuursrechtspraak that name it; the steps whose article is not read in the source as `gaps`. From the fixed list `data/route_articles.json`. `regeling`: the regeling (Awb bijlage 2) by chapter, each article with its heading and the laws its list names.",
+        "description": "Per area of law (`civiel`, `straf`, `bestuur`, `belasting`) the courts of its route, each with `basis`, the article a step of the Verloop gets, and `designations`, the other articles that give it its say in the step (the Bevoegdheidsregeling bestuursrechtspraak, the laws that open cassation), and `after_tier` for a court that hears only the judgments of that one; the steps whose article is not read in the source as `gaps`. From the fixed list `data/route_articles.json`. `regeling`: the regeling (Awb bijlage 2) by chapter, each article with its heading and the laws its list names.",
         "operationId": "get_judgment_routes_api_judgments_routes_get",
         "responses": {
           "200": {
@@ -40095,6 +40095,18 @@
             "title": "Procedures",
             "description": "The procedures the metadata names that fit (their start): `Eerste aanleg`, `Hoger beroep`, `Cassatie`."
           },
+          "after_tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Tier",
+            "description": "The court whose judgments this step hears, when only that one's: `centrale_raad_van_beroep` for cassation in `bestuur`; null when it hears those of the step before it."
+          },
           "basis": {
             "$ref": "#/components/schemas/CourseBasis",
             "description": "The article a step of the Verloop gets (`/course`)."
@@ -40105,7 +40117,7 @@
             },
             "type": "array",
             "title": "Designations",
-            "description": "The articles of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2: `bijlage 2 artikel 2`) that name this court, besides `basis`; empty for a court the regeling does not name."
+            "description": "The other articles that give this court its say in this step, besides `basis`: the article of the Bevoegdheidsregeling bestuursrechtspraak (Awb bijlage 2: `bijlage 2 artikel 2`) that names it, the Awb beside the RO in `belasting` (`8:6`, `8:105`), the laws that open cassation against the Centrale Raad van Beroep (`BWBR0002221` art. `53`, ...); empty when there are none."
           }
         },
         "additionalProperties": false,
@@ -40113,6 +40125,7 @@
         "required": [
           "tier",
           "procedures",
+          "after_tier",
           "basis",
           "designations"
         ],

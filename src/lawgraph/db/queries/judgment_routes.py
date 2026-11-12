@@ -1,7 +1,7 @@
 """The route of a case per area of law (``GET /api/judgments/routes``): the steps from
-``data/route_articles.json`` with the article that gives each court its say, the articles of
-the Bevoegdheidsregeling bestuursrechtspraak that name a bijzondere bestuursrechter, and the
-gaps. The articles of the
+``data/route_articles.json`` with the article that gives each court its say, the other
+articles that do so in the step (the Bevoegdheidsregeling bestuursrechtspraak that names a
+court, the laws that open cassation), and the gaps. The articles of the
 regeling (Awb bijlage 2) are articles of the Awb in the graph (``normalize bwb``): each with
 its chapter, its heading and the laws its list names (its extrefs)."""
 
@@ -42,11 +42,14 @@ def judgment_routes(store: GraphStore) -> Routes:
             {
                 "tier": tier,
                 "procedures": rule["procedures"],
+                "after_tier": rule.get("after_tier"),
                 "basis": _basis(rule),
                 "designations": [
                     _basis(d)
                     for d in designations
-                    if d["tier"] == tier and d["procedure"] in rule["procedures"]
+                    if d["tier"] == tier
+                    and area in d["areas"]
+                    and d["procedure"] in rule["procedures"]
                 ],
             }
             for rule in route_rules()

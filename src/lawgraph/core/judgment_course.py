@@ -71,14 +71,17 @@ def _data() -> dict[str, Any]:
 
 def route_rules() -> tuple[dict[str, Any], ...]:
     """The rules of ``data/route_articles.json``: ``tiers``, ``procedures``, ``areas``,
-    ``bwb_id`` and ``article_number``, the article that gives the court its say."""
+    ``bwb_id`` and ``article_number``, the article that gives the court its say; and
+    ``after_tier`` for a court that hears only the judgments of that one."""
     return tuple(_data()["rules"])
 
 
 def route_designations() -> tuple[dict[str, Any], ...]:
-    """The articles of the Bevoegdheidsregeling bestuursrechtspraak that name a bijzondere
-    bestuursrechter (``tier``, ``procedure``, ``bwb_id``, ``article_number``): the route,
-    not a step, since another statute may name the court too."""
+    """The other articles that give a court its say in a step of the route (``tier``,
+    ``procedure``, ``areas``, ``bwb_id``, ``article_number``): the article of the
+    Bevoegdheidsregeling bestuursrechtspraak that names it, the Awb in tax cases, the laws
+    that open cassation. The route, not a step, since another statute may name the court
+    too."""
     return tuple(_data()["designations"])
 
 
