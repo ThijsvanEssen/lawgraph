@@ -21,6 +21,7 @@ from lawgraph.core.judgment_course import (
 )
 
 RO, AWB, AWR = "BWBR0001830", "BWBR0005537", "BWBR0002320"
+RV, SV = "BWBR0001827", "BWBR0001903"
 
 
 @pytest.mark.parametrize(
@@ -61,8 +62,14 @@ def test_the_area_of_law_is_read_from_the_subjects(
         ("hoge_raad", "Cassatie", "belasting", (AWR, "28")),
         ("hoge_raad", "Artikel 81 RO-zaken", "belasting", (AWR, "28")),
         ("hoge_raad", "Cassatie", "bestuur", (RO, "78")),
+        ("hoge_raad", "Eerste en enige aanleg", "straf", (RO, "76")),
+        ("gerechtshof", "Verwijzing na Hoge Raad", "civiel", (RV, "424")),
+        ("gerechtshof", "Verwijzing na Hoge Raad", "straf", (SV, "440")),
+        ("gerechtshof", "Verwijzing na Hoge Raad", "belasting", (AWR, "29e")),
         # gaps: not in the list, never guessed
-        ("gerechtshof", "Verwijzing na Hoge Raad", "civiel", None),
+        ("rechtbank", "Verwijzing na Hoge Raad", "belasting", None),
+        ("gerechtshof", "Verwijzing na Hoge Raad", "bestuur", None),
+        ("hoge_raad", "Eerste en enige aanleg", "civiel", None),
         ("rechtbank", "Eerste en enige aanleg", "civiel", None),
         ("rechtbank", "Eerste aanleg - meervoudig", None, None),
         (None, "Hoger beroep", "civiel", None),
@@ -176,6 +183,33 @@ def test_cassation_in_bestuur_is_only_against_the_centrale_raad_van_beroep() -> 
     assert ("BWBR0002221", "53") in laws  # AOW
     assert ("BWBR0019057", "116") in laws  # WIA
     assert len(laws) == 15
+
+
+def test_the_ways_to_the_hoge_raad_and_back_are_steps_after_a_tier() -> None:
+    """Leapfrog cassation (civiel, belasting) after the rechtbank, the gerechtshof after a
+    referral by the Hoge Raad; each designation with an ``after_tier`` belongs to a rule
+    with it."""
+    after = {
+        (r["tiers"][0], area, r["after_tier"], r["bwb_id"], r["article_number"])
+        for r in route_rules()
+        if r.get("after_tier")
+        for area in r["areas"]
+    }
+    assert after >= {
+        ("hoge_raad", "civiel", "rechtbank", RO, "78"),
+        ("hoge_raad", "belasting", "rechtbank", AWR, "28"),
+        ("gerechtshof", "civiel", "hoge_raad", RV, "424"),
+        ("gerechtshof", "straf", "hoge_raad", SV, "440"),
+        ("gerechtshof", "belasting", "hoge_raad", AWR, "29e"),
+    }
+    for d in route_designations():
+        if d.get("after_tier"):
+            assert any(
+                d["tier"] in r["tiers"]
+                and r.get("after_tier") == d["after_tier"]
+                and set(d["areas"]) <= set(r["areas"])
+                for r in route_rules()
+            ), d
 
 
 def test_a_gap_is_a_step_the_list_has_no_article_for() -> None:

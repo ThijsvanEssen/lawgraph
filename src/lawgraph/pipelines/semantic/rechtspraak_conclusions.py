@@ -11,6 +11,14 @@ advocaat-generaal of the Raad van State) asks for the conclusion in a case of it
 judgments of its court within ``OWN_BENCH_YEARS`` that share its dossier number
 (``core.case_numbers.same_case_number``). The edges of a conclusion are derived in full each
 run: one no longer derived goes.
+
+With ``--touched-since`` (a poll) it derives in full only the conclusions the judgments
+retrieved since then can change (``touched_conclusions``), and comes to the same for them as a
+run over all: those judgments themselves, the conclusions they name, the conclusions at either
+end of an edge to or from them, the conclusions that share a case number with them, and the
+conclusions of their own court within ``OWN_BENCH_YEARS`` before them. What names a conclusion
+it reads from those judgments and from the edges the conclusion already has; a judgment that
+named nothing and now turns out to be a conclusion waits for the nightly run over all.
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ from lawgraph.core.judgment_metadata import CONCLUSION_BENCH
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.core.provenance import BASIS_CASE_NUMBER, BASIS_FORMAL
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import rechtspraak as semantic_rechtspraak
 
@@ -110,14 +119,33 @@ def own_bench_pairs(
     return pairs
 
 
+def own_bench_before(judgment: dict[str, Any]) -> dict[str, str] | None:
+    """The court and the dates of the conclusions whose ``own_bench_span`` can hold
+    *judgment* (a day or two more); ``None`` for one of a court that advises none of its own,
+    or without a date."""
+    court, date = judgment["court_code"], judgment.get("date")
+    if not court or court in CONCLUSION_BENCH.values() or not date:
+        return None
+    end = dt.date.fromisoformat(date)
+    start = end.replace(year=end.year - OWN_BENCH_YEARS, day=1)
+    return {"court_code": court, "start": start.isoformat(), "end": date}
+
+
 class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
     """Create ADVISES_ON edges from conclusions to the judgments they advise on."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
-        rows = list(
-            self._track(semantic_rechtspraak.conclusion_rows(self.store), "judgments")
-        )
+        conclusions: set[str] | None = None
+        if touched_since is None:
+            rows = list(
+                self._track(
+                    semantic_rechtspraak.conclusion_rows(self.store), "judgments"
+                )
+            )
+        else:
+            conclusions = self.touched_conclusions(touched_since)
+            rows = self._rows_naming(conclusions)
         named = sorted({e.upper() for row in rows for e in row["conclusion_eclis"]})
         not_conclusions = frozenset(
             str(row["ecli"]).upper()
@@ -125,6 +153,9 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
             if not row["is_conclusion"]
         )
         formal = formal_pairs(rows, not_conclusions)
+        if conclusions is not None:
+            formal = {pair for pair in formal if pair[0] in conclusions}
+            rows = [row for row in rows if row["ecli"].upper() in conclusions]
         by_number = self._by_case_number(rows, {c for c, _ in formal})
         logger.info(
             "Conclusions: %d tied by the metadata, %d by a shared case number.",
@@ -149,11 +180,76 @@ class RechtspraakConclusionsSemanticPipeline(SemanticPipelineBase):
                     meta={"basis": basis},
                 )
         edges.flush_into(result)
-        removed = edges.remove_stale(
-            RELATION_ADVISES_ON, EDGE_SOURCE, sorted(set(ids.values()))
+        derived = (
+            set(ids.values())
+            if conclusions is None
+            else set(self._judgment_ids(sorted(conclusions)))
         )
+        removed = edges.remove_stale(RELATION_ADVISES_ON, EDGE_SOURCE, sorted(derived))
         logger.info("Removed %d ADVISES_ON no longer derived.", removed)
         return result
+
+    def touched_conclusions(self, since: dt.datetime) -> set[str]:
+        """The ECLIs whose edges the judgments retrieved at or after *since* can change: those
+        judgments, the conclusions they name, the conclusions of an edge to or from them, and
+        the conclusions that share a case number with them or may have them as a judgment of
+        their own court."""
+        eclis = sorted(e.upper() for e in self._recent_eclis(iso_timestamp(since)))
+        targets = list(semantic_rechtspraak.conclusion_targets(self.store, eclis))
+        found = set(eclis)
+        for row in semantic_rechtspraak.conclusion_rows(self.store, eclis):
+            found |= {e.upper() for e in row["conclusion_eclis"]}
+        found |= {
+            str(row["conclusion"]).upper()
+            for row in semantic_rechtspraak.advice_edges(
+                self.store,
+                EDGE_SOURCE,
+                RELATION_ADVISES_ON,
+                [row["id"] for row in targets],
+            )
+        }
+        keys = sorted({key for row in targets for key in row["case_number_keys"]})
+        found |= {
+            str(row["ecli"]).upper()
+            for row in semantic_rechtspraak.judgments_by_case_keys(self.store, keys)
+            if row["is_conclusion"] and row["ecli"]
+        }
+        return found | self._own_bench_conclusions(targets)
+
+    def _own_bench_conclusions(self, judgments: list[dict[str, Any]]) -> set[str]:
+        """The conclusions of a court that advises itself that may have one of *judgments*
+        as their judgment (``own_bench_pairs``)."""
+        by_court: dict[str, dict[str, str]] = {}
+        for row in judgments:
+            if span := own_bench_before(row):
+                court = by_court.setdefault(span["court_code"], span)
+                court["start"] = min(court["start"], span["start"])
+                court["end"] = max(court["end"], span["end"])
+        if not by_court:
+            return set()
+        spans = list(by_court.values())
+        numbers = [row["case_number"] for row in judgments if row["case_number"]]
+        return {
+            str(row["ecli"]).upper()
+            for row in semantic_rechtspraak.conclusions_between(self.store, spans)
+            if row["case_number"]
+            and any(same_case_number(row["case_number"], n) for n in numbers)
+        }
+
+    def _rows_naming(self, conclusions: set[str]) -> list[dict[str, Any]]:
+        """The rows of ``conclusion_rows`` of *conclusions* and of the judgments that may
+        name one of them: those the retrieval touched are among *conclusions*; the others
+        are at the other end of an edge the conclusion already has."""
+        ids = self._judgment_ids(sorted(conclusions))
+        naming = {
+            str(row["judgment"]).upper()
+            for row in semantic_rechtspraak.advice_edges(
+                self.store, EDGE_SOURCE, RELATION_ADVISES_ON, ids
+            )
+            if str(row["conclusion"]).upper() in conclusions
+        }
+        eclis = sorted(conclusions | naming)
+        return list(semantic_rechtspraak.conclusion_rows(self.store, eclis))
 
     def _by_case_number(self, rows: list[dict[str, Any]], tied: set[str]) -> set[Pair]:
         """The pairs of the conclusions no relation ties, by the case number they share

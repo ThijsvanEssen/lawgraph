@@ -953,6 +953,17 @@ class FeedFacetsDTO(StrictModel):
         "``together``, ``split`` (with ``wissel``), ``wissel``, ``decisive``; a vote "
         "counts for each that holds, an event without a coalition vote for none.",
     )
+    tier: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="The judgments per tier (as ``tier``), of every tier: those a page "
+        "shows without ``tier`` and those it shows only with it (under ``member`` or "
+        "``instrument``: those read); no other kind.",
+    )
+    subject_area: list[FacetCountDTO] = Field(
+        default_factory=list,
+        description="The judgments per main area of law (as ``subject_area``): a "
+        "judgment counts in each of its areas, one without any in null; no other kind.",
+    )
 
 
 class FeedResponse(StrictModel):

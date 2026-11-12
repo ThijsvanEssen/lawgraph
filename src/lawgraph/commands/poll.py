@@ -54,10 +54,13 @@ class Step:
 # motion that replaces another (REVISES vervanging), the rest at night; tk-cited-papers: the
 # motion a new letter answers; tk-dossier-outcomes: a vote that rejects a bill (Tweede or
 # Eerste Kamer) closes its dossier; tk-government: the ministry and cabinet of a new document
-# or commitment; tk-coalition-votes: what the coalition did on a new vote; tk-motion-kinds: a
-# new motion of censure or of no confidence. A judgment is in the feed when it is normalized;
-# its earlier and later instances, the preliminary ruling it asks or answers, the cases it
-# names as connected and its citations follow in the same poll.
+# or commitment; tk-coalition-votes: what the coalition did on a new vote; tk-paper-outcomes:
+# how a motion or amendment ended (a vote of either Kamer, a replacement); tk-motion-kinds: a
+# new motion of censure or of no confidence. Not tk-dictum and tk-amendment-articles: they read
+# the text of a paper, which only retrieve tk-content fetches, at night. A judgment is in the
+# feed when it is normalized; its earlier and later instances, the conclusion that advises on
+# it, the preliminary ruling it asks or answers, the cases it names as connected and its
+# citations follow in the same poll.
 POLLS: dict[str, tuple[Step, ...]] = {
     "tk": (
         Step("retrieve", "tk"),
@@ -74,12 +77,14 @@ POLLS: dict[str, tuple[Step, ...]] = {
         Step("semantic", "tk-dossier-outcomes"),
         Step("semantic", "tk-government"),
         Step("semantic", "tk-coalition-votes"),
+        Step("semantic", "tk-paper-outcomes"),
         Step("semantic", "tk-motion-kinds"),
     ),
     "ek": (
         Step("retrieve", "eerstekamer-votes"),
         Step("normalize", "eerstekamer-votes"),
         Step("semantic", "tk-dossier-outcomes"),
+        Step("semantic", "tk-paper-outcomes"),
     ),
     "rechtspraak": (
         # the courts of the judgments the feed shows; the others come with the nightly run
@@ -90,6 +95,7 @@ POLLS: dict[str, tuple[Step, ...]] = {
         ),
         Step("normalize", "rechtspraak"),
         Step("semantic", "rechtspraak-appeal"),
+        Step("semantic", "rechtspraak-conclusions"),
         Step("semantic", "rechtspraak-referrals"),
         Step("semantic", "rechtspraak-related"),
         Step("semantic", "rechtspraak-citations"),

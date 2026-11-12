@@ -43,6 +43,10 @@ _AREAS = (
     ("Strafrecht", "straf"),
     ("Bestuursrecht", "bestuur"),
 )
+# The procedure the metadata names for the decision of a court the Hoge Raad sent the case
+# to; a step tied to that ruling by ``REFERRED_BY`` gets the article of it, whatever its
+# own procedure reads (often ``Hoger beroep``).
+REFERRAL_PROCEDURE = "Verwijzing na Hoge Raad"
 # The areas of law in the order a route lists them.
 AREAS = ("civiel", "straf", "bestuur", "belasting")
 
@@ -72,7 +76,8 @@ def _data() -> dict[str, Any]:
 def route_rules() -> tuple[dict[str, Any], ...]:
     """The rules of ``data/route_articles.json``: ``tiers``, ``procedures``, ``areas``,
     ``bwb_id`` and ``article_number``, the article that gives the court its say; and
-    ``after_tier`` for a court that hears only the judgments of that one."""
+    ``after_tier`` for a court that hears only the judgments of that one (cassation against
+    the Centrale Raad van Beroep, leapfrog cassation, the decision after referral)."""
     return tuple(_data()["rules"])
 
 
@@ -80,8 +85,9 @@ def route_designations() -> tuple[dict[str, Any], ...]:
     """The other articles that give a court its say in a step of the route (``tier``,
     ``procedure``, ``areas``, ``bwb_id``, ``article_number``): the article of the
     Bevoegdheidsregeling bestuursrechtspraak that names it, the Awb in tax cases, the laws
-    that open cassation. The route, not a step, since another statute may name the court
-    too."""
+    that open cassation; with ``after_tier`` only for the step of that after_tier (art. 398
+    Rv for leapfrog cassation). The route, not a step, since another statute may name the
+    court too."""
     return tuple(_data()["designations"])
 
 
