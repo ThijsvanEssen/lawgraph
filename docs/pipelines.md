@@ -540,9 +540,12 @@ agenda too, on the same day when the votes follow a tweeminutendebat. A paper of
 no activity of a motion (`Document.Activiteit` is the record of a debate only).
 
 It reads every dossier, every related case and every activity on every run, since a node loaded
-today can be the other end of a relation stated earlier. It only adds and updates edges: an edge
-whose evidence is gone stays until the database is built again; but a motion's `MADE_IN` no
-longer derived goes on every run.
+today can be the other end of a relation stated earlier, and an edge of these relations no rule
+gives any more goes. With `--touched-since` (`lawgraph poll tk`) it writes only the replacements
+(`REVISES` `vervanging`) of the cases touched since then: a case fetched since then, or one a
+paper joined (`PART_OF` written since then), on either side of the replacement. So an amended
+amendment joins the line of the one it replaces at the next poll; it only adds, and the nightly
+run derives the rest and removes what no rule gives any more.
 
 <a id="semantic-tk-cited-papers"></a>
 **Semantic `tk-cited-papers`.** The papers a paper's subject names by dossier and number, and
