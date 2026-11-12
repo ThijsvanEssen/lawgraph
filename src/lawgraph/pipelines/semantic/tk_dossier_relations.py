@@ -19,11 +19,19 @@ the day its case started that has the case on its agenda and took no decision on
 Runs over every dossier, every related case and every activity, since a node loaded today can be
 the other end of a relation stated earlier. Writes an edge only where both ends are in the graph.
 Derived in full on every run: an edge of these relations no rule gives any more goes.
+
+With ``--touched-since`` (a poll) only the replacements: ``REVISES`` ``vervanging`` between
+the cases a poll touched since then and the cases they replace or are replaced by
+(``semantic/_touched.py``), so an amended amendment joins the line of the one it replaces
+before the nightly run. It only adds; the nightly run over all derives the rest and removes
+what no rule gives any more.
 """
 
 from __future__ import annotations
 
+import datetime as dt
 from collections import Counter
+from collections.abc import Collection
 from typing import Any
 
 from lawgraph.config.constants import (
@@ -58,6 +66,7 @@ from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 from lawgraph.sources.addresses import edge_source
 
+from . import _touched as touched
 from .base import SemanticPipelineBase
 
 logger = get_logger(__name__)
@@ -76,7 +85,9 @@ RELATIONS = (
 class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
     """Write ``RELATED_TO``, ``REVISES``, ``ACCOMPANIES`` and ``SECOND_READING_OF``."""
 
-    def run(self) -> PipelineResult:
+    def run(self, *, touched_since: dt.datetime | None = None) -> PipelineResult:
+        if touched_since is not None:
+            return self._replacements_since(touched_since)
         result = PipelineResult()
         dossiers = [
             DossierRef.of(row)
@@ -147,10 +158,25 @@ class TKDossierRelationsSemanticPipeline(SemanticPipelineBase):
                 count += 1
         return count
 
-    def _revise_replaced(self, edges: EdgeWriter) -> int:
+    def _replacements_since(self, since: dt.datetime) -> PipelineResult:
+        """Only the replacements of the cases touched since *since*; removes nothing."""
+        result = PipelineResult()
+        edges = EdgeWriter(self.store, what=None)
+        count = self._revise_replaced(edges, touched.touched_cases(self.store, since))
+        edges.flush_into(result)
+        logger.info("Dossier relations since %s: %d replaced papers.", since, count)
+        return result
+
+    def _revise_replaced(
+        self, edges: EdgeWriter, touched_cases: Collection[str] | None = None
+    ) -> int:
         """``REVISES`` from each document of a case to each document of the case it replaces
-        (``Zaak.VervangenVanuit``: "Gewijzigd amendement ter vervanging van nr. 21")."""
+        (``Zaak.VervangenVanuit``: "Gewijzigd amendement ter vervanging van nr. 21"); with
+        *touched_cases* only where one of the two cases is among them."""
         cases = replaced_cases(semantic_tk.replacing_cases(self.store))
+        if touched_cases is not None:
+            some = set(touched_cases)
+            cases = [pair for pair in cases if some.intersection(pair)]
         documents = semantic_tk.documents_of_cases(
             self.store, sorted({case for pair in cases for case in pair})
         )
