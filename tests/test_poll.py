@@ -72,6 +72,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
         "semantic tk-coalition-votes",
+        "semantic tk-paper-outcomes",
         "semantic tk-motion-kinds",
     ]
     since = {argv[-1] for _, argv in ran}
@@ -86,6 +87,7 @@ def test_a_poll_of_the_tweede_kamer_runs_its_chain_with_one_since(monkeypatch) -
         "semantic tk-dossier-outcomes",
         "semantic tk-government",
         "semantic tk-dossier-relations",
+        "semantic tk-paper-outcomes",
     ):
         assert dict(ran)[step] == ["--touched-since", touched]
     assert dict(ran)["semantic tk-cited-papers"] == ["--since", touched]
@@ -156,6 +158,7 @@ def test_a_poll_of_the_rechtspraak_reads_the_courts_of_the_feed(monkeypatch) -> 
     since = dict(ran)["normalize rechtspraak"][-1]
     for step in ("appeal", "referrals", "related", "citations"):
         assert dict(ran)[f"semantic rechtspraak-{step}"] == ["--since", since]
+    assert dict(ran)["semantic rechtspraak-conclusions"] == ["--touched-since", since]
 
 
 def test_a_poll_of_the_eerste_kamer_closes_the_dossiers_it_voted_on(
@@ -166,6 +169,7 @@ def test_a_poll_of_the_eerste_kamer_closes_the_dossiers_it_voted_on(
         "retrieve eerstekamer-votes",
         "normalize eerstekamer-votes",
         "semantic tk-dossier-outcomes",
+        "semantic tk-paper-outcomes",
     ]
 
 
@@ -240,6 +244,12 @@ def test_only_a_poll_asks_for_what_was_touched() -> None:
     still read every dossier there, the safety net for what a poll does not see."""
     from lawgraph.sources.registry import find
 
-    for name in ("tk-government", "tk-dossier-outcomes", "tk-dossier-relations"):
+    for name in (
+        "tk-government",
+        "tk-dossier-outcomes",
+        "tk-dossier-relations",
+        "tk-paper-outcomes",
+        "rechtspraak-conclusions",
+    ):
         command = present(find("semantic", name)).command
         assert command.accepts_touched_since and not command.accepts_since

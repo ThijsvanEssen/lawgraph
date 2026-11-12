@@ -21,6 +21,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.batching import chunked
 from lawgraph.core.ecli import LJN_ECLI
+from lawgraph.core.judgment_kinds import KIND_CONCLUSIE
 from lawgraph.core.judgment_metadata import (
     CONCLUSION_ONLY_COURTS,
     DOCUMENT_TYPE_CONCLUSION,
@@ -226,10 +227,12 @@ def appeals_to_read(
     )
 
 
-def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
+def conclusion_rows(
+    store: Store, eclis: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
     """``{ecli, court_code, date, case_number, is_conclusion, conclusion_eclis,
     case_number_keys}`` of every conclusion and of every judgment that names its
-    conclusion."""
+    conclusion; of those of *eclis* only, when it is given."""
     named = "j.props -> 'conclusion_eclis'"
     sql = f"""
         SELECT ecli, court_code, date, case_number, is_conclusion, conclusion_eclis,
@@ -245,12 +248,70 @@ def conclusion_rows(store: Store) -> Iterator[dict[str, Any]]:
                    {truthy_or("j.props -> 'case_number_keys'", EMPTY_ARRAY)} AS case_number_keys,
                    {json_length(named)} AS named
             FROM judgments j
-            WHERE j.source = %(source)s
+            WHERE j.source = %(source)s {_of_eclis(eclis)}
         ) j
         WHERE is_conclusion OR named > 0
         ORDER BY key
         """
-    return store.query(sql, {"source": SOURCE_RECHTSPRAAK, **_conclusion_params()})
+    params = {"source": SOURCE_RECHTSPRAAK, "eclis": eclis, **_conclusion_params()}
+    return store.query(sql, params)
+
+
+def conclusion_targets(store: Store, eclis: list[str]) -> Iterator[dict[str, Any]]:
+    """``{ecli, id, court_code, date, case_number, case_number_keys, is_conclusion}`` of the
+    judgments with these *eclis*."""
+    sql = f"""
+        SELECT j.ecli, j.id, j.court_code, j.date_eff AS date,
+               j.props -> 'case_number' AS case_number,
+               coalesce(j.case_number_keys, '{{}}') AS case_number_keys,
+               {_IS_CONCLUSION} AS is_conclusion
+        FROM judgments j
+        WHERE j.ecli = ANY(%(eclis)s::text[])
+        ORDER BY j.key
+        """
+    return store.query(sql, {"eclis": eclis, **_conclusion_params()})
+
+
+def advice_edges(
+    store: Store, source: str, relation: str, ids: list[str]
+) -> Iterator[dict[str, Any]]:
+    """``{conclusion, judgment}`` (ECLIs) of the *relation* edges of *source* from or to one
+    of the judgments *ids*."""
+    sql = """
+        SELECT f.ecli AS conclusion, t.ecli AS judgment
+        FROM edges e
+        JOIN judgments f ON f.id = e.from_id
+        JOIN judgments t ON t.id = e.to_id
+        WHERE e.relation = %(relation)s AND e.source = %(source)s
+          AND (e.from_id = ANY(%(ids)s::text[]) OR e.to_id = ANY(%(ids)s::text[]))
+        ORDER BY 1, 2
+        """
+    return store.query(sql, {"source": source, "relation": relation, "ids": ids})
+
+
+def conclusions_between(
+    store: Store, spans: list[dict[str, str]]
+) -> Iterator[dict[str, Any]]:
+    """``{ecli, case_number}`` of the conclusions of the court of each span (``{court_code,
+    start, end}``) dated from its start to its end. First those whose ``decision_kind`` says
+    so (a column of the row: ``core.judgment_kinds`` makes every ``Conclusie`` one), through
+    the index on (court_code, date_eff); only of those the props."""
+    sql = f"""
+        WITH kind AS MATERIALIZED (
+            SELECT DISTINCT j.id
+            FROM json_array_elements(%(spans)s::json) AS s(span)
+            JOIN judgments j ON j.court_code = lg_str(s.span -> 'court_code')
+            WHERE j.date_eff >= lg_str(s.span -> 'start')
+              AND j.date_eff <= lg_str(s.span -> 'end')
+              AND lg_str(j.pj_decision_kind) = %(kind)s
+        )
+        SELECT j.props -> 'ecli' AS ecli, j.props -> 'case_number' AS case_number
+        FROM kind JOIN judgments j ON j.id = kind.id
+        WHERE {_IS_CONCLUSION}
+        ORDER BY j.key
+        """
+    params = {"spans": Json(spans), "kind": KIND_CONCLUSIE, **_conclusion_params()}
+    return store.query(sql, params)
 
 
 def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, Any]]:

@@ -960,6 +960,61 @@ def touched_ids(
     )
 
 
+def primary_cases(store: Store, decisions: list[str]) -> list[str]:
+    """The ``id`` of the case each decision of *decisions* singles out (``primary_case_id``,
+    keyed as the case is), of those that single one out."""
+    rows = store.query(
+        f"""
+        SELECT lg_str(d.props -> 'primary_case_id') FROM {COLLECTION_DECISIONS} d
+        WHERE d.id = ANY(%(ids)s::text[])
+          AND coalesce(lg_str(d.props -> 'primary_case_id'), '') <> ''
+        """,
+        {"ids": decisions},
+    )
+    return sorted({f"{COLLECTION_CASES}/{make_node_key(str(case))}" for case in rows})
+
+
+# The papers whose outcome what a poll touched can change: the papers among the nodes *ids*
+# or at an end of an edge written since *since* (``_WRITTEN``), every paper of a case among
+# them or of a case such a paper is PART_OF (which of them is the oldest can change), and the
+# paper a decision among them is ABOUT (a vote of the Eerste Kamer). *ids* hold the cases the
+# touched decisions single out (``primary_cases``).
+_TOUCHED_PAPERS_SQL = f"""
+WITH seeds AS (
+    SELECT unnest(%(ids)s::text[]) AS id
+    UNION
+    SELECT e.from_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e WHERE {_WRITTEN}
+),
+cases AS (
+    SELECT id FROM seeds WHERE starts_with(id, '{COLLECTION_CASES}/')
+    UNION
+    SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN seeds s ON e.from_id = s.id
+    WHERE e.relation = '{RELATION_PART_OF}' AND e.to_collection = '{COLLECTION_CASES}'
+      AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+)
+SELECT id FROM seeds WHERE starts_with(id, '{COLLECTION_DOCUMENTS}/')
+UNION
+SELECT e.from_id FROM {COLLECTION_EDGES} e JOIN cases c ON e.to_id = c.id
+WHERE e.relation = '{RELATION_PART_OF}' AND e.from_collection = '{COLLECTION_DOCUMENTS}'
+UNION
+SELECT e.to_id FROM {COLLECTION_EDGES} e JOIN seeds s ON e.from_id = s.id
+WHERE e.relation = '{RELATION_ABOUT}' AND e.from_collection = '{COLLECTION_DECISIONS}'
+  AND e.to_collection = '{COLLECTION_DOCUMENTS}'
+ORDER BY 1
+"""
+
+
+def touched_paper_ids(
+    store: Store, ids: list[str], since_iso: str, written: dict[str, tuple[str, ...]]
+) -> list[str]:
+    """The ``id`` of the papers whose outcome the nodes *ids* or an edge written at or after
+    *since_iso* (of *written*) can change (``_TOUCHED_PAPERS_SQL``)."""
+    params = {"ids": ids, "since": since_iso, **_written_params(written)}
+    return list(store.query(_TOUCHED_PAPERS_SQL, params))
+
+
 def _written_params(written: dict[str, tuple[str, ...]]) -> dict[str, list[str]]:
     return {
         "written": sorted(written),

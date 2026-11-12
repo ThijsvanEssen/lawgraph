@@ -6,7 +6,7 @@ import datetime as dt
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, overload
 from zoneinfo import ZoneInfo
 
 # The time of the Netherlands, whose day a visitor's page asks (the explorer's ``vandaag``).
@@ -23,6 +23,12 @@ def dutch_today() -> dt.date:
     return _now().astimezone(DUTCH_TIME).date()
 
 
+@overload
+def iso_timestamp(value: dt.datetime) -> str: ...
+@overload
+def iso_timestamp(value: None) -> None: ...
+@overload
+def iso_timestamp(value: dt.datetime | None) -> str | None: ...
 def iso_timestamp(value: dt.datetime | None) -> str | None:
     """Return an ISO 8601 string in UTC for the provided datetime, or None."""
     if value is None:
