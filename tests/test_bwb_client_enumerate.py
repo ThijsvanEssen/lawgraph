@@ -142,22 +142,48 @@ def test_fewer_records_than_the_service_reports_raises() -> None:
         _client(responses, []).enumerate_toestanden(types=("wet",))
 
 
-def test_pages_that_repeat_are_not_a_complete_listing(caplog) -> None:
-    """The rebuild of 2026-09-20: under load the service answered the same records for
-    later pages. 25,000 records for a total of 24,216 was a warning, and 1,335 of the 3,204
-    laws were listed: the Wft and the Wwft were never retrieved."""
+def test_a_repeated_page_is_asked_again() -> None:
+    """Daily of 12 November 2026: for startRecord 1001 of the archiefselectielijsten (1,340)
+    the service answered the 1,000 records of the first page again, three listings in a
+    row. Such a page is asked again, as an empty one is."""
+    calls: list[dict] = []
+    total = SRU_PAGE_SIZE + 3
+    responses = [
+        _page(SRU_PAGE_SIZE, total),
+        _page(SRU_PAGE_SIZE, total),  # page 1 again, under positions 1001-2000
+        _page(3, total, first=SRU_PAGE_SIZE),
+    ]
+
+    toestanden = _client(responses, calls).enumerate_toestanden(types=("wet",))
+
+    assert len(toestanden["BWBR0001840"]) == total
+    assert [c["startRecord"] for c in calls] == ["1", "1001", "1001"]
+
+
+def test_a_page_that_stays_repeated_raises() -> None:
+    total = SRU_PAGE_SIZE + 3
+    responses = [_page(SRU_PAGE_SIZE, total)] * (1 + len(EMPTY_PAGE_SIZES))
+    with pytest.raises(RuntimeError, match="records listed before at startRecord=1001"):
+        _client(responses, []).enumerate_toestanden(types=("wet",))
+
+
+def test_pages_that_repeat_in_part_are_not_a_complete_listing(caplog) -> None:
+    """The rebuild of 2026-09-20: under load the service answered records it had given
+    before for later pages. 25,000 records for a total of 24,216 was a warning, and 1,335
+    of the 3,204 laws were listed: the Wft and the Wwft were never retrieved."""
     total = 2 * SRU_PAGE_SIZE
-    repeated = [
+    half = SRU_PAGE_SIZE // 2
+    in_part = [
         _page(SRU_PAGE_SIZE, total),
-        _page(SRU_PAGE_SIZE, total),
-    ]  # page 1 twice
+        _page(SRU_PAGE_SIZE, total, first=half),  # half of it given before
+    ]
     honest = [
         _page(SRU_PAGE_SIZE, total),
         _page(SRU_PAGE_SIZE, total, first=SRU_PAGE_SIZE),
     ]
     with caplog.at_level("WARNING"):
-        ids = _client(repeated + honest, []).enumerate_toestanden(types=("wet",))
-    assert list(ids) == ["BWBR0001840"]
+        ids = _client(in_part + honest, []).enumerate_toestanden(types=("wet",))
+    assert len(ids["BWBR0001840"]) == total
     assert any("listing it again" in m for m in caplog.messages), show_items(
         caplog.messages
     )
@@ -165,9 +191,13 @@ def test_pages_that_repeat_are_not_a_complete_listing(caplog) -> None:
 
 def test_a_listing_that_stays_short_is_an_error_not_a_smaller_catalogue() -> None:
     total = 2 * SRU_PAGE_SIZE
-    repeated = [_page(SRU_PAGE_SIZE, total), _page(SRU_PAGE_SIZE, total)] * 3
-    with pytest.raises(RuntimeError, match=r"1000 of 2000 toestanden.*not complete"):
-        _client(repeated, []).enumerate_toestanden(types=("wet",))
+    half = SRU_PAGE_SIZE // 2
+    in_part = [
+        _page(SRU_PAGE_SIZE, total),
+        _page(SRU_PAGE_SIZE, total, first=half),
+    ] * 3
+    with pytest.raises(RuntimeError, match=r"1500 of 2000 toestanden.*not complete"):
+        _client(in_part, []).enumerate_toestanden(types=("wet",))
 
 
 def test_a_type_without_records_is_fine() -> None:
