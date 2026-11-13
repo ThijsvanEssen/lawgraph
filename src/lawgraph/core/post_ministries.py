@@ -149,18 +149,15 @@ def commitment_counts(
 def staatscourant_counts(
     post: dict[str, Any], records: dict[str, dict[str, Any]]
 ) -> Counter[str]:
-    """Per ministry: the publications naming the post that it issued, from the record of
-    ``retrieve staatscourant-posts`` (*records*, by external id)."""
-    query = staatscourant_query(post)
-    record = records.get(query_id(query)) if query else None
+    """Per ministry: the publications naming the post that it issued, from the records of
+    ``retrieve staatscourant-posts`` (*records*, by external id), one per way of naming it."""
     counts: Counter[str] = Counter()
-    for creator, n in ((record or {}).get("creators") or {}).items():
-        ministry = ministry_of(
-            ministry_name(creator),
-            on=post.get("from_date"),
-        )
-        if ministry:
-            counts[ministry] += n
+    for query in staatscourant_queries(post):
+        record = records.get(query_id(query)) or {}
+        for creator, n in (record.get("creators") or {}).items():
+            ministry = ministry_of(ministry_name(creator), on=post.get("from_date"))
+            if ministry:
+                counts[ministry] += n
     return counts
 
 
@@ -176,24 +173,40 @@ def phrase_of(function: str) -> str:
     return plain_words(function)
 
 
-def staatscourant_query(post: dict[str, Any]) -> dict[str, Any] | None:
-    """``{phrase, from, to}`` to ask the Staatscourant about a post whose function names no
-    ministry, or ``None``: for a post held before 1995, a viceminister-president, or a
-    function that names nothing to search by (``Minister zonder Portefeuille``). ``to`` is
-    ``None`` while the post is held."""
-    if post.get("ministry") or post.get("post") == POST_DEPUTY_PRIME_MINISTER:
-        return None
+def phrases_of(post: dict[str, Any]) -> list[str]:
+    """The ways publications name *post*: its function (``phrase_of``) and, for a minister
+    whose function names a portfolio after ``van`` and no ministry, the same after ``voor``.
+    A cabinet page can write ``Minister van Immigratie en Asiel`` for the minister voor
+    Immigratie en Asiel (Rutte I), the title the publications use."""
     phrase = phrase_of(post.get("function") or "")
-    if not phrase or phrase.startswith(WITHOUT_PORTFOLIO):
-        return None
+    if post.get("post") == POST_MINISTER and phrase.startswith(_MINISTER_OF):
+        return [phrase, _MINISTER_FOR + phrase.removeprefix(_MINISTER_OF)]
+    return [phrase]
+
+
+_MINISTER_OF = "minister van "
+_MINISTER_FOR = "minister voor "
+
+
+def staatscourant_queries(post: dict[str, Any]) -> list[dict[str, Any]]:
+    """``{phrase, from, to}`` per way of naming a post whose function names no ministry
+    (``phrases_of``), to ask the Staatscourant about it; none for a post held before 1995,
+    a viceminister-president, or a function that names nothing to search by (``Minister
+    zonder Portefeuille``). ``to`` is ``None`` while the post is held."""
+    if post.get("ministry") or post.get("post") == POST_DEPUTY_PRIME_MINISTER:
+        return []
     end = post.get("to_date")
     if end is not None and end < STAATSCOURANT_FROM:
-        return None
-    return {
-        "phrase": phrase,
-        "from": max(post["from_date"], STAATSCOURANT_FROM),
-        "to": end,
-    }
+        return []
+    return [
+        {
+            "phrase": phrase,
+            "from": max(post["from_date"], STAATSCOURANT_FROM),
+            "to": end,
+        }
+        for phrase in phrases_of(post)
+        if phrase and not phrase.startswith(WITHOUT_PORTFOLIO)
+    ]
 
 
 def query_id(query: dict[str, Any]) -> str:

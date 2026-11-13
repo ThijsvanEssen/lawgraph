@@ -18,7 +18,7 @@ from lawgraph.core.post_ministries import (
     query_id,
     signature_counts,
     staatscourant_counts,
-    staatscourant_query,
+    staatscourant_queries,
 )
 from lawgraph.core.signatories import match_by_function, match_holder
 from lawgraph.pipelines.semantic.tk_government import (
@@ -121,7 +121,7 @@ def test_the_commitments_of_the_holder_count_by_the_ministry_the_kamer_gives() -
 def test_the_staatscourant_is_asked_from_1995_about_a_function_that_names_nothing() -> (
     None
 ):
-    query = staatscourant_query(PLOUMEN)
+    (query,) = staatscourant_queries(PLOUMEN)
     assert query == {
         "phrase": "minister voor buitenlandse handel en ontwikkelingssamenwerking",
         "from": "2012-11-05",
@@ -137,14 +137,51 @@ def test_the_staatscourant_is_asked_from_1995_about_a_function_that_names_nothin
     assert staatscourant_counts(PLOUMEN, {query_id(query): record}) == Counter(
         {"bz": 358, "fin": 12}
     )
-    assert staatscourant_query({**PLOUMEN, "to_date": "1989-11-07"}) is None
+    assert staatscourant_queries({**PLOUMEN, "to_date": "1989-11-07"}) == []
     assert (
-        staatscourant_query({**PLOUMEN, "function": "Minister zonder Portefeuille"})
-        is None
+        staatscourant_queries({**PLOUMEN, "function": "Minister zonder Portefeuille"})
+        == []
     )
-    assert staatscourant_query({**PLOUMEN, "ministry": "bz"}) is None
-    held = staatscourant_query(PALMEN)
-    assert held is not None and query_id(held).endswith("|2025-09-05|")
+    assert staatscourant_queries({**PLOUMEN, "ministry": "bz"}) == []
+    (held,) = staatscourant_queries(PALMEN)
+    assert query_id(held).endswith("|2025-09-05|")
+
+
+def test_a_minister_of_a_portfolio_is_also_asked_for_as_minister_for_it() -> None:
+    """Rijksoverheid writes "Minister van Immigratie en Asiel" (Leers, Rutte I); the
+    publications name the minister voor Immigratie en Asiel, most of them issued by BZK."""
+    leers = {
+        "function": "Minister van Immigratie en Asiel",
+        "post": "minister",
+        "ministry": None,
+        "from_date": "2010-10-14",
+        "to_date": "2012-11-05",
+    }
+    queries = staatscourant_queries(leers)
+    assert [q["phrase"] for q in queries] == [
+        "minister van immigratie en asiel",
+        "minister voor immigratie en asiel",
+    ]
+    of, for_ = (query_id(q) for q in queries)
+    records = {
+        of: {"creators": {"Immigratie- en Naturalisatiedienst (IND)": 8}},
+        for_: {
+            "creators": {
+                "Ministerie van Binnenlandse Zaken en Koninkrijksrelaties": 47,
+                "Ministerie van Justitie": 11,
+                "Ministerie van Veiligheid en Justitie": 8,
+                "Ministerie van Algemene Zaken": 3,
+                "Immigratie- en Naturalisatiedienst (IND)": 161,
+            }
+        },
+    }
+    counts = staatscourant_counts(leers, records)
+    assert counts == Counter({"bzk": 47, "justitie": 11, "venj": 8, "az": 3})
+    assert post_ministry({SOURCE_STAATSCOURANT: counts}) == (
+        "bzk",
+        SOURCE_STAATSCOURANT,
+        None,
+    )
 
 
 def test_a_commitment_takes_the_ministry_the_kamer_gives_it() -> None:
