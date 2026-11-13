@@ -186,8 +186,12 @@ def ministry_of(text: str | None, *, on: str | None = None) -> str | None:
     """The key of the ministry *text* names (``Economische Zaken en Klimaat``, ``Justitie en
     Veiligheid - Rechtsbescherming``: the part before the dash), as it was named on the day
     *on*; ``None`` for a portfolio that names no ministry (``Klimaat en Energie``): which
-    ministry that falls under an official source has to say (``normalize rijksoverheid``)."""
+    ministry that falls under an official source has to say (``normalize rijksoverheid``).
+    Of two ministries (``Binnenlandse Zaken en van Binnenlandse Zaken, Bezitsvorming en
+    Publiekrechtelijke Bedrijfsorganisatie``, Drees III) the first."""
     plain = plain_words(_head(text))
+    if plain not in _NAMES:
+        plain = plain.partition(" en van ")[0]
     return current_on(_NAMES[plain], on) if plain in _NAMES else None
 
 

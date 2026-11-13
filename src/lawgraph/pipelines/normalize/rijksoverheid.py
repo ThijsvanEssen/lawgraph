@@ -43,7 +43,11 @@ from lawgraph.config.constants import (
     SOURCE_RIJKSOVERHEID,
     SOURCE_STAATSCOURANT,
 )
-from lawgraph.core.cabinet_posts import SEAT_PRIME_MINISTER, seats_in_their_ministry
+from lawgraph.core.cabinet_posts import (
+    SEAT_PRIME_MINISTER,
+    overlaps,
+    seats_in_their_ministry,
+)
 from lawgraph.core.cabinet_sources import NO_PARTY, build_cabinets
 from lawgraph.core.cabinets import faction_of
 from lawgraph.core.logging import get_logger
@@ -53,6 +57,7 @@ from lawgraph.core.post_ministries import (
     SOURCE_PAGE,
     SOURCE_TK_COMMITMENTS,
     SOURCE_TK_SIGNATURES,
+    besides,
     commitment_counts,
     post_ministry,
     signature_counts,
@@ -296,18 +301,23 @@ class RijksoverheidNormalizePipeline(NormalizePipelineBase[Records]):
         }
         found: Counter[str] = Counter()
         for cabinet in cabinets:
+            named = [p for p in cabinet["posts"] if p["ministry"]]
             for post in cabinet["posts"]:
                 post["ministry_source"] = SOURCE_PAGE if post["ministry"] else None
                 post["ministry_missing"] = None
                 if post["ministry"] or post["post"] == POST_DEPUTY_PRIME_MINISTER:
                     continue
                 surname = split_name(post["name"])["surname"]
+                held = held_besides(post, named)
                 evidence: dict[str, Counter[str]] = {
-                    SOURCE_TK_SIGNATURES: signature_counts(
-                        post, signed.get(member_of[holder_id(post)], ())
+                    SOURCE_TK_SIGNATURES: besides(
+                        signature_counts(
+                            post, signed.get(member_of[holder_id(post)], ())
+                        ),
+                        held,
                     ),
-                    SOURCE_TK_COMMITMENTS: commitment_counts(
-                        post, surname, commitments
+                    SOURCE_TK_COMMITMENTS: besides(
+                        commitment_counts(post, surname, commitments), held
                     ),
                     FROM_STAATSCOURANT: staatscourant_counts(post, records),
                 }
@@ -467,6 +477,16 @@ def party_of(text: str | None, factions: list[dict[str, Any]]) -> dict[str, Any]
             break
         faction = faction_of({"name": part, "short": part}, factions)
     return {"short": text, "faction": faction}
+
+
+def held_besides(post: dict[str, Any], named: list[dict[str, Any]]) -> set[str]:
+    """The ministries of the posts in *named* (those whose function names one) the holder of
+    *post* held on a day of it."""
+    return {
+        p["ministry"]
+        for p in named
+        if p is not post and holder_id(p) == holder_id(post) and overlaps(p, post)
+    }
 
 
 def holder_id(post: dict[str, Any]) -> str:

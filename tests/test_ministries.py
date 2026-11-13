@@ -38,6 +38,21 @@ FUNCTIONS = [
     ("Minister van Asiel en Migratie", "minister", "aenm"),
     ("minister van Klimaat en Groene Groei", "minister", "kgg"),
     ("Minister van Algemene Oorlogvoering", "minister", "aok"),
+    # cabinet pages that misspell or cut short a ministry's name (De Jong, Van Agt III, II)
+    ("minister van Financië", "minister", "fin"),
+    # two ministries in one function: the first (Suurhoff, Drees III)
+    (
+        "Minister van Binnenlandse Zaken en van Binnenlandse Zaken, Bezitsvorming en "
+        "Publiekrechtelijke Bedrijfsorganisatie",
+        "minister",
+        "biza",
+    ),
+    ("Minister van Volksgezondheid en Milieuhygine", "minister", "vm"),
+    (
+        "staatssecretaris van Cultuur, Recreatie en Maatschappelijk",
+        "staatssecretaris",
+        "crm",
+    ),
     # a name no source gives (Openbare Werken, before 1945) is no ministry
     ("minister van openbare werken", "minister", None),
     # a portfolio names no ministry: which one the post falls under a source has to say

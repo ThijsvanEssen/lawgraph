@@ -1,5 +1,5 @@
 {
- "about": "By hand: what no official source gives about the ministries. `ministries`: our key of each ministry name, in protocol order (the order of the Rijksoverheid, a former name right after its successor); the name ties the key to the name TOOI or the cabinet pages use. `successions`: the name that followed a name before TOOI (before about 2010), which no source states. `aliases`: other ways the sources write a name. `lawgraph ministries build` makes data/ministries.json from TOOI, the cabinet pages and this file.",
+ "about": "By hand: what no official source gives about the ministries. `ministries`: our key of each ministry name, in protocol order (the order of the Rijksoverheid, a former name right after its successor); the name ties the key to the name TOOI or the cabinet pages use. `successions`: the name that followed a name before TOOI (before about 2010), which no source states. `aliases`: other ways the sources write a name, misspelt or cut short ones included (the cabinet pages of De Jong, Van Agt II and Van Agt III). `lawgraph ministries build` makes data/ministries.json from TOOI, the cabinet pages and this file.",
  "ministries": [
   {
    "key": "az",
@@ -229,6 +229,9 @@
   "Onderwijs, Cultuur en Wetenschappen": "ocw",
   "OCenW": "ocw",
   "VenW": "venw",
-  "WVC": "wvc"
+  "WVC": "wvc",
+  "Financië": "fin",
+  "Volksgezondheid en Milieuhygine": "vm",
+  "Cultuur, Recreatie en Maatschappelijk": "crm"
  }
 }
