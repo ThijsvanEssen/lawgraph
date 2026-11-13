@@ -1647,8 +1647,10 @@ key `stcrt_<identifier>`, and who issued it (as under Staatsblad).
 whose function names no ministry, held from 1995 on (the repository holds the Staatscourant
 and the Staatsblad in full from then): how many publications of the Staatscourant and the
 Staatsblad name the function (full text, the function in lower case without accents) while
-the post was held, per `dcterms:creator` (`Ministerie van Buitenlandse Zaken`). One
-`stcrt-post-creators-json` record per query, external id `<phrase>|<from>|<to>` (`to` empty
+the post was held, per `dcterms:creator` (`Ministerie van Buitenlandse Zaken`). A minister
+whose function names a portfolio after "van" is also asked for after "voor": the page of Rutte I
+writes "Minister van Immigratie en Asiel", the publications the minister voor Immigratie en Asiel;
+`normalize rijksoverheid` adds up both. One `stcrt-post-creators-json` record per query, external id `<phrase>|<from>|<to>` (`to` empty
 while the post is held), `payload_json.creators`. The query of an ended post is asked once;
 that of a post still held on every run. After `retrieve rijksoverheid`, on the KOOP lane.
 `normalize rijksoverheid` reads the records (no normalize of its own).
@@ -2199,11 +2201,14 @@ the first of these official sources that is clear decides:
 3. `staatscourant`: the ministry that issued the publications naming the post
    (`retrieve staatscourant-posts`, from 1995).
 
-A source is clear when its largest ministry has at least 60% of its counts and at least one
+A signature or commitment as minister of another post the holder held on the same days does not
+count (Keijzer, minister of VRO and acting minister voor Asiel en Migratie in 2025). A source is
+clear when its largest ministry has at least 60% of its counts and at least one
 signature or commitment, or five publications. Otherwise `ministry` stays null, with
 `ministry_missing` `ambiguous` (a source had enough, but split: Van Veldhoven, Minister voor
 Milieu en Wonen, Infrastructuur en Waterstaat 50 and BZK 32 publications) or `no_source` (none
-had enough: a minister without portfolio before 1995, a typo on a page). Nothing decides by
+had enough: a minister without portfolio before 1995). A page that misspells or cuts short
+a ministry's name ("minister van Financië") names it through the curated aliases. Nothing decides by
 the words of a portfolio: the sources are better at it (Van der Wal, Minister voor Natuur en
 Stikstof in 2022: LNV, not the LVVN of 2024). A viceminister-president has no ministry.
 

@@ -2,7 +2,7 @@
 
 For every post on the stored Rijksoverheid cabinet pages whose function names no ministry
 ("Minister voor Ontwikkelingssamenwerking"), held from 1995 on
-(``core.post_ministries.staatscourant_query``): how many publications in the Staatscourant
+(``core.post_ministries.staatscourant_queries``): how many publications in the Staatscourant
 and the Staatsblad name the function while the post was held, per creator (``dcterms:creator``,
 ``Ministerie van Buitenlandse Zaken``). One record per query (external id
 ``<phrase>|<from>|<to>``); ``normalize rijksoverheid`` reads them. A query of a post that has
@@ -26,7 +26,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.core.cabinet_sources import build_cabinets
-from lawgraph.core.post_ministries import query_id, staatscourant_query
+from lawgraph.core.post_ministries import query_id, staatscourant_queries
 from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.rijksoverheid import parse_page
 from lawgraph.core.time import dutch_today
@@ -70,9 +70,9 @@ class StaatscourantPostsRetrievePipeline(RetrievePipelineBase):
         wanted: dict[str, dict[str, Any]] = {}
         for cabinet in build_cabinets(pages, lambda text: None):
             for post in cabinet["posts"]:
-                query = staatscourant_query(post)
-                if query and (query["to"] is None or query_id(query) not in stored):
-                    wanted[query_id(query)] = query
+                for query in staatscourant_queries(post):
+                    if query["to"] is None or query_id(query) not in stored:
+                        wanted[query_id(query)] = query
         return list(wanted.values())
 
     def fetch(self, **kwargs: object) -> Iterator[RetrieveRecord]:
