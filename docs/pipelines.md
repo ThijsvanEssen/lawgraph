@@ -2201,7 +2201,9 @@ the first of these official sources that is clear decides:
 3. `staatscourant`: the ministry that issued the publications naming the post
    (`retrieve staatscourant-posts`, from 1995).
 
-A source is clear when its largest ministry has at least 60% of its counts and at least one
+A signature or commitment as minister of another post the holder held on the same days does not
+count (Keijzer, minister of VRO and acting minister voor Asiel en Migratie in 2025). A source is
+clear when its largest ministry has at least 60% of its counts and at least one
 signature or commitment, or five publications. Otherwise `ministry` stays null, with
 `ministry_missing` `ambiguous` (a source had enough, but split: Van Veldhoven, Minister voor
 Milieu en Wonen, Infrastructuur en Waterstaat 50 and BZK 32 publications) or `no_source` (none

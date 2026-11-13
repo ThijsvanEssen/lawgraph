@@ -13,6 +13,7 @@ from lawgraph.core.post_ministries import (
     SOURCE_STAATSCOURANT,
     SOURCE_TK_COMMITMENTS,
     SOURCE_TK_SIGNATURES,
+    besides,
     commitment_counts,
     post_ministry,
     query_id,
@@ -21,6 +22,7 @@ from lawgraph.core.post_ministries import (
     staatscourant_queries,
 )
 from lawgraph.core.signatories import match_by_function, match_holder
+from lawgraph.pipelines.normalize.rijksoverheid import held_besides
 from lawgraph.pipelines.semantic.tk_government import (
     commitment_props,
     dossier_props,
@@ -89,6 +91,28 @@ def test_the_functions_signed_while_holding_the_post_count() -> None:
         {"function": "staatssecretaris Herstel en Toeslagen", "first": "2025-10-02"},
     ]
     assert signature_counts(PALMEN, signed) == Counter({"fin": 2})
+
+
+def test_a_signature_for_another_post_held_at_the_same_time_does_not_count() -> None:
+    """Keijzer, minister of VRO, was also acting minister voor Asiel en Migratie: her
+    signatures as minister of VRO say nothing about that post."""
+    acting = {
+        "function": "Minister voor Asiel en Migratie",
+        "post": "minister_zonder_portefeuille",
+        "ministry": None,
+        "from_date": "2025-06-19",
+        "to_date": "2026-02-23",
+    }
+    signed = [
+        {
+            "function": "minister van Volkshuisvesting en Ruimtelijke Ordening",
+            "first": "2025-07-01",
+        },
+        {"function": "minister van Justitie en Veiligheid", "first": "2025-08-01"},
+    ]
+    counts = signature_counts(acting, signed)
+    assert counts == Counter({"vro": 1, "jenv": 1})
+    assert besides(counts, {"vro"}) == Counter({"jenv": 1})
 
 
 def test_the_commitments_of_the_holder_count_by_the_ministry_the_kamer_gives() -> None:
@@ -392,3 +416,22 @@ def test_two_posts_of_one_kind_that_day_name_no_ministry() -> None:
     assert held_ministry("members/p", "2024-07-02", "minister", people) is None
     assert held_ministry("members/p", "2024-07-01", "minister", people) == "fin"
     assert held_ministry("members/p", "2024-07-02", None, people) is None
+
+
+def test_the_other_posts_of_the_holder_on_the_same_days_are_held_besides() -> None:
+    def post(person: str, ministry: str | None, start: str, end: str) -> dict:
+        return {
+            "person": person,
+            "party": None,
+            "ministry": ministry,
+            "from_date": start,
+            "to_date": end,
+        }
+
+    acting = post("mcg keijzer", None, "2025-06-19", "2026-02-23")
+    named = [
+        post("mcg keijzer", "vro", "2024-07-02", "2026-02-23"),
+        post("mcg keijzer", "ezk", "2020-01-01", "2021-01-01"),  # another time
+        post("dm faber", "jenv", "2025-06-19", "2026-02-23"),  # another holder
+    ]
+    assert held_besides(acting, named) == {"vro"}

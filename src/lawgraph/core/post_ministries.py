@@ -130,6 +130,14 @@ def signature_counts(
     )
 
 
+def besides(counts: Counter[str], held: Iterable[str]) -> Counter[str]:
+    """*counts* without the ministries of the other posts the holder *held* at the same
+    time: a signature or commitment as minister of one of them is for that post (Keijzer,
+    minister of VRO and acting minister voor Asiel en Migratie in 2025)."""
+    other = set(held)
+    return Counter({m: n for m, n in counts.items() if m not in other})
+
+
 def commitment_counts(
     post: dict[str, Any], surname: str, commitments: Iterable[dict[str, Any]]
 ) -> Counter[str]:
