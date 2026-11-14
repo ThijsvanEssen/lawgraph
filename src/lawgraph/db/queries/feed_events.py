@@ -19,7 +19,9 @@ place of the old one, or (``since``) those dated from a day on, in place.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 from dataclasses import replace
+from functools import cache
 from typing import Any
 
 import psycopg
@@ -157,10 +159,22 @@ def insert_query(table: str) -> str:
     )
 
 
+@cache
+def shape() -> str:
+    """What the rows hold, as this version writes them: a digest of the columns and of the
+    query that writes them. A table written in another shape (by a release before a column
+    or a kind was added) is read as never written until ``write_all`` writes it again: its
+    rows would answer a filter on what they lack with nothing."""
+    written = FEED_EVENTS_COLUMNS + insert_query(FEED_EVENTS_TABLE)
+    return hashlib.sha256(written.encode()).hexdigest()[:16]
+
+
 _NEW = f"{FEED_EVENTS_TABLE}_new"
 _STATE = """
-INSERT INTO lg_feed_events_state (id, written_at, since) VALUES (true, now(), %(since)s)
-ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = excluded.since
+INSERT INTO lg_feed_events_state (id, written_at, since, shape)
+VALUES (true, now(), %(since)s, %(shape)s)
+ON CONFLICT (id) DO UPDATE
+SET written_at = excluded.written_at, since = excluded.since, shape = excluded.shape
 """
 
 
@@ -261,7 +275,7 @@ def write_all(store: GraphStore) -> int:
             conn.execute(f"ALTER INDEX {name}_new RENAME TO {name}")
         conn.execute(f"ANALYZE {FEED_EVENTS_TABLE}")
         _write_chains(conn)
-        conn.execute(_STATE, {"since": None})
+        conn.execute(_STATE, {"since": None, "shape": shape()})
         return written
 
     return store.in_transaction("the feed events", swap)
@@ -269,7 +283,10 @@ def write_all(store: GraphStore) -> int:
 
 def write_since(store: GraphStore, since: str) -> int:
     """Write the events dated from *since* again, in place: those of the days a poll
-    changes, between two writes of all of them."""
+    changes, between two writes of all of them. Every event (``write_all``) when the table
+    is of another shape or never written: the first poll after a release writes it whole."""
+    if written_at(store) is None:
+        return write_all(store)
 
     def rewrite(conn: psycopg.Connection) -> int:
         conn.execute(
@@ -277,7 +294,7 @@ def write_since(store: GraphStore, since: str) -> int:
         )
         written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
         _write_chains(conn)
-        conn.execute(_STATE, {"since": since})
+        conn.execute(_STATE, {"since": since, "shape": shape()})
         return written
 
     return store.in_transaction("the feed events since", rewrite)
@@ -424,8 +441,7 @@ def first_day_of_page(
     from that day on, once, instead of window after window."""
     if unsupported(filters):
         return None
-    state = "SELECT written_at FROM lg_feed_events_state WHERE id"
-    if next(iter(store.query(state)), None) is None:
+    if written_at(store) is None:
         return None
     ctes, where, bind = _matching(filters, word_queries(store, filters))
     if before:
@@ -561,9 +577,12 @@ PERIODS_MAX_AGE = 3600.0
 
 
 def written_at(store: GraphStore) -> dt.datetime | None:
-    """When the events were last written; None: never."""
+    """When the events were last written in this version's ``shape``; None: never."""
+    statement = (
+        "SELECT written_at FROM lg_feed_events_state WHERE id AND shape = %(shape)s"
+    )
     written: dt.datetime | None = next(
-        iter(store.query("SELECT written_at FROM lg_feed_events_state WHERE id")), None
+        iter(store.query(statement, {"shape": shape()})), None
     )
     return written
 

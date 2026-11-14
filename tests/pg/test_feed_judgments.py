@@ -12,9 +12,15 @@ from fastapi.testclient import TestClient
 
 from lawgraph.api.app import app
 from lawgraph.api.dependencies import get_store
+from lawgraph.core.feed import FEED_TIERS
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import feed
-from lawgraph.db.queries.feed_events import get_counts, write_all
+from lawgraph.db.queries.feed_events import (
+    get_counts,
+    write_all,
+    write_since,
+    written_at,
+)
 from lawgraph.db.queries.feed_sql import FeedFilters
 from tests.asserts import assert_status
 from tests.optional import present
@@ -468,3 +474,53 @@ def test_a_page_of_a_tier_reads_once_from_its_first_day(
     answer = _feed(written, subject_area="Strafrecht", facets="false")
     assert _ids(answer) == ["judgments/ecli_nl_hr_2026_14"]
     assert len(read) == 1 and read[0] is not None
+
+
+@pytest.fixture()
+def of_before(written: TestClient, store: GraphStore) -> TestClient:
+    """The table as a release before the tiers wrote it (B165): the judgments of the feed's
+    own tiers alone, without a tier, in another shape; and a cabinet."""
+    store.execute_together(
+        [
+            (
+                "DELETE FROM lg_feed_events WHERE tier <> ALL(%(tiers)s)",
+                {"tiers": list(FEED_TIERS)},
+            ),
+            ("UPDATE lg_feed_events SET tier = NULL, subject_areas = NULL", None),
+            ("UPDATE lg_feed_events_state SET shape = 'before'", None),
+        ]
+    )
+    store.bulk_insert_or_update_nodes(
+        "cabinets",
+        [{"key": "jetten", "type": "cabinet", "props": {"from_date": "2026-02-23"}}],
+    )
+    return written
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"tier": "rechtbank", "cabinet": "jetten"},
+        {"tier": "hoge_raad", "cabinet": "jetten"},
+        {"tier": "rechtbank", "since": "2026-09-01", "until": "2026-09-30"},
+        {"kind": "uitspraak", "cabinet": "jetten"},
+    ],
+    ids=repr,
+)
+def test_a_table_of_another_shape_is_not_read(
+    of_before: TestClient, params: dict[str, str]
+) -> None:
+    """B165: its rows have no tier, so a tier under a cabinet found nothing (the page was
+    read from the first day the table named) and a total from it was 0."""
+    answer = _feed(of_before, **params)
+    assert answer["items"]
+    assert answer["total"] == len(answer["items"])
+
+
+def test_a_poll_writes_a_table_of_another_shape_whole(
+    of_before: TestClient, store: GraphStore
+) -> None:
+    assert write_since(store, "2026-09-04") > 0
+    assert written_at(store) is not None
+    rows = store.query("SELECT count(*) FROM lg_feed_events WHERE tier = 'rechtbank'")
+    assert next(iter(rows)) == 2
