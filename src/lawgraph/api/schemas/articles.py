@@ -318,11 +318,7 @@ class ArticleReferenceDTO(QualifierFields):
         description="Number of the article referred to; null for a reference to a chapter, "
         "a title, an annex or an EU act."
     )
-    key: str | None = Field(
-        None,
-        description="The node key of the article referred to (`{bwb_id}_{article}`, as "
-        "everywhere else); null when the reference names no article.",
-    )
+    key: str | None = Field(None, description="Node key of the article referred to.")
     celex: str | None = Field(None, description="The CELEX number of an EU act.")
     doc: str = Field(
         description="The JCI string or CELEX number of the link, as the XML has it; empty "

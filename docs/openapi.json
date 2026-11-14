@@ -13440,7 +13440,7 @@
               }
             ],
             "title": "Key",
-            "description": "The node key of the article referred to (`{bwb_id}_{article}`, as everywhere else); null when the reference names no article."
+            "description": "Node key of the article referred to."
           },
           "celex": {
             "anyOf": [
