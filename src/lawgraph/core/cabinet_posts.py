@@ -18,7 +18,8 @@ then applies the rules of a seat:
 - **One seat per heading.** The holders of one heading who follow one another hold one
   seat, the one the heading names, even where their own lines name the post otherwise (a
   portfolio renamed on the way: that name in ``also_named``); holders of one heading at the
-  same time hold seats of their own.
+  same time hold seats of their own, called by their own line where it names the post
+  (``staatssecretaris Herstel Groningen``), the heading in ``also_named``.
 - **Double listings.** Two posts of one person in one seat on the same days are one post; the
   other name is kept in ``also_named`` (``Minister-president, minister van Algemene Zaken``).
 - **Ending at the successor, starting at the predecessor.** In a named seat, a post whose end
@@ -472,7 +473,23 @@ def _one_seat_per_heading(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if own and own not in post["also_named"] and own != post["function"]:
                 post["also_named"].append(own)
             post["seat"], post["named"] = target["seat"], target["named"]
+    for post in posts:
+        _named_by_own_line(post)
     return posts
+
+
+def _named_by_own_line(post: dict[str, Any]) -> None:
+    """A post in a seat of its own, named by its holder's line and not by the heading
+    (``staatssecretaris Herstel Groningen`` under ``Staatssecretaris van Binnenlandse Zaken
+    en Koninkrijksrelaties``), is called by that line: two such seats under one heading do
+    not share a name. The heading's name goes to ``also_named``."""
+    own = post.get(_OWN_NAME)
+    heading_seat = post.get(_HEADING_SEAT)
+    if not own or heading_seat is None or post["seat"] == heading_seat["seat"]:
+        return
+    if post["function"] not in post["also_named"]:
+        post["also_named"].insert(0, post["function"])
+    post["function"] = own[:1].upper() + own[1:]
 
 
 def _last_day(post: dict[str, Any], cabinet: dict[str, Any]) -> str:
