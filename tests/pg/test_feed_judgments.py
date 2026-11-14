@@ -487,7 +487,7 @@ def of_before(written: TestClient, store: GraphStore) -> TestClient:
                 {"tiers": list(FEED_TIERS)},
             ),
             ("UPDATE lg_feed_events SET tier = NULL, subject_areas = NULL", None),
-            ("UPDATE lg_feed_events_state SET shape = 'before'", None),
+            ("COMMENT ON TABLE lg_feed_events IS 'before'", None),
         ]
     )
     store.bulk_insert_or_update_nodes(

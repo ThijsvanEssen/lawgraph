@@ -2382,8 +2382,7 @@ CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
 # matches, which the feed's own pattern then checks. A judgment has a row whatever its tier,
 # with its ``tier`` and main areas of law (``subject_areas``, ``lg_subject_areas``); both are
 # null for every other kind. Not a table of the graph: writing it raises no data version;
-# ``lg_feed_events_state`` says when it was written, and in what shape (``feed_events.shape``):
-# a table of another shape is read as never written.
+# ``lg_feed_events_state`` says when it was written, its comment in what shape.
 FEED_EVENTS_TABLE = "lg_feed_events"
 FEED_EVENTS_COLUMNS = """
     kind text NOT NULL,
@@ -2488,10 +2487,8 @@ def feed_events() -> list[str]:
         """CREATE TABLE IF NOT EXISTS lg_feed_events_state (
     id boolean PRIMARY KEY DEFAULT true CHECK (id),
     written_at timestamptz NOT NULL,
-    since text,
-    shape text
+    since text
 )""",
-        "ALTER TABLE lg_feed_events_state ADD COLUMN IF NOT EXISTS shape text",
         # the amendments as the Kamer handles them (``queries/feed_events.CHAINS``): a row
         # per chain of documents that replace each other (REVISES; the chain is named by its
         # last document) and document of it, with the day of its first document and its outcome

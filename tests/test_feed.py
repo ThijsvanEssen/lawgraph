@@ -32,6 +32,7 @@ from lawgraph.core.feed import (
 )
 from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.feed_sql import SOURCES, FeedFilters
+from lawgraph.db.schema import FEED_EVENTS_COLUMNS
 from tests.optional import present
 
 
@@ -663,9 +664,7 @@ def test_the_shape_of_the_feed_events_follows_their_columns_and_query(
     now = feed_events.shape()
     assert len(now) == 16 and now == feed_events.shape()
     feed_events.shape.cache_clear()
-    monkeypatch.setattr(
-        feed_events, "FEED_EVENTS_COLUMNS", feed_events.FEED_EVENTS_COLUMNS + ", x text"
-    )
+    monkeypatch.setattr(feed_events, "FEED_EVENTS_COLUMNS", FEED_EVENTS_COLUMNS + ", x")
     try:
         assert feed_events.shape() != now
     finally:

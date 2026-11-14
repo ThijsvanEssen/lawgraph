@@ -171,10 +171,8 @@ def shape() -> str:
 
 _NEW = f"{FEED_EVENTS_TABLE}_new"
 _STATE = """
-INSERT INTO lg_feed_events_state (id, written_at, since, shape)
-VALUES (true, now(), %(since)s, %(shape)s)
-ON CONFLICT (id) DO UPDATE
-SET written_at = excluded.written_at, since = excluded.since, shape = excluded.shape
+INSERT INTO lg_feed_events_state (id, written_at, since) VALUES (true, now(), %(since)s)
+ON CONFLICT (id) DO UPDATE SET written_at = excluded.written_at, since = excluded.since
 """
 
 
@@ -275,7 +273,9 @@ def write_all(store: GraphStore) -> int:
             conn.execute(f"ALTER INDEX {name}_new RENAME TO {name}")
         conn.execute(f"ANALYZE {FEED_EVENTS_TABLE}")
         _write_chains(conn)
-        conn.execute(_STATE, {"since": None, "shape": shape()})
+        # the shape as the table's comment: it goes with the table it describes
+        conn.execute(f"COMMENT ON TABLE {FEED_EVENTS_TABLE} IS '{shape()}'")
+        conn.execute(_STATE, {"since": None})
         return written
 
     return store.in_transaction("the feed events", swap)
@@ -294,7 +294,7 @@ def write_since(store: GraphStore, since: str) -> int:
         )
         written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
         _write_chains(conn)
-        conn.execute(_STATE, {"since": since, "shape": shape()})
+        conn.execute(_STATE, {"since": since})
         return written
 
     return store.in_transaction("the feed events since", rewrite)
@@ -577,10 +577,10 @@ PERIODS_MAX_AGE = 3600.0
 
 
 def written_at(store: GraphStore) -> dt.datetime | None:
-    """When the events were last written in this version's ``shape``; None: never."""
-    statement = (
-        "SELECT written_at FROM lg_feed_events_state WHERE id AND shape = %(shape)s"
-    )
+    """When the events were last written in this version's ``shape`` (the comment of the
+    table); None: never."""
+    statement = f"""SELECT written_at FROM lg_feed_events_state WHERE id
+        AND obj_description(to_regclass('{FEED_EVENTS_TABLE}'), 'pg_class') = %(shape)s"""
     written: dt.datetime | None = next(
         iter(store.query(statement, {"shape": shape()})), None
     )
