@@ -1964,7 +1964,7 @@ total and facets and, under `q`, `faction`, `tier` or `subject_area` without a f
 first day of its page.
 Indexes on `(date, kind)`, `words` (GIN: `lg_word_query` makes the query of a word of `q`, a
 superset the feed's pattern then checks), `factions` (GIN) and `(tier, date)` of the judgments. `lg_feed_events_state` keeps
-when it was written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
+when it was written, the table's comment in what shape (a digest of its columns and the query that writes them): one of another shape is read as never written. `lg_amendment_chains` holds the chains of the amendments (a row per chain, named by its last paper, and paper of it, with the day of its first paper and its outcome), written whole with the events. Not tables of the graph: writing them raises no data version.
 
 `lg_unlinked_references` holds per node a step read the references of how many its text makes
 that the step recognized and could not link (`id`, `step`: the edge source of the step,

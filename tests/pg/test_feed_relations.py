@@ -36,6 +36,7 @@ from lawgraph.config.constants import (
     RELATION_REPEALS,
     RELATION_REVISES,
 )
+from lawgraph.core.feed import EVENT_JUDGMENT, FEED_KINDS
 from lawgraph.core.models import Node, NodeType
 from lawgraph.db import EdgeWriter, GraphStore, NodeWriter
 from lawgraph.db.queries import feed_events
@@ -640,6 +641,22 @@ def test_the_events_of_a_law_say_how_they_are_tied_to_it(
             "dossier": None,
         }
     }
+
+
+@ON_THE_GRAPH
+def test_the_events_of_a_law_but_its_judgments(client: TestClient) -> None:
+    """B163: every kind but ``uitspraak`` keeps what changes the law, its versions too, off
+    a page that the judgments citing a much cited law would fill."""
+    every = _feed(client, instrument=CBW)
+    kinds = ",".join(k for k in FEED_KINDS if k != EVENT_JUDGMENT)
+    changes = _feed(client, instrument=CBW, kind=kinds)
+    assert [i["id"] for i in changes] == [
+        i["id"] for i in every if i["kind"] != EVENT_JUDGMENT
+    ]
+    assert {i["via"]["relation"] for i in changes} >= {"version_of", "based_on"}
+    assert _feed(client, instrument=CBW, kind="inwerkingtreding", limit=1)[0]["via"][
+        "relation"
+    ] in {"version_of", "based_on"}
 
 
 @ON_THE_GRAPH

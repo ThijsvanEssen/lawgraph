@@ -30,7 +30,9 @@ from lawgraph.core.feed import (
     FeedCursor,
     person_role,
 )
+from lawgraph.db.queries import feed_events
 from lawgraph.db.queries.feed_sql import SOURCES, FeedFilters
+from lawgraph.db.schema import FEED_EVENTS_COLUMNS
 from tests.optional import present
 
 
@@ -652,3 +654,18 @@ def test_a_publication_says_how_it_is_cited() -> None:
         "stb",
         "Stb. 2026, 94",
     )
+
+
+def test_the_shape_of_the_feed_events_follows_their_columns_and_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """B165: a table written by a release before a column was added is of another shape,
+    so it is read as never written instead of answering a filter on that column with 0."""
+    now = feed_events.shape()
+    assert len(now) == 16 and now == feed_events.shape()
+    feed_events.shape.cache_clear()
+    monkeypatch.setattr(feed_events, "FEED_EVENTS_COLUMNS", FEED_EVENTS_COLUMNS + ", x")
+    try:
+        assert feed_events.shape() != now
+    finally:
+        feed_events.shape.cache_clear()

@@ -2382,7 +2382,7 @@ CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
 # matches, which the feed's own pattern then checks. A judgment has a row whatever its tier,
 # with its ``tier`` and main areas of law (``subject_areas``, ``lg_subject_areas``); both are
 # null for every other kind. Not a table of the graph: writing it raises no data version;
-# ``lg_feed_events_state`` says when it was written.
+# ``lg_feed_events_state`` says when it was written, its comment in what shape.
 FEED_EVENTS_TABLE = "lg_feed_events"
 FEED_EVENTS_COLUMNS = """
     kind text NOT NULL,
