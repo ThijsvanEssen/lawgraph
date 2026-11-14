@@ -136,6 +136,14 @@ def test_references_come_in_text_order_with_what_they_name() -> None:
     assert eu.celex == "32016R0679" and annex.doc == ""
 
 
+def test_a_reference_has_the_key_of_the_article_it_names_or_none() -> None:
+    """Resolved: the node key (also when the data lacks the article); else None."""
+    first, second, eu, annex = references_from_props(ARTICLE["props"], set())
+
+    assert second.key == "bwbr0000001_5"
+    assert (first.key, eu.key, annex.key) == (None, None, None)
+
+
 def test_a_reference_names_its_target_and_whether_the_data_holds_it() -> None:
     """The article a link names, else the regulation of a link to a chapter, the EU act
     of a CELEX link, the annex of a link to one; ``exists`` from the keys found."""

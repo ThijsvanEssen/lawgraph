@@ -13430,6 +13430,18 @@
             "title": "Article",
             "description": "Number of the article referred to; null for a reference to a chapter, a title, an annex or an EU act."
           },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "The node key of the article referred to (`{bwb_id}_{article}`, as everywhere else); null when the reference names no article."
+          },
           "celex": {
             "anyOf": [
               {
@@ -13493,6 +13505,7 @@
           "kind",
           "bwb_id",
           "article",
+          "key",
           "celex",
           "doc",
           "text",
