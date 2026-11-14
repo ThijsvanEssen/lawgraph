@@ -491,6 +491,28 @@ def test_the_holders_of_one_heading_at_the_same_time_hold_seats_of_their_own() -
     } <= seats
 
 
+def test_a_seat_named_by_its_holders_line_is_called_by_that_line() -> None:
+    # Schoof (B166): under one heading Van Marum is "staatssecretaris Herstel Groningen" and,
+    # from 19 June 2025, the state secretary of the heading; three seats, three names
+    bzk = {
+        p["seat"]: (p["function"], p["also_named"])
+        for p in _cabinet("schoof")["posts"]
+        if p["seat"].startswith("bzk/staatssecretaris")
+    }
+    heading = "Staatssecretaris van Binnenlandse Zaken en Koninkrijksrelaties"
+    assert bzk == {
+        "bzk/staatssecretaris": (heading, []),
+        "bzk/staatssecretaris/herstel-groningen": (
+            "Staatssecretaris Herstel Groningen",
+            [heading],
+        ),
+        "bzk/staatssecretaris/digitalisering-en-koninkrijksrelaties": (
+            "Staatssecretaris Digitalisering en Koninkrijksrelaties",
+            [heading],
+        ),
+    }
+
+
 def test_a_ministry_renamed_during_the_cabinet_keeps_its_seat_in_one_place() -> None:
     # Rutte-Asscher: the state secretary of Economische Zaken, Landbouw en Innovatie, named
     # Economische Zaken from 1 January 2013 (TOOI); one seat, by its later name

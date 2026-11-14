@@ -318,6 +318,7 @@ class ArticleReferenceDTO(QualifierFields):
         description="Number of the article referred to; null for a reference to a chapter, "
         "a title, an annex or an EU act."
     )
+    key: str | None = Field(None, description="Node key of the article referred to.")
     celex: str | None = Field(None, description="The CELEX number of an EU act.")
     doc: str = Field(
         description="The JCI string or CELEX number of the link, as the XML has it; empty "
@@ -363,6 +364,7 @@ def references_from_props(
                 kind=str(ref.get("kind") or ""),
                 bwb_id=ref.get("bwb_id"),
                 article=ref.get("article"),
+                key=target[1] if target and target[0] == "articles" else None,
                 celex=ref.get("celex"),
                 doc=str(ref.get("doc") or ""),
                 text=str(ref.get("text") or ""),
