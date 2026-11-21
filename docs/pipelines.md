@@ -20,6 +20,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | `tooi-ministries` |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
+| CBS | `cbs` | `cbs` (`lg_court_districts`) | none |
 | The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-steps`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a host from `config/sources.py`, one `get` (with
@@ -2326,6 +2327,40 @@ each of its `ministries` (`normalize staatsblad`, `staatscourant`); a member who
 rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
 what it no longer derives goes.
 
+## CBS
+
+**Provides.** The table "Gebieden in Nederland <year>" of the CBS (StatLine,
+`https://opendata.cbs.nl/`, `CBS`), one per year: every municipality of that year (code
+`GM0392`, name) with the areas it lies in, among them its arrondissement (`AR01`) and ressort
+(`RT12`, "Gerechtshof Arnhem-Leeuwarden") as the Wet op de rechterlijke indeling draws them,
+and its province. The open data of the CBS falls under CC BY 4.0: name the CBS where it is
+shown.
+
+**Retrieve.** `retrieve cbs`: the catalogue (`ODataCatalog/Tables`) lists the tables by title;
+each of 2013 (the present court map) and later is one `cbs-gebieden-json` record (external id
+its identifier, `86247NED`; `payload_json` its `year`, its columns `properties` (OData
+`DataProperties`) and every row `rows` (`TypedDataSet`); `meta.url`, `meta.read_on`,
+`meta.modified`). A table is fetched again only when the catalogue says it changed after it
+was stored: a run is one request, plus two per changed table.
+
+**Normalize `cbs`.** `lg_court_districts`, one row per year and municipality, written whole
+(`core/court_districts.py`). The columns of a table are found by the title of their group
+("Codes en namen van gemeenten", "Arrondissementen (rechtsgebieden)", "Ressorten
+(rechtsgebieden)", "Provincies"), as their keys differ per year; a table without one fails the
+step. Each row carries the CBS code and name of the municipality, its province, arrondissement
+and ressort, and the articles of the Wet op de rechterlijke indeling (`BWBR0002080`, as
+`normalize bwb` wrote them) that draw them: `district_article` (4 to 13), `circuit_article`
+(14 to 17). For this year's table it also says how that text compares: articles 4 to 13 give
+an arrondissement provinces and municipalities in words, a municipality is found by its whole
+name in the list (a name may hold a comma: "Nuenen, Gerwen en Nederwetten"), or by its
+province; a name two municipalities share (Bergen in Noord-Holland and in Limburg) by the
+province first. `law_district` is the arrondissement the text puts it in, `district_check`
+`agrees`, `differs` or `not_in_text` (in none, or in more than one); `circuit_check` the same
+for the ressort of its arrondissement. The text of the graph is today's, so other years keep
+the checks null. On 21 Nov 2026 the text put 339 of 342 municipalities where the CBS does; it
+names no Castricum, Den Helder or Waterland ("Castricum Den Helder", "Watersland": slips of
+the consolidated text). Such a gap is shown, never corrected by hand.
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it. A
@@ -2338,6 +2373,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | Step | Needs |
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
+| normalize `cbs` | `normalize bwb` (the articles of the Wet op de rechterlijke indeling) and stored `cbs-gebieden-json` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
 | normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, the factions a party is matched to, and the commitments) and `retrieve staatscourant-posts` |
 | normalize `tk-document-links` | `normalize tk-dossiers` (the documents and activities it links) and stored `tk-document-links` |

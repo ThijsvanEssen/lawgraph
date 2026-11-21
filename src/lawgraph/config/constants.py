@@ -228,6 +228,8 @@ SOURCE_VERDRAGENBANK = "verdragenbank"
 SOURCE_RIJKSOVERHEID = "rijksoverheid"
 SOURCE_TOOI = "tooi"
 SOURCE_KIESRAAD = "kiesraad"
+# The statistics of the CBS (opendata.cbs.nl): its table of the areas each municipality lies in.
+SOURCE_CBS = "cbs"
 # The Kamerstukken of the Tweede Kamer as the KOOP SRU lists them: those of 1994-1995 to
 # 2007-2008, which the Tweede Kamer's own API hardly has.
 SOURCE_KST = "kst"
@@ -356,6 +358,10 @@ RAW_KIND_EERSTEKAMER_COMMITMENT = "ek-commitment-html"
 # The page of an election of the Eerste Kamer in the Kiesraad's databank (external id its
 # code, ``EK20230530``): the seats each list won.
 RAW_KIND_KIESRAAD_EK_RESULT = "kiesraad-ek-result-html"
+# A year's table "Gebieden in Nederland" of the CBS (external id its identifier, ``86247NED``):
+# every municipality of that year with the areas it lies in, among them its arrondissement and
+# ressort.
+RAW_KIND_CBS_REGIONS = "cbs-gebieden-json"
 RAW_KIND_VERDRAGENBANK_JSON = "verdrag-json"
 # the item XML of a treaty: its parties, Tractatenbladen, dossiers and related treaties
 RAW_KIND_VERDRAGENBANK_XML = "verdrag-xml"
@@ -429,6 +435,7 @@ RAW_SOURCE_KINDS: dict[str, tuple[str, ...]] = {
     SOURCE_RIJKSOVERHEID: (RAW_KIND_RIJKSOVERHEID_CABINET,),
     SOURCE_TOOI: (RAW_KIND_TOOI_MINISTRIES, RAW_KIND_TOOI_THESAURUS),
     SOURCE_KIESRAAD: (RAW_KIND_KIESRAAD_EK_RESULT,),
+    SOURCE_CBS: (RAW_KIND_CBS_REGIONS,),
     SOURCE_KST: (RAW_KIND_KST_SRU,),
 }
 
@@ -489,6 +496,7 @@ RAW_BATCH_SIZE: dict[str, int] = {
     RAW_KIND_EERSTEKAMER_MOTION: 50,
     RAW_KIND_EERSTEKAMER_COMMITMENT: 50,
     RAW_KIND_KIESRAAD_EK_RESULT: 20,
+    RAW_KIND_CBS_REGIONS: 5,
     RAW_KIND_VERDRAGENBANK_JSON: 1000,
     RAW_KIND_VERDRAGENBANK_XML: 1000,
     RAW_KIND_RIJKSOVERHEID_CABINET: 50,

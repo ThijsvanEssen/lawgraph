@@ -37,6 +37,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.sources import (
     BWB_SEARCH,
+    CBS,
     CELLAR,
     EERSTEKAMER_SITE,
     HUDOC,
@@ -59,6 +60,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
+from lawgraph.pipelines.normalize.cbs import CbsNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer_agenda import (
@@ -102,6 +104,7 @@ from lawgraph.pipelines.normalize.tk_document_links import (
 )
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
+from lawgraph.pipelines.retrieve.cbs import CbsRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer_commitments import (
     EerstekamerCommitmentsRetrievePipeline,
     ek_commitments_args,
@@ -817,6 +820,13 @@ RETRIEVE: list[Pipeline] = [
         lane=KOOP_REPOSITORY.lane,
         after=("rijksoverheid",),
     ),
+    _retrieve(
+        CbsRetrievePipeline,
+        "The CBS tables Gebieden in Nederland since 2013: the arrondissement and ressort "
+        "of every municipality per year; a table again when the catalogue says it changed.",
+        argv_for_all=_no_argv,
+        lane=CBS.lane,
+    ),
 ]
 
 NORMALIZE: list[Pipeline] = [
@@ -967,6 +977,13 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         VerdragenbankNormalizePipeline,
         "Treaties as instruments.",
+    ),
+    _pipeline(
+        CbsNormalizePipeline,
+        "The arrondissement and ressort of every municipality per year, from the CBS, with "
+        "the articles of the Wet op de rechterlijke indeling; this year checked against "
+        "that text.",
+        after=("bwb",),  # the articles of the Wet op de rechterlijke indeling
     ),
 ]
 

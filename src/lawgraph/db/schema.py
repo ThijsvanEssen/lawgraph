@@ -2434,6 +2434,30 @@ CREATE TABLE IF NOT EXISTS lg_ek_seats (
 """
 
 
+# The arrondissement and ressort of each municipality per year (``normalize cbs``): as the CBS
+# table "Gebieden in Nederland" of that year gives them, with the articles of the Wet op de
+# rechterlijke indeling that draw them, and for the year of the text the graph holds how the
+# text compares (``core.court_districts``; null in other years). Written whole. Not a table of
+# the graph.
+COURT_DISTRICTS = """
+CREATE TABLE IF NOT EXISTS lg_court_districts (
+    year integer NOT NULL,
+    municipality_code text NOT NULL,
+    municipality text NOT NULL,
+    province text NOT NULL,
+    district text NOT NULL,
+    district_code text NOT NULL,
+    circuit text NOT NULL,
+    circuit_code text NOT NULL,
+    district_article text,
+    circuit_article text,
+    law_district text,
+    district_check text,
+    circuit_check text,
+    PRIMARY KEY (year, municipality_code)
+)
+"""
+
 # The steps between two sources (``queries/source_steps.py``), built whole from the edges by
 # ``semantic graph-steps`` beside the tables (``_new``) and put in their place; ``/api/chains``
 # searches them. One row per pair of sources (``a < b``, by byte: ``"C"``) and a row per node
@@ -2630,6 +2654,7 @@ def statements() -> list[str]:
         *feed_events(),
         *source_steps(),
         EK_SEATS,
+        COURT_DISTRICTS,
         nodes_view(),
     ]
     for table in (COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE):
