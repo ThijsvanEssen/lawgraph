@@ -634,6 +634,13 @@ class ScopeArticleReference(StrictModel):
         )
 
 
+class ConceptRefDTO(StrictModel):
+    """A concept an article is one of: what ``/api/concepts/{key}`` answers for."""
+
+    key: str
+    name: str
+
+
 class ArticleDetailResponse(StrictModel):
     """Response for GET /api/articles/{bwb_id}/{article_number}."""
 
@@ -696,6 +703,11 @@ class ArticleDetailResponse(StrictModel):
         default_factory=list,
         description="Formerly: the articles of the old law whose place this article takes "
         "(`TRANSPOSED_TO` read backwards).",
+    )
+    concepts: list[ConceptRefDTO] = Field(
+        default_factory=list,
+        description="The concepts kept by hand the article is one of (articles that "
+        "together make one doctrine); `/api/concepts/{key}` gives each.",
     )
 
 

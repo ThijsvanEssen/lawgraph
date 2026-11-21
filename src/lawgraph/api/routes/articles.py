@@ -40,6 +40,7 @@ from lawgraph.api.schemas.articles import (
     ArticleSuccessionDTO,
     ArticleSummaryDTO,
     ArticleVersionDTO,
+    ConceptRefDTO,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
@@ -59,6 +60,7 @@ from lawgraph.api.schemas.common import (
 from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.api.validity import article_validity_dto, ended_article_validity_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.core.concept_articles import concepts_of
 from lawgraph.core.delegations import (
     delegation_clauses,
     fills,
@@ -269,6 +271,10 @@ def get_article_detail(
         predecessors=[
             ArticleSuccessionDTO.from_row(r)
             for r in relationship_data.get("predecessors", [])
+        ],
+        concepts=[
+            ConceptRefDTO(key=c.key, name=c.name)
+            for c in concepts_of(article.bwb_id, article.number)
         ],
     )
 

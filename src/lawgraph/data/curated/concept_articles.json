@@ -1,0 +1,27 @@
+{
+ "about": "By hand: the articles that together make one doctrine of the law (a concept), which no source groups: the article page shows them in one block with the judgments and papers that cite any of them. Each concept has its `name`, its `articles` (`<BWB id>/<article number>`, as the graph numbers them, at least two, read before they are added) and an optional `explanation`: a link to an official page that explains the concept (`label`, `url` on a government domain). No text of our own. `lawgraph curated set concept-articles`.",
+ "concepts": [
+  {
+   "key": "toetsing-van-wetten",
+   "name": "Toetsing van wetten",
+   "articles": [
+    "BWBR0001840/93",
+    "BWBR0001840/94",
+    "BWBR0001840/120"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/onderwerpen/grondwet-en-statuut/grondwet"
+   }
+  },
+  {
+   "key": "gezag-over-de-politie",
+   "name": "Gezag over de politie",
+   "articles": [
+    "BWBR0031788/11",
+    "BWBR0031788/12",
+    "BWBR0031788/13"
+   ]
+  }
+ ]
+}

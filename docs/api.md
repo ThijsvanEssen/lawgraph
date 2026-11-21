@@ -530,6 +530,18 @@ holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `A
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
 notes a term whose article the graph does not have.
 
+### Concept blocks
+
+Articles that together make one doctrine of the law (`toetsing-van-wetten`: Gw 93, 94 and 120)
+are grouped by hand in the curated list `concept-articles` (`data/curated/concept_articles.json`,
+`core/concept_articles.py`), apart from the search terms above: no source groups them. An article
+names the concepts it is one of under `concepts`; `/api/concepts/{key}` gives one: its articles
+with their heading or the start of their text, the judgments and papers that cite any of them,
+each counted once, the newest of them, and a link to an official page that explains it (a
+government domain; none where none is kept). The block adds no text of its own.
+`lawgraph curated check concept-articles --db` notes an article the graph does not have; the
+route names it under `missing`.
+
 ### Search pages and facets
 
 `/api/search?mode=full` pages through the hits of each type (`offset`, at most 500, a page
