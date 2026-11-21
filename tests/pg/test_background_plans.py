@@ -54,15 +54,18 @@ WHOLE_BY_DESIGN = [
         " per data version in the background",
     ),
     (
-        "facets and total of the list of judgments and of a source or area of law",
+        "facets and total of the list of judgments and of a source, kind of court or area"
+        " of law",
         re.compile(
             r"FROM judgments j .*WHERE \(j\.stub IS NOT TRUE\) AND \(j\.same_as IS NULL\)"
+            r"( AND \(j\.court_kind = %\(court_kind\)s\))?"
             r"( AND \(j\.source = %\(source\)s\))?"
             r"( AND \(lg_subject_areas\(j\.subjects\) @> ARRAY\[%\(subject_area\)s\]::text\[\]\))?"
             r"( GROUP BY| \) subjects|$)"
         ),
-        "the counts of the list as it opens and of a source or its largest areas of law"
-        " cover every judgment of them; kept an hour, computed in the background",
+        "the counts of the list as it opens, of a source, of a kind of court (rechtbank:"
+        " half the list) or of its largest areas of law cover every judgment of them;"
+        " kept an hour, computed in the background",
     ),
 ]
 

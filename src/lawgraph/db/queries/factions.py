@@ -31,6 +31,7 @@ from lawgraph.db.queries._parliament_sql import (
     contains,
     of_chamber,
 )
+from lawgraph.db.version_cache import cached
 
 # What a faction is searched by.
 _FACTION_NAME = "f.props ->> 'name'"
@@ -48,7 +49,27 @@ def get_factions(
 ) -> list[dict[str, Any]]:
     """Every parliamentary party of *chamber* with its member count (the seats held today,
     ``lg_seated``), seated ones first; with a period (*active_from*, *active_to*) those
-    active in it (``active_from`` to ``active_until``)."""
+    active in it (``active_from`` to ``active_until``). Without *q* kept per day while
+    the factions and the edges stand still (1.0 to 1.5 s on prod, 21 Nov: a paper waits
+    for it)."""
+    if q:
+        return _factions(store, active, q, chamber, active_from, active_to)
+    return cached(
+        store,
+        ("factions", active, chamber, active_from, active_to, dutch_today()),
+        lambda: _factions(store, active, None, chamber, active_from, active_to),
+        tables=(COLLECTION_FACTIONS, COLLECTION_EDGES),
+    )
+
+
+def _factions(
+    store: GraphStore,
+    active: bool | None,
+    q: str | None,
+    chamber: str,
+    active_from: str | None,
+    active_to: str | None,
+) -> list[dict[str, Any]]:
     bind: dict[str, Any] = {
         "member_of": RELATION_MEMBER_OF,
         "today": dutch_today().isoformat(),

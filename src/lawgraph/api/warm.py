@@ -299,6 +299,7 @@ FACTION_DOSSIERS_LIMIT = 100
 
 
 def _warm_faction_dossiers(store: GraphStore) -> None:
+    get_factions(store)  # every faction, as the explorer asks them (``/factions``)
     for faction in get_factions(store, active=True):
         faction_dossiers(store, faction["id"], FACTION_DOSSIERS_LIMIT, 0, "opened")
 
@@ -483,8 +484,9 @@ def _values(rows: list[dict[str, Any]] | None) -> list[Any]:
 
 
 def _judgment_filters(store: GraphStore) -> Iterator[Part]:
-    """Each tier, the largest main areas of law, the sources but the largest (nearly the
-    whole list, and no list asks it), and the newest years as a bar of the axis asks them."""
+    """Each tier and each kind of court (the chips of the list), the largest main areas of
+    law, the sources but the largest (nearly the whole list, and no list asks it), and the
+    newest years as a bar of the axis asks them."""
 
     def part(name: str, **filters: Any) -> Part:
         return _filter(name, get_judgments_list, JudgmentFilters(**filters), limit=1)
@@ -492,6 +494,8 @@ def _judgment_filters(store: GraphStore) -> Iterator[Part]:
     facets = get_judgments_list(store, JudgmentFilters(), limit=1)["facets"] or {}
     for tier in _values(facets.get("tier")):
         yield part(f"judgments of {tier}", tiers=(tier,))
+    for kind in _values(facets.get("court_kind")):
+        yield part(f"judgments of court kind {kind}", court_kind=kind)
     for area in _values(facets.get("subject_area"))[:WARM_TOP]:
         yield part(f"judgments in {area}", subject_area=area)
     for source in _values(facets.get("source"))[1 : WARM_TOP + 1]:

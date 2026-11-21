@@ -204,7 +204,7 @@ def test_instruments_a_total_counted_comes_without_the_facets(
             raise ReadTimedOut("not counted yet")
         return [7]
 
-    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "_listed", lambda *a, **k: ([], None))
     monkeypatch.setattr(instruments, "cached_rows", rows)
     got = instruments.get_instruments_list(cast(GraphStore, object()))
 
@@ -212,7 +212,7 @@ def test_instruments_a_total_counted_comes_without_the_facets(
 
 
 def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "_listed", lambda *a, **k: ([], None))
     count = Counting()
 
     def rows(store: Any, sql: Any, *a: Any, **k: Any) -> list[Any]:
@@ -234,7 +234,7 @@ def test_instruments_partial_then_counted(monkeypatch: pytest.MonkeyPatch) -> No
 def test_instruments_counts_of_a_search_are_computed_inline(
     monkeypatch: pytest.MonkeyPatch, facets: bool
 ) -> None:
-    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], None))
+    monkeypatch.setattr(instruments, "_listed", lambda *a, **k: ([], None))
     monkeypatch.setattr(instruments, "_legal_area_tree", lambda rows: [])
     inline: list[bool] = []
     store = cast(GraphStore, object())
@@ -322,7 +322,7 @@ def test_a_list_of_judgments_gives_its_total_while_the_facets_count(
 def test_a_page_of_instruments_does_not_wait_for_its_total(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(instruments, "_listed", lambda *a: ([], "next"))
+    monkeypatch.setattr(instruments, "_listed", lambda *a, **k: ([], "next"))
     monkeypatch.setattr(instruments, "_instrument_total", Counting(7))
     store = cast(GraphStore, object())
     first, second = _both_requests(
