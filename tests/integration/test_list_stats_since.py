@@ -13,7 +13,6 @@ from lawgraph.config.constants import (
     RELATION_SAME_AS,
 )
 from lawgraph.db import GraphStore
-from lawgraph.db.queries import graph_stats
 from lawgraph.db.queries.state import set_state
 from lawgraph.pipelines.semantic.graph_list_stats import (
     STATE_KEY,
@@ -150,8 +149,9 @@ def test_a_row_not_written_since_keeps_its_props_until_a_run_over_all(
     store = GraphStore()
     _settled(store)
     store.bulk_insert_or_update_nodes("judgments", [_node("j2", date_eff="1900-01-01")])
-    # as if that write came before the previous run
-    began = graph_stats.oldest_open_transaction(store)
+    # as if that write came before the previous run: a transaction after it (not the oldest
+    # open one, which a test of another database on the server may hold from before it)
+    began = int(next(store.query("SELECT pg_current_xact_id()::text::bigint")))
     set_state(store, STATE_KEY, {"transaction": began})
 
     GraphListStatsSemanticPipeline(store).run(since=SINCE)
