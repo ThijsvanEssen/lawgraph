@@ -1,6 +1,13 @@
 """The list keys ``lawgraph semantic graph-list-stats`` keeps on nodes: per collection one
 query that selects the documents whose stored keys differ from what the graph gives, and either
-counts them (a dry run) or writes the keys. Each ``refresh_*`` returns the number."""
+counts them (a dry run) or writes the keys. Each ``refresh_*`` returns the number.
+
+What a key is read from decides what a run reads. The counts come from the edges, from an
+index, of every node in every run: an edge that went lowers a count, and nothing tells which.
+What only the props of a node give (the date of a judgment, the text of the articles of a
+regulation) does not change while the row is not written again: with *written_after* (the
+oldest transaction still open when the previous run began, ``pg_snapshot_xmin``) it is read of
+the rows written since (``xmin``) and kept of the others; without, of every row."""
 
 from __future__ import annotations
 
@@ -37,6 +44,26 @@ def _differs(field: str, value: str, *, stored: bool) -> str:
     return (
         f"coalesce({prop}::jsonb, 'null')"
         f" IS DISTINCT FROM coalesce(to_jsonb({value}), 'null')"
+    )
+
+
+def oldest_open_transaction(store: Store) -> int:
+    """The oldest transaction still open (``pg_snapshot_xmin``, an ``xid8``): a row written
+    by an older one was committed before now."""
+    return int(
+        next(
+            store.query("SELECT pg_snapshot_xmin(pg_current_snapshot())::text::bigint")
+        )
+    )
+
+
+def _written(alias: str) -> str:
+    """SQL: the row *alias* was written by a transaction at or after ``%(written_after)s``
+    (always, without one). A row frozen long ago can count as written (``age`` wraps): it is
+    read again, no harm; the caller keeps the transactions in between far below the wrap."""
+    return (
+        "(%(written_after)s::xid IS NULL"
+        f" OR age({alias}.xmin) BETWEEN 0 AND age(%(written_after)s::xid))"
     )
 
 
@@ -79,8 +106,7 @@ _INSTRUMENTS = f"""
                     WHEN i.bwb_id IS NOT NULL THEN 'nl' END,
                ''
            )) AS jurisdiction,
-           -- what the list of its articles holds by default
-           {article_count("i")} AS article_count,
+           listed.articles AS article_count,
            -- an EU act by the letter of its CELEX number (no source names its kind), a
            -- preparatory act by its sector: a proposal
            coalesce(
@@ -104,20 +130,39 @@ _INSTRUMENTS = f"""
            -- or more changes another regulation, or articles that mostly do. The BWB puts
            -- "Wijzigt <regulation>." in place of an article that did
            -- (``<redactie type="vervanging">``).
-           coalesce(i.bwb_id LIKE 'BWBR%%' AND own.changes > 0
-                    AND (own.roman = own.articles OR 2 * own.changes >= own.articles),
-                    false) AS amending
+           CASE WHEN fresh.read
+                THEN coalesce(i.bwb_id LIKE 'BWBR%%' AND text.changes > 0
+                              AND (own.roman = own.articles
+                                   OR 2 * text.changes >= own.articles),
+                              false)
+                ELSE coalesce(lg_bool(i.props -> 'amending'), false) END AS amending
     FROM instruments i
+    -- what the list of its articles holds by default, counted once (OFFSET 0: not pulled
+    -- up into each of the three places that read it)
+    CROSS JOIN LATERAL (SELECT {article_count("i")} AS articles OFFSET 0) listed
     LEFT JOIN LATERAL (
         SELECT count(*) AS articles,
                count(*) FILTER (WHERE a.article_number ~ '^[IVXLC]+[a-z]?$') AS roman,
-               count(*) FILTER (WHERE lg_str(a.props -> 'text') LIKE 'Wijzigt %%')
-                   AS changes
+               count(*) FILTER (WHERE {_written("a")}) AS written
         FROM edges e JOIN articles a ON a.id = e.from_id
         WHERE e.to_id = i.id AND e.relation = %(part_of)s
           AND e.from_collection = 'articles'
           AND {" AND ".join(listed_article("a"))}
     ) own ON i.bwb_id LIKE 'BWBR%%'
+    -- the texts of its articles are read of a regulation written since, one of whose
+    -- articles was, or whose articles went (their count changed); the others keep theirs
+    CROSS JOIN LATERAL (
+        SELECT {_written("i")} OR coalesce(own.written, 0) > 0
+               OR listed.articles IS DISTINCT FROM i.article_count AS read
+    ) fresh
+    LEFT JOIN LATERAL (
+        SELECT count(*) FILTER (WHERE lg_str(a.props -> 'text') LIKE 'Wijzigt %%')
+                   AS changes
+        FROM edges e JOIN articles a ON a.id = e.from_id
+        WHERE fresh.read AND e.to_id = i.id AND e.relation = %(part_of)s
+          AND e.from_collection = 'articles'
+          AND {" AND ".join(listed_article("a"))}
+    ) text ON i.bwb_id LIKE 'BWBR%%'
 """
 
 
@@ -126,7 +171,9 @@ _INSTRUMENTS = f"""
 EU_KINDS = {act.letter: act.noun.lower() for act in EU_ACT_KINDS.values()}
 
 
-def refresh_instruments(store: Store, *, dry_run: bool) -> int:
+def refresh_instruments(
+    store: Store, *, dry_run: bool, written_after: str | None = None
+) -> int:
     return _run(
         store,
         "instruments",
@@ -136,6 +183,7 @@ def refresh_instruments(store: Store, *, dry_run: bool) -> int:
             "part_of": RELATION_PART_OF,
             "refers_to": RELATION_REFERS_TO,
             "eu_kinds": Jsonb(EU_KINDS),
+            "written_after": written_after,
         },
         dry_run=dry_run,
     )
@@ -165,11 +213,13 @@ _JUDGMENTS = f"""
                 SELECT j.id, j.stub, j.court AS court_name, e.ecli,
                        CASE WHEN cardinality(string_to_array(e.ecli, ':')) >= 3
                             THEN upper(split_part(e.ecli, ':', 3)) END AS court_code,
-                       coalesce(
+                       -- of a judgment written since, from its props (its text too);
+                       -- the others keep theirs
+                       CASE WHEN {_written("j")} THEN coalesce(
                            j.props -> 'judgment_metadata' ->> 'date',
                            j.props -> 'meta' ->> 'date',
                            j.props ->> 'date'
-                       ) AS date_eff,
+                       ) ELSE j.date_eff END AS date_eff,
                        -- the judgments that cite it or a publication of the same decision
                        -- it keeps (SAME_AS to it), each once
                        -- (one ``= ANY`` of ids: an OR of the two keeps the index unused)
@@ -198,7 +248,9 @@ def _tiers(courts: dict[str, Court]) -> dict[str, dict[str, str]]:
     return {k: {"tier": c.tier, "court_kind": c.court_kind} for k, c in courts.items()}
 
 
-def refresh_judgments(store: Store, *, dry_run: bool) -> int:
+def refresh_judgments(
+    store: Store, *, dry_run: bool, written_after: str | None = None
+) -> int:
     return _run(
         store,
         "judgments",
@@ -220,6 +272,7 @@ def refresh_judgments(store: Store, *, dry_run: bool) -> int:
             "other_court_by_name": Jsonb(_tiers(OTHER_COURT_BY_NAME)),
             "kind_of_court_kind": Jsonb(KIND_OF_COURT_KIND),
             "curated_names": Jsonb({e: list(n) for e, n in CURATED_NAMES.items()}),
+            "written_after": written_after,
         },
         dry_run=dry_run,
         stored=True,
@@ -235,7 +288,10 @@ _ARTICLES = """
 """
 
 
-def refresh_articles(store: Store, *, dry_run: bool) -> int:
+def refresh_articles(
+    store: Store, *, dry_run: bool, written_after: str | None = None
+) -> int:
+    """(Every article: its key is a count; *written_after* changes nothing.)"""
     return _run(
         store,
         "articles",
@@ -266,7 +322,10 @@ _COMMITTEES = """
 """
 
 
-def refresh_committees(store: Store, *, dry_run: bool) -> int:
+def refresh_committees(
+    store: Store, *, dry_run: bool, written_after: str | None = None
+) -> int:
+    """(Every committee: its key is a count; *written_after* changes nothing.)"""
     return _run(
         store,
         "committees",

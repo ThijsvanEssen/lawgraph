@@ -284,6 +284,7 @@ SELECT key, props -> 'bwb_id' AS bwb_id, props -> 'stam_id' AS stam_id,
        props -> 'commencement_publication' AS commencement
 FROM article_versions v
 WHERE {is_present("props -> 'origin_publication'")} AND v.stam_id IS NOT NULL
+  AND (%(bwb_ids)s::text[] IS NULL OR v.bwb_id = ANY(%(bwb_ids)s::text[]))
 ORDER BY v.bwb_id NULLS FIRST, v.stam_id NULLS FIRST, v.key
 """
 
@@ -302,14 +303,17 @@ SELECT key,
        {array_or_empty("props -> 'dossier_numbers'")} AS dossiers
 FROM instruments
 WHERE bwb_id IS NOT NULL
+  AND (%(bwb_ids)s::text[] IS NULL OR bwb_id = ANY(%(bwb_ids)s::text[]))
 ORDER BY key
 """
 
 
-def amending_article_versions(store: Store) -> Iterator[dict[str, Any]]:
-    """The article versions that name the publication they came from, sorted by article
-    identity."""
-    return store.query(_AMENDING_VERSIONS_SQL)
+def amending_article_versions(
+    store: Store, bwb_ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """The article versions that name the publication they came from (of the regulations
+    *bwb_ids*; None: of all), sorted by article identity."""
+    return store.query(_AMENDING_VERSIONS_SQL, {"bwb_ids": bwb_ids})
 
 
 def articles_by_identity(
@@ -322,10 +326,43 @@ def articles_by_identity(
     )
 
 
-def regulation_dossier_numbers(store: Store) -> Iterator[dict[str, Any]]:
-    """``{key, dossiers}`` of every BWB regulation, with the parliamentary dossiers it
-    lists (none too: its edges to dossiers it no longer lists go)."""
-    return store.query(_REGULATION_DOSSIERS_SQL)
+def regulation_dossier_numbers(
+    store: Store, bwb_ids: list[str] | None = None
+) -> Iterator[dict[str, Any]]:
+    """``{key, dossiers}`` of every BWB regulation (of *bwb_ids*; None: all), with the
+    parliamentary dossiers it lists (none too: its edges to dossiers it no longer lists
+    go)."""
+    return store.query(_REGULATION_DOSSIERS_SQL, {"bwb_ids": bwb_ids})
+
+
+def kept_dossier_numbers(store: Store, keys: list[str]) -> dict[str, set[str]]:
+    """The dossier numbers each of the instruments *keys* keeps (``props.dossier_numbers``),
+    by key; an instrument not stored is left out."""
+    rows = store.query(
+        f"""
+        SELECT key, {array_or_empty("props -> 'dossier_numbers'")} AS dossiers
+        FROM instruments WHERE key = ANY(%(keys)s::text[])
+        """,
+        {"keys": keys},
+    )
+    return {r["key"]: {str(d) for d in r["dossiers"] if d} for r in rows}
+
+
+def kept_dates(
+    store: Store, relation: str, source: str, from_ids: list[str]
+) -> dict[tuple[str, str], str | None]:
+    """``meta.effective_date`` of each edge of *relation* and *source* from *from_ids*, by
+    its ends."""
+    rows = store.query(
+        """
+        SELECT from_id, to_id, lg_str(doc -> 'meta' -> 'effective_date') AS date
+        FROM edges
+        WHERE from_id = ANY(%(ids)s::text[]) AND relation = %(relation)s
+          AND source = %(source)s
+        """,
+        {"ids": from_ids, "relation": relation, "source": source},
+    )
+    return {(r["from_id"], r["to_id"]): r["date"] for r in rows}
 
 
 _CLASSIFIABLE_SQL = f"""
