@@ -1196,14 +1196,15 @@ def test_one_statement_reads_a_page_whatever_its_size(
             get_feed(store, FeedFilters(), limit=limit, facets=facets)
     get_feed_summary(store, FeedFilters(since="2026-01-01"))
     # besides whether ``lg_feed_events`` was written (it was not: the feed counts its own
-    # events), a page each (4), the total and facets once (kept for the second page with
-    # facets, whatever its size), the summary
+    # events), a first page per size (2, kept for the ask with or without facets), the
+    # total and facets once (kept for the second page with facets, whatever its size),
+    # the summary
     feed = [
         c.text
         for c in calls
         if "lg_data_version" not in c.text and "lg_feed_events_state" not in c.text
     ]
-    assert len(feed) == 6
+    assert len(feed) == 4
 
 
 def test_props_of_another_type_are_no_event_or_no_dossier(store: GraphStore) -> None:

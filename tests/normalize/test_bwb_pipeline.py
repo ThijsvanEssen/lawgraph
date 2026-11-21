@@ -31,7 +31,9 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
     queries and its removals, answered from the nodes of the shared store."""
     patch_bwb_queries(monkeypatch)
 
-    def amending_article_versions(store: BwbStore) -> Iterator[dict[str, Any]]:
+    def amending_article_versions(
+        store: BwbStore, bwb_ids: list[str] | None = None
+    ) -> Iterator[dict[str, Any]]:
         rows = [
             {
                 "key": key,
@@ -62,7 +64,9 @@ def _graph_queries(monkeypatch: pytest.MonkeyPatch, raw_reads: None) -> None:
             and d["props"].get("stam_id") in stam_ids
         )
 
-    def regulation_dossier_numbers(store: BwbStore) -> Iterator[dict[str, Any]]:
+    def regulation_dossier_numbers(
+        store: BwbStore, bwb_ids: list[str] | None = None
+    ) -> Iterator[dict[str, Any]]:
         return iter(
             {"key": k, "dossiers": d["props"].get("dossier_numbers") or []}
             for k, d in store.nodes.get("instruments", {}).items()

@@ -127,6 +127,9 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
         "normalize eerstekamer-persons",
         # every toestand from the SRU listing, which the daily run asks for since a date
         "retrieve bwb-history",
+        # the court map of the CBS, which changes once a year
+        "retrieve cbs",
+        "normalize cbs",
         "semantic all --list",
         "semantic tk",
         # the article citations in slices, until one reads nothing
@@ -142,7 +145,7 @@ def test_the_weekly_run_links_everything_before_it_fetches_what_is_missing(
     ]
     # each step took the lock on its own and let it go: a poll can run in between
     runs = (checkout / "logs" / "runs.log").read_text()
-    assert runs.count("step.sh: ok") == 14
+    assert runs.count("step.sh: ok") == 16
     assert runs.count("weekly.sh: ok") == 1
     assert not (checkout / "lawgraph-scheduled.lock").exists()
 
@@ -367,7 +370,7 @@ def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None
 def _left_to_the_daily_run() -> set[str]:
     """The names of the ``case`` arm of ``weekly.sh`` that runs nothing, but the citations."""
     script = (ROOT / "scripts" / "weekly.sh").read_text()
-    arm = re.search(r"^\s*(bwb-amendments [^)]*)\) ;;$", script, re.MULTILINE)
+    arm = re.search(r"^\s*(bwb-annexes [^)]*)\) ;;$", script, re.MULTILINE)
     assert arm is not None
     return set(re.findall(r"[a-z-]+", arm[1]))
 

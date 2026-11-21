@@ -66,7 +66,7 @@ VERSION_TTL = 2.0
 MAX_ENTRIES = 4096
 # How long a request waits for the answer of a new data version (seconds) before it takes
 # the answer of the version before, while the new one goes on computing.
-STALE_WAIT = 2.0
+STALE_WAIT = 0.2
 # What a request waits at most instead (``stale_wait``): a search while typing takes the
 # answer of the version before at once, as a computation after a poll would cost it seconds.
 _stale_wait: contextvars.ContextVar[float | None] = contextvars.ContextVar(

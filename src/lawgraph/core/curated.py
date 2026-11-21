@@ -299,6 +299,60 @@ def _concepts(entries: Entries) -> list[str]:
     return found
 
 
+# The domains an explanation of a concept may link to: the government's own.
+OFFICIAL_DOMAINS = (
+    "rijksoverheid.nl",
+    "overheid.nl",
+    "tweedekamer.nl",
+    "eerstekamer.nl",
+    "raadvanstate.nl",
+    "rekenkamer.nl",
+    "nationaleombudsman.nl",
+    "rechtspraak.nl",
+    "politie.nl",
+)
+_CONCEPT_KEY = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ARTICLE_REF = re.compile(r"^(BWBR\d{7})/(\S+)$")
+
+
+def _official(url: str) -> bool:
+    match = re.match(r"^https://([^/]+)/", url)
+    host = match.group(1) if match else ""
+    return any(host == d or host.endswith(f".{d}") for d in OFFICIAL_DOMAINS)
+
+
+def _concept_articles(entries: Entries) -> list[str]:
+    found = []
+    for key, value in entries.items():
+        value = value or {}
+        if not _CONCEPT_KEY.match(key):
+            found.append(f"{key}: not a key in lower case with hyphens")
+        if not str(value.get("name") or "").strip():
+            found.append(f"{key}: needs a name")
+        articles = value.get("articles")
+        if not isinstance(articles, list) or len(articles) < 2:
+            found.append(f"{key}: articles must be a list of two or more")
+            articles = []
+        found += [
+            f"{key}: {ref!r} is no <BWB id>/<article number>"
+            for ref in articles
+            if not isinstance(ref, str) or not ARTICLE_REF.match(ref)
+        ]
+        if len(set(map(str, articles))) < len(articles):
+            found.append(f"{key}: an article twice")
+        explanation = value.get("explanation")
+        if explanation is not None and (
+            not isinstance(explanation, dict)
+            or not str(explanation.get("label") or "").strip()
+            or not _official(str(explanation.get("url") or ""))
+        ):
+            found.append(
+                f"{key}: explanation needs a label and an https url on "
+                f"{', '.join(OFFICIAL_DOMAINS)}"
+            )
+    return found
+
+
 def _echr_protocols(entries: Entries) -> list[str]:
     from lawgraph.core.identifiers import is_bwb_id
 
@@ -471,6 +525,14 @@ LISTS: dict[str, CuratedList] = {
             "of the law, its practice or English names",
             _records("concepts", "term"),
             _concepts,
+        ),
+        _list(
+            "concept-articles",
+            "concept_articles.json",
+            "concept key -> {name, articles, explanation}: the articles that together make "
+            "one doctrine, shown as one block on their pages",
+            _records("concepts", "key"),
+            _concept_articles,
         ),
         _list(
             "echr-protocols",

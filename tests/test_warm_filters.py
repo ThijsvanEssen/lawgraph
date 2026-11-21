@@ -37,6 +37,7 @@ def test_the_judgments_by_a_top_of_their_facets(
         return {
             "facets": {
                 "tier": _rows("rechtbank", None, "hoge_raad"),
+                "court_kind": _rows("rechtbank", "raad_van_state"),
                 "subject_area": _rows(*[f"area {n}" for n in range(9)]),
                 # the source of nearly every judgment is nearly the whole list
                 "source": _rows("rechtspraak", "echr"),
@@ -50,6 +51,8 @@ def test_the_judgments_by_a_top_of_their_facets(
         JudgmentFilters(),
         JudgmentFilters(tiers=("rechtbank",)),
         JudgmentFilters(tiers=("hoge_raad",)),
+        JudgmentFilters(court_kind="rechtbank"),
+        JudgmentFilters(court_kind="raad_van_state"),
         *(JudgmentFilters(subject_area=f"area {n}") for n in range(warm.WARM_TOP)),
         JudgmentFilters(source="echr"),
         # a bar of the explorer's axis: a whole year, the newest first

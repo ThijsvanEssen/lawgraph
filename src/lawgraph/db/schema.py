@@ -2343,13 +2343,11 @@ CREATE TABLE IF NOT EXISTS lg_summary_stems (
 """
 
 # The hits of a word searched often, ready to rank (``queries/search/candidates.py``): per
-# type and word the hits the search ranks (``RANK_CANDIDATES``), in the order it takes them,
-# with what their rank reads of each (the frequency of every term, the length of every
-# field, the citations), so that a search of the word reads neither the hits it leaves nor
-# the large columns of those it ranks. ``lg_search_candidates_state`` holds the version of
-# the type's table they were read at (``lg_data_version``) and the shape of the search they
-# were read for: a search takes them only while both are those of now. Not tables of the
-# graph: writing them raises no data version.
+# type and word the hits the search ranks, in its order, with what their rank reads of each
+# (term frequencies, field lengths, citations, day), so that a search of the word reads
+# neither its hits nor their large columns; ``lg_search_candidates_state`` the version of the
+# table and the shape of the search they were read for: a search takes them while both are
+# those of now. Not tables of the graph. The day is nullable (a version without it starts).
 SEARCH_CANDIDATES = """
 CREATE TABLE IF NOT EXISTS lg_search_candidates (
     collection text NOT NULL,
@@ -2360,8 +2358,10 @@ CREATE TABLE IF NOT EXISTS lg_search_candidates (
     citations double precision,
     tf bigint[] NOT NULL,
     len bigint[] NOT NULL,
+    date text,
     PRIMARY KEY (collection, word, pos)
 );
+ALTER TABLE lg_search_candidates ADD COLUMN IF NOT EXISTS date text;
 CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
     collection text NOT NULL,
     word text NOT NULL,
@@ -2433,6 +2433,30 @@ CREATE TABLE IF NOT EXISTS lg_ek_seats (
 )
 """
 
+
+# The arrondissement and ressort of each municipality per year (``normalize cbs``): as the CBS
+# table "Gebieden in Nederland" of that year gives them, with the articles of the Wet op de
+# rechterlijke indeling that draw them, and for the year of the text the graph holds how the
+# text compares (``core.court_districts``; null in other years). Written whole. Not a table of
+# the graph.
+COURT_DISTRICTS = """
+CREATE TABLE IF NOT EXISTS lg_court_districts (
+    year integer NOT NULL,
+    municipality_code text NOT NULL,
+    municipality text NOT NULL,
+    province text NOT NULL,
+    district text NOT NULL,
+    district_code text NOT NULL,
+    circuit text NOT NULL,
+    circuit_code text NOT NULL,
+    district_article text,
+    circuit_article text,
+    law_district text,
+    district_check text,
+    circuit_check text,
+    PRIMARY KEY (year, municipality_code)
+)
+"""
 
 # The steps between two sources (``queries/source_steps.py``), built whole from the edges by
 # ``semantic graph-steps`` beside the tables (``_new``) and put in their place; ``/api/chains``
@@ -2630,6 +2654,7 @@ def statements() -> list[str]:
         *feed_events(),
         *source_steps(),
         EK_SEATS,
+        COURT_DISTRICTS,
         nodes_view(),
     ]
     for table in (COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE):

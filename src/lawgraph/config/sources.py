@@ -52,6 +52,8 @@ EERSTEKAMER_SITE = Host("https://www.eerstekamer.nl/", "eerstekamer_site", 2.0)
 RIJKSOVERHEID = Host("https://www.rijksoverheid.nl/", "rijksoverheid", 2.0)
 KIESRAAD = Host("https://www.verkiezingsuitslagen.nl/", "kiesraad", 2.0)
 TOOI = Host("https://identifier.overheid.nl/", "tooi")
+# The open data of the CBS (StatLine): its catalogue and the OData of its tables.
+CBS = Host("https://opendata.cbs.nl/", "cbs", 0.5)
 
 HOSTS = (
     TWEEDE_KAMER,
@@ -65,6 +67,7 @@ HOSTS = (
     RIJKSOVERHEID,
     KIESRAAD,
     TOOI,
+    CBS,
 )
 
 # The endpoints that are not the base of their host.

@@ -30,6 +30,8 @@ from lawgraph.api.routes import (
     chains,
     commitments,
     committees,
+    concepts,
+    courts,
     decisions,
     documents,
     dossiers,
@@ -214,6 +216,8 @@ for _module in (
     chains,
     lookup,
     aliases,
+    concepts,
+    courts,
 ):
     _name = _module.__name__.rsplit(".", 1)[1]
     app.include_router(_module.router, prefix=f"/api/{_name}", tags=[_name])

@@ -20,6 +20,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 | Rijksoverheid | `rijksoverheid` | `rijksoverheid` | none (`semantic tk-government` reads its cabinets) |
 | TOOI | `tooi` | none (`lawgraph ministries build`) | `tooi-ministries` |
 | Kiesraad | `kiesraad` | none (`normalize eerstekamer-mutations` reads it) | none |
+| CBS | `cbs` | `cbs` (`lg_court_districts`) | none |
 | The graph itself (`graph`) | none | none | `graph-derive`, `graph-light`, `graph-article-terms`, `graph-heat`, `graph-steps`, `graph-list-stats` |
 
 Clients (`clients/`) share `BaseClient`: a host from `config/sources.py`, one `get` (with
@@ -1484,6 +1485,13 @@ Every run reads all of them, also under `--since`.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
+With `--since` (the daily run) it reads the article versions of the regulations whose toestand
+was fetched since then, all of them, so each article it reads gets the edges a run over all
+gives it. A publication keeps the dossiers it has and gains those of the versions read; a
+commencement keeps its stored date when that is earlier. What only every version can tell (a
+dossier no version names any longer, a commencement no version gives) waits for a run without
+it: `weekly.sh` runs it so.
+
 **Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts, and the name of an annex
 of the same regulation (its title without the parentheses at its end: "de bij deze wet
 behorende Bevoegdheidsregeling bestuursrechtspraak"; a name of at least two words, not in the
@@ -2326,6 +2334,43 @@ each of its `ministries` (`normalize staatsblad`, `staatscourant`); a member who
 rijksoverheid`) `SERVED_IN` it, those posts in `meta.posts`. Derived in full on every run;
 what it no longer derives goes.
 
+## CBS
+
+**Provides.** The table "Gebieden in Nederland <year>" of the CBS (StatLine,
+`https://opendata.cbs.nl/`, `CBS`), one per year: every municipality of that year (code
+`GM0392`, name) with the areas it lies in, among them its arrondissement (`AR01`) and ressort
+(`RT12`, "Gerechtshof Arnhem-Leeuwarden") as the Wet op de rechterlijke indeling draws them,
+and its province. The open data of the CBS falls under CC BY 4.0: name the CBS where it is
+shown.
+
+**Retrieve.** `retrieve cbs`: the catalogue (`ODataCatalog/Tables`) lists the tables by title;
+each of 2013 (the present court map) and later is one `cbs-gebieden-json` record (external id
+its identifier, `86247NED`; `payload_json` its `year`, its columns `properties` (OData
+`DataProperties`) and every row `rows` (`TypedDataSet`); `meta.url`, `meta.read_on`,
+`meta.modified`). A table is fetched again only when the catalogue says it changed after it
+was stored: a run is one request, plus two per changed table. The map changes once a year:
+`retrieve cbs` and `normalize cbs` are `weekly`: `weekly.sh`, a full load and a run over all
+run them, the daily run (incremental `retrieve all`, `normalize all --since`) does not.
+
+**Normalize `cbs`.** `lg_court_districts`, one row per year and municipality, written whole
+(`core/court_districts.py`). The columns of a table are found by the title of their group
+("Codes en namen van gemeenten", "Arrondissementen (rechtsgebieden)", "Ressorten
+(rechtsgebieden)", "Provincies"), as their keys differ per year; a table without one fails the
+step. Each row carries the CBS code and name of the municipality, its province, arrondissement
+and ressort, and the articles of the Wet op de rechterlijke indeling (`BWBR0002080`, as
+`normalize bwb` wrote them) that draw them: `district_article` (4 to 13), `circuit_article`
+(14 to 17). For this year's table it also says how that text compares: articles 4 to 13 give
+an arrondissement provinces and municipalities in words, a municipality is found by its whole
+name in the list (a name may hold a comma: "Nuenen, Gerwen en Nederwetten"), or by its
+province; a name two municipalities share (Bergen in Noord-Holland and in Limburg) by the
+province first. `law_district` is the arrondissement the text puts it in, `district_check`
+`agrees`, `differs` or `not_in_text` (in none, or in more than one); `circuit_check` the same
+for the ressort of its arrondissement. The text of the graph is today's, so other years keep
+the checks null. On 21 Nov 2026 the text put 339 of 342 municipalities where the CBS does; it
+names no Castricum, Den Helder or Waterland ("Castricum Den Helder", "Watersland": slips of
+the consolidated text). Such a gap is shown, never corrected by hand. `GET /api/courts/districts`
+reads the table.
+
 ## Ordering
 
 `normalize all` and `semantic all` run in registry order; each row needs what is above it. A
@@ -2338,6 +2383,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | Step | Needs |
 |------|-------|
 | normalize `bwb-history` | `normalize bwb` (articles and instruments) and stored `bwb-toestand-xml-all` |
+| normalize `cbs` | `normalize bwb` (the articles of the Wet op de rechterlijke indeling) and stored `cbs-gebieden-json` |
 | normalize `tk-dossiers` | `normalize tk` (the case-to-dossier links read `cases`) |
 | normalize `rijksoverheid` | `normalize tk-dossiers` (the members, their names and signatures, the factions a party is matched to, and the commitments) and `retrieve staatscourant-posts` |
 | normalize `tk-document-links` | `normalize tk-dossiers` (the documents and activities it links) and stored `tk-document-links` |
@@ -2380,4 +2426,4 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (its articles in force without stubs: the `total` of `/articles`), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (its articles in force without stubs: the `total` of `/articles`), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing. With `--since` (the daily run) the counts of every node, but `date_eff` and `amending` only of the rows written since its last complete run (see `docs/operations.md`) |

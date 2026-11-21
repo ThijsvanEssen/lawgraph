@@ -162,8 +162,8 @@ def test_papers_by_kind_and_laws_by_validity(api: Api) -> None:
     }
 
 
-def test_typing_has_no_offset_or_facets(api: Api) -> None:
-    for extra in ({"offset": 1}, {"facets": "true"}):
+def test_typing_has_no_offset_facets_or_sort(api: Api) -> None:
+    for extra in ({"offset": 1}, {"facets": "true"}, {"sort": "newest"}):
         response = api.get("/api/search", params={"q": "huur", "mode": "live", **extra})
         assert response.status_code == 422, (extra, response.text)
 

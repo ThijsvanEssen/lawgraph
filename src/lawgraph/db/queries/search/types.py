@@ -161,6 +161,7 @@ def _search_articles(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
             named=termed.named if termed else None,
             any_word=asked.any_word,
             order=asked.order,
+            newest=asked.newest,
         )
 
     if notation is None or notation.kind != "article":
@@ -227,8 +228,8 @@ _INSTRUMENT_HIT = f"""
 """
 
 
-def _instruments_match(kind: SearchType, asked: Asked) -> Match:
-    """The instruments that hold the words, in the period."""
+def _words_match(kind: SearchType, asked: Asked) -> Match:
+    """The hits that hold the words (the instruments, the judgments), in the period."""
     return Match(
         asked.tokens, asked.period.where(kind.period_date), asked.period.params()
     )
@@ -289,6 +290,7 @@ def _search_instruments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]
         live=live,
         any_word=asked.any_word,
         order=asked.order,
+        newest=asked.newest,
     )
     # a law whose abbreviation or short title is the query is the one it names
     return two_phase_search(store, precise, text, limit, precise_score=None, exact=True)
@@ -365,13 +367,6 @@ _ECLI_HIT = f"""
 LIVE_MIN_JUDGMENT = 3
 
 
-def _judgments_match(kind: SearchType, asked: Asked) -> Match:
-    """The judgments that hold the words, in the period."""
-    return Match(
-        asked.tokens, asked.period.where(kind.period_date), asked.period.params()
-    )
-
-
 def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     """Ranked: an ECLI; a judgment the query is the name of; those that hold its words;
     those that name a person it is. While typing: ``_judgments_while_typing``."""
@@ -390,6 +385,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         params=period.params(),
         any_word=asked.any_word,
         order=asked.order,
+        newest=asked.newest,
     )
     identified = _identified_judgments(kind, asked)
     if identified is not None:
@@ -420,7 +416,7 @@ def _search_judgments(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
     persons = judgments_by_person(
         store, tokens, limit, period, kind.period_date, typing=False
     )
-    return with_persons(q, persons, found, limit)
+    return with_persons(q, persons, found, limit, asked.newest)
 
 
 def _judgments_while_typing(kind: SearchType, asked: Asked) -> list[Hit]:
@@ -624,6 +620,7 @@ def _search_dossiers(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         termed=match.termed,
         any_word=asked.any_word,
         order=asked.order,
+        newest=asked.newest,
     )
     hits = list(asked.store.query(*query, indexes_only=True))
     for hit in hits:
@@ -739,6 +736,7 @@ def _search_documents(kind: SearchType, asked: Asked, live: bool) -> list[Hit]:
         termed=match.termed,
         any_word=asked.any_word,
         order=asked.order,
+        newest=asked.newest,
     )
     return list(asked.store.query(*query, indexes_only=True))
 
@@ -1171,7 +1169,8 @@ SEARCHES: dict[str, SearchType] = {
             live_order="r.inbound_citation_count DESC NULLS LAST, r.key",
             candidate_order="r.inbound_citation_count DESC NULLS LAST, r.key",
             citations="r.inbound_citation_count",
-            # the day its law came into force
+            # the day its law came into force, no day of its own
+            own_date=False,
             period_date=(
                 "(SELECT "
                 + instrument_date_in_force("i")
@@ -1189,7 +1188,7 @@ SEARCHES: dict[str, SearchType] = {
             " r.date_eff DESC NULLS LAST, r.key",
             period_date="{row}.date_eff",  # the day of its decision
             heavy=True,
-            match=_judgments_match,
+            match=_words_match,
             # its tier (the instance), and the year of its decision
             facets=(
                 Facet("tier", "r.tier"),
@@ -1227,7 +1226,7 @@ SEARCHES: dict[str, SearchType] = {
             # it
             period_date=instrument_date_in_force("{row}"),
             heavy=True,
-            match=_instruments_match,
+            match=_words_match,
             facets=(Facet("validity", _VALIDITY_PROPS, _validity_of),),
         ),
         SearchType(

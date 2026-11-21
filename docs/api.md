@@ -34,6 +34,12 @@ count has them. `/api/judgments` and `/api/instruments` count `total` first and 
 `offset` for the next page, which costs what the first does at any depth; not both
 (422), and a cursor of another list or sort is 422 too. `offset` stays on every list.
 
+**The court map.** `/api/courts/districts?year=` gives per municipality its rechtbank
+(arrondissement) and gerechtshof (ressort) as the CBS does, each with the article of the Wet op
+de rechterlijke indeling (`law_bwb_id`) that draws it; the year of the text the data holds is
+`checked`, and a municipality the text does not name is `not_in_text`, a gap that is shown and
+never filled in. Name the CBS (CC BY 4.0, `source`) where it is shown.
+
 **An article to read beside.** `/api/articles/{bwb_id}/{article_number}/text` is the narrow
 form of an article, for a reader beside a page: its heading, law and validity, the divisions
 it stands in (`breadcrumb`), the first day of its wording (`valid_from`, `Tekst sinds`),
@@ -517,12 +523,30 @@ defines or rules it). `/api/search` puts that article or law first among the hit
 type, score 1 and `exact`, with `concept` the term, and makes it `best` unless `resolved`
 names something with confidence 0.9 or more: what the sources name goes before the list.
 
+The acts of the list `eu-core` (`eu_kern.json`) are named so too, by their `name` before a
+bracket or comma (`AI-verordening`, `NIS2`), each name of capitals in its bracket (`DSA`,
+`AI Act`, `AVG/GDPR`) and the short title CELLAR ends their `title` with
+(`digitaledienstenverordening`); `concept` is then the `name`. A term of `concepts` goes
+first; a name two acts have is neither's (`core/concepts.py` `eu_names`).
+
 The list is kept by hand with `lawgraph curated set concepts <term> '<json>'` (docs/operations.md):
 one article per term, a term or variant of one concept only, compared in lower case without
 accents and punctuation. An entry is added only after its article has been read (it exists,
 holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `AVG`) needs
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)
 notes a term whose article the graph does not have.
+
+### Concept blocks
+
+Articles that together make one doctrine of the law (`toetsing-van-wetten`: Gw 93, 94 and 120)
+are grouped by hand in the curated list `concept-articles` (`data/curated/concept_articles.json`,
+`core/concept_articles.py`), apart from the search terms above: no source groups them. An article
+names the concepts it is one of under `concepts`; `/api/concepts/{key}` gives one: its articles
+with their heading or the start of their text, the judgments and papers that cite any of them,
+each counted once, the newest of them, and a link to an official page that explains it (a
+government domain; none where none is kept). The block adds no text of its own.
+`lawgraph curated check concept-articles --db` notes an article the graph does not have; the
+route names it under `missing`.
 
 ### Search pages and facets
 
@@ -542,7 +566,26 @@ of `limit`) and with `facets=true` counts them and divides them:
   gives it; null where the source says none). A facet counts every hit of the type whatever
   the page, under the period and `kind` of the request, not under the value of another facet.
 * The count and the facets run beside the searches, and are not asked for by default.
-  `mode=live` has neither `offset` nor `facets`. No hit is ranked by authority.
+  `mode=live` has neither `offset` nor `facets` nor `sort`. No hit is ranked by authority.
+
+### Recent work and `sort`
+
+Within a type a hit of the last 12 months (`search/text.py` `RECENT_DAYS`) ranks higher by its
+words: its BM25 times `RECENT_FACTOR` (1.5), so that of the hits whose words weigh about the
+same this year's come first and one whose words weigh far more still comes before them. Its day
+is its own (`SearchType.own_day`, the date a period reads): a judgment the day of its decision, a
+paper its date, a dossier the day it was opened, a law the day it came into force. An article has
+none of its own (its law's day says nothing of it) and is ranked as before. It never lifts a hit
+above a better tier (named by a term, a name that starts with `q`, every word in a title) nor
+above what `q` names exactly (a citation, an ECLI, an abbreviation, a whole name, a concept),
+which are found and ordered first. Votes and commitments come newest first already. Of a common
+word in the judgments only the 1,000 most cited are ranked (`RANK_CANDIDATES`), so a recent
+judgment outside them is not lifted.
+
+`sort=newest` (`mode=full` only) orders the hits of each type with a day of its own newest first,
+those without one last, unranked by their words (a match on words only scores 0.1); what `q`
+names exactly stays first, and the other types (articles, members, factions, committees,
+cabinets, ministries) keep their best first. `sort=relevance` is the default.
 
 ### Neighbour filters
 

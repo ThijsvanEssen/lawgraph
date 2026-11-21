@@ -20,6 +20,13 @@ pipelines), nothing is guessed:
   dossier is in the graph (a Rijkswet's, ``33440-(R1990)``, is named ``33440``).
 
 Runs after ``bwb`` (articles, article versions) and the Tweede Kamer dossiers.
+
+``--since`` (the daily run): the regulations whose toestand was fetched since then, all their
+article versions, so every article it reads it reads whole and comes to the same edges for as a
+run over all. A publication those versions name keeps the dossiers it had and gains theirs; a
+commencement keeps its earliest date, theirs among the dates. What only a run over all can tell
+(a dossier no version names any longer, a commencement no version gives) waits for it: the
+weekly run, or ``lawgraph semantic bwb-amendments`` by hand.
 It streams the article versions ordered by article identity and works in chunks:
 per chunk one article lookup, one dossier existence check and bulk writes,
 however many versions the chunk holds.
@@ -27,6 +34,7 @@ however many versions the chunk holds.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Hashable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -54,6 +62,7 @@ from lawgraph.core.bwb_xml import (
 )
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, node_id
+from lawgraph.core.time import iso_timestamp
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.dossier_keys import dossier_keys
@@ -133,17 +142,28 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         self._removed = 0  # amendment edges no longer derived
         # (commencement key, origin key) -> earliest effective date seen (None: unknown)
         self._commences: dict[tuple[str, str], str | None] = {}
+        # the regulations read (``--since``); None: all
+        self._regulations: list[str] | None = None
 
-    def run(self) -> PipelineResult:
+    def run(self, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
         nodes = NodeWriter(self.store)
         edges = EdgeWriter(self.store, what=None, remembers=True)
         self._known_dossiers = {}
         self._removed = 0
         self._commences = {}
+        self._regulations = None
+        if since is not None:
+            self._regulations = semantic_bwb.regulations_of_toestanden(
+                self.store, since_iso=iso_timestamp(since), after=None, limit=None
+            )
+            logger.info("%d regulations fetched since then.", len(self._regulations))
+            if not self._regulations:
+                return result
 
         rows = self._track(
-            semantic_bwb.amending_article_versions(self.store), "article versions"
+            semantic_bwb.amending_article_versions(self.store, self._regulations),
+            "article versions",
         )
         for rows_chunk in chunked_aligned(rows, self._CHUNK, _article_identity):
             self._process_versions(rows_chunk, nodes, edges, result)
@@ -234,7 +254,10 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
             self._commences[pair] = date
 
     def _write_commencements(self, edges: EdgeWriter) -> None:
-        """COMMENCES: every pair of the run; those no longer derived go."""
+        """COMMENCES: every pair of the run; those no longer derived go (of a run over
+        all; one over some regulations keeps the earliest date of the edge as one more)."""
+        if self._regulations is not None:
+            self._keep_kept_commencements()
         for (commencing, origin), date in self._commences.items():
             edges.add(
                 _instrument_id(commencing),
@@ -245,12 +268,29 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
                 meta={"effective_date": date},
             )
         edges.flush()
-        gone = edges.remove_stale_of_source(RELATION_COMMENCES, EDGE_SOURCE)
+        gone = 0
+        if self._regulations is None:
+            gone = edges.remove_stale_of_source(RELATION_COMMENCES, EDGE_SOURCE)
         logger.info(
             "%d commencements; removed %d no longer derived.",
             len(self._commences),
             gone,
         )
+
+    def _keep_kept_commencements(self) -> None:
+        """The stored date of each commencement of the run, as the date of one more
+        version: the earliest known one wins."""
+        commencing = sorted({_instrument_id(c) for c, _ in self._commences})
+        kept = semantic_bwb.kept_dates(
+            self.store, RELATION_COMMENCES, EDGE_SOURCE, commencing
+        )
+        for pair, date in self._commences.items():
+            ends = (_instrument_id(pair[0]), _instrument_id(pair[1]))
+            if ends not in kept:
+                continue
+            stored = kept[ends]
+            if date is None or (stored is not None and stored < date):
+                self._commences[pair] = stored
 
     @staticmethod
     def _keep_earliest(
@@ -307,9 +347,13 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         linked earlier in this run.
         """
         to_link: dict[str, set[str]] = {}
+        kept: dict[str, set[str]] = {}
+        if self._regulations is not None:  # the dossiers of the versions not read
+            new = [k for k in chunk.publications if k not in self._known_dossiers]
+            kept = semantic_bwb.kept_dossier_numbers(self.store, new)
         for key, props in chunk.publications.items():
             known = self._known_dossiers.get(key)
-            merged = (known or set()) | chunk.dossiers[key]
+            merged = (known or set()) | chunk.dossiers[key] | kept.get(key, set())
             if known is not None and merged == known:
                 continue
             node_props = dict(props)
@@ -354,7 +398,7 @@ class BWBAmendmentsSemanticPipeline(SemanticPipelineBase):
         """Regulation → dossier from ``props.dossier_numbers`` (streamed, in chunks); the
         edges of this pipeline from a regulation to a dossier it no longer lists go."""
         rows: Iterable[dict[str, Any]] = semantic_bwb.regulation_dossier_numbers(
-            self.store
+            self.store, self._regulations
         )
         removed = 0
         for chunk in chunked(rows, self._CHUNK):

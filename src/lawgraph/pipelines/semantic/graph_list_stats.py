@@ -38,11 +38,21 @@ committees
 
 Idempotent: only writes when the computed value differs from what is already on
 the document.
+
+``--since`` (the daily run): the counts of every node again, from the edges, but what only a
+node's own props give (``date_eff`` of a judgment, ``amending`` of a regulation: its articles'
+texts) only of the rows written since the previous complete run of this step began; the others
+keep theirs. That run's moment is kept in ``pipeline_state`` (``graph-list-stats``) as the
+oldest transaction then open, not as a time: the rows know the transaction that wrote them
+(``xmin``), not when. The first run, a run after more than ``_FAR`` transactions and a run
+without ``--since`` (the weekly run, or by hand: ``lawgraph semantic graph-list-stats``) read
+every row. A change to how a key is derived from the props (a release) needs that run over all.
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 from typing import Any
 
 from lawgraph.core.logging import get_logger
@@ -50,9 +60,15 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.core.progress import Progress
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import graph_stats
+from lawgraph.db.queries.state import get_state, set_state
 from lawgraph.pipelines.base import PipelineBase
 
 logger = get_logger(__name__)
+
+# ``pipeline_state``: the oldest transaction open when the last complete run began.
+STATE_KEY = "graph-list-stats"
+# Transactions after which a run reads every row: ``age`` of a transaction id wraps at 2^31.
+_FAR = 1_000_000_000
 
 _REFRESHERS = (
     ("instruments", graph_stats.refresh_instruments),
@@ -94,16 +110,34 @@ class GraphListStatsSemanticPipeline(PipelineBase):
         self.only = only
         self.dry_run = dry_run
 
-    def run(self) -> PipelineResult:
+    def run(self, since: dt.datetime | None = None) -> PipelineResult:
         result = PipelineResult()
+        began = graph_stats.oldest_open_transaction(self.store)
+        written_after = self._written_after(began) if since is not None else None
+        if written_after is None:
+            logger.info("Every row read.")
         todo = [(n, r) for n, r in _REFRESHERS if self.only in (None, n)]
         # One update query per collection: the progress is in collections.
         progress = Progress("collections", total=len(todo))
         for name, refresh in progress.track(todo):
-            count = refresh(self.store, dry_run=self.dry_run)
+            count = refresh(
+                self.store, dry_run=self.dry_run, written_after=written_after
+            )
             if self.dry_run:
                 logger.info("Would update %d %s.", count, name)
                 result.skipped += count
             else:
                 result.updated += count
+        if not self.dry_run and self.only is None:
+            set_state(self.store, STATE_KEY, {"transaction": began})
         return result
+
+    def _written_after(self, began: int) -> str | None:
+        """The transaction (as an ``xid``) the previous complete run began at, when the
+        rows written since can be told apart from the others; None: read every row."""
+        state = get_state(self.store, STATE_KEY) or {}
+        previous = state.get("transaction")
+        if not isinstance(previous, int) or not 0 <= began - previous < _FAR:
+            return None
+        logger.info("The props of the rows written since transaction %d.", previous)
+        return str(previous % 2**32)

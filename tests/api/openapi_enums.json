@@ -2107,6 +2107,10 @@
   "full",
   "live"
  ],
+ "/paths//api/search/get/parameters/11/schema": [
+  "relevance",
+  "newest"
+ ],
  "/paths//api/nodes/shared/get/parameters/3/schema": [
   "key",
   "importance"
@@ -2205,5 +2209,15 @@
  "/components/schemas/JudgmentCitedArticle/properties/origin/anyOf/0/items": [
   "text",
   "metadata"
+ ],
+ "/components/schemas/CourtDistrictDTO/properties/circuit_check/anyOf/0": [
+  "agrees",
+  "differs",
+  "not_in_text"
+ ],
+ "/components/schemas/CourtDistrictDTO/properties/district_check/anyOf/0": [
+  "agrees",
+  "differs",
+  "not_in_text"
  ]
 }

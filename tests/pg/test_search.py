@@ -1358,7 +1358,7 @@ def test_a_common_word_ranks_its_most_cited_hits(
         [
             _node(f"j_{n}", "judgment", ecli=f"ECLI:NL:HR:2026:{n}", source="rechtspraak",
                   summary="Een geschil over belasting.", inbound_citation_count=10 * n,
-                  date_eff=f"2026-01-{n + 1:02d}")
+                  date_eff=f"2016-01-{n + 1:02d}")
             for n in range(1, 6)
         ]
         + [

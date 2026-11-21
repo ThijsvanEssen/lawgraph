@@ -39,6 +39,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
+from lawgraph.core.feed import EVENT_VOTE
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
 from lawgraph.db import GraphStore, version_cache
@@ -235,9 +236,33 @@ def _home_filters() -> FeedFilters:
     return FeedFilters(since=first.isoformat(), until=last.isoformat())
 
 
+# The votes of the Eerste Kamer the homepage shows (``/feed?kind=stemming&chamber=EK``,
+# up to today): 1.2 to 1.8 s on prod (21 Nov).
+HOME_EK_VOTES: int = FIRST_PAGES["home_ek_votes"]
+# The summary of one day Actueel asks of today and of the day before.
+ACTUEEL_SUMMARY: dict[str, int] = FIRST_PAGES["actueel_summary"]
+
+
 def _warm_home_summary(store: GraphStore) -> None:
     get_feed_summary(store, _home_filters(), limit=HOME_SUMMARY["limit"])
     get_chamber_schedule(store, dutch_today().isoformat())
+    votes = FeedFilters(
+        kinds=(EVENT_VOTE,), chamber=CHAMBER_EK, until=dutch_today().isoformat()
+    )
+    get_feed(store, votes, limit=HOME_EK_VOTES, facets=False)
+
+
+def _warm_actueel(store: GraphStore) -> None:
+    """Actueel as it opens: the feed (its page, and its counts from ``lg_feed_events``) and
+    the summary of today and of the day before, each with the lower courts of that day
+    (``/feed/summary?days=1&limit=1``; 3.6 s cold on prod, 21 Nov)."""
+    get_feed(store, FeedFilters(), limit=LISTS["feed"])
+    today = dutch_today()
+    for last in (today, today - dt.timedelta(days=1)):
+        first = last - dt.timedelta(days=ACTUEEL_SUMMARY["days"] - 1)
+        filters = FeedFilters(since=first.isoformat(), until=last.isoformat())
+        get_feed_summary(store, filters, limit=ACTUEEL_SUMMARY["limit"])
+        get_lower_courts(store, filters)
 
 
 # The lower courts Actueel asks with its summary (``lower_courts=true``): the judgments of
@@ -257,9 +282,12 @@ def _warm_lower_courts(store: GraphStore) -> None:
 
 def _warm_delegated(store: GraphStore) -> None:
     """The regulations in force under the most cited laws, as the explorer asks them
-    (``/delegated?detail=summary``): the Awb has 850, 10 s cold."""
+    (``/delegated?detail=summary`` for the keten, ``/delegated`` for Verbonden): the Awb
+    has 850, 10 s cold."""
     for bwb_id in most_cited_laws(store, WARM_LAWS):
         get_delegated_by_law(store, bwb_id, "in_force", True)
+        # the full form, as Verbonden asks it (``/delegated``): 12.9 s for the Awb cold
+        get_delegated_by_law(store, bwb_id, "in_force", False)
         count_expired_delegated(store, bwb_id)
 
 
@@ -271,6 +299,7 @@ FACTION_DOSSIERS_LIMIT = 100
 
 
 def _warm_faction_dossiers(store: GraphStore) -> None:
+    get_factions(store)  # every faction, as the explorer asks them (``/factions``)
     for faction in get_factions(store, active=True):
         faction_dossiers(store, faction["id"], FACTION_DOSSIERS_LIMIT, 0, "opened")
 
@@ -301,6 +330,7 @@ PARTS: tuple[Part, ...] = (
     Part("home summary", _warm_home_summary),
     # the lower courts of Actueel (``lower_courts=true``), before the slow parts after "warm"
     Part("lower courts", _warm_lower_courts),
+    Part("actueel", _warm_actueel),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),
     Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),
@@ -360,8 +390,6 @@ PARTS: tuple[Part, ...] = (
         "decision counts",
         lambda store: [decision_counts(store, filters) for filters in FIRST_DECISIONS],
     ),
-    # the feed (its counts from ``lg_feed_events``)
-    Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
     Part(
         "faction dossiers",
         _warm_faction_dossiers,
@@ -456,8 +484,9 @@ def _values(rows: list[dict[str, Any]] | None) -> list[Any]:
 
 
 def _judgment_filters(store: GraphStore) -> Iterator[Part]:
-    """Each tier, the largest main areas of law, the sources but the largest (nearly the
-    whole list, and no list asks it), and the newest years as a bar of the axis asks them."""
+    """Each tier and each kind of court (the chips of the list), the largest main areas of
+    law, the sources but the largest (nearly the whole list, and no list asks it), and the
+    newest years as a bar of the axis asks them."""
 
     def part(name: str, **filters: Any) -> Part:
         return _filter(name, get_judgments_list, JudgmentFilters(**filters), limit=1)
@@ -465,6 +494,8 @@ def _judgment_filters(store: GraphStore) -> Iterator[Part]:
     facets = get_judgments_list(store, JudgmentFilters(), limit=1)["facets"] or {}
     for tier in _values(facets.get("tier")):
         yield part(f"judgments of {tier}", tiers=(tier,))
+    for kind in _values(facets.get("court_kind")):
+        yield part(f"judgments of court kind {kind}", court_kind=kind)
     for area in _values(facets.get("subject_area"))[:WARM_TOP]:
         yield part(f"judgments in {area}", subject_area=area)
     for source in _values(facets.get("source"))[1 : WARM_TOP + 1]:

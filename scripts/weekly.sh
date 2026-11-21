@@ -103,11 +103,15 @@ run normalize eerstekamer-persons
 # Every toestand of every regulation from the SRU listing (minutes): the daily run asks only for what the SRU
 # changed since (`--since`), so a toestand listed without a new date comes within a week.
 run retrieve bwb-history
+# The CBS tables of areas and the court map per municipality from them: they change once a
+# year, so the daily run leaves both out (`weekly`). Seconds.
+run retrieve cbs
+run normalize cbs
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;
-    bwb-amendments | bwb-annexes | bwb-publications | bwb-relation-types | \
-    eerstekamer | echr | eurlex-cjeu | graph-heat | graph-list-stats | graph-steps | kst-sru | \
+    bwb-annexes | bwb-publications | bwb-relation-types | \
+    eerstekamer | echr | eurlex-cjeu | graph-heat | graph-steps | kst-sru | \
     rechtspraak-conclusions | rechtspraak-duplicates | staatsblad | staatsblad-law-references | \
     tk-amendment-articles | tk-dictum | tk-dossier-outcomes | tk-dossier-relations | tk-government | \
     tk-mvt | tk-mvt-articles | tk-paper-outcomes | tk-transposition-tables | tooi-ministries | verdragenbank) ;;
