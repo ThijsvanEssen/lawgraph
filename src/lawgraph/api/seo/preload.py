@@ -29,9 +29,10 @@ it did not make fails ``tests/test_seo_preload.py``.
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 
 from lawgraph.api.params import LONG_LIST_MAX
-from lawgraph.api.routes.feed import CLOSE_VOTE, FEW_VOTES
+from lawgraph.api.routes.feed import get_feed_summary_route
 from lawgraph.core.code_families import native_number
 from lawgraph.core.ecli import ecli_of_key
 from lawgraph.core.models import parse_node_id
@@ -63,6 +64,10 @@ SEARCH_LANES: tuple[tuple[tuple[str, ...], int, str], ...] = (
 )
 # The hits a lane asks (``LIMIT`` of ``session.svelte.ts``).
 SEARCH_LIMIT = 6
+# The summary as the start page asks it: the route's own margin and few
+_SUMMARY_DEFAULTS = inspect.signature(get_feed_summary_route).parameters
+CLOSE_VOTE = _SUMMARY_DEFAULTS["margin"].default
+FEW_VOTES = _SUMMARY_DEFAULTS["few"].default
 # How far back Actueel looks for an open motion of censure, and how many it asks.
 MOTION_DAYS = 60
 MOTION_LIMIT = 20

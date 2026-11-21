@@ -98,10 +98,6 @@ _EVENTS = (
 # The words a feed takes in ``q``: how many, and how long each.
 MAX_WORDS = 10
 MAX_WORD_LENGTH = 200
-# The summary's defaults: a vote this close is shown one by one, and every vote of a day with
-# this few on anything but a bill.
-CLOSE_VOTE = 10
-FEW_VOTES = 2
 
 
 def _words(store: GraphStore, q: list[str] | None) -> tuple[tuple[str, ...], ...]:
@@ -683,7 +679,7 @@ def get_feed_summary_route(
             description="A vote this close (seats for minus against) "
             "is shown one by one.",
         ),
-    ] = CLOSE_VOTE,
+    ] = 10,
     few: Annotated[
         int,
         Query(
@@ -692,7 +688,7 @@ def get_feed_summary_route(
             description="Every vote of a day with at most this many votes on "
             "anything but a bill is shown one by one.",
         ),
-    ] = FEW_VOTES,
+    ] = 2,
     limit: Annotated[
         int, Query(ge=1, le=LIST_MAX, description="Events shown one by one, at most.")
     ] = 100,
