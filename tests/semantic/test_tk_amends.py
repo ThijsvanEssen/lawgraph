@@ -67,6 +67,7 @@ class _Store(InMemoryStore):
         super().__init__({"instruments": [node.to_document() for node in instruments]})
         self.pub_docs = pub_docs
         self.acts: dict[str, set[str]] = {}
+        self.texts: dict[str, dict[str, Any]] = {}
 
 
 @pytest.fixture(autouse=True)
@@ -82,6 +83,15 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(removals, "remove_edges_at", lambda *_a, **_k: [])
     monkeypatch.setattr(semantic_tk, "remove_own_act_edges", lambda *_a, **_k: 0)
     monkeypatch.setattr(semantic_tk, "acts_of_dossiers", lambda store: store.acts)
+    monkeypatch.setattr(
+        semantic_tk,
+        "tk_documents_to_scan_for_amendments",
+        lambda store, ids, own_law: iter(
+            {"key": i.split("/")[1], "props": store.texts[i]}
+            for i in ids
+            if i in store.texts and not own_law
+        ),
+    )
 
 
 def _make_pub(
@@ -230,3 +240,76 @@ def test_detect_amends_instrument_stays_fast_with_many_names() -> None:
     assert calls_made(lambda: detect_amends_instrument(title, many_acts)) == calls_made(
         lambda: detect_amends_instrument(title, few_acts)
     )
+
+
+# Belastingplan 2027 (37022): the title names no law, each wijzigingsartikel names its own.
+TITLE_37022 = (
+    "Wijziging van enkele belastingwetten en enige andere wetten (Belastingplan 2027)"
+)
+TEXT_37022 = (
+    "ARTIKEL I\nDe Wet inkomstenbelasting 2001 wordt als volgt gewijzigd:\n"
+    "A\nIn artikel 2.10, eerste lid, komt de tabel te luiden: …\n"
+    "ARTIKEL II\nDe Wet op de loonbelasting 1964 wordt als volgt gewijzigd: …\n"
+    "ARTIKEL III\nArtikel 10.1 van de Wet inkomstenbelasting 2001 vindt geen toepassing.\n"
+    "ARTIKEL IV\nDeze wet wordt aangehaald als: Belastingplan 2027.\n"
+)
+
+
+def _roman_sections(text: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "kind": "article",
+            "number": number,
+            "number_scheme": "roman",
+            "char_start": text.index(f"ARTIKEL {number}\n"),
+        }
+        for number in ("I", "II", "III", "IV")
+    ]
+
+
+def _verzamelwet_store(kind: str = "Voorstel van wet") -> _Store:
+    store = _Store(
+        pub_docs=[_make_pub("bp2027", TITLE_37022, kind=kind)],
+        instruments=[
+            _make_instrument_node("BWBR0011353", title="Wet inkomstenbelasting 2001"),
+            _make_instrument_node("BWBR0002471", title="Wet op de loonbelasting 1964"),
+        ],
+    )
+    store.texts = {
+        "documents/bp2027": {
+            "text": TEXT_37022,
+            "sections": _roman_sections(TEXT_37022),
+        }
+    }
+    return store
+
+
+def test_a_bill_whose_title_names_no_law_amends_the_laws_of_its_wijzigingsartikelen() -> (
+    None
+):
+    store = _verzamelwet_store()
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert sorted(e["to_id"] for e in store.edges.values()) == [
+        "instruments/bwbr0002471",
+        "instruments/bwbr0011353",
+    ]
+    assert {e["status"] for e in store.edges.values()} == {EDGE_STATUS_VOORGESTELD}
+
+
+def test_a_motion_with_a_title_that_names_no_law_amends_nothing() -> None:
+    store = _verzamelwet_store(kind="Motie")
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert not store.edges
+
+
+def test_a_text_without_wijzigingsartikelen_amends_nothing() -> None:
+    store = _verzamelwet_store()
+    store.texts["documents/bp2027"]["sections"] = []
+
+    TKAmendsSemanticPipeline(store=store).run()
+
+    assert not store.edges

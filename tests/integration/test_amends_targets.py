@@ -140,12 +140,9 @@ def _section(number: str, start: int, end: int) -> dict[str, Any]:
     }
 
 
-def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
-    database: str, cli: Any
-) -> None:
-    """ARTIKEL I changes article 5 of the Wft, ARTIKEL II article 7 of the Wta; both laws
-    have both articles."""
-    store = GraphStore()
+def _changes_of_bill(store: GraphStore, cli: Any, dossier_title: str) -> list[Any]:
+    """The article changes of a bill of *dossier_title* with ``BILL_TEXT``, after
+    ``tk-amends`` and ``tk-amendment-articles``; both laws have articles 5 and 7."""
     laws = {"bwbr0020368": "BWBR0020368", "bwbr0019079": "BWBR0019079"}
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -184,8 +181,7 @@ def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
                 "props": {
                     "kind": "Voorstel van wet",
                     "title": "Voorstel van wet",
-                    "dossier_title": "Wijziging van de Wet op het financieel toezicht "
-                    "en de Wet toezicht accountantsorganisaties",
+                    "dossier_title": dossier_title,
                     "text": BILL_TEXT,
                     "sections": [
                         _section("I", BILL_TEXT.index("ARTIKEL I"), second - 1),
@@ -199,14 +195,32 @@ def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
     cli("semantic", "tk-amends")
     cli("semantic", "tk-amendment-articles")
 
-    changes = sorted(
+    return sorted(
         store.query(
             "SELECT json_build_array(to_id, relation) FROM edges"
             " WHERE from_id = 'documents/bill' AND source = %(source)s",
             {"source": ARTICLES_SOURCE},
         )
     )
-    assert changes == [
-        ["articles/bwbr0019079_7", "AMENDS"],
-        ["articles/bwbr0020368_5", "REPEALS"],
-    ]
+
+
+CHANGES = [["articles/bwbr0019079_7", "AMENDS"], ["articles/bwbr0020368_5", "REPEALS"]]
+
+
+def test_each_law_of_a_bill_gets_the_articles_of_its_own_part(
+    database: str, cli: Any
+) -> None:
+    """ARTIKEL I changes article 5 of the Wft, ARTIKEL II article 7 of the Wta."""
+    title = (
+        "Wijziging van de Wet op het financieel toezicht "
+        "en de Wet toezicht accountantsorganisaties"
+    )
+    assert _changes_of_bill(GraphStore(), cli, title) == CHANGES
+
+
+def test_a_bill_whose_title_names_no_law_changes_the_laws_of_its_parts(
+    database: str, cli: Any
+) -> None:
+    """A verzamelwet ("enkele wetten") changes the law each wijzigingsartikel names."""
+    title = "Wijziging van enkele financiële wetten (Verzamelwet financiën)"
+    assert _changes_of_bill(GraphStore(), cli, title) == CHANGES
