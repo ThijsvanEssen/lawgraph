@@ -2341,7 +2341,9 @@ each of 2013 (the present court map) and later is one `cbs-gebieden-json` record
 its identifier, `86247NED`; `payload_json` its `year`, its columns `properties` (OData
 `DataProperties`) and every row `rows` (`TypedDataSet`); `meta.url`, `meta.read_on`,
 `meta.modified`). A table is fetched again only when the catalogue says it changed after it
-was stored: a run is one request, plus two per changed table.
+was stored: a run is one request, plus two per changed table. The map changes once a year:
+`retrieve cbs` and `normalize cbs` are `weekly`: `weekly.sh`, a full load and a run over all
+run them, the daily run (incremental `retrieve all`, `normalize all --since`) does not.
 
 **Normalize `cbs`.** `lg_court_districts`, one row per year and municipality, written whole
 (`core/court_districts.py`). The columns of a table are found by the title of their group

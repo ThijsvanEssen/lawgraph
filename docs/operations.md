@@ -120,6 +120,7 @@ and exits 1 when any of them failed.
 | `retrieve eurlex` | `--mode incremental\|full\|gaps\|nim\|cjeu\|com`, `--celex` (repeatable), `--type directive\|regulation\|decision` (full mode, repeatable), `--lang NL`, `--country NLD` |
 | `retrieve eurlex-nim` | `--mode incremental\|full` (full: every measure), `--since` (default `30d`: the measures CELLAR changed since then), `--country NLD` |
 | `retrieve bwb` | `--mode incremental\|full\|gaps`, `--bwb-id` (repeatable; default `LAWGRAPH_BWB_IDS`), `--min-stubs N` (gaps mode: a law with at least that many referred articles, default 3) |
+| `retrieve cbs`, `normalize cbs` | nothing; weekly (`weekly.sh`, `retrieve all --mode full` and a run over all; not the incremental `retrieve all` or `normalize all --since`): the court map per municipality changes once a year |
 | `retrieve bwb-history` | optional BWB ids (default: every regulation of which the current toestand is stored), `--since` (without ids: only the toestanden the SRU changed since then, `dcterms.modified`, and every toestand of a regulation without any in the history; the daily run through `retrieve all`, `weekly.sh` without it), `--mode incremental` (default: the toestanden not stored yet) or `full` (every one again) |
 | `retrieve staatsblad` | `--mode from-graph\|full` |
 | `retrieve staatscourant` | `--mode`, `--since`, `--identifiers ...` |

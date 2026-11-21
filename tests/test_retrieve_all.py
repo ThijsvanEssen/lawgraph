@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 import dataclasses
+import datetime as dt
 import threading
 import time
 from collections.abc import Callable
@@ -401,7 +403,24 @@ def test_the_jobs_lanes_and_order_of_retrieve_all() -> None:
         ("tooi", "tooi", ()),
         ("rijksoverheid", "rijksoverheid", ()),
         ("staatscourant-posts", koop, ("rijksoverheid",)),
+        ("cbs", "cbs", ()),  # weekly: not in the daily run
     ]
+
+
+def test_the_daily_run_leaves_the_weekly_sources_out() -> None:
+    """The court map of the CBS changes once a year: ``weekly.sh`` and a full load fetch and
+    write it, the incremental retrieve and ``normalize all --since`` do not."""
+    day = dt.datetime(2026, 11, 20, tzinfo=dt.UTC)
+
+    def names(phase: Phase, mode: RetrieveMode, since: dt.datetime | None) -> set[str]:
+        args = argparse.Namespace(mode=mode, since=since)
+        return {p.name for p in orchestration._pipelines_of(phase, args)}
+
+    daily = names("retrieve", RetrieveMode.INCREMENTAL, day)
+    assert "cbs" not in daily and "bwb" in daily
+    assert "cbs" in names("retrieve", RetrieveMode.FULL, day)
+    assert "cbs" not in names("normalize", RetrieveMode.INCREMENTAL, day)
+    assert "cbs" in names("normalize", RetrieveMode.INCREMENTAL, None)
 
 
 def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_papers(
@@ -411,7 +430,9 @@ def test_an_incremental_run_passes_its_mode_to_the_history_and_nothing_to_the_pa
     retrieve_all(["--since", "7d"])
     assert recorded["bwb-history"] == ["--mode", "incremental"]
     assert recorded["tk-content"] == []
-    assert set(recorded) == {p.name for p in registry.PIPELINES["retrieve"]}
+    assert set(recorded) == {
+        p.name for p in registry.PIPELINES["retrieve"] if not p.weekly
+    }
 
 
 # ── a step that reads what another source stored ─────────────────────────────
@@ -514,7 +535,7 @@ def test_by_default_every_server_has_its_own_job() -> None:
     from lawgraph.pipelines.orchestration import DEFAULT_RETRIEVE_JOBS
 
     lanes = {p.lane_id for p in registry.PIPELINES["retrieve"]}
-    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 10
+    assert DEFAULT_RETRIEVE_JOBS == len(lanes) == 11
 
 
 def test_an_interrupt_stops_the_other_lanes_too() -> None:

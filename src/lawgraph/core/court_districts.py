@@ -20,6 +20,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from lawgraph.core.xml import collapse_ws
+
 # The present court map: eleven rechtbanken and four gerechtshoven since 2013.
 FIRST_YEAR = 2013
 LAW_BWB_ID = "BWBR0002080"
@@ -82,7 +84,7 @@ def plain(name: str) -> str:
     adds left out, spaces single."""
     name = name.replace("’", "'").replace("‘", "'")
     name = _SUFFIX.sub("", name).removeprefix("Gerechtshof ")
-    return " ".join(name.split())
+    return collapse_ws(name)
 
 
 def read_table(payload: Mapping[str, Any]) -> list[Municipality]:
@@ -137,7 +139,7 @@ def read_law(articles: Mapping[str, str]) -> Law:
     districts: dict[str, LawDistrict] = {}
     circuits: dict[str, tuple[str, tuple[str, ...]]] = {}
     for number, text in articles.items():
-        line = " ".join(text.split())
+        line = collapse_ws(text)
         if m := _DISTRICT.search(line):
             body = m["body"]
             provinces = _PROVINCES.search(body) if "provincie" in body else None
