@@ -1,5 +1,6 @@
 """The court map per municipality and year (``lg_court_districts``): written whole by
-``normalize cbs`` from the CBS tables and the text of the Wet op de rechterlijke indeling."""
+``normalize cbs`` from the CBS tables and the text of the Wet op de rechterlijke indeling,
+read by ``GET /api/courts/districts``."""
 
 from __future__ import annotations
 
@@ -47,3 +48,23 @@ def article_texts(store: Store, bwb_id: str) -> dict[str, str]:
         )
         if row["text"]
     }
+
+
+def years(store: Store) -> list[int]:
+    """The years of the table, newest first."""
+    return list(
+        store.query(
+            "SELECT DISTINCT year FROM lg_court_districts ORDER BY year DESC NULLS LAST"
+        )
+    )
+
+
+def districts_of(store: Store, year: int) -> list[dict[str, Any]]:
+    """The rows of *year*, by arrondissement and municipality."""
+    return list(
+        store.query(
+            "SELECT * FROM lg_court_districts WHERE year = %(year)s"
+            " ORDER BY district NULLS LAST, municipality NULLS LAST",
+            {"year": year},
+        )
+    )

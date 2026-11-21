@@ -2209,5 +2209,15 @@
  "/components/schemas/JudgmentCitedArticle/properties/origin/anyOf/0/items": [
   "text",
   "metadata"
+ ],
+ "/components/schemas/CourtDistrictDTO/properties/circuit_check/anyOf/0": [
+  "agrees",
+  "differs",
+  "not_in_text"
+ ],
+ "/components/schemas/CourtDistrictDTO/properties/district_check/anyOf/0": [
+  "agrees",
+  "differs",
+  "not_in_text"
  ]
 }

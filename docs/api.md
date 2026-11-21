@@ -34,6 +34,12 @@ count has them. `/api/judgments` and `/api/instruments` count `total` first and 
 `offset` for the next page, which costs what the first does at any depth; not both
 (422), and a cursor of another list or sort is 422 too. `offset` stays on every list.
 
+**The court map.** `/api/courts/districts?year=` gives per municipality its rechtbank
+(arrondissement) and gerechtshof (ressort) as the CBS does, each with the article of the Wet op
+de rechterlijke indeling (`law_bwb_id`) that draws it; the year of the text the data holds is
+`checked`, and a municipality the text does not name is `not_in_text`, a gap that is shown and
+never filled in. Name the CBS (CC BY 4.0, `source`) where it is shown.
+
 **An article to read beside.** `/api/articles/{bwb_id}/{article_number}/text` is the narrow
 form of an article, for a reader beside a page: its heading, law and validity, the divisions
 it stands in (`breadcrumb`), the first day of its wording (`valid_from`, `Tekst sinds`),

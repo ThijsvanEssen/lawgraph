@@ -38,6 +38,15 @@ def test_the_table_is_written_whole(store: GraphStore) -> None:
     assert rows == [_row(2026, "GM0796", "agrees")]
 
 
+def test_the_years_newest_first_and_the_rows_of_one(store: GraphStore) -> None:
+    rows = [_row(2025, "GM0796", None), _row(2026, "GM0796", "agrees")]
+    queries.write(store, rows + [_row(2026, "GM0001", "agrees")])
+
+    assert queries.years(store) == [2026, 2025]
+    assert queries.districts_of(store, 2025) == [rows[0]]
+    assert len(queries.districts_of(store, 2026)) == 2
+
+
 def test_the_text_of_each_numbered_article(store: GraphStore) -> None:
     docs = [
         {

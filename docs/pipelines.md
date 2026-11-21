@@ -2368,7 +2368,8 @@ province first. `law_district` is the arrondissement the text puts it in, `distr
 for the ressort of its arrondissement. The text of the graph is today's, so other years keep
 the checks null. On 21 Nov 2026 the text put 339 of 342 municipalities where the CBS does; it
 names no Castricum, Den Helder or Waterland ("Castricum Den Helder", "Watersland": slips of
-the consolidated text). Such a gap is shown, never corrected by hand.
+the consolidated text). Such a gap is shown, never corrected by hand. `GET /api/courts/districts`
+reads the table.
 
 ## Ordering
 
