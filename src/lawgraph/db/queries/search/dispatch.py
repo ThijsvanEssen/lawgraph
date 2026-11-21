@@ -80,10 +80,12 @@ def _asked(
     any_word: bool,
     motion_kinds: list[str] | None,
     wait: float = STALE_WAIT,
+    newest: bool = False,
 ) -> Asked | None:
     """The search of *q* in *types*, of its *words* (``clause.query_words``); None when it
     has none, or when a citation is asked for by *any_word* (one of its parts is no word
-    of what it cites). *wait*: how long the parser of citations is waited for."""
+    of what it cites). *wait*: how long the parser of citations is waited for; *newest*:
+    the hits of a type with a day of their own newest first."""
     words = words or query_words(store, q)
     if not words.words or (any_word and _cites(store, q, wait)):
         return None
@@ -99,6 +101,7 @@ def _asked(
         any_word,
         motion_kinds,
         words.order,
+        newest,
     )
 
 
@@ -176,11 +179,13 @@ def search_full(
     words: QueryWords | None = None,
     any_word: bool = False,
     motion_kinds: list[str] | None = None,
+    newest: bool = False,
 ) -> tuple[dict[str, list[Hit]], set[str]]:
     """``search_all`` within ``FULL_BUDGET`` per type: a type that takes longer answers
     its live search (``search_live``: the judgments by name and display name, the most
     cited first, else the newest that hold the words; the other types by the start of a
-    word of a name, without a rank).
+    word of a name, without a rank). With *newest* the hits of a type with a day of their
+    own (``SearchType.own_day``) come newest first, what the query names exactly first.
     Returns the hits per type and the types that fell back."""
     hits, partial, _ = search_full_counted(
         store,
@@ -194,6 +199,7 @@ def search_full(
         any_word=any_word,
         motion_kinds=motion_kinds,
         counting=False,
+        newest=newest,
     )
     return hits, partial
 
@@ -211,6 +217,7 @@ def search_full_counted(
     any_word: bool = False,
     motion_kinds: list[str] | None = None,
     counting: bool = True,
+    newest: bool = False,
 ) -> tuple[dict[str, list[Hit]], set[str], dict[str, Counted | None]]:
     """``search_full`` and, with *counting*, how many hits each type has and how they
     divide (``counts.count_type``), side by side with the searches: per type that is
@@ -227,6 +234,7 @@ def search_full_counted(
         words=words,
         any_word=any_word,
         motion_kinds=motion_kinds,
+        newest=newest,
     )
     if asked is None:
         return {t: [] for t in types}, set(), {}
@@ -241,7 +249,10 @@ def search_full_counted(
         {f"{t}{_COUNT}": functools.partial(_counted, t, asked) for t in counted}
     )
     found = _heavy_first(tasks)
-    hits = {t: rank_hits(q, found[t][0]) for t in full}
+    hits = {
+        t: rank_hits(q, found[t][0], newest=newest and bool(SEARCHES[t].own_day))
+        for t in full
+    }
     partial = {t for t in full if found[t][1]}
     return hits, partial, {t: found[f"{t}{_COUNT}"] for t in counted}
 
