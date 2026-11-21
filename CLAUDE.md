@@ -7,7 +7,7 @@ Python 3.14, uv, FastAPI, PostgreSQL 18. Drie fasen per bron: `retrieve` → `no
 ## Commando's
 - `uv sync --extra dev`; CLI `lawgraph <command>` (`lawgraph sources` toont alles).
 - Unit: `pytest tests -q` (geen database). Integratie: `tests/integration/` en `tests/pg/` tegen `docker-compose.test.yml` (poort 5433), **serieel** (geen `-n`).
-- Vóór push: `.venv/bin/mypy src`, `ruff check`, `ruff format --check` (pre-commit doet de rest).
+- Vóór push: `.venv/bin/mypy src`, `ruff check`, `ruff format --check`, `.github/scripts/eenvoud.sh` en de hele unit-suite `pytest tests -q` (pre-commit doet de rest).
 - Volledige suites alleen in CI; lokaal de bestanden die je raakt, plus elk integratiebestand dat een gewijzigde route leest. Een wijziging aan een `cached()`/warm-up-lezer: ook `tests/pg/test_cached_tables.py`.
 
 ## Regels
