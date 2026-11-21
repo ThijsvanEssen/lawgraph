@@ -4,8 +4,9 @@
 # older release starts on a database that has it), so this only makes the start do nothing. Under the lock of the
 # scheduled runs; lock_timeout keeps the CREATE at 5 s. IF NOT EXISTS, so a second run does nothing.
 #
-# The table stays empty until `retrieve cbs` and `normalize cbs` ran: both are part of the nightly (`retrieve all`,
-# `normalize all`); a run is a few requests to opendata.cbs.nl and seconds of work.
+# The table stays empty until `retrieve cbs` and `normalize cbs` ran: both are weekly (`scripts/weekly.sh`, not the
+# nightly): the table fills on the first weekly run after the deploy, or a run by hand; a run is a few requests to
+# opendata.cbs.nl and seconds of work.
 . "$(dirname "$0")/_steps.sh"
 
 sql() {
