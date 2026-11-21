@@ -7,12 +7,15 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any
 
+import pytest
+
 from lawgraph.config.constants import (
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_SAME_AS,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db.queries import graph_stats
 from lawgraph.db.queries.state import set_state
 from lawgraph.pipelines.semantic.graph_list_stats import (
     STATE_KEY,
@@ -144,9 +147,16 @@ def test_the_daily_run_comes_to_what_a_run_over_all_does(database: str) -> None:
 
 
 def test_a_row_not_written_since_keeps_its_props_until_a_run_over_all(
-    database: str,
+    database: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GraphStore()
+    # the oldest open transaction is of the whole server: a test of another database may
+    # hold one from before the write below, and the run would then read every row
+    monkeypatch.setattr(
+        graph_stats,
+        "oldest_open_transaction",
+        lambda s: int(next(s.query("SELECT pg_current_xact_id()::text::bigint"))),
+    )
     _settled(store)
     store.bulk_insert_or_update_nodes("judgments", [_node("j2", date_eff="1900-01-01")])
     # as if that write came before the previous run: a transaction after it (not the oldest

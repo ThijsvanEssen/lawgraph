@@ -55,6 +55,25 @@ class CitedByJudgment(JudgmentOutcomeFields, WithCite, WithPath):
         "empty when the source gives none.",
     )
 
+    @classmethod
+    def from_doc(cls, doc: dict[str, Any]) -> CitedByJudgment:
+        """Build from a judgment as a list of judgments has it (``listed_judgment``)."""
+        props = doc.get("props") or {}
+        return cls(
+            id=doc["id"],
+            key=doc["key"],
+            ecli=props.get("ecli"),
+            court=props.get("court_code"),
+            tier=props.get("tier"),
+            court_kind=props.get("court_kind"),
+            date=props.get("date_eff"),
+            display_name=props.get("display_name"),
+            inbound_citation_count=props.get("inbound_citation_count"),
+            subject_areas=subject_areas(props.get("subjects")),
+            cite=judgment_cite_dto(props),
+            **judgment_outcome_fields(props),
+        )
+
 
 def _passage_fields(mention: Mention | None) -> dict[str, Any]:
     """What ``ArticleCitedByItem`` says of a passage; all null without one."""
@@ -117,23 +136,8 @@ class ArticleCitedByItem(QualifierFields, CitationOriginFields):
         mention = Mention.from_dict(row.get("mention"))
         if mention is None and row.get("mention") is not None:
             return None
-        doc = row["judgment"]
-        props = doc.get("props") or {}
         return cls(
-            judgment=CitedByJudgment(
-                id=doc["id"],
-                key=doc["key"],
-                ecli=props.get("ecli"),
-                court=props.get("court_code"),
-                tier=props.get("tier"),
-                court_kind=props.get("court_kind"),
-                date=props.get("date_eff"),
-                display_name=props.get("display_name"),
-                inbound_citation_count=props.get("inbound_citation_count"),
-                subject_areas=subject_areas(props.get("subjects")),
-                cite=judgment_cite_dto(props),
-                **judgment_outcome_fields(props),
-            ),
+            judgment=CitedByJudgment.from_doc(row["judgment"]),
             origin=row.get("origin"),
             **_passage_fields(mention),
         )

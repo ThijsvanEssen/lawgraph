@@ -235,6 +235,39 @@ def test_a_concept_needs_a_law_a_reason_and_terms_of_its_own(copy: Path) -> None
         assert concept(wrong), wrong
 
 
+def test_a_concept_block_needs_two_articles_and_an_official_explanation(
+    copy: Path,
+) -> None:
+    from lawgraph.core.concept_articles import concepts, concepts_of
+
+    def block(key: str, value: str) -> list[str]:
+        return command.main(["set", "concept-articles", key, value]).errors
+
+    good = '{"name": "Driehoek", "articles": ["BWBR0031788/11", "BWBR0031788/13"]}'
+    assert not block("driehoek", good)
+    assert [c.key for c in concepts_of("bwbr0031788", "13")] == [
+        "gezag-over-de-politie",
+        "driehoek",
+    ]
+    assert concepts()["driehoek"].article_ids == (
+        "articles/bwbr0031788_11",
+        "articles/bwbr0031788_13",
+    )
+    for key, wrong in (
+        ("Driehoek", good),  # no key in lower case
+        ("d", '{"articles": ["BWBR0031788/11", "BWBR0031788/13"]}'),  # no name
+        ("d", '{"name": "D", "articles": ["BWBR0031788/11"]}'),  # one article
+        ("d", '{"name": "D", "articles": ["Pw/11", "BWBR0031788/13"]}'),  # no BWB id
+        ("d", '{"name": "D", "articles": ["BWBR0031788/11", "BWBR0031788/11"]}'),
+        (
+            "d",
+            '{"name": "D", "articles": ["BWBR0031788/11", "BWBR0031788/13"],'
+            ' "explanation": {"label": "Wiki", "url": "https://nl.wikipedia.org/x"}}',
+        ),
+    ):
+        assert block(key, wrong), (key, wrong)
+
+
 def test_the_eu_core_names_each_act_once_with_the_source_it_was_checked_against(
     copy: Path,
 ) -> None:

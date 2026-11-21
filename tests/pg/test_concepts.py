@@ -1,0 +1,148 @@
+"""The block of a concept on a real PostgreSQL: its articles, and the judgments and papers
+that cite any of them, each counted once; an article the data does not hold is named."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from lawgraph.api.schemas.concepts import ConceptResponse
+from lawgraph.commands.curated import concept_article_notes
+from lawgraph.core.concept_articles import Concept
+from lawgraph.db import GraphStore, version_cache
+from lawgraph.db.queries.concepts import CONCEPT_JUDGMENTS, concept_overview
+from tests.asserts import assert_status
+
+CONCEPT = Concept(
+    key="toetsing",
+    name="Toetsing van wetten",
+    articles=("BWBR0001840/93", "BWBR0001840/120", "BWBR0001840/999"),
+    explanation_label="Rijksoverheid",
+    explanation_url="https://www.rijksoverheid.nl/onderwerpen/grondwet-en-statuut",
+)
+A93, A120 = "articles/bwbr0001840_93", "articles/bwbr0001840_120"
+
+
+def _node(key: str, type_: str, **props: Any) -> dict[str, Any]:
+    return {"key": key, "type": type_, "labels": [], "props": props}
+
+
+def _edge(from_id: str, to_id: str, relation: str = "REFERS_TO") -> dict[str, Any]:
+    key = f"e_{from_id.rsplit('/', 1)[1]}_{to_id.rsplit('/', 1)[1]}"
+    return {"key": key, "from_id": from_id, "to_id": to_id, "relation": relation,
+            "meta": {"mentions": [{"leden": [], "snippet": "…"}]}}  # fmt: skip
+
+
+def _seed(store: GraphStore) -> None:
+    store.bulk_insert_or_update_nodes(
+        "articles",
+        [
+            _node("bwbr0001840_93", "article", bwb_id="BWBR0001840",
+                  article_number="93", text="Bepalingen van verdragen hebben kracht."),
+            _node("bwbr0001840_120", "article", bwb_id="BWBR0001840",
+                  article_number="120", text="De rechter treedt niet in de beoordeling."),
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node(f"j{i}", "judgment", ecli=f"ECLI:NL:RBDHA:2025:{i}",
+                  date_eff=f"2025-0{i}-01", tier="rechtbank", court_code="RBDHA")
+            for i in range(1, 8)
+        ],
+    )  # fmt: skip
+    store.bulk_insert_or_update_nodes(
+        "documents",
+        [
+            _node("d1", "document", kind="Memorie van toelichting", title="MvT",
+                  date="2024-01-01", source="tk", dossier_number="36000", sequence=3),
+            _node("d2", "document", kind="Motie", title="Motie", date="2025-01-01",
+                  source="tk"),
+            _node("d3", "document", kind="Brief", title="Brief", date="2026-01-01",
+                  source="tk"),
+        ],
+    )  # fmt: skip
+    edges = [_edge("judgments/j1", A93), _edge("judgments/j1", A120)]
+    edges += [_edge(f"judgments/j{i}", A120) for i in range(2, 8)]
+    edges += [
+        _edge("documents/d1", A93, "EXPLAINS"),
+        _edge("documents/d1", A120, "EXPLAINS"),
+        _edge("documents/d2", A120),
+        _edge(A93, "documents/d3"),
+    ]
+    store.bulk_insert_or_update_edges(edges)
+
+
+def test_a_concept_counts_each_judgment_and_paper_once(store: GraphStore) -> None:
+    _seed(store)
+    version_cache.clear()
+
+    answer = ConceptResponse.of(CONCEPT, concept_overview(store, CONCEPT.article_ids))
+
+    assert [
+        (a.display_name is not None, a.id, a.judgment_total) for a in answer.articles
+    ] == [
+        (True, A93, 1),
+        (True, A120, 7),
+    ]
+    assert answer.articles[1].path == "/wetten/BWBR0001840/artikel/120"
+    assert answer.articles[1].opening == "De rechter treedt niet in de beoordeling."
+    assert answer.missing == ["BWBR0001840/999"]
+    # j1 cites both: one judgment
+    assert answer.judgment_total == 7
+    assert len(answer.judgments) == CONCEPT_JUDGMENTS
+    assert [j.judgment.key for j in answer.judgments] == ["j7", "j6", "j5", "j4", "j3"]
+    assert answer.judgments[0].article_ids == [A120]
+    # d1 is joined to both, d3 the other way round
+    assert answer.document_total == 3
+    assert [(d.document.key, d.article_ids) for d in answer.documents] == [
+        ("d3", [A93]),
+        ("d2", [A120]),
+    ]
+    assert answer.explanation is not None
+    assert answer.explanation.label == "Rijksoverheid"
+
+
+def test_the_oldest_judgment_lists_the_articles_it_cites(store: GraphStore) -> None:
+    _seed(store)
+    version_cache.clear()
+
+    overview = concept_overview(store, (A93, A120))
+    everyone = {j["judgment"]["key"] for j in overview["judgments"]}
+
+    assert "j1" not in everyone
+    assert overview["judgment_counts"] == {A93: 1, A120: 7}
+
+
+def test_the_routes_give_a_concept_and_the_concepts_of_an_article(
+    store: GraphStore, api: Any
+) -> None:
+    _seed(store)
+    version_cache.clear()
+
+    detail = api.get("/api/articles/BWBR0001840/120")
+    concept = api.get("/api/concepts/toetsing-van-wetten")
+
+    assert_status(detail, 200)
+    assert detail.json()["concepts"] == [
+        {"key": "toetsing-van-wetten", "name": "Toetsing van wetten"}
+    ]
+    assert_status(concept, 200)
+    body = concept.json()
+    assert [a["id"] for a in body["articles"]] == [A93, A120]
+    assert body["missing"] == ["BWBR0001840/94"]
+    assert body["judgment_total"] == 7
+    assert_status(api.get("/api/concepts/onbekend"), 404)
+
+
+def test_check_notes_an_article_of_a_block_the_graph_does_not_have(
+    store: GraphStore,
+) -> None:
+    _seed(store)
+
+    notes = concept_article_notes(store)
+
+    assert (
+        "concept-articles: toetsing-van-wetten: no article BWBR0001840/94 in the graph"
+        in notes
+    )
+    assert not [n for n in notes if "BWBR0001840/120" in n], notes
