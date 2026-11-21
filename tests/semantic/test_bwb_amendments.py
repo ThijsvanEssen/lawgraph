@@ -101,9 +101,12 @@ class _Store(InMemoryStore):
 def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     """The queries of the pipeline, answered from the fake store."""
 
-    def amending_article_versions(store: _Store) -> Iterator[dict[str, Any]]:
+    def amending_article_versions(
+        store: _Store, bwb_ids: list[str] | None = None
+    ) -> Iterator[dict[str, Any]]:
         # the real query sorts by article identity
-        return iter(sorted(store.versions, key=lambda r: (r["bwb_id"], r["stam_id"])))
+        read = [v for v in store.versions if bwb_ids is None or v["bwb_id"] in bwb_ids]
+        return iter(sorted(read, key=lambda r: (r["bwb_id"], r["stam_id"])))
 
     def articles_by_identity(
         store: _Store, bwb_ids: list[str], stam_ids: list[str]
@@ -122,7 +125,9 @@ def _amendment_queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         semantic_bwb,
         "regulation_dossier_numbers",
-        lambda store: iter(store.regulations),
+        lambda store, bwb_ids=None: iter(
+            r for r in store.regulations if bwb_ids is None or r["key"] in bwb_ids
+        ),
     )
     patch_rijkswet_dossiers(monkeypatch)
     patch_edge_removals(monkeypatch)

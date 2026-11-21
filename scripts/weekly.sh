@@ -110,8 +110,8 @@ run normalize cbs
 for name in $(.venv/bin/lawgraph semantic all --list); do
   case "$name" in
     rechtspraak-citations) ;;
-    bwb-amendments | bwb-annexes | bwb-publications | bwb-relation-types | \
-    eerstekamer | echr | eurlex-cjeu | graph-heat | graph-list-stats | graph-steps | kst-sru | \
+    bwb-annexes | bwb-publications | bwb-relation-types | \
+    eerstekamer | echr | eurlex-cjeu | graph-heat | graph-steps | kst-sru | \
     rechtspraak-conclusions | rechtspraak-duplicates | staatsblad | staatsblad-law-references | \
     tk-amendment-articles | tk-dictum | tk-dossier-outcomes | tk-dossier-relations | tk-government | \
     tk-mvt | tk-mvt-articles | tk-paper-outcomes | tk-transposition-tables | tooi-ministries | verdragenbank) ;;

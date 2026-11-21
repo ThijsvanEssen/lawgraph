@@ -370,7 +370,7 @@ def test_the_weekly_steps_keep_the_order_of_semantic_all(checkout: Path) -> None
 def _left_to_the_daily_run() -> set[str]:
     """The names of the ``case`` arm of ``weekly.sh`` that runs nothing, but the citations."""
     script = (ROOT / "scripts" / "weekly.sh").read_text()
-    arm = re.search(r"^\s*(bwb-amendments [^)]*)\) ;;$", script, re.MULTILINE)
+    arm = re.search(r"^\s*(bwb-annexes [^)]*)\) ;;$", script, re.MULTILINE)
     assert arm is not None
     return set(re.findall(r"[a-z-]+", arm[1]))
 

@@ -89,12 +89,13 @@ def write_word(store: GraphStore, kind: SearchType, word: str) -> int:
     search = _search(store, kind, word)
     table, order = kind.table, kind.candidate_order
     citations = kind.citations or "NULL::double precision"
+    date = (kind.own_day or "NULL::text").format(row="r")
     # its hits in the order the search ranks them from, with what their rank reads of each;
     # the version of the table they were read at in the same statement (one snapshot)
     statement = f"""
         WITH hits AS (
             SELECT r.id, r.key, {citations} AS citations, {search.tf} AS tf,
-                   {search.lengths} AS len, r.n, r.total
+                   {search.lengths} AS len, {date} AS date, r.n, r.total
             FROM (
                 SELECT r.*, row_number() OVER (ORDER BY {order}) AS n,
                        count(*) OVER () AS total
@@ -105,12 +106,12 @@ def write_word(store: GraphStore, kind: SearchType, word: str) -> int:
         ),
         kept AS (
             INSERT INTO lg_search_candidates
-                (collection, word, pos, id, key, citations, tf, len)
-            SELECT %(_kept_table)s, %(_kept_word)s, n, id, key, citations, tf, len
+                (collection, word, pos, id, key, citations, tf, len, date)
+            SELECT %(_kept_table)s, %(_kept_word)s, n, id, key, citations, tf, len, date
             FROM hits
             ON CONFLICT (collection, word, pos) DO UPDATE
             SET id = EXCLUDED.id, key = EXCLUDED.key, citations = EXCLUDED.citations,
-                tf = EXCLUDED.tf, len = EXCLUDED.len
+                tf = EXCLUDED.tf, len = EXCLUDED.len, date = EXCLUDED.date
         ),
         gone AS (
             DELETE FROM lg_search_candidates

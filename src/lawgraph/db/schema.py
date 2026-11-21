@@ -2343,13 +2343,11 @@ CREATE TABLE IF NOT EXISTS lg_summary_stems (
 """
 
 # The hits of a word searched often, ready to rank (``queries/search/candidates.py``): per
-# type and word the hits the search ranks (``RANK_CANDIDATES``), in the order it takes them,
-# with what their rank reads of each (the frequency of every term, the length of every
-# field, the citations), so that a search of the word reads neither the hits it leaves nor
-# the large columns of those it ranks. ``lg_search_candidates_state`` holds the version of
-# the type's table they were read at (``lg_data_version``) and the shape of the search they
-# were read for: a search takes them only while both are those of now. Not tables of the
-# graph: writing them raises no data version.
+# type and word the hits the search ranks, in its order, with what their rank reads of each
+# (term frequencies, field lengths, citations, day), so that a search of the word reads
+# neither its hits nor their large columns; ``lg_search_candidates_state`` the version of the
+# table and the shape of the search they were read for: a search takes them while both are
+# those of now. Not tables of the graph. The day is nullable (a version without it starts).
 SEARCH_CANDIDATES = """
 CREATE TABLE IF NOT EXISTS lg_search_candidates (
     collection text NOT NULL,
@@ -2360,8 +2358,10 @@ CREATE TABLE IF NOT EXISTS lg_search_candidates (
     citations double precision,
     tf bigint[] NOT NULL,
     len bigint[] NOT NULL,
+    date text,
     PRIMARY KEY (collection, word, pos)
 );
+ALTER TABLE lg_search_candidates ADD COLUMN IF NOT EXISTS date text;
 CREATE TABLE IF NOT EXISTS lg_search_candidates_state (
     collection text NOT NULL,
     word text NOT NULL,

@@ -7,12 +7,14 @@ from __future__ import annotations
 
 import contextlib
 import contextvars
+import datetime as dt
 import hashlib
 import json
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore
 from lawgraph.db.queries._bm25 import bm25_inputs, bm25_sql
 from lawgraph.db.queries.search.clause import (
@@ -65,6 +67,18 @@ WHOLE_CITATION = 4.0
 # warm), and a hit that holds the words of the query in its order ranks well by them
 # already.
 RERANKED = 200
+# How much higher a hit dated in the last ``RECENT_DAYS`` days ranks by its words (by its
+# own day, ``SearchType.own_day``: a paper, a judgment, a dossier, a law the day it came
+# into force; not an article, whose law's day says nothing of it): its BM25 times this,
+# whatever the number of words and fields that make it (a rank of a paper by its title
+# runs to 80), so that of the hits whose words weigh about the same the work of this year
+# comes first ("gevangenis": the letters of this year above two of 2009 with a shorter
+# title), one whose words weigh far more still before it. The case law that cites a hit
+# (``CITATION_PRIOR``) is added after it, as it is. It never lifts a hit past a better
+# tier (``tier_sql``, which orders first), nor past what the query names
+# (``ranking.exact_hit``, found before the words).
+RECENT_FACTOR = 1.5
+RECENT_DAYS = 365
 # The rows a live search orders at most: a common word is in far more, and the first found
 # stand for them (the full search after Enter ranks them all).
 LIVE_CANDIDATES = 2_000
@@ -87,6 +101,41 @@ def tier_sql(named: bool, starts: str, titled: str) -> str:
         if condition != "false":
             parts.append(f"WHEN {condition} THEN {tier}")
     return f"(CASE {' '.join(parts)} ELSE 0 END)" if parts else "0"
+
+
+def recent_since(today: dt.date | None = None) -> str:
+    """The first day (YYYY-MM-DD) of the ``RECENT_DAYS`` up to *today* (the Dutch day by
+    default): a hit dated on it or later ranks ``RECENT_FACTOR`` times as high by its
+    words."""
+    return ((today or dutch_today()) - dt.timedelta(days=RECENT_DAYS)).isoformat()
+
+
+def recent_sql(words: str, date: str | None) -> str:
+    """SQL: the rank by its words *words* of a hit of the date *date* (text, YYYY-MM-DD
+    first), ``RECENT_FACTOR`` times as high from the day in the parameter ``_recent``
+    (``recent_since``); as it is before it, without a date, and of a type without one
+    (*date* None)."""
+    if date is None:
+        return words
+    return (
+        f"({words} * CASE WHEN {date} >= %(_recent)s THEN {RECENT_FACTOR} ELSE 1 END)"
+    )
+
+
+def rank_sql(kind: SearchType, words: str, termed: int) -> str:
+    """SQL: the rank of a hit ``r`` of *kind* by its rank by its words *words*,
+    ``TERM_WEIGHT`` higher for each of the first *termed* tokens of the query (the
+    parameters ``_termed_{i}``) it has as a term, and higher by the case law that cites it
+    (``CITATION_PRIOR``)."""
+    rank = words
+    if termed:
+        bonus = " + ".join(
+            f"(r.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(termed)
+        )
+        rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
+    if kind.citations:
+        rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce({kind.citations}, 0)))"
+    return rank
 
 
 def titled_sql(kind: SearchType, words: list[str], row: str = "r") -> str:
@@ -257,13 +306,16 @@ def text_query(
     named: set[str] | None = None,
     any_word: bool = False,
     order: Order = NO_ORDER,
+    newest: bool = False,
 ) -> Query:
     """The hits of *kind* that hold every token in its fields (with *any_word*: one at
-    least, ranked by those they hold), the best ranked first (the key settles ties); *live*
-    as ``live_query``. *termed*: per token the rows that have
-    it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher, those
-    it *named* in a tier above (``tier_sql``); *laws*:
-    per token the laws whose articles it matches (``abbreviated_laws``); *order*: the runs
+    least, ranked by those they hold), the best ranked first (the key settles ties), those
+    of the last ``RECENT_DAYS`` days by their words ``RECENT_FACTOR`` times as high
+    (``recent_sql``); with *newest* the newest first (``newest_query``, of a type whose hits
+    have a day of their own); *live* as ``live_query``. *termed*: per token the rows that
+    have it as a term (``termed_articles``), found too and ranked ``TERM_WEIGHT`` higher,
+    those it *named* in a tier above (``tier_sql``); *laws*: per token the laws whose
+    articles it matches (``abbreviated_laws``); *order*: the runs
     of the words of the query that rank a hit higher where it holds them (``order_sql``).
     One word without a further condition ranks the hits kept of it (``kept_candidates``)
     while they are those of now: the same, without reading them.
@@ -289,6 +341,11 @@ def text_query(
     clause, clause_params = build_search_clause(
         table, tokens, kind.fields, termed=termed, laws=laws, any_word=any_word
     )
+    found = f"SELECT * FROM {table} r WHERE {clause} {where}"
+    if newest and kind.own_day:
+        return newest_query(
+            kind, hit, found, joins, {**clause_params, **(params or {}), "limit": limit}
+        )
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     bm25 = bm25_sql(
         store, table, words, kind.fields, kind.boosts, kind.titles, kind.names
@@ -305,14 +362,11 @@ def text_query(
     )
     # (not of the condition: the hits kept of a word are those of its condition alone)
     tier = tier_sql(bool(named), starts, bm25.titled)
-    rank = bm25.rank
-    if termed:
-        bonus = " + ".join(
-            f"(r.id = ANY(%(_termed_{i})s::text[]))::int" for i in range(len(tokens))
-        )
-        rank = f"({rank} + {TERM_WEIGHT} * ({bonus}))"
-    if kind.citations:
-        rank = f"({rank} + {CITATION_PRIOR} * ln(1 + coalesce({kind.citations}, 0)))"
+    # dated in the last days: of a hit found, by its date; of one kept, by the date kept
+    dated = kind.own_day.format(row="r") if kind.own_day else None
+    termed_tokens = len(tokens) if termed else 0
+    found_rank = rank_sql(kind, recent_sql(bm25.rank, dated), termed_tokens)
+    kept_rank = rank_sql(kind, recent_sql(bm25.rank, dated and "r.date"), termed_tokens)
     in_order = order_sql(kind, order)
     # Ranked on the search columns alone; only the hits kept are read for their props (a
     # judgment's props hold its whole text, and every read of a json prop parses them).
@@ -326,13 +380,12 @@ def text_query(
         if kind.candidate_order
         else ""
     )
-    found = f"SELECT * FROM {table} r WHERE {clause} {where}"
 
     def ranked(found: str) -> str:
         # with the order of the words: of the best, their columns of words passed on, not
         # read (a TOAST pointer each), ranked again by it, those of these alone read
         best = f"""
-            SELECT r.id, {tier} AS tier, {rank} AS rank
+            SELECT r.id, {tier} AS tier, {found_rank} AS rank
                    {", r.key, " + in_order.columns if in_order.bonus else ""}
             FROM (SELECT * FROM ({found} OFFSET 0) r {candidates}) r
             {bm25.lateral}
@@ -356,6 +409,7 @@ def text_query(
         **({"_named": sorted(named)} if named else {}),
         "_whole": " ".join(tokens),
         "_reranked": max(limit, RERANKED),
+        "_recent": recent_since(),
         "limit": limit,
     }
     # (not of a phrase, nor with a run of words to rank by: what is kept is of one word)
@@ -377,9 +431,10 @@ def text_query(
         gate, gate_params = kept
         statement_params.update(gate_params)
         top = f"""
-            (SELECT r.id, {tier} AS tier, {rank} AS rank
+            (SELECT r.id, {tier} AS tier, {kept_rank} AS rank
              FROM (
-                SELECT c.id, c.key, c.citations AS inbound_citation_count, c.tf, c.len
+                SELECT c.id, c.key, c.citations AS inbound_citation_count, c.tf, c.len,
+                       c.date
                 FROM lg_search_candidates c
                 WHERE c.collection = %(_kept_table)s AND c.word = %(_kept_word)s
                   AND {gate}
@@ -397,6 +452,28 @@ def text_query(
         ORDER BY top.tier DESC, top.rank DESC, r.key
         """
     return statement, statement_params
+
+
+def newest_query(
+    kind: SearchType, hit: str, found: str, joins: str, params: dict[str, Any]
+) -> Query:
+    """The hits *found* (SQL of the rows ``r`` of *kind* that hold the words) the newest
+    first, by ``SearchType.own_day`` (those without a date last, the key settles
+    ties), none ranked by its words: every hit is read for its date, not only the first
+    ``RANK_CANDIDATES``."""
+    date = (kind.own_day or "NULL").format(row="r")
+    statement = f"""
+        SELECT {hit}
+        FROM (
+            SELECT r.id, {date} AS dated
+            FROM ({found} OFFSET 0) r
+            ORDER BY dated DESC NULLS LAST, r.key
+            LIMIT %(limit)s
+        ) top
+        JOIN {kind.table} r ON r.id = top.id {joins}
+        ORDER BY top.dated DESC NULLS LAST, r.key
+        """
+    return statement, params
 
 
 # ── while typing ──────────────────────────────────────────────────────────────
@@ -525,7 +602,8 @@ def candidate_search(
     """The search of the one word of *clause* in *kind*. Its signature changes with
     whatever changes which hits it ranks or what it reads of them: the condition and its
     parameters (the forms of the word, the articles that have it as a term), the order of
-    the candidates and their number, the terms and fields of the rank."""
+    the candidates and their number, the terms and fields of the rank, the day of a hit
+    (``SearchType.own_day``, kept beside it)."""
     words = {k: v for k, v in clause_params.items() if k.startswith("_tok_")}
     tf, lengths, rank_params, shape = bm25_inputs(store, kind.table, words, kind.fields)
     signature = hashlib.sha256(
@@ -537,6 +615,7 @@ def candidate_search(
                 kind.candidate_order,
                 RANK_CANDIDATES,
                 kind.citations,
+                kind.own_day,
                 shape,
             ],
             sort_keys=True,
