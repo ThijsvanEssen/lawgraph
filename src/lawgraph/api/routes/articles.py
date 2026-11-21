@@ -40,7 +40,6 @@ from lawgraph.api.schemas.articles import (
     ArticleSuccessionDTO,
     ArticleSummaryDTO,
     ArticleVersionDTO,
-    ConceptRefDTO,
     DelegatedClauseDTO,
     DelegatedRegulationDTO,
     DelegationClauseDTO,
@@ -58,6 +57,7 @@ from lawgraph.api.schemas.common import (
     in_regulation_order,
 )
 from lawgraph.api.schemas.completeness import completeness_dto
+from lawgraph.api.schemas.concept_ref import ConceptRefDTO
 from lawgraph.api.validity import article_validity_dto, ended_article_validity_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.concept_articles import concepts_of
