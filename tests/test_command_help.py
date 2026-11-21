@@ -130,11 +130,14 @@ def test_a_command_says_the_window_its_parser_takes(pipeline, monkeypatch) -> No
     )
 
 
-def test_of_the_graph_steps_only_the_terms_take_since() -> None:
-    """``semantic all --since`` passes it to ``graph-article-terms`` alone; the others run in
-    full."""
+def test_of_the_graph_steps_only_the_terms_and_list_stats_take_since() -> None:
+    """``semantic all --since`` passes it to ``graph-article-terms`` and
+    ``graph-list-stats`` alone; the others run in full."""
     graph = [p for p in PIPELINES["semantic"] if p.source == "graph"]
-    assert [p.name for p in graph if p.command.accepts_since] == ["graph-article-terms"]
+    assert [p.name for p in graph if p.command.accepts_since] == [
+        "graph-article-terms",
+        "graph-list-stats",
+    ]
     found = [p for p in graph if p.command.accepts_touched_since]
     assert not found, show_items(found)
 
