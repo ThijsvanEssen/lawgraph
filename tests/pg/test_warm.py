@@ -682,6 +682,8 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
             ("get_judgments_list", None, 1),  # the common filters
             ("get_feed", None, lists["feed"]),
             ("get_feed_summary", None, first["home_summary"]["limit"]),
+            ("get_feed", None, first["home_ek_votes"]),
+            ("get_feed_summary", None, first["actueel_summary"]["limit"]),
         },
         key=str,
     )  # fmt: skip

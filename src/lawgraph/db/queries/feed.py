@@ -774,7 +774,9 @@ def get_feed(
     (``version_cache``)."""
 
     def read_page() -> tuple[list[dict[str, Any]], str | None]:
-        return _page_items(store, filters, cursor, limit)
+        if cursor is not None or _windowed(filters):
+            return _page_items(store, filters, cursor, limit)
+        return _first_page(store, filters, limit), None
 
     if not facets:
         items, searched_from = read_page()
@@ -792,6 +794,20 @@ def get_feed(
     return answer
 
 
+def _first_page(
+    store: GraphStore, filters: FeedFilters, limit: int
+) -> list[dict[str, Any]]:
+    """The rows of the first page under *filters* read at once (not ``_windowed``), kept
+    per data version and day (a page without ``until`` ends today): the same for every
+    visitor of Actueel and the homepage, a second on the full graph; after a poll the one
+    of the version before while the new one is read (``version_cache.STALE_WAIT``)."""
+    return cached(
+        store,
+        ("feed page", filters, limit, dutch_today().isoformat()),
+        lambda: _rows(store, filters, None, limit),
+    )
+
+
 # Words, a faction, a law, a tier or an area of law without a first day (``q``, ``faction``,
 # ``party``, ``instrument``, ``tier`` or ``subject_area``, and no ``since``): a word that few
 # events hold, a faction that signs few events of a kind (a letter of the government: none),
@@ -807,19 +823,24 @@ WORDS_WINDOWS = (90, 365, 3 * 365)
 WORDS_BUDGET = 8.0
 
 
-def _page_items(
-    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
-) -> tuple[list[dict[str, Any]], str | None]:
-    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
-    before the first event, the first day it searched."""
-    if filters.since or not (
+def _windowed(filters: FeedFilters) -> bool:
+    """Whether the page under *filters* is searched back in windows (above)."""
+    return not filters.since and bool(
         filters.q
         or filters.faction
         or filters.party
         or filters.instrument
         or filters.tiers
         or filters.subject_area
-    ):
+    )
+
+
+def _page_items(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
+    before the first event, the first day it searched."""
+    if not _windowed(filters):
         return _rows(store, filters, cursor, limit), None
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:
