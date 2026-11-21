@@ -1,0 +1,205 @@
+{
+ "about": "The requests to the API the explorer made on these pages of concordans.nl in their first 9 s (Chromium, empty cache, on the day of `day`, the day in their dates): every URL the HTML of such a page preloads is one of them (api/seo/preload.py, tests/test_seo_preload.py). Record them again when the explorer changes what it asks first.",
+ "day": "2026-11-21",
+ "cases": [
+  {
+   "path": "/wetten/BWBR0005289",
+   "focus": "instruments/bwbr0005289",
+   "asked": [
+    "/api/instruments/BWBR0005289",
+    "/api/nodes/instruments/bwbr0005289?limit=1",
+    "/api/instruments/BWBR0005289/articles?text_preview_chars=1&limit=2000",
+    "/api/nodes/instruments/bwbr0005289?limit=5",
+    "/api/instruments/BWBR0005289/versions",
+    "/api/instruments/BWBR0005289/articles?text_preview_chars=600&limit=100&offset=0",
+    "/api/instruments/BWBR0005289/articles/at/2026-11-21?text_preview_chars=0&limit=100&offset=0&include_text=true",
+    "/api/instruments?sort=article_count&limit=200",
+    "/api/articles/BWBR0005289/3",
+    "/api/articles/BWBR0005289/1",
+    "/api/articles/BWBR0005289/2",
+    "/api/instruments/BWBR0005289/dossiers",
+    "/api/instruments/BWBR0005289/basis",
+    "/api/instruments/BWBR0005289/delegated",
+    "/api/instruments/bwbr0005289/eu-links?limit=50&sort=importance",
+    "/api/instruments/BWBR0005289/amended-by?limit=500",
+    "/api/relationships/search?exclude_type=cross_reference&law=BWBR0005289&limit=200&offset=0",
+    "/api/instruments/BWBR0005289/related-instruments?limit=50",
+    "/api/instruments/BWBR0005289/judgments?limit=100&sort=date"
+   ]
+  },
+  {
+   "path": "/wetten/BWBR0005289/artikel/6:162",
+   "focus": "articles/bwbr0005289_162",
+   "asked": [
+    "/api/articles/BWBR0005289/162",
+    "/api/articles/BWBR0005289/162/history",
+    "/api/instruments/BWBR0005289/articles?text_preview_chars=1&limit=2000",
+    "/api/articles/BWBR0005289/162/explained-by?limit=50",
+    "/api/nodes/articles/bwbr0005289_162?limit=1",
+    "/api/nodes/articles/bwbr0005289_162?limit=5",
+    "/api/instruments/BWBR0005289/versions",
+    "/api/articles/BWBR0005289/162/cited-by?limit=200&sort=citation_count&offset=0",
+    "/api/nodes/articles/bwbr0005289_162?limit=200&relations=REFERS_TO%2CBASED_ON&node_types=article&direction=inbound",
+    "/api/articles/BWBR0005289/162/delegated",
+    "/api/articles/BWBR0005289/162/legislative-history",
+    "/api/articles/BWBR0005289/162/cited-by?limit=6&sort=citation_count"
+   ]
+  },
+  {
+   "path": "/uitspraken/ECLI:NL:HR:2019:2006",
+   "focus": "judgments/ecli_nl_hr_2019_2006",
+   "asked": [
+    "/api/judgments/ECLI%3ANL%3AHR%3A2019%3A2006",
+    "/api/nodes/judgments/ecli_nl_hr_2019_2006?limit=1",
+    "/api/judgments/ECLI%3ANL%3AHR%3A2019%3A2006/course",
+    "/api/nodes/judgments/ecli_nl_hr_2019_2006?limit=5",
+    "/api/nodes/judgments/ecli_nl_hr_2019_2006?limit=50&relations=REFERS_TO&node_types=judgment&direction=outbound&edge_meta=passages",
+    "/api/nodes/judgments/ecli_nl_hr_2019_2006?limit=50&relations=REFERS_TO&node_types=judgment&direction=inbound&edge_meta=passages",
+    "/api/nodes/judgments/ecli_nl_hr_2019_2006?limit=200&relations=REFERS_TO&node_types=article&direction=outbound"
+   ]
+  },
+  {
+   "path": "/kamerstukken/36799/31",
+   "focus": "documents/1501fbca_49c8_4e87_ba81_54646f4a047c",
+   "asked": [
+    "/api/documents/1501fbca_49c8_4e87_ba81_54646f4a047c",
+    "/api/nodes/documents/1501fbca_49c8_4e87_ba81_54646f4a047c?limit=1",
+    "/api/nodes/documents/1501fbca_49c8_4e87_ba81_54646f4a047c?limit=5",
+    "/api/factions",
+    "/api/nodes/documents/1501fbca_49c8_4e87_ba81_54646f4a047c?limit=200&relations=PART_OF&node_types=case&direction=outbound",
+    "/api/nodes/cases/41650f06_0eb3_461c_991c_9492ac583ec6?limit=200&relations=PART_OF&node_types=document&direction=inbound"
+   ]
+  },
+  {
+   "path": "/",
+   "query": [
+    [
+     "q",
+     "huur"
+    ]
+   ],
+   "asked": [
+    "/api/feed/summary?until=2026-11-21&days=14&margin=10&few=2&limit=30",
+    "/api/search?q=huur&types=instruments&types=dossiers&types=cabinets&types=ministries&types=members&types=commitments&types=factions&types=committees&types=decisions&limit=6&resolve=true&mode=live",
+    "/api/search?q=huur&types=articles&types=documents&limit=6&mode=full",
+    "/api/search?q=huur&types=judgments&limit=6&mode=full",
+    "/api/search?q=huur&types=instruments&types=dossiers&types=cabinets&types=ministries&types=members&types=commitments&types=factions&types=committees&types=decisions&limit=6&resolve=true&mode=full"
+   ]
+  },
+  {
+   "path": "/actueel",
+   "asked": [
+    "/api/feed/summary?days=1&limit=1",
+    "/api/documents?motion_kind=censure%2Cno_confidence&from=2026-09-22&facets=false&limit=20",
+    "/api/feed?limit=100&facets=false",
+    "/api/feed?limit=1&facets=true",
+    "/api/cabinets",
+    "/api/factions",
+    "/api/parties/colors",
+    "/api/ministries"
+   ]
+  },
+  {
+   "path": "/wetten/32016R0679",
+   "focus": "instruments/32016r0679",
+   "asked": [
+    "/api/instruments/32016R0679",
+    "/api/nodes/instruments/32016r0679?limit=1",
+    "/api/instruments/32016R0679/articles?text_preview_chars=1&limit=2000",
+    "/api/nodes/instruments/32016r0679?limit=5",
+    "/api/instruments/32016R0679/versions",
+    "/api/instruments/32016R0679/articles?text_preview_chars=600&limit=100&offset=0",
+    "/api/instruments/32016R0679/articles/at/2026-11-21?text_preview_chars=0&limit=100&offset=0&include_text=true",
+    "/api/instruments?sort=article_count&limit=200",
+    "/api/articles/32016R0679/1",
+    "/api/articles/32016R0679/2",
+    "/api/instruments/32016r0679/eu-links?limit=50&sort=importance"
+   ]
+  },
+  {
+   "path": "/wetten/BWBR0005537/artikel/3:2",
+   "focus": "articles/bwbr0005537_3_2",
+   "asked": [
+    "/api/articles/BWBR0005537/3%3A2",
+    "/api/articles/BWBR0005537/3%3A2/history",
+    "/api/instruments/BWBR0005537/articles?text_preview_chars=1&limit=2000",
+    "/api/articles/BWBR0005537/3%3A2/explained-by?limit=50",
+    "/api/nodes/articles/bwbr0005537_3_2?limit=1",
+    "/api/nodes/articles/bwbr0005537_3_2?limit=200",
+    "/api/instruments/BWBR0005537/versions"
+   ]
+  },
+  {
+   "path": "/wetten/BWBR0005290/artikel/7:658",
+   "focus": "articles/bwbr0005290_658",
+   "asked": [
+    "/api/articles/BWBR0005290/658",
+    "/api/articles/BWBR0005290/658/history",
+    "/api/instruments/BWBR0005290/articles?text_preview_chars=1&limit=2000",
+    "/api/articles/BWBR0005290/658/explained-by?limit=50",
+    "/api/nodes/articles/bwbr0005290_658?limit=1",
+    "/api/dossiers/25263/documents?limit=200",
+    "/api/nodes/articles/bwbr0005290_658?limit=5",
+    "/api/instruments/BWBR0005290/versions",
+    "/api/articles/BWBR0005290/658/cited-by?limit=200&sort=citation_count&offset=0",
+    "/api/nodes/articles/bwbr0005290_658?limit=200&relations=REFERS_TO%2CBASED_ON&node_types=article&direction=inbound",
+    "/api/articles/BWBR0005290/658/delegated",
+    "/api/articles/BWBR0005290/658/legislative-history",
+    "/api/articles/BWBR0005290/658/cited-by?limit=6&sort=citation_count"
+   ]
+  },
+  {
+   "path": "/",
+   "query": [
+    [
+     "q",
+     "art 6:162 bw"
+    ]
+   ],
+   "asked": [
+    "/api/feed/summary?until=2026-11-21&days=14&margin=10&few=2&limit=30",
+    "/api/search?q=art%206%3A162%20bw&types=instruments&types=dossiers&types=cabinets&types=ministries&types=members&types=commitments&types=factions&types=committees&types=decisions&limit=6&resolve=true&mode=live",
+    "/api/search?q=art%206%3A162%20bw&types=articles&types=documents&limit=6&mode=full",
+    "/api/search?q=art%206%3A162%20bw&types=judgments&limit=6&mode=full",
+    "/api/dossiers/36585/changed-articles",
+    "/api/feed?kind=stemming&chamber=EK&limit=50&facets=false&until=2026-11-21",
+    "/api/search?q=art%206%3A162%20bw&types=instruments&types=dossiers&types=cabinets&types=ministries&types=members&types=commitments&types=factions&types=committees&types=decisions&limit=6&resolve=true&mode=full",
+    "/api/dossiers/36416/changed-articles",
+    "/api/articles/BWBR0013797/24/cited-by?limit=6&sort=citation_count",
+    "/api/nodes/articles/bwbr0013797_24?limit=5",
+    "/api/nodes/dossiers/36416?limit=5"
+   ]
+  },
+  {
+   "path": "/",
+   "query": [
+    [
+     "q",
+     "hu"
+    ]
+   ],
+   "asked": [
+    "/api/feed/summary?until=2026-11-21&days=14&margin=10&few=2&limit=30",
+    "/api/search?q=hu&types=instruments&types=dossiers&types=cabinets&types=ministries&types=members&types=commitments&types=factions&types=committees&types=decisions&limit=6&resolve=true&mode=live",
+    "/api/dossiers/36585/changed-articles",
+    "/api/feed?kind=stemming&chamber=EK&limit=50&facets=false&until=2026-11-21",
+    "/api/dossiers/36416/changed-articles",
+    "/api/articles/BWBR0013797/24/cited-by?limit=6&sort=citation_count",
+    "/api/nodes/articles/bwbr0013797_24?limit=5",
+    "/api/nodes/dossiers/36416?limit=5"
+   ]
+  },
+  {
+   "path": "/",
+   "asked": [
+    "/api/feed/summary?until=2026-11-21&days=14&margin=10&few=2&limit=30",
+    "/api/dossiers/36585/changed-articles",
+    "/api/feed?kind=stemming&chamber=EK&limit=50&facets=false&until=2026-11-21",
+    "/api/dossiers/36416/changed-articles",
+    "/api/articles/BWBR0013797/24/cited-by?limit=6&sort=citation_count",
+    "/api/nodes/articles/bwbr0013797_24?limit=5",
+    "/api/nodes/dossiers/36416?limit=5"
+   ]
+  }
+ ]
+}
