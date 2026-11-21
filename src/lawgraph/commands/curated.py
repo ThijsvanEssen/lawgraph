@@ -5,7 +5,8 @@
     lawgraph curated check [<list>] [--db]      what is wrong with the lists (--db: also
                                                 against the database: faction keys,
                                                 instruments abbreviated, the articles
-                                                and laws of concepts)
+                                                and laws of concepts, the articles of
+                                                concept blocks)
     lawgraph curated set <list> <key> [<json>] [--after KEY | --first]
     lawgraph curated remove <list> <key>
 
@@ -21,7 +22,8 @@ import argparse
 import json
 from typing import Any
 
-from lawgraph.config.constants import COLLECTION_INSTRUMENTS
+from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.core.concept_articles import concepts
 from lawgraph.core.concepts import concept_of
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult, make_node_key
@@ -90,6 +92,7 @@ def check(name: str | None = None, *, db: bool = False) -> list[str]:
         "phases",
         "instrument-abbreviations",
         "concepts",
+        "concept-articles",
     ):
         store = GraphStore()
         found += [
@@ -121,6 +124,24 @@ def concept_notes(store: GraphStore) -> list[str]:
             f"concepts: {term}: no {collection[:-1]} {key} in the graph"
             for term, key in keys.items()
             if key not in present
+        ]
+    return found
+
+
+def concept_article_notes(store: GraphStore) -> list[str]:
+    """An article of a concept block no node of the graph is: a typing error in its number,
+    an article renumbered, or a law a partial database does not hold; the block then names
+    it under ``missing``. A note, as a concept's article is."""
+    found = []
+    for key, concept in concepts().items():
+        ids = dict(zip(concept.article_ids, concept.articles, strict=True))
+        present = store.existing_keys(
+            COLLECTION_ARTICLES, {i.split("/", 1)[1] for i in ids}
+        )
+        found += [
+            f"concept-articles: {key}: no article {ref} in the graph"
+            for i, ref in ids.items()
+            if i.split("/", 1)[1] not in present
         ]
     return found
 
@@ -173,7 +194,8 @@ def database_notes(store: GraphStore) -> list[str]:
     seating as it is), and a key of the plan no faction in the database has (a typo, or a
     faction a partial database does not hold); of the phases a value of the Kamer no record
     in the database has (a typo, a spelling the Kamer changed, or a partial database); of
-    the concepts an article or law the graph does not have (``concept_notes``)."""
+    the concepts an article or law the graph does not have (``concept_notes``), and of the
+    concept blocks an article it does not have (``concept_article_notes``)."""
     factions = get_factions(store)
     known = {doc["key"] for doc in factions}
     notes = [
@@ -203,7 +225,7 @@ def database_notes(store: GraphStore) -> list[str]:
                 for v in (value or {}).get(part) or []
                 if in_use[part] and v not in in_use[part]
             ]
-    return notes + concept_notes(store)
+    return notes + concept_notes(store) + concept_article_notes(store)
 
 
 def _change(args: argparse.Namespace) -> list[str]:

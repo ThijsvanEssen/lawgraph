@@ -9198,6 +9198,62 @@
         }
       }
     },
+    "/api/concepts/{key}": {
+      "get": {
+        "tags": [
+          "concepts",
+          "concepts"
+        ],
+        "summary": "A concept: articles that make one doctrine, and what cites them",
+        "description": "A concept kept by hand (`concepts` of an article names its keys): its articles in the order of the list, each with its heading or the start of its text and the judgments that cite it; the judgments that cite any of them, each once (`judgment_total`), and the newest five; the papers an edge joins to any of them (a memorandum that explains it, a paper that names it), each once (`document_total`), and the newest two; and a link to an official page that explains it. `missing` names an article of the list the data does not hold. 404 when no concept has the key.",
+        "operationId": "get_concept_api_concepts__key__get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "`toetsing-van-wetten`.",
+              "title": "Key"
+            },
+            "description": "`toetsing-van-wetten`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/instruments/{bwb_id}/above": {
       "get": {
         "tags": [
@@ -12779,6 +12835,14 @@
             "type": "array",
             "title": "Predecessors",
             "description": "Formerly: the articles of the old law whose place this article takes (`TRANSPOSED_TO` read backwards)."
+          },
+          "concepts": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptRefDTO"
+            },
+            "type": "array",
+            "title": "Concepts",
+            "description": "The concepts kept by hand the article is one of (articles that together make one doctrine); `/api/concepts/{key}` gives each."
           }
         },
         "additionalProperties": false,
@@ -12798,7 +12862,8 @@
           "downstream_implications",
           "scope_articles",
           "successors",
-          "predecessors"
+          "predecessors",
+          "concepts"
         ],
         "title": "ArticleDetailResponse",
         "description": "Response for GET /api/articles/{bwb_id}/{article_number}."
@@ -18666,6 +18731,252 @@
         ],
         "title": "CommitteeSeatDTO",
         "description": "One period a member held a seat on a committee."
+      },
+      "ConceptArticleDTO": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name",
+            "description": "`Art. 120 Gw`."
+          },
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading",
+            "description": "Its heading in the law; null where the law gives none."
+          },
+          "opening": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening",
+            "description": "The start of its text, about 300 characters cut at a word (`…` when it goes on): what the block shows where the law gives no heading."
+          },
+          "judgment_total": {
+            "type": "integer",
+            "title": "Judgment Total",
+            "description": "The judgments that cite it."
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path",
+            "description": "Its readable address (``/wetten/BWBR0005289/artikel/6:162``); null for a source without one, or when the answer lacks what makes it.",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "display_name",
+          "heading",
+          "opening",
+          "judgment_total",
+          "path"
+        ],
+        "title": "ConceptArticleDTO",
+        "description": "One article of a concept."
+      },
+      "ConceptDocumentDTO": {
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/ExplainingDocumentDTO"
+          },
+          "article_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Article Ids",
+            "description": "The articles of the concept it is joined to."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "document",
+          "article_ids"
+        ],
+        "title": "ConceptDocumentDTO",
+        "description": "A paper an edge joins to an article of the concept (it explains or names it)."
+      },
+      "ConceptExplanationDTO": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Who publishes it: `Rijksoverheid`."
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "url"
+        ],
+        "title": "ConceptExplanationDTO",
+        "description": "An official page that explains the concept: a link, no text of ours."
+      },
+      "ConceptJudgmentDTO": {
+        "properties": {
+          "judgment": {
+            "$ref": "#/components/schemas/CitedByJudgment"
+          },
+          "article_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Article Ids",
+            "description": "The articles of the concept it cites (`ConceptArticleDTO.id`)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "judgment",
+          "article_ids"
+        ],
+        "title": "ConceptJudgmentDTO",
+        "description": "A judgment that cites an article of the concept."
+      },
+      "ConceptRefDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "title": "ConceptRefDTO",
+        "description": "A concept an article is one of: what ``/api/concepts/{key}`` answers for."
+      },
+      "ConceptResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConceptExplanationDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An official page that explains it; null where none is kept."
+          },
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptArticleDTO"
+            },
+            "type": "array",
+            "title": "Articles",
+            "description": "Its articles, in the order of the list."
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing",
+            "description": "Its articles (`<BWB id>/<number>`) the data does not hold."
+          },
+          "judgment_total": {
+            "type": "integer",
+            "title": "Judgment Total",
+            "description": "The judgments that cite any of its articles, each once."
+          },
+          "judgments": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptJudgmentDTO"
+            },
+            "type": "array",
+            "title": "Judgments",
+            "description": "The newest of them (5 at most), newest first."
+          },
+          "document_total": {
+            "type": "integer",
+            "title": "Document Total",
+            "description": "The papers joined to any of its articles, each once."
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptDocumentDTO"
+            },
+            "type": "array",
+            "title": "Documents",
+            "description": "The newest of them (2 at most), newest first."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "explanation",
+          "articles",
+          "missing",
+          "judgment_total",
+          "judgments",
+          "document_total",
+          "documents"
+        ],
+        "title": "ConceptResponse",
+        "description": "Response for GET /api/concepts/{key}."
       },
       "CourseBasis": {
         "properties": {

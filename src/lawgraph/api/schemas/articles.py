@@ -32,6 +32,7 @@ from lawgraph.api.schemas.common import (
     semantic_fields,
 )
 from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
+from lawgraph.api.schemas.concept_ref import CONCEPTS, ConceptRefDTO
 from lawgraph.api.schemas.documents import (
     DocumentOrigin,
     PassageDTO,
@@ -697,6 +698,7 @@ class ArticleDetailResponse(StrictModel):
         description="Formerly: the articles of the old law whose place this article takes "
         "(`TRANSPOSED_TO` read backwards).",
     )
+    concepts: list[ConceptRefDTO] = Field(default_factory=list, description=CONCEPTS)
 
 
 BASIS_KIND = (

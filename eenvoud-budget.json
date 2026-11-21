@@ -3,7 +3,7 @@
     "lines_per_file": 800
   },
   "counts": {
-    "cached": 26,
+    "cached": 27,
     "lasting": 19,
     "cached_rows": 4,
     "lasting_rows": 4,
@@ -14,7 +14,7 @@
   "lines_per_file": {
     "src/lawgraph/api/routes/instruments.py": 853,
     "src/lawgraph/api/routes/nodes.py": 972,
-    "src/lawgraph/api/schemas/articles.py": 1314,
+    "src/lawgraph/api/schemas/articles.py": 1316,
     "src/lawgraph/api/schemas/dossiers.py": 1354,
     "src/lawgraph/api/schemas/feed.py": 1282,
     "src/lawgraph/api/schemas/instruments.py": 2121,
