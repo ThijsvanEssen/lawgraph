@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Response
 
 from lawgraph.api import search_terms
+from lawgraph.api.active_dossier import active_dossier
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import Invalid
 from lawgraph.api.middleware import no_store_if
@@ -31,7 +32,7 @@ from lawgraph.core.concepts import Concept, concept_named
 from lawgraph.core.logging import get_logger
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
-from lawgraph.core.time import iso_day
+from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
 from lawgraph.db.queries.resolve import CONFIDENCE_NAME, NO_MATCH
@@ -167,9 +168,9 @@ OFFSET_MAX = 500
         "holds, not left out; of a judgment `ecli`, `appno`, `names` and `cite` (as "
         "`/api/judgments` gives it; and `person` when it was found by one), of a "
         "document `dossier_number`, of a dossier `number`, "
-        "`kind`, `current_phase`, `closed`, `outcome` and `short_title` (the name it "
-        "goes by, as `/api/dossiers` gives it: `Wet betaalbare huur`; null without "
-        "one). A judgment is also found by a person it names (`lg_judgment_persons`: a "
+        "`kind`, `current_phase`, `closed`, `outcome`, `last_activity` and `short_title` "
+        "(the name it goes by, as `/api/dossiers` gives it: `Wet betaalbare huur`; null "
+        "without one). A judgment is also found by a person it names (`lg_judgment_persons`: a "
         "party not anonymised, whoever acts for a party) when every word of `q` is a "
         "word of that one name, whole (while typing, `mode=live`, the last word by its "
         "start): `R. van Gelder`, `Van Gelder` and `mr. drs. R. van Gelder` find `mr. "
@@ -289,6 +290,13 @@ OFFSET_MAX = 500
         "never above a better tier nor above what `q` names exactly. `sort=newest` orders "
         "the hits of those types newest first instead (unranked; what `q` names exactly "
         "first)."
+        "\n\n"
+        "What plays now (`mode=full`, the first page): when a hit of `dossiers` had "
+        "activity in the last 30 days, `active_dossier` is that dossier (of several the "
+        "best `score`, then the newest activity) with its newest papers, the votes on its "
+        "motions of those 30 days, its open commitments and the law it makes or changes, "
+        "as the pages of the dossier, the votes and the commitments give them; null when "
+        "none had, with `matched` `any`, or without `dossiers` in `types`."
         "\n\n"
         "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
         "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
@@ -450,6 +458,11 @@ def search(
 
     logger.debug("Search '%s' → %d hits across %s", q, total, requested_types)
     resolved = _resolved(store, q, mode) if resolve else None
+    playing = (
+        active_dossier(store, raw.get("dossiers") or [], dutch_today())
+        if mode == "full" and not offset and not any_word
+        else None
+    )
 
     return SearchResponse(
         q=q,
@@ -469,6 +482,7 @@ def search(
         offset=offset,
         counts=_counts(counted, fetched, offset + limit) if facets else None,
         facets=_facets(counted) if facets else None,
+        active_dossier=playing,
     )
 
 
