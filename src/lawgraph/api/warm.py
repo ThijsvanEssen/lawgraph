@@ -253,9 +253,10 @@ def _warm_home_summary(store: GraphStore) -> None:
 
 
 def _warm_actueel(store: GraphStore) -> None:
-    """What Actueel asks first besides the feed itself: the summary of today and of the
-    day before, each with the lower courts of that day (``/feed/summary?days=1&limit=1``;
-    3.6 s cold on prod, 21 Nov)."""
+    """Actueel as it opens: the feed (its page, and its counts from ``lg_feed_events``) and
+    the summary of today and of the day before, each with the lower courts of that day
+    (``/feed/summary?days=1&limit=1``; 3.6 s cold on prod, 21 Nov)."""
+    get_feed(store, FeedFilters(), limit=LISTS["feed"])
     today = dutch_today()
     for last in (today, today - dt.timedelta(days=1)):
         first = last - dt.timedelta(days=ACTUEEL_SUMMARY["days"] - 1)
@@ -328,9 +329,6 @@ PARTS: tuple[Part, ...] = (
     Part("home summary", _warm_home_summary),
     # the lower courts of Actueel (``lower_courts=true``), before the slow parts after "warm"
     Part("lower courts", _warm_lower_courts),
-    # Actueel as it opens: the feed (its page, and its counts from ``lg_feed_events``) and
-    # its summary of the last days
-    Part("feed", lambda store: get_feed(store, FeedFilters(), limit=LISTS["feed"])),
     Part("actueel", _warm_actueel),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),

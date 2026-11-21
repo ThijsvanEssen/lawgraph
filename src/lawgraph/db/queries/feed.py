@@ -520,6 +520,22 @@ def feed_query(
     so the caller knows whether a next page exists. *widely_cited*: the law followed is
     (``widely_cited``)."""
     bind = _base_bind(filters, limit)
+    plan = _plan(filters, bind, facets, cursor, widely_cited)
+    if cursor is not None:
+        bind["cursor_date"] = cursor.date
+        bind["cursor_id"] = cursor.id
+        bind["cursor_rank"] = cursor.rank
+    return rows_of(filters, plan, facets=facets) + _page_query(plan), bind
+
+
+def _plan(
+    filters: FeedFilters,
+    bind: dict[str, Any],
+    facets: bool = True,  # every row of the window is counted
+    cursor: FeedCursor | None = None,
+    widely_cited: bool = False,
+) -> Plan:
+    """The plan of *filters*, with its filters and its last day bound in *bind*."""
     plan = Plan(
         filters=filters,
         facets=facets,
@@ -528,12 +544,8 @@ def feed_query(
         cursor=cursor,
         widely_cited=widely_cited,
     )
-    if cursor is not None:
-        bind["cursor_date"] = cursor.date
-        bind["cursor_id"] = cursor.id
-        bind["cursor_rank"] = cursor.rank
     bind["until"] = plan.until  # a kind reads no row after the cursor's date
-    return rows_of(filters, plan, facets=facets) + _page_query(plan), bind
+    return plan
 
 
 # The events a summary shows one by one: a bill submitted, a commitment, a commencement, a
@@ -639,14 +651,7 @@ def summary_query(
     ``limit + 1`` events shown one by one (``items``)."""
     bind = _base_bind(filters, limit)
     bind |= {"margin": margin, "few": few, "legislative": list(LEGISLATIVE_KINDS)}
-    plan = Plan(
-        filters=filters,
-        facets=True,  # every row of the window is counted
-        shared=shared_filters(filters, bind),
-        dimensions=dimension_filters(filters, bind),
-        cursor=None,
-    )
-    bind["until"] = plan.until
+    plan = _plan(filters, bind)
     summary = _summary(plan.dimensions.where(), _items(filters))
     return rows_of(filters, plan, facets=True) + summary, bind
 
@@ -717,14 +722,7 @@ def lower_courts_query(filters: FeedFilters) -> tuple[str, dict[str, Any]] | Non
     if lower is None:
         return None
     bind = _base_bind(lower, 0)
-    plan = Plan(
-        filters=lower,
-        facets=True,  # every row of the window is counted
-        shared=shared_filters(lower, bind),
-        dimensions=dimension_filters(lower, bind),
-        cursor=None,
-    )
-    bind["until"] = plan.until
+    plan = _plan(lower, bind)
     return rows_of(lower, plan, facets=True) + _lower_courts(
         plan.dimensions.where()
     ), bind
@@ -745,9 +743,7 @@ def _lower_courts_of(
     store: GraphStore, filters: FeedFilters
 ) -> dict[str, dict[str, Any]]:
     query = lower_courts_query(filters)
-    if query is None:
-        return {}
-    rows = store.query(*query)
+    rows = store.query(*query) if query else []
     return {
         str(row["date"]): {"total": row["total"], "subject_areas": row["subject_areas"]}
         for row in rows
@@ -774,9 +770,7 @@ def get_feed(
     (``version_cache``)."""
 
     def read_page() -> tuple[list[dict[str, Any]], str | None]:
-        if cursor is not None or _windowed(filters):
-            return _page_items(store, filters, cursor, limit)
-        return _first_page(store, filters, limit), None
+        return _page_items(store, filters, cursor, limit)
 
     if not facets:
         items, searched_from = read_page()
@@ -794,20 +788,6 @@ def get_feed(
     return answer
 
 
-def _first_page(
-    store: GraphStore, filters: FeedFilters, limit: int
-) -> list[dict[str, Any]]:
-    """The rows of the first page under *filters* read at once (not ``_windowed``), kept
-    per data version and day (a page without ``until`` ends today): the same for every
-    visitor of Actueel and the homepage, a second on the full graph; after a poll the one
-    of the version before while the new one is read (``version_cache.STALE_WAIT``)."""
-    return cached(
-        store,
-        ("feed page", filters, limit, dutch_today().isoformat()),
-        lambda: _rows(store, filters, None, limit),
-    )
-
-
 # Words, a faction, a law, a tier or an area of law without a first day (``q``, ``faction``,
 # ``party``, ``instrument``, ``tier`` or ``subject_area``, and no ``since``): a word that few
 # events hold, a faction that signs few events of a kind (a letter of the government: none),
@@ -823,25 +803,24 @@ WORDS_WINDOWS = (90, 365, 3 * 365)
 WORDS_BUDGET = 8.0
 
 
-def _windowed(filters: FeedFilters) -> bool:
-    """Whether the page under *filters* is searched back in windows (above)."""
-    return not filters.since and bool(
+def _page_items(
+    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
+    before the first event, the first day it searched. A first page read at once is kept
+    per data version and day: the same for every visitor of Actueel and the homepage."""
+    if filters.since or not (
         filters.q
         or filters.faction
         or filters.party
         or filters.instrument
         or filters.tiers
         or filters.subject_area
-    )
-
-
-def _page_items(
-    store: GraphStore, filters: FeedFilters, cursor: FeedCursor | None, limit: int
-) -> tuple[list[dict[str, Any]], str | None]:
-    """The rows of one page (up to ``limit + 1``) and, when the budget ended the search
-    before the first event, the first day it searched."""
-    if not _windowed(filters):
-        return _rows(store, filters, cursor, limit), None
+    ):
+        if cursor is not None:
+            return _rows(store, filters, cursor, limit), None
+        key = ("feed page", filters, limit, dutch_today().isoformat())
+        return cached(store, key, lambda: _rows(store, filters, None, limit)), None
     bounded = _bounded_page(store, filters, cursor, limit)
     if bounded is not None:
         return bounded, None
