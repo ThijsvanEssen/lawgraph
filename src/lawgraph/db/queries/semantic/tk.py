@@ -285,6 +285,15 @@ def tk_documents_to_scan_for_amendments(
     return store.query(_TO_SCAN_FOR_AMENDMENTS_SQL, {"amending": amending})
 
 
+def document_texts(store: Store, ids: list[str]) -> Iterator[dict[str, Any]]:
+    """``{id, text, sections}`` of each document of *ids*."""
+    sql = f"""
+        SELECT json_build_object('id', id, 'text', props -> 'text', 'sections', props -> 'sections')
+        FROM {COLLECTION_DOCUMENTS} WHERE id = ANY(%(ids)s::text[]) ORDER BY key
+        """
+    return store.query(sql, {"ids": ids})
+
+
 _AMENDED_INSTRUMENTS_SQL = f"""
 SELECT e.from_id AS document_id, i.props -> 'bwb_id' AS bwb_id
 FROM {COLLECTION_EDGES} e

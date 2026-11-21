@@ -61,9 +61,13 @@ EDGE_SOURCE = "amendment-article-linker"
 # losing realistic depth (lid + onderdeel + sub-onderdeel).
 _LID_ONDERDEEL = r"(?:\s*,\s+[^,.\n]{1,60}){0,3}\s*,?"
 
+# An article number, also one of a law numbered per chapter ("2.10a" of the Wet IB 2001).
+_NUMBER = r"(\d+(?:\.\d+)*[a-z]*)"
+
 # "Artikel 5 wordt als volgt gewijzigd:" / "Artikel 5, eerste lid, wordt gewijzigd"
 _WORDT_GEWIJZIGD = re.compile(
-    r"\bArtikel\s+(\d+[a-z]*)"
+    r"\bArtikel\s+"
+    + _NUMBER
     + _LID_ONDERDEEL
     + r"\s+(?:van\s+(?:de\s+)?(?:wet|het\s+wetboek|het\s+besluit)"
     + r"\s+[^,\n]{0,60}\s+)?wordt\s+(?:als\s+volgt\s+)?gewijzigd",
@@ -72,13 +76,18 @@ _WORDT_GEWIJZIGD = re.compile(
 
 # "Na artikel 5 wordt een artikel ingevoegd" / "een nieuw artikel 5a ingevoegd"
 _WORDT_INGEVOEGD = re.compile(
-    r"\b(?:Na|In)\s+artikel\s+(\d+[a-z]*)\s+wordt\s+een\s+(?:nieuw\s+)?artikel\s+(\d+[a-z]*)\s+ingevoegd",
+    r"\b(?:Na|In)\s+artikel\s+"
+    + _NUMBER
+    + r"\s+wordt\s+een\s+(?:nieuw\s+)?artikel\s+"
+    + _NUMBER
+    + r"\s+ingevoegd",
     re.IGNORECASE,
 )
 
 # "Artikel 5 vervalt" / "Artikel 5, eerste lid, onder d, vervalt" / "komt te vervallen"
 _VERVALT = re.compile(
-    r"\bArtikel\s+(\d+[a-z]*)"
+    r"\bArtikel\s+"
+    + _NUMBER
     + _LID_ONDERDEEL
     + r"\s+(?:komt\s+te\s+)?verval(?:t|len)\b",
     re.IGNORECASE,
@@ -86,13 +95,17 @@ _VERVALT = re.compile(
 
 # "Artikel 5 komt te luiden:" / "Artikel 36f, eerste lid, komt te luiden:"
 _KOMT_TE_LUIDEN = re.compile(
-    r"\bArtikel\s+(\d+[a-z]*)" + _LID_ONDERDEEL + r"\s+komt\s+te\s+luiden\b",
+    r"\bArtikel\s+" + _NUMBER + _LID_ONDERDEEL + r"\s+komt\s+te\s+luiden\b",
     re.IGNORECASE,
 )
 
-# "In artikel 5 wordt 'X' vervangen door 'Y'" / "In artikel 5, derde lid, wordt..."
+# "In artikel 5 wordt 'X' vervangen door 'Y'" / "In artikel 5, derde lid, wordt..." /
+# "In artikel 2.10, eerste lid, komt de tabel te luiden"
 _VERVANGEN_DOOR = re.compile(
-    r"\bIn\s+artikel\s+(\d+[a-z]*)" + _LID_ONDERDEEL + r"\s+wordt\b",
+    r"\bIn\s+artikel\s+"
+    + _NUMBER
+    + _LID_ONDERDEEL
+    + r"\s+(?:wordt|worden|komt|komen)\b",
     re.IGNORECASE,
 )
 
@@ -129,7 +142,13 @@ AMENDMENT_WORDINGS: list[Wording] = [
         0.80,
         "`Artikel N ... vervalt` / `komt te vervallen`",
     ),
-    Wording(_VERVANGEN_DOOR, 1, RELATION_AMENDS, 0.80, "`In artikel N ... wordt`"),
+    Wording(
+        _VERVANGEN_DOOR,
+        1,
+        RELATION_AMENDS,
+        0.80,
+        "`In artikel N ... wordt` / `worden` / `komt` / `komen`",
+    ),
 ]
 
 BLOCK_BEGIN = (
@@ -214,34 +233,59 @@ def amendments_per_law(
     }
 
 
+def laws_of_wijzigingsartikelen(
+    text: str, sections: Iterable[Mapping[str, Any]], named_acts: NamedActs
+) -> list[str]:
+    """The BWB ids of the laws a document's wijzigingsartikelen change, in order: of each
+    part the law it names first; none without wijzigingsartikelen."""
+    starts = _wijzigingsartikel_starts(sections)
+    if not starts:
+        return []
+    parts = _parts(text, starts)
+    return list(
+        dict.fromkeys(
+            filter(None, (_first_law_named(p, None, named_acts) for p in parts))
+        )
+    )
+
+
 def _wijzigingsartikelen(text: str, sections: Iterable[Mapping[str, Any]]) -> list[str]:
-    """The text of each wijzigingsartikel, from its heading to the next one (a heading
-    ``ARTIKEL I, onderdeel B`` right after ``ARTIKEL I`` is still that article); the whole
+    """The text of each wijzigingsartikel, from its heading to the next one; the whole
     text without any."""
+    starts = _wijzigingsartikel_starts(sections)
+    return _parts(text, starts) if starts else [strip_xml(text)]
+
+
+def _wijzigingsartikel_starts(sections: Iterable[Mapping[str, Any]]) -> list[int]:
+    """Where each wijzigingsartikel (a roman ``article`` section) begins; a heading
+    ``ARTIKEL I, onderdeel B`` right after ``ARTIKEL I`` is still that article."""
     heads = [
         (section["number"], section["char_start"])
         for section in sections
         if section["kind"] == KIND_ARTICLE and section["number_scheme"] == SCHEME_ROMAN
     ]
-    starts = [
+    return [
         start
         for index, (number, start) in enumerate(heads)
         if index == 0 or heads[index - 1][0] != number
     ]
-    if not starts:
-        return [strip_xml(text)]
+
+
+def _parts(text: str, starts: list[int]) -> list[str]:
+    """The text from each start to the next, the last to the end."""
     bounds = [*starts, len(text)]
     return [strip_xml(text[start:end]) for start, end in itertools.pairwise(bounds)]
 
 
 def _first_law_named(
-    part: str, laws: Sequence[str], named_acts: NamedActs
+    part: str, laws: Sequence[str] | None, named_acts: NamedActs
 ) -> str | None:
-    """Of *laws*, the one *part* names first; None when it names none of them."""
+    """Of *laws* (any law of the graph when None), the one *part* names first; None when
+    it names none of them."""
     named: list[CitationHit] = []
     named_acts.collect_hits(part, named.append)
     first = min(
-        (hit for hit in named if hit.bwb_id in laws),
+        (hit for hit in named if hit.bwb_id and (laws is None or hit.bwb_id in laws)),
         key=lambda hit: hit.start or 0,
         default=None,
     )

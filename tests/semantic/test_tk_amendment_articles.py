@@ -23,6 +23,17 @@ _WORDINGS = [
     ("Artikel 5a wordt als volgt gewijzigd:", [("5a", RELATION_AMENDS, 0.90)]),
     ("artikel 7 wordt als volgt gewijzigd:", [("7", RELATION_AMENDS, 0.90)]),
     ("De wet wordt niet gewijzigd op dit punt.", []),
+    # an article of a law numbered per chapter (Wet IB 2001)
+    ("Artikel 2.10a wordt als volgt gewijzigd:", [("2.10a", RELATION_AMENDS, 0.90)]),
+    (
+        "In artikel 2.10, eerste lid, komt de tabel te luiden:",
+        [("2.10", RELATION_AMENDS, 0.80)],
+    ),
+    (
+        "In artikel 3.120 worden de bedragen verhoogd",
+        [("3.120", RELATION_AMENDS, 0.80)],
+    ),
+    ("Artikel 5. De wet wordt niet gewijzigd.", []),
     # "vervalt" and "komt te vervallen"
     ("Artikel 5 vervalt.", [("5", RELATION_REPEALS, 0.80)]),
     ("Artikel 3 komt te vervallen", [("3", RELATION_REPEALS, 0.80)]),

@@ -12,6 +12,11 @@ the act it makes itself, whose citeertitel closes the title ("(Wet implementatie
 centraal toegangspunt)"): the instrument ``LEGISLATED_IN`` the document's dossier, once that
 act is published and loaded. Every run removes such an edge of any document, also of one not
 read again since its act was published.
+
+A title that says "wijziging van" but names no law of the graph ("Wijziging van enkele
+belastingwetten en enige andere wetten (Belastingplan 2027)") leaves it to the text: the
+document amends the law each of its wijzigingsartikelen names first ("ARTIKEL I. De Wet
+inkomstenbelasting 2001 wordt als volgt gewijzigd").
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from lawgraph.db.queries.semantic import tk as semantic_tk
 
 from .base import SemanticPipelineBase
 from .tk import NamedActs
+from .tk_amendment_articles import laws_of_wijzigingsartikelen
 
 logger = get_logger(__name__)
 
@@ -88,12 +94,19 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         edges = EdgeWriter(self.store, what=None, remembers=True)
         read: set[str] = set()
         acts = semantic_tk.acts_of_dossiers(self.store)
+        unnamed: dict[str, tuple[Node, set[str]]] = {}
         documents = self._load_tk_documents(since=since)
         for doc_node in self._track(documents, "TK documents"):
             read.add(doc_node.node_id or "")
             own_acts = semantic_tk.own_acts(acts, doc_node.props)
-            for edge_doc in self._amends_edges(doc_node, named_acts, own_acts):
+            laws = self._title_laws(doc_node, named_acts)
+            if laws is None:
+                unnamed[doc_node.node_id or ""] = (doc_node, own_acts)
+                continue
+            for edge_doc in self._amends_edges(doc_node, laws, own_acts):
                 edges.add_doc(edge_doc)
+        for edge_doc in self._text_edges(unnamed, named_acts):
+            edges.add_doc(edge_doc)
 
         edges.flush_into(result)
         removed = edges.remove_stale(RELATION_AMENDS, EDGE_SOURCE, sorted(read))
@@ -107,16 +120,15 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
         )
         return result
 
-    def _amends_edges(
-        self,
-        doc_node: Node,
-        named_acts: NamedActs,
-        own_acts: set[str],
-    ) -> Iterator[dict[str, Any]]:
-        """The AMENDS edges of one document; none unless its kind can amend a law, none to
-        an EU act and none to an act of its own dossier (*own_acts*, instrument ids)."""
+    @staticmethod
+    def _title_laws(
+        doc_node: Node, named_acts: NamedActs
+    ) -> list[tuple[str | None, str | None, float]] | None:
+        """The laws the title of a document says it amends (``detect_amends_instrument``);
+        none unless its kind can amend a law, None when the title says it amends but names
+        no law."""
         if not may_amend(doc_node.props.get("kind")):
-            return
+            return []
         # An amendement is named by its own subject; the dossier's title says which law
         # the bill it was submitted on changes.
         title = (
@@ -125,7 +137,33 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
             or doc_node.props.get("display_name")
         )
         hits = detect_amends_instrument(str(title) if title else None, named_acts)
-        for bwb_id, celex, confidence in hits:
+        if hits or not (title and _AMENDS_PATTERN.search(str(title))):
+            return hits
+        return None
+
+    def _text_edges(
+        self, unnamed: dict[str, tuple[Node, set[str]]], named_acts: NamedActs
+    ) -> Iterator[dict[str, Any]]:
+        """The AMENDS edges of the documents of *unnamed* (id -> node and own acts) to the
+        laws their wijzigingsartikelen change."""
+        for row in semantic_tk.document_texts(self.store, sorted(unnamed)):
+            doc_node, own_acts = unnamed[row["id"]]
+            laws = laws_of_wijzigingsartikelen(
+                str(row.get("text") or ""), row.get("sections") or (), named_acts
+            )
+            yield from self._amends_edges(
+                doc_node, [(law, None, AMENDS_CONFIDENCE) for law in laws], own_acts
+            )
+
+    def _amends_edges(
+        self,
+        doc_node: Node,
+        laws: list[tuple[str | None, str | None, float]],
+        own_acts: set[str],
+    ) -> Iterator[dict[str, Any]]:
+        """The AMENDS edges of one document to *laws*; none to an EU act and none to an act
+        of its own dossier (*own_acts*, instrument ids)."""
+        for bwb_id, celex, confidence in laws:
             if not bwb_id:  # an EU act: implemented, not amended
                 continue
             target = self._resolve_instrument(bwb_id=bwb_id, celex=celex)
