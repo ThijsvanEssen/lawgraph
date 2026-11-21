@@ -584,7 +584,7 @@ _DOSSIER_HIT = f"""
                 'kind', r.props -> 'kind',
                 'current_phase', r.props -> 'current_phase',
                 'closed', r.props -> 'closed',
-                'outcome', r.props -> 'outcome',
+                'outcome', r.props -> 'outcome', 'last_activity', r.last_activity,
                 'title', r.props -> 'title'
             )
         )

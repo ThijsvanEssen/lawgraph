@@ -587,6 +587,21 @@ those without one last, unranked by their words (a match on words only scores 0.
 names exactly stays first, and the other types (articles, members, factions, committees,
 cabinets, ministries) keep their best first. `sort=relevance` is the default.
 
+### What plays now (`active_dossier`)
+
+The full search (`mode=full`, the first page, `dossiers` among `types`) answers the dossier it
+found that plays now: a hit of `dossiers` whose `last_activity` (the newest paper, activity held
+or decision in it) lies in the last 30 days (`api/active_dossier.py` `ACTIVE_DAYS`). Of several
+the one of the best `score` (its title matched best), then the newest activity, then the first
+key. `active_dossier` holds its number, title and `last_activity`, its 3 newest papers (as
+`/api/dossiers/{number}/documents`), the votes on its motions of those 30 days (as
+`/api/decisions?kind=Motie&unvoted=true`, 5 at most), its open commitments (as
+`/api/commitments?status=Openstaand`, 3 at most) and `law`, the first Dutch instrument of its
+hub (as `/api/dossiers/{number}?sort=importance`: the law that came out of it before one it
+changes). No text of its own. It is null when no dossier hit plays, when no hit held every word
+(`matched` `any`), and while typing; the four reads of it run side by side, and only when a
+dossier plays.
+
 ### Neighbour filters
 
 `/api/nodes/{collection}/{key}` and `.../neighborhood` take the same filters:
