@@ -139,11 +139,13 @@ def _person_score(words: list[str], name: str, typing: bool) -> float:
     return SCORE_CONTAINS
 
 
-def with_persons(q: str, persons: list[Hit], found: list[Hit], limit: int) -> list[Hit]:
+def with_persons(
+    q: str, persons: list[Hit], found: list[Hit], limit: int, newest: bool = False
+) -> list[Hit]:
     """The judgments *found* and those found by a person, each once (by a person when it
-    is both), the best scored first; at most *limit*. A judgment found by a person the query
-    is all of comes before those *found* of its score, one that merely holds its words after
-    them."""
+    is both), the best scored first (with *newest*: *found* in its order, ``rank_hits``);
+    at most *limit*. A judgment found by a person the query is all of comes before those
+    *found* of its score, one that merely holds its words after them."""
     if not persons:
         return found
     by_person = {hit["id"]: hit for hit in persons}
@@ -154,7 +156,7 @@ def with_persons(q: str, persons: list[Hit], found: list[Hit], limit: int) -> li
         named + [_also_by_person(q, h, by_person.get(h["id"])) for h in found] + rest
     ):
         hits.setdefault(hit["id"], hit)
-    return rank_hits(q, list(hits.values()))[:limit]
+    return rank_hits(q, list(hits.values()), newest=newest)[:limit]
 
 
 def _also_by_person(q: str, hit: Hit, person: Hit | None) -> Hit:

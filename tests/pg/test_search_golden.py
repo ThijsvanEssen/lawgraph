@@ -8,6 +8,7 @@ file anew with ``LAWGRAPH_WRITE_GOLDEN=1 pytest tests/pg/test_search_golden.py``
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 from typing import Any
@@ -18,7 +19,7 @@ from lawgraph.config.constants import RELATION_LEGISLATED_IN
 from lawgraph.core.ministries import MINISTRY_BY_KEY
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.search import candidates as search_candidates
-from lawgraph.db.queries.search import dispatch
+from lawgraph.db.queries.search import dispatch, text
 from lawgraph.db.queries.search.clause import Period
 from lawgraph.db.queries.search.dispatch import search_all, search_full, search_live
 from lawgraph.db.queries.search.parser import load_notation_parser
@@ -395,9 +396,11 @@ def answers(store: GraphStore) -> dict[str, Any]:
 
 
 def _within_budgets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Budgets no type of the small graph runs past, however cold or busy the server."""
+    """Budgets no type of the small graph runs past, however cold or busy the server; and
+    one day of the search, whose last 12 months rank higher (``text.recent_since``)."""
     monkeypatch.setattr(dispatch, "LIVE_BUDGET", 30.0)
     monkeypatch.setattr(dispatch, "FULL_BUDGET", 30.0)
+    monkeypatch.setattr(text, "dutch_today", lambda: dt.date(2026, 11, 21))
 
 
 def test_the_search_answers_as_pinned(

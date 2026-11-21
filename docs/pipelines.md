@@ -1485,6 +1485,13 @@ Every run reads all of them, also under `--since`.
 
 Versions with an unknown effect or without a matching article count as skipped.
 
+With `--since` (the daily run) it reads the article versions of the regulations whose toestand
+was fetched since then, all of them, so each article it reads gets the edges a run over all
+gives it. A publication keeps the dossiers it has and gains those of the versions read; a
+commencement keeps its stored date when that is earlier. What only every version can tell (a
+dossier no version names any longer, a commencement no version gives) waits for a run without
+it: `weekly.sh` runs it so.
+
 **Semantic `bwb-annexes`.** Finds `bijlage <label>` in article texts, and the name of an annex
 of the same regulation (its title without the parentheses at its end: "de bij deze wet
 behorende Bevoegdheidsregeling bestuursrechtspraak"; a name of at least two words, not in the
@@ -2416,4 +2423,4 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `tk-cited-papers` | `normalize tk-dossiers` (the papers with their dossier number, suffix and sequence, and the dossiers) and `normalize tk-content` (the text and footnotes of the letters) |
 | semantic `tk-dossier-relations` | `normalize tk` (`related_cases` of the cases, the agendas of the activities and the decisions taken in them), `normalize tk-dossiers` (the dossiers and their titles, the papers of the cases) and `normalize tk-content` (the text of the memoranda) |
 | semantic `graph-article-terms` | `graph-light` (the light summaries) and every citation of an article by a judgment (`rechtspraak`, `rechtspraak-citations`). With `--since` (`semantic all --since`, `daily.sh`) the articles cited since then, against the counts of the last whole run; without it (by hand after its first deploy, and `weekly.sh` on Sunday) the counts of every summary again and every article cited 3 or more times |
-| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (its articles in force without stubs: the `total` of `/articles`), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing |
+| semantic `graph-list-stats` (last step of `semantic all`) | backfills what the list endpoints sort and filter on: instruments (`jurisdiction`, `article_count` (its articles in force without stubs: the `total` of `/articles`), `kind`, `inbound_citation_count`, `amending`: a BWB regulation whose articles are numbered `I`, `II`, ... and of which one or more changes another regulation, or of which most do: the BWB puts "Wijzigt <regulation>." in place of such an article), judgments (`court_code`, `tier`, `court_kind`, `date_eff`, `inbound_citation_count`, `outbound_citation_count`; `decision_kind` where it is null, from the kind of court, and the curated `names` of a stub), articles (`inbound_citation_count`), committees (`active_dossier_count`, after `tk-dossier-outcomes`). `--instruments-only`, `--judgments-only`, `--articles-only` or `--committees-only` does one of them; `--dry-run` writes nothing. With `--since` (the daily run) the counts of every node, but `date_eff` and `amending` only of the rows written since its last complete run (see `docs/operations.md`) |

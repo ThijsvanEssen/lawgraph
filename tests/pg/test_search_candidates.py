@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from lawgraph.core import search_stats
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries.search import candidates as search_candidates
 from lawgraph.db.queries.search import text
@@ -29,10 +30,14 @@ def _node(key: str, node_type: str, **props: Any) -> dict[str, Any]:
     return {"key": key, "type": node_type, "labels": [], "props": props}
 
 
+# a day of the last 12 months (``text.RECENT_DAYS``): a hit of it ranks higher
+RECENT = (dutch_today() - dt.timedelta(days=40)).isoformat()
+
+
 def _seed(store: GraphStore, rows: int = 300) -> None:
     """Judgments, articles and papers of which one in three holds "belasting" in a field
     the search ranks by, others in a name or title as a part of a word; citations and
-    dates spread, ties among them."""
+    dates spread, some of this year, ties among them."""
     word = ["belasting", "pacht", "huur"]
     store.bulk_insert_or_update_nodes(
         "judgments",
@@ -41,7 +46,8 @@ def _seed(store: GraphStore, rows: int = 300) -> None:
                   display_name=f"Rechtbank Den Haag 2026-01-{n % 28 + 1:02d} / {n}",
                   names=["Belastingdienst/X"] if n % 17 == 0 else [],
                   summary=f"Een geschil over {word[n % 3]} en {word[n % 2]}.",
-                  inbound_citation_count=n % 7, date_eff=f"20{n % 25:02d}-01-01")
+                  inbound_citation_count=n % 7,
+                  date_eff=RECENT if n % 4 == 0 else f"20{n % 25:02d}-01-01")
             for n in range(rows)
         ],
     )  # fmt: skip
@@ -63,7 +69,8 @@ def _seed(store: GraphStore, rows: int = 300) -> None:
         [
             {**_node(f"d_{n}", "document",
                      title=f"Brief over de {['belasting', 'inkomstenbelasting', 'pacht'][n % 3]}",
-                     date=f"2026-01-{n % 9 + 1:02d}"), "labels": ["TK"]}
+                     date=RECENT if n % 2 else f"2016-01-{n % 9 + 1:02d}"),
+             "labels": ["TK"]}
             for n in range(rows)
         ],
     )  # fmt: skip
