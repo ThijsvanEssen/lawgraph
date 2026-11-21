@@ -63,5 +63,6 @@ def test_each_list_is_counted_once_and_kept_per_its_tables(
 def test_ministries_are_the_length_of_the_ministries_list() -> None:
     from lawgraph.api.routes.ministries import list_ministries
 
-    assert LISTS["ministries"].count(cast(GraphStore, None)) == len(list_ministries())
-    assert LISTS["ministries"].count(cast(GraphStore, None)) > 0
+    total = LISTS["ministries"].count(cast(GraphStore, None))
+    assert total == len(list_ministries())
+    assert total and total > 0
