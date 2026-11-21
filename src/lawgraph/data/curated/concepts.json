@@ -1328,6 +1328,106 @@
    "law": "BWBR0001840",
    "article": "100",
    "why": "art. 100 Gw: de regering verstrekt de Staten-Generaal vooraf inlichtingen over de inzet van de krijgsmacht"
+  },
+  {
+   "term": "belastingschalen",
+   "variants": [
+    "belastingschaal",
+    "belastingschijven",
+    "belastingschijf",
+    "schijventarief",
+    "tarief inkomstenbelasting",
+    "tarieven inkomstenbelasting"
+   ],
+   "law": "BWBR0011353",
+   "article": "2.10",
+   "why": "art. 2.10 Wet IB 2001: de tabel met de schijven en percentages van de belasting op het inkomen uit werk en woning (alleen de belasting, zonder de premie volksverzekeringen)"
+  },
+  {
+   "term": "salderen",
+   "variants": [
+    "salderingsregeling",
+    "saldering elektriciteit",
+    "salderen zonnepanelen"
+   ],
+   "law": "BWBR0050714",
+   "article": "2.31",
+   "why": "art. 2.31 Energiewet (salderen elektriciteit): de leverancier vermindert de onttrokken elektriciteit met de ingevoede"
+  },
+  {
+   "term": "helmplicht",
+   "variants": [
+    "helm verplicht",
+    "helmplicht bromfiets",
+    "helmplicht snorfiets"
+   ],
+   "law": "BWBR0004825",
+   "article": "60",
+   "why": "art. 60 RVV 1990: bestuurder en passagiers van bromfietsen, snorfietsen en motorfietsen dragen een goedgekeurde helm"
+  },
+  {
+   "term": "treinkaartje",
+   "variants": [
+    "treinkaartjes",
+    "ov-kaartje",
+    "vervoerbewijs trein"
+   ],
+   "law": "BWBR0011470",
+   "article": "70",
+   "why": "art. 70 Wp 2000: verboden zonder geldig vervoerbewijs gebruik te maken van het openbaar vervoer"
+  },
+  {
+   "term": "zwartrijden",
+   "variants": [
+    "zwart rijden",
+    "reizen zonder kaartje"
+   ],
+   "law": "BWBR0011470",
+   "article": "70",
+   "why": "art. 70 Wp 2000: verboden zonder geldig vervoerbewijs gebruik te maken van het openbaar vervoer"
+  },
+  {
+   "term": "voorwaardelijke invrijheidstelling",
+   "variants": [
+    "vervroegde invrijheidstelling"
+   ],
+   "law": "BWBR0001903",
+   "article": "6:2:10",
+   "why": "art. 6:2:10 Sv: wanneer de veroordeelde voorwaardelijk in vrijheid wordt gesteld (na een derde of twee derde van de straf)"
+  },
+  {
+   "term": "zittingsduur gemeenteraad",
+   "variants": [
+    "tussentijdse verkiezingen gemeenteraad",
+    "vervroegde gemeenteraadsverkiezingen",
+    "zittingsduur provinciale staten"
+   ],
+   "law": "BWBR0001840",
+   "article": "129",
+   "why": "art. 129 lid 4 Gw: de zittingsduur van provinciale staten en de gemeenteraad is vier jaren, behoudens bij de wet te bepalen uitzonderingen"
+  },
+  {
+   "term": "ontslag wethouder",
+   "variants": [
+    "motie van wantrouwen wethouder",
+    "vertrouwen opzeggen wethouder",
+    "wethouder ontslaan"
+   ],
+   "law": "BWBR0005416",
+   "article": "49",
+   "why": "art. 49 Gemw: zegt de raad het vertrouwen in een wethouder op en neemt die geen ontslag, dan kan de raad besluiten tot ontslag"
+  },
+  {
+   "term": "digital services act",
+   "variants": [],
+   "law": "32022R2065",
+   "why": "Verordening (EU) 2022/2065: de Engelse titel in het Publicatieblad eindigt op (Digital Services Act); de Nederlandse korte titel is digitaledienstenverordening"
+  },
+  {
+   "term": "digital markets act",
+   "variants": [],
+   "law": "32022R1925",
+   "why": "Verordening (EU) 2022/1925: de Engelse titel in het Publicatieblad eindigt op (Digital Markets Act); de Nederlandse naam is digitalemarktenverordening"
   }
  ]
 }

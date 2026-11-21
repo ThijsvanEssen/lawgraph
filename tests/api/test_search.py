@@ -451,6 +451,7 @@ def test_search_resolves_q_in_the_same_request_when_asked(
         search_full=({}, set()),
         resolve_query=resolve_query,
         kept_notation_parser=lambda store, wait: object(),
+        concept_named=lambda q, words: None,  # AVG is a name of an act of eu-core
     )
     client = TestClient(app)
 
