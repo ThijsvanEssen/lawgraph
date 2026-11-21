@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     COLLECTION_DOCUMENTS,
     COLLECTION_DOSSIERS,
     COLLECTION_EDGES,
+    COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
     ENACTING_RELATIONS,
     RELATION_AMENDS,
@@ -1186,7 +1187,9 @@ def get_instruments_list(
     counted = without_page(params)
 
     def listed_page() -> tuple[list[dict[str, Any]], str | None]:
-        return _listed(store, filters, INSTRUMENT_ORDERS[sort], params, limit, after)
+        order = INSTRUMENT_ORDERS[sort]
+        kept = not (tokens or offset)
+        return _listed(store, filters, order, params, limit, after, kept=kept)
 
     total = partial(_instrument_total, store, matched, counted, bool(tokens))
 
@@ -1231,10 +1234,21 @@ def _listed(
     params: dict[str, Any],
     limit: int,
     after: str | None,
+    *,
+    kept: bool = False,
 ) -> tuple[list[dict[str, Any]], str | None]:
     """One page of the list and the token of the next (``after``: the page behind the one
     that ended at that token, instead of ``offset``), the items with the date of the next
-    version of each law. The page reads one row more, to know whether there is a next."""
+    version of each law. The page reads one row more, to know whether there is a next.
+    *kept*, a first page without words: the same for every visitor (the treaties Wetten
+    counts, 0.4 to 1.4 s on prod, 21 Nov), kept while its tables stand still."""
+    if kept and not after:
+        return cached(
+            store,
+            ("instruments page", filters.where(), order, *sorted(params.items())),
+            partial(_listed, store, filters, order, params, limit, None),
+            tables=(COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS),
+        )
     bind = {**params, "limit": limit + 1}
     where_ = filters.where()
     if after:
