@@ -196,18 +196,19 @@ def retrieve_all(argv: list[str] | None = None) -> PipelineResult:
 
 def _pipelines_of(phase: Phase, args: argparse.Namespace) -> list[Pipeline]:
     """The pipelines ``<phase> all`` runs: all of them, but in gaps mode those that can fill
-    gaps, and a semantic run ``--since`` none that is ``weekly``, nor with ``--only-since``
-    one whose command has no ``--since``."""
+    gaps, and the daily run (an incremental retrieve, a normalize or semantic ``--since``)
+    none that is ``weekly``, nor (semantic) with ``--only-since`` one whose command has no
+    ``--since``."""
     if phase == "retrieve" and args.mode is RetrieveMode.GAPS:
         return [pipeline for pipeline in PIPELINES[phase] if pipeline.fills_gaps]
-    if phase == "semantic" and args.since is not None:
-        return [
-            pipeline
-            for pipeline in PIPELINES[phase]
-            if not pipeline.weekly
-            and (pipeline.command.accepts_since or not args.only_since)
-        ]
-    return PIPELINES[phase]
+    if phase == "retrieve" and args.mode is RetrieveMode.FULL or args.since is None:
+        return PIPELINES[phase]
+    only_since = phase == "semantic" and args.only_since
+    return [
+        pipeline
+        for pipeline in PIPELINES[phase]
+        if not pipeline.weekly and (pipeline.command.accepts_since or not only_since)
+    ]
 
 
 def _retrieve_argv(args: argparse.Namespace) -> ArgvOf:

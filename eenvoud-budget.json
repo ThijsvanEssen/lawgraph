@@ -39,8 +39,8 @@
     "src/lawgraph/db/queries/search/types.py": 1266,
     "src/lawgraph/db/queries/semantic/tk.py": 1104,
     "src/lawgraph/db/queries/seo.py": 1258,
-    "src/lawgraph/db/schema.py": 2909,
+    "src/lawgraph/db/schema.py": 2934,
     "src/lawgraph/db/store.py": 1235,
-    "src/lawgraph/sources/registry.py": 1271
+    "src/lawgraph/sources/registry.py": 1292
   }
 }

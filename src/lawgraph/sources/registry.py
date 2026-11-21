@@ -37,6 +37,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.sources import (
     BWB_SEARCH,
+    CBS,
     CELLAR,
     EERSTEKAMER_SITE,
     HUDOC,
@@ -59,6 +60,7 @@ from lawgraph.pipelines.command import (
 )
 from lawgraph.pipelines.normalize.bwb import BWBNormalizePipeline
 from lawgraph.pipelines.normalize.bwb_history import BWBHistoryNormalizePipeline
+from lawgraph.pipelines.normalize.cbs import CbsNormalizePipeline
 from lawgraph.pipelines.normalize.echr import ECHRNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer import EerstekamerNormalizePipeline
 from lawgraph.pipelines.normalize.eerstekamer_agenda import (
@@ -102,6 +104,7 @@ from lawgraph.pipelines.normalize.tk_document_links import (
 )
 from lawgraph.pipelines.normalize.tk_dossiers import TKDossiersNormalizePipeline
 from lawgraph.pipelines.normalize.verdragenbank import VerdragenbankNormalizePipeline
+from lawgraph.pipelines.retrieve.cbs import CbsRetrievePipeline
 from lawgraph.pipelines.retrieve.eerstekamer_commitments import (
     EerstekamerCommitmentsRetrievePipeline,
     ek_commitments_args,
@@ -291,9 +294,9 @@ class Pipeline:
     # Normalize only: the retrieve pipelines whose raw records it reads besides the one of its
     # own name (``normalize bwb`` also reads the TOOI thesaurus of ``retrieve tooi``).
     fed_by: tuple[str, ...] = ()
-    # Semantic only: what a day writes leaves it nothing to do (triggers keep its tables), so
-    # ``semantic all --since`` (the daily run) leaves it out; a run over all and the weekly
-    # run (``--list``) run it.
+    # What a day brings leaves it nothing to do (a yearly source; a semantic step whose tables
+    # triggers keep), so the daily run leaves it out (incremental ``retrieve all``, ``<phase>
+    # all --since``); a full load, a run over all and ``scripts/weekly.sh`` run it.
     weekly: bool = False
 
     @property
@@ -403,6 +406,7 @@ def _retrieve(
     after: tuple[str, ...] = (),
     fills_gaps: bool = False,
     reads: tuple[Reads, ...] = (),
+    weekly: bool = False,
 ) -> Pipeline:
     """Register a retrieve: its pipeline class, made with *extra_kwargs* of the options
     *add_args* adds, or a function of ``retrieve_commands`` that runs it on them."""
@@ -426,6 +430,7 @@ def _retrieve(
         after,
         fills_gaps,
         reads,
+        weekly=weekly,
     )
 
 
@@ -817,6 +822,14 @@ RETRIEVE: list[Pipeline] = [
         lane=KOOP_REPOSITORY.lane,
         after=("rijksoverheid",),
     ),
+    _retrieve(
+        CbsRetrievePipeline,
+        "The CBS tables Gebieden in Nederland since 2013: the arrondissement and ressort "
+        "of every municipality per year; a table again when the catalogue says it changed.",
+        argv_for_all=_no_argv,
+        lane=CBS.lane,
+        weekly=True,  # the map changes once a year
+    ),
 ]
 
 NORMALIZE: list[Pipeline] = [
@@ -967,6 +980,14 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         VerdragenbankNormalizePipeline,
         "Treaties as instruments.",
+    ),
+    _pipeline(
+        CbsNormalizePipeline,
+        "The arrondissement and ressort of every municipality per year, from the CBS, with "
+        "the articles of the Wet op de rechterlijke indeling; this year checked against "
+        "that text.",
+        after=("bwb",),  # the articles of the Wet op de rechterlijke indeling
+        weekly=True,
     ),
 ]
 

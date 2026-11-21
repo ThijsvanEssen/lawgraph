@@ -306,7 +306,11 @@ def test_retrieve_all_starts_each_pipeline_when_its_lane_and_wait_allow(
     trace = clock.drive(lambda: orchestration.retrieve_all(RETRIEVE_RUNS[mode]))
 
     lanes: Lanes = {}
-    run = [p for p in pipelines if mode != "gaps" or p.fills_gaps]
+    run = [
+        p
+        for p in pipelines
+        if (mode != "gaps" or p.fills_gaps) and (mode != "incremental" or not p.weekly)
+    ]
     for p in sorted(run, key=lambda p: bool(p.after)):  # a stable sort: waiting last
         lanes.setdefault(p.lane_id, []).append(
             (p.address, tuple(f"retrieve {a}" for a in p.after))
