@@ -20,5 +20,7 @@
     "judgments": 100,
     "feed": 100
   },
-  "home_summary": {"days": 14, "limit": 30}
+  "home_summary": {"days": 14, "limit": 30},
+  "home_ek_votes": 50,
+  "actueel_summary": {"days": 1, "limit": 1}
 }
