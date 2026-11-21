@@ -207,15 +207,21 @@ def _scored(query: str, hit: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def rank_hits(
-    query: str, hits: list[dict[str, Any]], today: str | None = None
+    query: str,
+    hits: list[dict[str, Any]],
+    today: str | None = None,
+    newest: bool = False,
 ) -> list[dict[str, Any]]:
     """*hits* with a ``score`` each (a hit that has one keeps it), best first; a member
     without a role (``member_role``) after every hit with one, whatever its score; a law or
     an article that no longer holds on *today* (the Dutch day by default) after every hit
     that does, whatever its score, not left out: what the query identifies or names
-    exactly (``exact_hit``) goes first still."""
+    exactly (``exact_hit``) goes first still. With *newest* (hits the newest first) what
+    the query names exactly first, the others in the order they come."""
     day = today or dutch_today().isoformat()
     scored = [_scored(query, h) for h in hits]
+    if newest:
+        return sorted(scored, key=lambda h: not exact_hit(query, h))
     return sorted(
         scored,
         key=lambda h: (

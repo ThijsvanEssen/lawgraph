@@ -2107,6 +2107,10 @@
   "full",
   "live"
  ],
+ "/paths//api/search/get/parameters/11/schema": [
+  "relevance",
+  "newest"
+ ],
  "/paths//api/nodes/shared/get/parameters/3/schema": [
   "key",
   "importance"

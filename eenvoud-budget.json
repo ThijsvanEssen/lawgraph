@@ -36,7 +36,7 @@
     "src/lawgraph/db/queries/feed_sql.py": 1171,
     "src/lawgraph/db/queries/instruments.py": 1525,
     "src/lawgraph/db/queries/nodes.py": 928,
-    "src/lawgraph/db/queries/search/types.py": 1267,
+    "src/lawgraph/db/queries/search/types.py": 1266,
     "src/lawgraph/db/queries/semantic/tk.py": 1104,
     "src/lawgraph/db/queries/seo.py": 1258,
     "src/lawgraph/db/schema.py": 2909,

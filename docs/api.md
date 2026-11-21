@@ -548,7 +548,26 @@ of `limit`) and with `facets=true` counts them and divides them:
   gives it; null where the source says none). A facet counts every hit of the type whatever
   the page, under the period and `kind` of the request, not under the value of another facet.
 * The count and the facets run beside the searches, and are not asked for by default.
-  `mode=live` has neither `offset` nor `facets`. No hit is ranked by authority.
+  `mode=live` has neither `offset` nor `facets` nor `sort`. No hit is ranked by authority.
+
+### Recent work and `sort`
+
+Within a type a hit of the last 12 months (`search/text.py` `RECENT_DAYS`) ranks higher by its
+words: its BM25 times `RECENT_FACTOR` (1.5), so that of the hits whose words weigh about the
+same this year's come first and one whose words weigh far more still comes before them. Its day
+is its own (`SearchType.own_day`, the date a period reads): a judgment the day of its decision, a
+paper its date, a dossier the day it was opened, a law the day it came into force. An article has
+none of its own (its law's day says nothing of it) and is ranked as before. It never lifts a hit
+above a better tier (named by a term, a name that starts with `q`, every word in a title) nor
+above what `q` names exactly (a citation, an ECLI, an abbreviation, a whole name, a concept),
+which are found and ordered first. Votes and commitments come newest first already. Of a common
+word in the judgments only the 1,000 most cited are ranked (`RANK_CANDIDATES`), so a recent
+judgment outside them is not lifted.
+
+`sort=newest` (`mode=full` only) orders the hits of each type with a day of its own newest first,
+those without one last, unranked by their words (a match on words only scores 0.1); what `q`
+names exactly stays first, and the other types (articles, members, factions, committees,
+cabinets, ministries) keep their best first. `sort=relevance` is the default.
 
 ### Neighbour filters
 
