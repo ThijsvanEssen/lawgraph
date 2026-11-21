@@ -47,6 +47,7 @@ from lawgraph.api.seo.pages.home import home_page
 from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.paint import PAINT_BUDGET
+from lawgraph.api.seo.preload import app_preloads, source_preloads
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import (
@@ -58,6 +59,7 @@ from lawgraph.core.readable_paths import (
     path_of,
     short_law_path,
 )
+from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache
 from lawgraph.db.queries import lookup, seo
 from lawgraph.db.request_context import read_budget
@@ -239,7 +241,9 @@ def render_page(
             return _redirect(moved)
         page = _app_page(app_path)
         if page is not None:
-            return _html(request, page, 200, CACHE_PAGE, "app")
+            page.preload = app_preloads(app_path, request.query_params.multi_items())
+            # the preloads of a page of the app name the day
+            return _html(request, page, 200, CACHE_PAGE, f"app-{dutch_today()}")
         if (short := short_law_path(pathname)) is not None:
             return _to_named_law(store, short, request)
         return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
@@ -264,9 +268,12 @@ def render_page(
         if pad.soort == "lid" and (same := _same_person_path(store, node_id)):
             return _redirect(same + _query(request))
         source = _source_page(store, pad, node_id)
+        source.preload = source_preloads(pad, node_id)
         stamp = version_cache.current_version(store)
     if budget.ran_out:
-        return _late(request, _title_page(store, node_id, canonical))
+        late = _title_page(store, node_id, canonical)
+        late.preload = source_preloads(pad, node_id) if node_id else []
+        return _late(request, late)
     return _html(request, source, 200, CACHE_PAGE, stamp)
 
 

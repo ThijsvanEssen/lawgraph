@@ -211,6 +211,10 @@ def _head(page: Page, base: str) -> str:
     url = base + (page.canonical or page.path)
     title = page.title if page.whole_title else full_title(page.title)
     tags = [
+        f'<link rel="preload" as="fetch" crossorigin href="{escape(url)}" />'
+        for url in page.preload
+    ]
+    tags += [
         f"<title data-seo>{escape(title)}</title>",
         f'<meta name="description" content="{escape(page.description)}" data-seo />',
     ]
