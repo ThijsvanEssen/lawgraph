@@ -232,8 +232,10 @@ def test_the_retrieve_stores_the_tables_that_changed_since_2013() -> None:
 
     assert [r.external_id for r in records] == ["86247NED"]
     (record,) = records
-    assert record.payload_json["year"] == 2026
-    assert len(record.payload_json["rows"]) == len(PLACES)  # both pages
+    payload = record.payload_json
+    assert isinstance(payload, dict), payload
+    assert payload["year"] == 2026
+    assert len(payload["rows"]) == len(PLACES)  # both pages
     assert record.meta is not None and record.meta["modified"] == "2026-03-02"
 
 
