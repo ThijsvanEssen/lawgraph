@@ -22,6 +22,7 @@ LISTS = {
     "factions": ("/api/factions", {}),
     "committees": ("/api/committees", {}),
     "cabinets": ("/api/cabinets", {}),
+    "ministries": ("/api/ministries", {}),
     "commitments": ("/api/commitments", {}),
 }
 
