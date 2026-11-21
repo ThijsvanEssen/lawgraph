@@ -282,6 +282,14 @@ OFFSET_MAX = 500
         "in `types`); it is `best` unless `resolved` names something with confidence 0.9 "
         "or more."
         "\n\n"
+        "Recent work (`mode=full`): a hit of the last 12 months by a day of its own (a "
+        "judgment the day of its decision, a paper its date, a dossier the day it was "
+        "opened, a law the day it came into force; not an article) ranks 1.5 times as high "
+        "by its words: of the hits whose words weigh about the same this year's come first, "
+        "never above a better tier nor above what `q` names exactly. `sort=newest` orders "
+        "the hits of those types newest first instead (unranked; what `q` names exactly "
+        "first)."
+        "\n\n"
         "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
         "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
         "how many hits it has (`total`; `capped`: at least that many, the count stops "
@@ -364,6 +372,17 @@ def search(
             "property (`facets`); only with `mode=full`."
         ),
     ] = False,
+    sort: Annotated[
+        Literal["relevance", "newest"],
+        Query(
+            description="`relevance` (the default): best first, of the hits whose words "
+            "weigh about the same those of the last 12 months first; `newest`: the hits "
+            "of a type with a day of its own (a judgment, a paper, a dossier, a law, a "
+            "vote, a commitment) newest first, those without a day last, what `q` names "
+            "exactly (`exact`, a concept) still first, a match on words only scoring 0.1; "
+            "the other types best first. Only with `mode=full`."
+        ),
+    ] = "relevance",
 ) -> SearchResponse:
     unknown = [t for t in types if t not in SEARCH_TYPES]
     if unknown:
@@ -377,8 +396,8 @@ def search(
         # once per query: of its lanes only the first resolves, and "Meer …" asks it again
         search_terms.COUNTER.add(q)  # the term alone: who asked is not kept
 
-    if mode == "live" and (offset or facets):
-        raise Invalid("mode", "`live` has no `offset` or `facets`: use `full`.")
+    if mode == "live" and (offset or facets or sort != "relevance"):
+        raise Invalid("mode", "`live` has no `offset`, `facets` or `sort`: use `full`.")
     kind_list = [s.strip() for s in kind.split(",")] if kind else None
 
     if date_from and date_to and date_from > date_to:
@@ -400,6 +419,8 @@ def search(
         "words": words,
         "motion_kinds": list(motion_kinds) if motion_kinds else None,
     }
+    if sort == "newest":
+        asked["newest"] = True
     raw, partial, counted = _searched(store, mode, facets, asked)
     any_word = (
         mode == "full"

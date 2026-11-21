@@ -31,8 +31,9 @@ class Asked:
     (``parser.notation``), the kinds of documents and dossiers asked for, the most hits per
     type, the period, the factions it names (``signers.signed_for``), whether a hit holds
     one of its words at least (*any_word*) instead of every one, the kinds of motion
-    asked for (*motion_kinds*, ``core.motion_kinds``: of the papers and the votes) and the
-    runs of its words that rank a hit higher (*order*, ``clause.word_order``)."""
+    asked for (*motion_kinds*, ``core.motion_kinds``: of the papers and the votes), the
+    runs of its words that rank a hit higher (*order*, ``clause.word_order``) and whether
+    the hits of a type with a day of their own come newest first (*newest*), not best first."""
 
     store: GraphStore
     q: str
@@ -45,6 +46,7 @@ class Asked:
     any_word: bool = False
     motion_kinds: list[str] | None = None
     order: Order = NO_ORDER
+    newest: bool = False
 
     def words(self, kind: SearchType) -> list[str]:
         """The tokens *kind* is searched by: of a type with signatures, without those that
@@ -99,7 +101,10 @@ class SearchType:
     the order of those (its hits of the words searched most are kept ready,
     ``candidates.py``), and *citations* what its rank reads of a hit besides its words
     (``CITATION_PRIOR``). *period_date* is the SQL of its date of a row ``{row}``, which a
-    period asks for; a type without one finds nothing with a period. A *heavy* type's full
+    period asks for; a type without one finds nothing with a period. With *own_date* (but
+    of an article, whose date is that of its law) it is the day of the hit itself: the
+    full search ranks the work of the last days higher by it, and orders by it newest first
+    (``own_day``). A *heavy* type's full
     search takes long cold: it takes a thread of the pool first (``dispatch``). *names*
     are the fields of its names: a hit one of which starts with the query is a tier above
     those with every word of it in one of its *titles*, the fields of its own name and of
@@ -117,6 +122,7 @@ class SearchType:
     candidate_order: str | None = None
     citations: str | None = None
     period_date: str | None = None
+    own_date: bool = True
     heavy: bool = False
     names: tuple[str, ...] = ()
     titles: tuple[str, ...] = ()
@@ -126,3 +132,9 @@ class SearchType:
     # counted; with ``facets`` also per value of each
     match: Callable[[SearchType, Asked], Match] | None = None
     facets: tuple[Facet, ...] = ()
+
+    @property
+    def own_day(self) -> str | None:
+        """The SQL of the day of a hit ``{row}`` itself (``own_date``), None for a type
+        whose hits have none of their own."""
+        return self.period_date if self.own_date else None

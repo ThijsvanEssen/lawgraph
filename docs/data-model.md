@@ -97,7 +97,8 @@ data version of `articles` when terms changed. `lg_search_candidates` holds, per
 (`judgments`, `articles`, `documents`) and word searched most (`lawgraph search-candidates`),
 the hits a search of that word ranks (the first 1,000 in the order of their columns), in that
 order (`pos`), with what their rank reads of each: the frequency of every term (`tf`), the
-length of every field it weighs (`len`) and, of an article, its citations;
+length of every field it weighs (`len`), its date (`date`, by which the search ranks the
+work of the last 12 months higher) and, of an article, its citations;
 `lg_search_candidates_state` the version of the type's table they were read at
 (`lg_data_version`), the signature of the search they were read for, and how many hits the
 word has. A search of the word takes them while both are those of now, and finds its hits

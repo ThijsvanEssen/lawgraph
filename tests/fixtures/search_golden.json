@@ -1472,7 +1472,7 @@
     },
     "id": "judgments/j_0",
     "key": "j_0",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1494,7 +1494,7 @@
     },
     "id": "judgments/j_12",
     "key": "j_12",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1516,7 +1516,7 @@
     },
     "id": "judgments/j_15",
     "key": "j_15",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1538,7 +1538,7 @@
     },
     "id": "judgments/j_18",
     "key": "j_18",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1560,7 +1560,7 @@
     },
     "id": "judgments/j_21",
     "key": "j_21",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1582,7 +1582,7 @@
     },
     "id": "judgments/j_24",
     "key": "j_24",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1604,7 +1604,7 @@
     },
     "id": "judgments/j_27",
     "key": "j_27",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1626,7 +1626,7 @@
     },
     "id": "judgments/j_3",
     "key": "j_3",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1648,7 +1648,7 @@
     },
     "id": "judgments/j_30",
     "key": "j_30",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1670,7 +1670,7 @@
     },
     "id": "judgments/j_33",
     "key": "j_33",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1692,7 +1692,7 @@
     },
     "id": "judgments/j_36",
     "key": "j_36",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1714,7 +1714,7 @@
     },
     "id": "judgments/j_39",
     "key": "j_39",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1736,7 +1736,7 @@
     },
     "id": "judgments/j_42",
     "key": "j_42",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1758,7 +1758,7 @@
     },
     "id": "judgments/j_45",
     "key": "j_45",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1780,7 +1780,7 @@
     },
     "id": "judgments/j_48",
     "key": "j_48",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1802,7 +1802,7 @@
     },
     "id": "judgments/j_51",
     "key": "j_51",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1824,7 +1824,7 @@
     },
     "id": "judgments/j_54",
     "key": "j_54",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1846,7 +1846,7 @@
     },
     "id": "judgments/j_57",
     "key": "j_57",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1868,7 +1868,7 @@
     },
     "id": "judgments/j_6",
     "key": "j_6",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    },
@@ -1890,7 +1890,7 @@
     },
     "id": "judgments/j_9",
     "key": "j_9",
-    "score": 0.111,
+    "score": 0.115,
     "snippet": "Een geschil over belasting.",
     "type": "judgment"
    }
@@ -3273,54 +3273,6 @@
    },
    {
     "collection": "documents",
-    "display_name": "Brief over klimaat",
-    "extra": {
-     "chamber": "TK",
-     "date": "2019-12-31T14:00:00",
-     "dossier_number": null,
-     "external_id": null,
-     "kind": "Brief regering",
-     "number": null,
-     "sequence": null
-    },
-    "id": "documents/d2019",
-    "key": "d2019",
-    "path_props": {
-     "dossier_number": null,
-     "dossier_suffix": null,
-     "number": null,
-     "sequence": null
-    },
-    "score": 0.5,
-    "snippet": "Brief regering",
-    "type": "document"
-   },
-   {
-    "collection": "documents",
-    "display_name": "Brief over klimaat",
-    "extra": {
-     "chamber": "TK",
-     "date": "2020-01-01",
-     "dossier_number": null,
-     "external_id": null,
-     "kind": "Brief regering",
-     "number": null,
-     "sequence": null
-    },
-    "id": "documents/d2020",
-    "key": "d2020",
-    "path_props": {
-     "dossier_number": null,
-     "dossier_suffix": null,
-     "number": null,
-     "sequence": null
-    },
-    "score": 0.5,
-    "snippet": "Brief regering",
-    "type": "document"
-   },
-   {
-    "collection": "documents",
     "display_name": "Brief over belasting 1",
     "extra": {
      "chamber": "TK",
@@ -3381,6 +3333,54 @@
     },
     "id": "documents/doc_5",
     "key": "doc_5",
+    "path_props": {
+     "dossier_number": null,
+     "dossier_suffix": null,
+     "number": null,
+     "sequence": null
+    },
+    "score": 0.5,
+    "snippet": "Brief regering",
+    "type": "document"
+   },
+   {
+    "collection": "documents",
+    "display_name": "Brief over belasting 7",
+    "extra": {
+     "chamber": "TK",
+     "date": "2026-02-08",
+     "dossier_number": null,
+     "external_id": null,
+     "kind": "Brief regering",
+     "number": null,
+     "sequence": null
+    },
+    "id": "documents/doc_7",
+    "key": "doc_7",
+    "path_props": {
+     "dossier_number": null,
+     "dossier_suffix": null,
+     "number": null,
+     "sequence": null
+    },
+    "score": 0.5,
+    "snippet": "Brief regering",
+    "type": "document"
+   },
+   {
+    "collection": "documents",
+    "display_name": "Brief over belasting 9",
+    "extra": {
+     "chamber": "TK",
+     "date": "2026-02-10",
+     "dossier_number": null,
+     "external_id": null,
+     "kind": "Brief regering",
+     "number": null,
+     "sequence": null
+    },
+    "id": "documents/doc_9",
+    "key": "doc_9",
     "path_props": {
      "dossier_number": null,
      "dossier_suffix": null,
@@ -5581,6 +5581,26 @@
    },
    {
     "collection": "instruments",
+    "display_name": "Cyberbeveiligingswet",
+    "extra": {
+     "aliases": null,
+     "bwb_id": "BWBR0050000",
+     "citation_title": "Cyberbeveiligingswet",
+     "date_in_force": "2026-06-01",
+     "date_published": null,
+     "expired_on": null,
+     "kind": null,
+     "short_title": "Cbw",
+     "version_date_in_force": null
+    },
+    "id": "instruments/bwbr0050000",
+    "key": "bwbr0050000",
+    "score": 0.25,
+    "snippet": "Cyberbeveiligingswet",
+    "type": "instrument"
+   },
+   {
+    "collection": "instruments",
     "display_name": "Klimaatwet",
     "extra": {
      "aliases": null,
@@ -5637,26 +5657,6 @@
     "key": "bwbr8",
     "score": 0.25,
     "snippet": "Oude klimaatwet",
-    "type": "instrument"
-   },
-   {
-    "collection": "instruments",
-    "display_name": "Cyberbeveiligingswet",
-    "extra": {
-     "aliases": null,
-     "bwb_id": "BWBR0050000",
-     "citation_title": "Cyberbeveiligingswet",
-     "date_in_force": "2026-06-01",
-     "date_published": null,
-     "expired_on": null,
-     "kind": null,
-     "short_title": "Cbw",
-     "version_date_in_force": null
-    },
-    "id": "instruments/bwbr0050000",
-    "key": "bwbr0050000",
-    "score": 0.25,
-    "snippet": "Cyberbeveiligingswet",
     "type": "instrument"
    },
    {
@@ -6659,7 +6659,7 @@
      },
      "id": "judgments/j_0",
      "key": "j_0",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -6681,7 +6681,7 @@
      },
      "id": "judgments/j_12",
      "key": "j_12",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -6703,7 +6703,7 @@
      },
      "id": "judgments/j_15",
      "key": "j_15",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     }
@@ -8379,22 +8379,22 @@
     },
     {
      "collection": "instruments",
-     "display_name": "Klimaatwet",
+     "display_name": "Cyberbeveiligingswet",
      "extra": {
       "aliases": null,
-      "bwb_id": "BWBR9",
-      "citation_title": "Klimaatwet",
-      "date_in_force": "2019-09-01",
+      "bwb_id": "BWBR0050000",
+      "citation_title": "Cyberbeveiligingswet",
+      "date_in_force": "2026-06-01",
       "date_published": null,
       "expired_on": null,
       "kind": null,
-      "short_title": null,
+      "short_title": "Cbw",
       "version_date_in_force": null
      },
-     "id": "instruments/bwbr9",
-     "key": "bwbr9",
+     "id": "instruments/bwbr0050000",
+     "key": "bwbr0050000",
      "score": 0.25,
-     "snippet": "Klimaatwet",
+     "snippet": "Cyberbeveiligingswet",
      "type": "instrument"
     }
    ],
@@ -9379,7 +9379,7 @@
      },
      "id": "judgments/j_0",
      "key": "j_0",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9401,7 +9401,7 @@
      },
      "id": "judgments/j_12",
      "key": "j_12",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9423,7 +9423,7 @@
      },
      "id": "judgments/j_15",
      "key": "j_15",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9445,7 +9445,7 @@
      },
      "id": "judgments/j_18",
      "key": "j_18",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9467,7 +9467,7 @@
      },
      "id": "judgments/j_21",
      "key": "j_21",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9489,7 +9489,7 @@
      },
      "id": "judgments/j_24",
      "key": "j_24",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9511,7 +9511,7 @@
      },
      "id": "judgments/j_27",
      "key": "j_27",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9533,7 +9533,7 @@
      },
      "id": "judgments/j_3",
      "key": "j_3",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9555,7 +9555,7 @@
      },
      "id": "judgments/j_30",
      "key": "j_30",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9577,7 +9577,7 @@
      },
      "id": "judgments/j_33",
      "key": "j_33",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9599,7 +9599,7 @@
      },
      "id": "judgments/j_36",
      "key": "j_36",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9621,7 +9621,7 @@
      },
      "id": "judgments/j_39",
      "key": "j_39",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9643,7 +9643,7 @@
      },
      "id": "judgments/j_42",
      "key": "j_42",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9665,7 +9665,7 @@
      },
      "id": "judgments/j_45",
      "key": "j_45",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9687,7 +9687,7 @@
      },
      "id": "judgments/j_48",
      "key": "j_48",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9709,7 +9709,7 @@
      },
      "id": "judgments/j_51",
      "key": "j_51",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9731,7 +9731,7 @@
      },
      "id": "judgments/j_54",
      "key": "j_54",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9753,7 +9753,7 @@
      },
      "id": "judgments/j_57",
      "key": "j_57",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9775,7 +9775,7 @@
      },
      "id": "judgments/j_6",
      "key": "j_6",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     },
@@ -9797,7 +9797,7 @@
      },
      "id": "judgments/j_9",
      "key": "j_9",
-     "score": 0.111,
+     "score": 0.115,
      "snippet": "Een geschil over belasting.",
      "type": "judgment"
     }
@@ -10363,6 +10363,26 @@
     },
     {
      "collection": "instruments",
+     "display_name": "Cyberbeveiligingswet",
+     "extra": {
+      "aliases": null,
+      "bwb_id": "BWBR0050000",
+      "citation_title": "Cyberbeveiligingswet",
+      "date_in_force": "2026-06-01",
+      "date_published": null,
+      "expired_on": null,
+      "kind": null,
+      "short_title": "Cbw",
+      "version_date_in_force": null
+     },
+     "id": "instruments/bwbr0050000",
+     "key": "bwbr0050000",
+     "score": 0.25,
+     "snippet": "Cyberbeveiligingswet",
+     "type": "instrument"
+    },
+    {
+     "collection": "instruments",
      "display_name": "Klimaatwet",
      "extra": {
       "aliases": null,
@@ -10423,26 +10443,6 @@
     },
     {
      "collection": "instruments",
-     "display_name": "Cyberbeveiligingswet",
-     "extra": {
-      "aliases": null,
-      "bwb_id": "BWBR0050000",
-      "citation_title": "Cyberbeveiligingswet",
-      "date_in_force": "2026-06-01",
-      "date_published": null,
-      "expired_on": null,
-      "kind": null,
-      "short_title": "Cbw",
-      "version_date_in_force": null
-     },
-     "id": "instruments/bwbr0050000",
-     "key": "bwbr0050000",
-     "score": 0.25,
-     "snippet": "Cyberbeveiligingswet",
-     "type": "instrument"
-    },
-    {
-     "collection": "instruments",
      "display_name": "Burgerlijk Wetboek Boek 6",
      "extra": {
       "aliases": [
@@ -10471,9 +10471,9 @@
   }
  },
  "kept signatures": {
-  "articles": "d5674c54dbfb81b057a4bb286c7ced3fa8ff0066c183fa9a2b02e87d03a0318d",
-  "documents": "6e35e77efd39c394707b7b1787be3ab415b761954df4b7e8dc34efd3ba64b2c0",
-  "judgments": "009eaa7430acfceb6bf71a12a4e0ee233fd252cea293571825b3268844c2eb1d"
+  "articles": "dbb7fb1888d926feca48dd965bb4d4340e6194feaf86e10a3faee4f43a5f4d84",
+  "documents": "4d2daf1090349590c4fd0d727e7841054c2a8c34cf48d703e55da4a75f9b0da5",
+  "judgments": "1454ab233dc962ceeac72464286cc6c3820637a899c0c704d6c4c745446c8a01"
  },
  "live 1 36000": {
   "hits": {
