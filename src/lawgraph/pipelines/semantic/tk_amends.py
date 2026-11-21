@@ -33,15 +33,15 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.citations import CitationHit
 from lawgraph.core.logging import get_logger
-from lawgraph.core.models import Node, PipelineResult
+from lawgraph.core.models import Node, PipelineResult, node_id
 from lawgraph.core.time import iso_day
 from lawgraph.core.tk_records.kinds import may_amend
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
 
+from ._wijzigingsartikelen import laws_of_wijzigingsartikelen
 from .base import SemanticPipelineBase
 from .tk import NamedActs
-from .tk_amendment_articles import laws_of_wijzigingsartikelen
 
 logger = get_logger(__name__)
 
@@ -146,10 +146,14 @@ class TKAmendsSemanticPipeline(SemanticPipelineBase):
     ) -> Iterator[dict[str, Any]]:
         """The AMENDS edges of the documents of *unnamed* (id -> node and own acts) to the
         laws their wijzigingsartikelen change."""
-        for row in semantic_tk.document_texts(self.store, sorted(unnamed)):
-            doc_node, own_acts = unnamed[row["id"]]
+        rows = semantic_tk.tk_documents_to_scan_for_amendments(
+            self.store, sorted(unnamed), own_law=False
+        )
+        for row in rows:
+            props = row.get("props") or {}
+            doc_node, own_acts = unnamed[node_id(COLLECTION_DOCUMENTS, row["key"])]
             laws = laws_of_wijzigingsartikelen(
-                str(row.get("text") or ""), row.get("sections") or (), named_acts
+                str(props["text"]), props.get("sections") or (), named_acts
             )
             yield from self._amends_edges(
                 doc_node, [(law, None, AMENDS_CONFIDENCE) for law in laws], own_acts

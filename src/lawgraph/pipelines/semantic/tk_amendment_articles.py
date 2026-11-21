@@ -17,7 +17,6 @@ not change it. The edges are derived in full on every run; one no longer derived
 
 from __future__ import annotations
 
-import itertools
 import pathlib
 import re
 from collections.abc import Iterable, Mapping, Sequence
@@ -33,13 +32,16 @@ from lawgraph.config.constants import (
     RELATION_INTRODUCES,
     RELATION_REPEALS,
 )
-from lawgraph.core.citations import CitationHit, make_snippet, strip_xml
-from lawgraph.core.document_xml import KIND_ARTICLE, SCHEME_ROMAN
+from lawgraph.core.citations import make_snippet, strip_xml
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import Node, PipelineResult, make_node_key, node_id
 from lawgraph.core.provenance import REASON_AMENDMENT_TEXT
 from lawgraph.db import EdgeWriter
 from lawgraph.db.queries.semantic import tk as semantic_tk
+from lawgraph.pipelines.semantic._wijzigingsartikelen import (
+    first_law_of,
+    wijzigingsartikelen,
+)
 from lawgraph.pipelines.semantic.base import SemanticPipelineBase
 from lawgraph.pipelines.semantic.tk import NamedActs
 
@@ -224,72 +226,15 @@ def amendments_per_law(
     if len(laws) == 1:
         return {laws[0]: detect_amendment_citations(strip_xml(str(props["text"])))}
     texts: dict[str, list[str]] = {}
-    for part in _wijzigingsartikelen(str(props["text"]), props.get("sections") or ()):
-        law = _first_law_named(part, laws, named_acts)
+    text = str(props["text"])
+    parts = wijzigingsartikelen(text, props.get("sections") or ()) or [strip_xml(text)]
+    for part in parts:
+        law = first_law_of(part, laws, named_acts)
         if law is not None:
             texts.setdefault(law, []).append(part)
     return {
         law: detect_amendment_citations(" ".join(parts)) for law, parts in texts.items()
     }
-
-
-def laws_of_wijzigingsartikelen(
-    text: str, sections: Iterable[Mapping[str, Any]], named_acts: NamedActs
-) -> list[str]:
-    """The BWB ids of the laws a document's wijzigingsartikelen change, in order: of each
-    part the law it names first; none without wijzigingsartikelen."""
-    starts = _wijzigingsartikel_starts(sections)
-    if not starts:
-        return []
-    parts = _parts(text, starts)
-    return list(
-        dict.fromkeys(
-            filter(None, (_first_law_named(p, None, named_acts) for p in parts))
-        )
-    )
-
-
-def _wijzigingsartikelen(text: str, sections: Iterable[Mapping[str, Any]]) -> list[str]:
-    """The text of each wijzigingsartikel, from its heading to the next one; the whole
-    text without any."""
-    starts = _wijzigingsartikel_starts(sections)
-    return _parts(text, starts) if starts else [strip_xml(text)]
-
-
-def _wijzigingsartikel_starts(sections: Iterable[Mapping[str, Any]]) -> list[int]:
-    """Where each wijzigingsartikel (a roman ``article`` section) begins; a heading
-    ``ARTIKEL I, onderdeel B`` right after ``ARTIKEL I`` is still that article."""
-    heads = [
-        (section["number"], section["char_start"])
-        for section in sections
-        if section["kind"] == KIND_ARTICLE and section["number_scheme"] == SCHEME_ROMAN
-    ]
-    return [
-        start
-        for index, (number, start) in enumerate(heads)
-        if index == 0 or heads[index - 1][0] != number
-    ]
-
-
-def _parts(text: str, starts: list[int]) -> list[str]:
-    """The text from each start to the next, the last to the end."""
-    bounds = [*starts, len(text)]
-    return [strip_xml(text[start:end]) for start, end in itertools.pairwise(bounds)]
-
-
-def _first_law_named(
-    part: str, laws: Sequence[str] | None, named_acts: NamedActs
-) -> str | None:
-    """Of *laws* (any law of the graph when None), the one *part* names first; None when
-    it names none of them."""
-    named: list[CitationHit] = []
-    named_acts.collect_hits(part, named.append)
-    first = min(
-        (hit for hit in named if hit.bwb_id and (laws is None or hit.bwb_id in laws)),
-        key=lambda hit: hit.start or 0,
-        default=None,
-    )
-    return first.bwb_id if first else None
 
 
 class TKAmendmentArticlesSemanticPipeline(SemanticPipelineBase):

@@ -85,9 +85,11 @@ def _queries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(semantic_tk, "acts_of_dossiers", lambda store: store.acts)
     monkeypatch.setattr(
         semantic_tk,
-        "document_texts",
-        lambda store, ids: iter(
-            {"id": i, **store.texts[i]} for i in ids if i in store.texts
+        "tk_documents_to_scan_for_amendments",
+        lambda store, ids, own_law: iter(
+            {"key": i.split("/")[1], "props": store.texts[i]}
+            for i in ids
+            if i in store.texts and not own_law
         ),
     )
 
