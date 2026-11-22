@@ -545,6 +545,11 @@ names the concepts it is one of under `concepts`; `/api/concepts/{key}` gives on
 with their heading or the start of their text, the judgments and papers that cite any of them,
 each counted once, the newest of them, and a link to an official page that explains it (a
 government domain; none where none is kept). The block adds no text of its own.
+`/api/concepts/{key}/judgments` and `/documents` page through all of them, the destination of
+"N of M": `total` is the `judgment_total` or `document_total` of the block, `items` the rows
+of the block (`judgment` or `document`, and `article_ids`, the articles of the concept it cites
+or is joined to), `limit` and `offset`. Judgments sort as the passages of an article do
+(`sort` `date_desc`, the default, or `citation_count`); papers newest first.
 `lawgraph curated check concept-articles --db` notes an article the graph does not have; the
 route names it under `missing`.
 
@@ -601,6 +606,19 @@ hub (as `/api/dossiers/{number}?sort=importance`: the law that came out of it be
 changes). No text of its own. It is null when no dossier hit plays, when no hit held every word
 (`matched` `any`), and while typing; the four reads of it run side by side, and only when a
 dossier plays.
+
+### Suggestions (`suggestions`)
+
+A full search (`mode=full`, the first page) that found nothing and names nothing (`best` null)
+answers at most 3 queries to try instead (`db/queries/search/suggestions.py`), each of which
+finds a law, a dossier or what a concept is about: the names most like its searched words,
+folded, by `pg_trgm` `similarity` (0.4 or more; the most like first, then a concept, then by
+name; one name of a concept): a term or variant of the list of concepts, a name of an act of
+`eu-core` (`aiact`: `AI Act`), or a word of four characters or more of the titles of the laws
+(no publication of the Staatsblad or Staatscourant) and the dossiers that hold a part like it
+(`<%` on the trigram indexes of `s_citation_title_g` and `s_title_g`, the 20 most like of each:
+`wanprestatei`: `wanprestatie`). One statement, only when nothing was found. Empty otherwise,
+and while typing.
 
 ### Neighbour filters
 

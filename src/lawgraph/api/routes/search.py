@@ -50,6 +50,7 @@ from lawgraph.db.queries.search.parser import kept_notation_parser
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, exact_hit
 from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.signers import Signed
+from lawgraph.db.queries.search.suggestions import suggested
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES, hit_by_key
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
@@ -298,6 +299,13 @@ OFFSET_MAX = 500
         "as the pages of the dossier, the votes and the commitments give them; null when "
         "none had, with `matched` `any`, or without `dossiers` in `types`."
         "\n\n"
+        "Suggestions (`mode=full`, the first page): a search that found nothing and names "
+        "nothing (`best` null) has in `suggestions` at most 3 queries to try instead, each "
+        "of which finds a law, a dossier or what a concept is about: the names most like "
+        "its words by their trigrams (`pg_trgm` similarity 0.4 or more): a term of the "
+        "list of concepts, a name of an act of `eu-core` (`aiact`: `AI Act`) or a word of "
+        "the titles of the laws and dossiers (`wanprestatei`: `wanprestatie`)."
+        "\n\n"
         "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
         "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
         "how many hits it has (`total`; `capped`: at least that many, the count stops "
@@ -463,6 +471,8 @@ def search(
         if mode == "full" and not offset and not any_word
         else None
     )
+    best = _best(grouped, resolved, concept)
+    found_nothing = mode == "full" and not offset and not total and not partial
 
     return SearchResponse(
         q=q,
@@ -478,11 +488,16 @@ def search(
         words=words.words,
         left_out=words.left_out,
         matched="any" if any_word else "all",
-        best=_best(grouped, resolved, concept),
+        best=best,
         offset=offset,
         counts=_counts(counted, fetched, offset + limit) if facets else None,
         facets=_facets(counted) if facets else None,
         active_dossier=playing,
+        suggestions=(
+            suggested(store, " ".join(words.words) or q)
+            if found_nothing and best is None
+            else []
+        ),
     )
 
 

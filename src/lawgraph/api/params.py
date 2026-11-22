@@ -62,6 +62,8 @@ MemberListLimit = Annotated[int, Query(ge=1, le=MEMBER_LIST_MAX)]
 # connections"); the default of each is the order the route has always had.
 OpenedSort = Literal["opened", "importance"]
 DateSort = Literal["date", "importance"]
+# The order of the judgments that cite an article, or any article of a concept.
+CitedBySort = Literal["date_desc", "citation_count"]
 ActorDossierSort = Annotated[
     OpenedSort,
     Query(

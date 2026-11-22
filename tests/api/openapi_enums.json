@@ -2219,5 +2219,9 @@
   "agrees",
   "differs",
   "not_in_text"
+ ],
+ "/paths//api/concepts/{key}/judgments/get/parameters/3/schema": [
+  "date_desc",
+  "citation_count"
  ]
 }
