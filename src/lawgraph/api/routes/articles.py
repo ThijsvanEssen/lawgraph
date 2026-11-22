@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
@@ -9,6 +9,7 @@ from lawgraph.api.errors import NOT_FOUND, Invalid
 from lawgraph.api.params import (
     ArticleAddress,
     ArticleRef,
+    CitedBySort,
     DateSort,
     ListLimit,
     PageLimit,
@@ -383,7 +384,7 @@ def get_article_cited_by_passages(
         ),
     ] = None,
     sort: Annotated[
-        Literal["date_desc", "citation_count"],
+        CitedBySort,
         Query(
             description="`date_desc`: the newest judgment first; `citation_count`: the "
             "most cited judgment first (a standard judgment), then the newest."

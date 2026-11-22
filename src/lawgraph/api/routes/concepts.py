@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query
 
 from lawgraph.api.dependencies import get_store
 from lawgraph.api.errors import NOT_FOUND
-from lawgraph.api.params import ListLimit, PageLimit
+from lawgraph.api.params import CitedBySort, ListLimit, PageLimit
 from lawgraph.api.schemas.concepts import (
     ConceptDocumentsResponse,
     ConceptJudgmentsResponse,
@@ -81,7 +81,7 @@ def get_concept_judgments(
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: Annotated[
-        Literal["date_desc", "citation_count"],
+        CitedBySort,
         Query(
             description="`date_desc`: the newest judgment first; `citation_count`: the "
             "most cited judgment first (a standard judgment), then the newest."
