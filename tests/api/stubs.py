@@ -12,7 +12,6 @@ from typing import Any
 import pytest
 
 import lawgraph.api.routes as routes
-from lawgraph.core.suggestions import Vocabulary, vocabulary
 
 
 class MockStore:
@@ -45,23 +44,11 @@ def _code_aliases(store: Any) -> dict[str, str]:
     return CODE_ALIASES
 
 
-# The vocabulary of the suggestions of a search that found nothing, as
-# ``load_suggestion_words`` reads it: a concept and the words of a few titles.
-SUGGESTION_WORDS = vocabulary(
-    [("wanprestatie", "wanprestatie")], {"coalitie": 3, "crisis": 5, "huur": 9}
-)
-
-
-def _suggestion_words(store: Any) -> Vocabulary:
-    return SUGGESTION_WORDS
-
-
 # Each loader a route module imports from ``lawgraph.db.queries``, by name, and what stands
 # in for it (``test_route_stubs.py`` checks that every one has a stand-in).
 LOADERS: dict[str, Callable[[Any], Any]] = {
     "load_dossier_names": _dossier_names,
     "load_code_aliases": _code_aliases,
-    "load_suggestion_words": _suggestion_words,
 }
 
 

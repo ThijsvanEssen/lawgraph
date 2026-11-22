@@ -353,11 +353,13 @@ def _cleanup():
 
 @pytest.fixture(autouse=True)
 def _no_stop_words(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The words of a query as typed: the stop words are the database's."""
+    """The words of a query as typed: the stop words are the database's; a search that
+    found nothing suggests nothing (``suggested`` reads the database)."""
     stub_route(
         monkeypatch,
         "search",
         query_words=lambda store, q: QueryWords(tokenize_search_query(q), []),
+        suggested=[],
     )
 
 
@@ -867,9 +869,15 @@ def test_no_hit_of_every_word_answers_those_of_one(
 def test_a_search_that_found_nothing_suggests_what_to_search_instead(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Of the full search, the first page, without a hit and naming nothing: its words
-    apart and the names like it (``SUGGESTION_WORDS``); none otherwise."""
+    """Of the full search, the first page, without a hit and naming nothing: what
+    ``suggested`` finds for its words; it is not asked otherwise."""
     hits: dict[str, list[dict[str, Any]]] = {"articles": []}
+    asked: list[str] = []
+
+    def suggested(store: Any, q: str) -> list[str]:
+        asked.append(q)
+        return ["wanprestatie"]
+
     stub_route(
         monkeypatch,
         "search",
@@ -877,17 +885,18 @@ def test_a_search_that_found_nothing_suggests_what_to_search_instead(
         search_full=lambda store, **kwargs: (hits, set()),
         search_live=lambda store, **kwargs: (hits, set()),
         concept_named=lambda q, words: None,
+        suggested=suggested,
     )
     client = TestClient(app)
 
-    def suggested(**params: Any) -> list[str]:
+    def suggestions(**params: Any) -> list[str]:
         body = client.get("/api/search", params=params).json()
         return list(body["suggestions"])
 
-    assert suggested(q="coalitiecrisis") == ["coalitie crisis", "coalitie"]
-    assert suggested(q="wanprestatei") == ["wanprestatie"]
-    assert suggested(q="xyzzy") == []
-    assert suggested(q="coalitiecrisis", mode="live") == []
-    assert suggested(q="coalitiecrisis", offset=20) == []
+    assert suggestions(q="wanprestatei") == ["wanprestatie"]
+    assert asked == ["wanprestatei"]
+    assert suggestions(q="wanprestatei", mode="live") == []
+    assert suggestions(q="wanprestatei", offset=20) == []
     hits["articles"] = [_item("271", "articles", SCORE_WORDS)]
-    assert suggested(q="coalitiecrisis") == []
+    assert suggestions(q="wanprestatei") == []
+    assert asked == ["wanprestatei"]

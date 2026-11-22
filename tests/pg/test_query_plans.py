@@ -301,9 +301,6 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
     # every ministry, once per data version of them (``search.types._ministries``)
     re.compile(r"'collection', 'ministries'.*FROM ministries r ORDER BY r.key", re.S),
-    # the words of the titles of the laws and dossiers a search that found nothing
-    # suggests, once per data version of them (``search.suggestions``)
-    re.compile(r"SELECT coalesce\(s_citation_title_g, ''\) \|\| ' ' \|\| coalesce"),
     # the newest day a commitment was registered, once a minute (``cached_data_as_of``)
     re.compile(r"SELECT max\(props ->> 'registered_on'\) FROM commitments"),
 )
@@ -466,6 +463,20 @@ def test_a_page_read_whole_is_found() -> None:
     on_partial = {"Node Type": "Index Scan", "Index Name": "edges_semantic_type"}
     sorted_partial = {"Node Type": "Sort", "Plans": [on_partial]}
     assert plan_faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
+    # a bitmap scan narrowed by its index, the commuted operator a filter above it
+    trigram = {
+        "Node Type": "Bitmap Heap Scan",
+        "Relation Name": "dossiers",
+        "Filter": "('x'::text <% s_title_g)",
+        "Plans": [
+            {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "dossiers_s_title_g",
+                "Index Cond": "(s_title_g %> 'x'::text)",
+            }
+        ],
+    }
+    assert plan_faults({"Node Type": "Sort", "Plans": [trigram]}) == []
 
 
 def _shape(node: dict[str, Any]) -> list[str]:
