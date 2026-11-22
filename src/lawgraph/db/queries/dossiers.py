@@ -64,7 +64,7 @@ from lawgraph.db.queries._keyset import InvalidCursor, Keyset, SortKey
 from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
-from lawgraph.db.queries.dossier_filters import DossierFilters
+from lawgraph.db.queries.dossier_filters import DossierFilters, eu_conditions
 from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.seats import seat_dossiers
@@ -1238,6 +1238,7 @@ def _dossier_filters(
         bind["number"] = filters.number
     if filters.subject:
         shared.append(_subject_filter(filters.subject, bind))
+    shared.extend(eu_conditions(filters, bind))
     if filters.has_phase:
         shared.append(_HAS_PHASE)
         bind["has_phase"] = list(filters.has_phase)

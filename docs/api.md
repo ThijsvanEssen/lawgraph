@@ -205,6 +205,17 @@ took place or decision; `sort=last_activity` lists by it, newest first), and `cl
 `subject` filter takes a number (`37035`: every dossier of that
 number), a dossier (`37035-XXII`, `37035 xxii`) or words of the title.
 
+What a dossier says of the EU (`semantic tk-dossier-eu`; the Kamer has no field for it, its
+title names it): `eu_ref`, `{com, celex}` per COM number of its title (`COM(2025) 80`, the
+EUR-Lex link `COM:2025:80:FIN`), `celex` that document's CELEX (`52025PC0080` a proposal,
+`52025DC0080` another document) when the graph holds it, else null; `implements`, `{celex,
+bases}` per EU act it implements, `bases` `title` (its title says so: "ter implementatie van
+Richtlijn (EU) 2024/2811") and the `IMPLEMENTS` of a law it legislated
+(`national_implementing_measure`, `considerans`, as in `/api/instruments/{identifier}/eu-links`).
+Both empty for none: an open bill whose title names no act by number is a gap. The list filters
+on them: `eu=proposal` (a non-empty `eu_ref`), `eu=implementation` (a non-empty `implements`),
+`celex=32024L2811` (in either).
+
 The detail (`/api/dossiers/{number}`) names in `enacted` the publications its law was enacted
 in: each publication `LEGISLATED_IN` the dossier (the same edges as its `instruments`), the
 earliest published first, with `cite` (`Stb. 2024, 193`), `path`, `published_on`,

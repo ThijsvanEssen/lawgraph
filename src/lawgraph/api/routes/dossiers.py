@@ -61,7 +61,7 @@ from lawgraph.db.queries.dossier_changes import (
     STAGE_ENACTED,
     get_dossier_changed_articles,
 )
-from lawgraph.db.queries.dossier_filters import DossierFilters
+from lawgraph.db.queries.dossier_filters import DossierFilters, EuFilter
 from lawgraph.db.queries.dossiers import (
     MUTATIONS_PAGE,
     TimelineOrder,
@@ -193,6 +193,21 @@ class DossierListParams:
                 "the dossiers its holder that day signed first."
             ),
         ] = None,
+        eu: Annotated[
+            EuFilter | None,
+            Query(
+                description="``proposal``: the dossiers about a COM document (``eu_ref``); "
+                "``implementation``: those that implement an EU act (``implements``)."
+            ),
+        ] = None,
+        celex: Annotated[
+            str | None,
+            Query(
+                description="A CELEX number: the dossiers whose ``eu_ref`` or "
+                "``implements`` holds it, e.g. ``32024L2811``.",
+                pattern=r"^[0-9][0-9A-Z()]{5,20}$",
+            ),
+        ] = None,
     ) -> None:
         self.filters = DossierFilters(
             status=None if status == "all" else status,
@@ -208,6 +223,8 @@ class DossierListParams:
             committee_slug=committee,
             opened_from=iso_day(opened_from),
             opened_to=iso_day(opened_to),
+            eu=eu,
+            celex=celex,
         )
         self.sort = sort or ("number" if number else "opened_on")
         self.limit = limit
@@ -248,9 +265,8 @@ _LIST_DESCRIPTION = (
     description=(
         "Every dossier, open and closed, filtered by status, outcome, track, the start of "
         "its number, committee, subject (a number, a dossier, or words of the title, such "
-        "as its short title), stage, ministry, initiative and the day it opened. "
-        + _LIST_DESCRIPTION
-        + "\n\n"
+        "as its short title), stage, ministry, initiative, the day it opened and what it says of "
+        "the EU (``eu``, ``celex``). " + _LIST_DESCRIPTION + "\n\n"
         "every dossier, open and closed; `status` (`open`, `closed`, `all`, default "
         "`all`), `outcome`, `kind` (comma-separated, the values of `facets.kind`), `number` (the "
         "start of the label: `36264` gives that dossier and its chapters, `37020-` the "
@@ -258,7 +274,9 @@ _LIST_DESCRIPTION = (
         "as `37035-XXII`, or words of the title, which holds the short title: "
         "`Verzamelwet gegevensbescherming`), `phase` (the current one; "
         "comma-separated, one of them), `has_phase` (all listed phases done), "
-        "`ministry`, `initiative`, `opened_from`, `opened_to` (dates), `sort` "
+        "`ministry`, `initiative`, `opened_from`, `opened_to` (dates), `eu` (`proposal`: "
+        "a non-empty `eu_ref`; `implementation`: a non-empty `implements`), `celex` (in "
+        "`eu_ref` or `implements`), `sort` "
         "(`number`: in the order of the Kamer, no suffix, numeric suffixes by value, "
         "budget chapters by value with their letter, then the rest (`props.order`); "
         "`opened_on`, `last_activity` and `closed_on` newest first; `title`; ties by "
@@ -275,7 +293,11 @@ _LIST_DESCRIPTION = (
         "where the act it carries out was published: not `PbEU 2022, L 173`, `Trb.`, "
         "`Stb.`), and `ministry` (of the bewindspersoon who signed its earliest signed "
         "document first), `initiative` (a Kamerlid signed first) and `cabinet` (in "
-        "office then), null when unknown"
+        "office then), null when unknown; `eu_ref` (`{com, celex}` per COM number its title "
+        "names, `celex` null while the graph lacks that document) and `implements` "
+        "(`{celex, bases}` of the EU acts it implements: `title` its title, "
+        "`national_implementing_measure` or `considerans` the `IMPLEMENTS` of a law it "
+        "legislated), empty for none (`semantic tk-dossier-eu`)"
     ),
     tags=["dossiers"],
 )

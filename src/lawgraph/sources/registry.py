@@ -221,6 +221,7 @@ from lawgraph.pipelines.semantic.tk_cited_papers import (
 from lawgraph.pipelines.semantic.tk_coalition_votes import (
     TKCoalitionVotesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_dossier_eu import TKDossierEuSemanticPipeline
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
 )
@@ -1185,6 +1186,11 @@ SEMANTIC: list[Pipeline] = [
         TKDossierTitlesSemanticPipeline,
         "The title and opening date of every dossier without, from its papers and "
         "activities: also of a dossier another source made.",
+    ),
+    _pipeline(
+        TKDossierEuSemanticPipeline,
+        "The EU proposal each dossier is about (COM numbers of its title) and the EU acts it "
+        "implements: by its title, and those the laws it legislated implement.",
     ),
     _pipeline(
         TKDossierOutcomesSemanticPipeline,

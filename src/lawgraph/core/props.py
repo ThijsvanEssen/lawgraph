@@ -1097,6 +1097,10 @@ class DossierProps(_CommonProps):
     key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document)."""
     same_number_count: int | None = None
     """The other dossiers with the same number (`normalize tk-dossiers`)."""
+    eu_ref: list[dict[str, Any]] | None = None
+    """`{com, celex}` per COM number of its title (`semantic tk-dossier-eu`)."""
+    implements: list[dict[str, Any]] | None = None
+    """`{celex, bases}` of the EU acts it implements (`semantic tk-dossier-eu`)."""
 
 
 # ---------------------------------------------------------------------------
