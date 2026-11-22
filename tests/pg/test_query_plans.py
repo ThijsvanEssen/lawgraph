@@ -301,6 +301,9 @@ _WHOLE_BY_DESIGN = (
     re.compile(r"SELECT lg_fold\(name\) FROM members WHERE name IS NOT NULL"),
     # every ministry, once per data version of them (``search.types._ministries``)
     re.compile(r"'collection', 'ministries'.*FROM ministries r ORDER BY r.key", re.S),
+    # the words of the titles of the laws and dossiers a search that found nothing
+    # suggests, once per data version of them (``search.suggestions``)
+    re.compile(r"SELECT coalesce\(s_citation_title_g, ''\) \|\| ' ' \|\| coalesce"),
     # the newest day a commitment was registered, once a minute (``cached_data_as_of``)
     re.compile(r"SELECT max\(props ->> 'registered_on'\) FROM commitments"),
 )
