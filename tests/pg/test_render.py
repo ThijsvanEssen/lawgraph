@@ -188,6 +188,7 @@ def client(
     monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
     monkeypatch.setattr(seo_article, "EXTRA_BUDGET", 5.0)
     monkeypatch.setattr(render, "RENDER_BUDGET", 30.0)
+    monkeypatch.setattr(render, "SEED_BUDGET", 5.0)
     version_cache.clear()
     shell.forget()
     _seed(store)
@@ -2491,6 +2492,53 @@ def test_an_article_is_painted_first_with_what_the_head_of_its_reader_shows(
     text = response.text
     assert text.index("</main>") < text.index("first-paint-data")
     assert text.index("first-paint-data") < text.index("<script>paint()</script>")
+
+
+def _api_seed(text: str) -> tuple[str, int] | None:
+    """The JSON of the page's ``#api-seed`` and where it stands, or None."""
+    found = re.search(
+        r'<script type="application/json" id="api-seed">(.*?)</script>', text, re.S
+    )
+    return (found[1], found.start()) if found else None
+
+
+def test_an_article_gives_the_answer_the_app_asks_first_after_its_first_paint(
+    painting: TestClient,
+) -> None:
+    """``#api-seed``: the answer of ``/api/articles/{law}/{number}`` as the route gives
+    it, under the key the explorer keeps it by (``once``: lower case)."""
+    response = _get(painting, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    found = _api_seed(response.text)
+    assert found is not None
+    data, at = found
+    route = painting.get("/api/articles/BWBR0005289/162")
+    assert_status(route, 200)
+    assert json.loads(data) == {"articles/bwbr0005289/162": route.json()}
+    # the route's own bytes, only escaped for the script
+    assert shell.inline_json(route.text) in data
+    assert response.text.index("<script>paint()</script>") < at
+
+
+@pytest.mark.parametrize(
+    "path", ["/wetten/BWBR0005289", "/uitspraken/ECLI:NL:HR:2019:2006"]
+)
+def test_only_an_article_gives_the_answer_the_app_asks_first(
+    painting: TestClient, path: str
+) -> None:
+    response = _get(painting, path)
+    assert_status(response, 200)
+    assert "api-seed" not in response.text
+
+
+def test_a_page_whose_seed_takes_too_long_goes_without(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past ``SEED_BUDGET`` the page does not wait: the app asks the route."""
+    monkeypatch.setattr(render, "SEED_BUDGET", 0.0)
+    response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    assert _api_seed(response.text) is None
 
 
 def test_an_article_in_a_recodification_is_not_painted_first(

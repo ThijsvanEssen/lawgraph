@@ -200,11 +200,22 @@ def _json_ld(page: Page, base: str) -> str:
         )
     if not graph:
         return ""
-    text = json.dumps(
-        {"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False
+    return inline_json(
+        json.dumps(
+            {"@context": "https://schema.org", "@graph": graph}, ensure_ascii=False
+        )
     )
-    # no "</script>" inside the script
-    return text.replace("</", "<\\/")
+
+
+def inline_json(text: str) -> str:
+    """The JSON *text* safe inside a ``<script>`` of the page: no ``</script>`` or
+    ``<!--`` in it (each ``<`` as ``\\u003c``), and no U+2028 or U+2029 (as their escape);
+    JSON reads it as the same."""
+    return (
+        text.replace("<", "\\u003c")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def _head(page: Page, base: str) -> str:
@@ -260,6 +271,7 @@ def render(page: Page) -> str:
         main = (
             f'<main id="seo">{crumbs_nav(page.crumbs)}{page.body}</main>\n\t\t'
             + _paint(page)
+            + _seed(page)
         )
         if _APP in html:
             html = html.replace(_APP, main + _APP, 1)
@@ -278,10 +290,23 @@ def _paint(page: Page) -> str:
     script = scripts.get(str(page.first_paint.get("kind", ""))) or scripts.get("")
     if not script:
         return ""
-    data = json.dumps(page.first_paint, ensure_ascii=False).replace("</", "<\\/")
+    data = inline_json(json.dumps(page.first_paint, ensure_ascii=False))
     return (
         f'<script type="application/json" id="first-paint-data">{data}</script>'
         f"<script>{script}</script>\n\t\t"
+    )
+
+
+def _seed(page: Page) -> str:
+    """The API answers of *page* the app asks first (``#api-seed``): one JSON object of the
+    key the app keeps each by and its answer, after the first paint, which it does not
+    hold up. Nothing for a page without."""
+    if not page.seed:
+        return ""
+    data = ",".join(f"{json.dumps(key)}:{answer}" for key, answer in page.seed.items())
+    return (
+        '<script type="application/json" id="api-seed">'
+        f"{inline_json('{' + data + '}')}</script>\n\t\t"
     )
 
 
