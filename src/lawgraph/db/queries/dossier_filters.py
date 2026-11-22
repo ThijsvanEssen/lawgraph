@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Literal
+
+from lawgraph.db.queries._json_sql import array_or_empty, has_length
+
+# ``proposal``: a dossier with an ``eu_ref``; ``implementation``: one that ``implements`` an
+# EU act (``semantic tk-dossier-eu``).
+EuFilter = Literal["proposal", "implementation"]
+_EU_PROPS: dict[str, str] = {"proposal": "eu_ref", "implementation": "implements"}
 
 
 @dataclass(frozen=True)
@@ -22,3 +30,22 @@ class DossierFilters:
     committee_slug: str | None = None
     opened_from: str | None = None
     opened_to: str | None = None
+    eu: EuFilter | None = None
+    celex: str | None = None  # in its ``eu_ref`` or ``implements``
+
+
+def eu_conditions(filters: DossierFilters, bind: dict[str, Any]) -> list[str]:
+    """The SQL conditions on ``ds`` of the EU filters of *filters*."""
+    conditions = []
+    if filters.eu:
+        conditions.append(has_length(f"ds.props -> '{_EU_PROPS[filters.eu]}'"))
+    if filters.celex:
+        bind["celex"] = filters.celex
+        named = " OR ".join(
+            f"EXISTS (SELECT 1 FROM json_array_elements("
+            f"{array_or_empty(f"ds.props -> '{prop}'")}) AS a"
+            " WHERE lg_str(a -> 'celex') = %(celex)s)"
+            for prop in _EU_PROPS.values()
+        )
+        conditions.append(f"({named})")
+    return conditions

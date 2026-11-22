@@ -976,8 +976,8 @@ def test_the_rulings_on_questions_of_a_dutch_court_with_the_decision_that_asked(
         for row in found["items"]
     ]
     assert [d.model_dump() if d else None for d in decisions] == [
-        {"ecli": stub, "court": "CRVB", "date": None},
-        {"ecli": referring, "court": "RBROT", "date": "2020-03-20"},
+        {"ecli": stub, "court_code": "CRVB", "date": None},
+        {"ecli": referring, "court_code": "RBROT", "date": "2020-03-20"},
     ]
     assert get_judgments_list(store, JudgmentFilters(referred_by="BE"))["items"] == []
     every = {

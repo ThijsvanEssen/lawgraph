@@ -74,12 +74,13 @@ def eu_names(name: str, title: str) -> list[str]:
     return [*found, short] if short else found
 
 
-def _eu_concepts() -> dict[str, Concept]:
-    """The names of the acts of ``eu-core`` (``eu_names``) and the act each is of, with
-    its ``name`` as the term; a name two acts have (``Hernieuwbare energie``) is neither's."""
+def _eu_names() -> dict[str, tuple[str, Concept]]:
+    """The names of the acts of ``eu-core`` (``eu_names``) by ``concept_key``: each as
+    written and the concept of its act, with its ``name`` as the term; a name two acts have
+    (``Hernieuwbare energie``) is neither's."""
     from lawgraph.core.curated import LISTS
 
-    found: dict[str, Concept] = {}
+    found: dict[str, tuple[str, Concept]] = {}
     shared: set[str] = set()
     for celex, value in LISTS["eu-core"].entries().items():
         concept = Concept(
@@ -87,24 +88,31 @@ def _eu_concepts() -> dict[str, Concept]:
         )
         for name in eu_names(str(value["name"]), str(value["title"])):
             key = concept_key(name)
-            if key in found and found[key] != concept:
+            if key in found and found[key][1] != concept:
                 shared.add(key)
-            found[key] = concept
-    return {key: c for key, c in found.items() if key and key not in shared}
+            found[key] = (name, concept)
+    return {key: n for key, n in found.items() if key and key not in shared}
+
+
+@functools.cache
+def concept_names() -> dict[str, tuple[str, Concept]]:
+    """Every term and variant of the list and every name of an act of ``eu-core`` that is
+    no term of the list (``_eu_names``), by ``concept_key``: as written, and its concept."""
+    from lawgraph.core.curated import LISTS
+
+    found = _eu_names()
+    for term, value in LISTS["concepts"].entries().items():
+        concept = concept_of(term, value)
+        for name in (term, *(value.get("variants") or [])):
+            found[concept_key(name)] = (name, concept)
+    return found
 
 
 @functools.cache
 def concepts() -> dict[str, Concept]:
     """Every term and variant of the list (``concept_key``) and its concept, and the names
-    of the acts of ``eu-core`` (``_eu_concepts``) that are no term of the list."""
-    from lawgraph.core.curated import LISTS
-
-    found: dict[str, Concept] = _eu_concepts()
-    for term, value in LISTS["concepts"].entries().items():
-        concept = concept_of(term, value)
-        for name in (term, *(value.get("variants") or [])):
-            found[concept_key(name)] = concept
-    return found
+    of the acts of ``eu-core`` that are no term of the list (``concept_names``)."""
+    return {key: concept for key, (_, concept) in concept_names().items()}
 
 
 def concept_named(q: str, words: list[str]) -> Concept | None:

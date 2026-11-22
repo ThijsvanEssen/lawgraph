@@ -112,7 +112,7 @@ router = APIRouter()
         "country (`ANSWERS`; with `tier=hvj_eu` the preliminary rulings on questions of a "
         "Dutch court whose decision CELLAR names, from `semantic eurlex-cjeu`; a ruling "
         "whose referring decision is not known is not among them), and each item has "
-        "`referring_decision` (`ecli`, `court`, `date`, or null); the counts of `tier`, "
+        "`referring_decision` (`ecli`, `court_code`, `date`, or null); the counts of `tier`, "
         "`court_kind`, `source` and `year` read an index, not the judgments; the "
         "facets and `total` are kept an hour whatever the data does "
         "(`db/version_cache.py`), the page itself is read fresh; `facets=false` gives "

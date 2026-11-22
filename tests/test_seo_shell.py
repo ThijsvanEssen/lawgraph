@@ -3,7 +3,9 @@ missing or does not read is a release that went wrong, logged with its path."""
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -75,9 +77,41 @@ def test_the_source_a_page_paints_first_stands_after_its_content_with_the_script
         < html.index("<script>paint()</script>")
     )
     # no end of the script inside its data
-    assert '"a <\\/script> b"' in html
+    assert '"a \\u003c/script> b"' in html
     page.first_paint = None
     assert "first-paint" not in shell.render(page)
+
+
+def test_the_seed_of_a_page_stands_after_its_first_paint(index: Path) -> None:
+    """The API answers the app asks first, after the script that paints, which they do
+    not hold up: one JSON object of each key and its answer as the route gave it."""
+    (index.parent / "first-paint.js").write_text("paint()")
+    page = Page(
+        title="T",
+        description="D",
+        path="/wetten/X",
+        body="<h1>T</h1>",
+        first_paint={"kind": "article"},
+        seed={"articles/x/1": '{"a":1}', "articles/x/2": "[]"},
+    )
+    html = shell.render(page)
+    seed = re.search(
+        r'<script type="application/json" id="api-seed">(.*?)</script>', html, re.S
+    )
+    assert seed is not None
+    assert json.loads(seed[1]) == {"articles/x/1": {"a": 1}, "articles/x/2": []}
+    assert html.index("<script>paint()</script>") < seed.start()
+    page.seed = {}
+    assert "api-seed" not in shell.render(page)
+
+
+def test_json_in_a_script_neither_ends_it_nor_breaks_a_line() -> None:
+    """No ``</script>`` or ``<!--`` in the data of a script, nor U+2028 or U+2029; JSON
+    reads it as the same."""
+    text = json.dumps({"t": "a </script> <!-- b \u2028 c \u2029 d"}, ensure_ascii=False)
+    safe = shell.inline_json(text)
+    assert "<" not in safe and "\u2028" not in safe and "\u2029" not in safe
+    assert json.loads(safe) == json.loads(text)
 
 
 def test_a_page_gets_the_script_of_its_kind_else_the_one_of_every_kind(

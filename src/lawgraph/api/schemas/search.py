@@ -227,3 +227,13 @@ class SearchResponse(StrictModel):
         "activity. Null when none does, with `matched` `any`, or without `dossiers` in "
         "`types`.",
     )
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="Of the full search (`mode=full`, the first page) that found nothing "
+        "and names nothing (`best` null): at most 3 queries to try instead, best first, "
+        "each of which finds a law, a dossier or what a concept is about: the names most "
+        "like it by their trigrams, a term or variant of the list of concepts, "
+        "a name of an act of `eu-core` (`aiact`: `AI Act`) or a word of the titles of the "
+        "laws and dossiers "
+        "(`wanprestatei`: `wanprestatie`). Empty otherwise.",
+    )

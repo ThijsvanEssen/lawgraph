@@ -236,7 +236,7 @@ class JudgmentDTO(CriminalFields, JudgmentOutcomeFields, BaseNodeDTO):
         source = props.get("source") or ecli_source(ecli)
         parties = props.get("parties")
         return cls(
-            **BaseNodeDTO.fields_of(doc, graph=graph, titled=titled),
+            **_without_text(BaseNodeDTO.fields_of(doc, graph=graph, titled=titled)),
             ecli=ecli,
             source=source,
             official_url=judgment_url({**props, "source": source}),
@@ -274,6 +274,22 @@ class JudgmentDTO(CriminalFields, JudgmentOutcomeFields, BaseNodeDTO):
             ),
             **judgment_outcome_fields(props),
         )
+
+
+def _without_text(fields: dict[str, Any]) -> dict[str, Any]:
+    """The fields with its props without the text that ``paragraphs`` and ``footnotes``
+    hold; its whole ``text`` stays while its parties are not read (the reader takes them
+    from its opening)."""
+    props = fields.get("props")
+    if not props:
+        return fields
+    bulk = _TEXT_PROPS if props.get("parties") is not None else _TEXT_PROPS[1:]
+    light = {name: value for name, value in props.items() if name not in bulk}
+    return {**fields, "props": light}
+
+
+# The props whose text the detail serves as ``paragraphs`` and ``footnotes``.
+_TEXT_PROPS = ("text", "paragraphs", "footnotes")
 
 
 def _footnotes(
@@ -731,7 +747,7 @@ class ReferringDecisionDTO(StrictModel):
     """The decision whose questions a preliminary ruling answers (``ANSWERS``)."""
 
     ecli: str
-    court: str | None = Field(
+    court_code: str | None = Field(
         description="Its court code (`RBROT`), of a decision not in the graph from its "
         "ECLI."
     )
@@ -746,7 +762,7 @@ class ReferringDecisionDTO(StrictModel):
         ecli = str(row["ecli"])
         return cls(
             ecli=ecli,
-            court=row.get("court_code") or court_code(ecli),
+            court_code=row.get("court_code") or court_code(ecli),
             date=row.get("date"),
         )
 

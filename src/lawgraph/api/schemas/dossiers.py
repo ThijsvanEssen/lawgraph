@@ -33,6 +33,7 @@ from lawgraph.api.schemas.documents import (
     outcome_fields,
     sender_of,
 )
+from lawgraph.api.schemas.dossier_eu import WithEu
 from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
@@ -500,7 +501,7 @@ class DossierDocumentsResponse(StrictModel):
     items: list[DossierDocumentDTO]
 
 
-class DossierSummaryDTO(WithMinistry, WithPath):
+class DossierSummaryDTO(WithMinistry, WithEu, WithPath):
     """A dossier in a list.
 
     ``kind`` is what the dossier is, as the Tweede Kamer names it: the ``Zaak.Soort`` of
@@ -1286,6 +1287,8 @@ def _dossier_fields(doc: dict[str, Any]) -> dict[str, Any]:
         "ministry": props.get("ministry"),
         "initiative": props.get("initiative"),
         "cabinet": props.get("cabinet"),
+        "eu_ref": props.get("eu_ref") or [],
+        "implements": props.get("implements") or [],
     }
 
 
