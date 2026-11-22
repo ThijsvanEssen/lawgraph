@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.42",
+    "version": "0.80.43",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -9227,6 +9227,180 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConceptResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/concepts/{key}/judgments": {
+      "get": {
+        "tags": [
+          "concepts",
+          "concepts"
+        ],
+        "summary": "The judgments that cite an article of a concept",
+        "description": "The judgments that cite any article of the concept, each once with the articles of the concept it cites (`article_ids`), as the block of `/api/concepts/{key}` lists its newest five: `total` is its `judgment_total`. `sort` as the passages of an article (`/api/articles/{bwb_id}/{article_number}/cited-by`): `date_desc` (default) the newest first, `citation_count` the most cited first (a standard judgment), then the newest. 404 when no concept has the key.",
+        "operationId": "get_concept_judgments_api_concepts__key__judgments_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "`toetsing-van-wetten`.",
+              "title": "Key"
+            },
+            "description": "`toetsing-van-wetten`."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "date_desc",
+                "citation_count"
+              ],
+              "type": "string",
+              "description": "`date_desc`: the newest judgment first; `citation_count`: the most cited judgment first (a standard judgment), then the newest.",
+              "default": "date_desc",
+              "title": "Sort"
+            },
+            "description": "`date_desc`: the newest judgment first; `citation_count`: the most cited judgment first (a standard judgment), then the newest."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptJudgmentsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/concepts/{key}/documents": {
+      "get": {
+        "tags": [
+          "concepts",
+          "concepts"
+        ],
+        "summary": "The papers joined to an article of a concept",
+        "description": "The papers an edge joins to any article of the concept (a memorandum that explains it, a paper that names it), each once with the articles of the concept it is joined to (`article_ids`), newest first, as the block of `/api/concepts/{key}` lists its newest two: `total` is its `document_total`. 404 when no concept has the key.",
+        "operationId": "get_concept_documents_api_concepts__key__documents_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "`toetsing-van-wetten`.",
+              "title": "Key"
+            },
+            "description": "`toetsing-van-wetten`."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConceptDocumentsResponse"
                 }
               }
             }
@@ -19011,6 +19185,35 @@
         "title": "ConceptDocumentDTO",
         "description": "A paper an edge joins to an article of the concept (it explains or names it)."
       },
+      "ConceptDocumentsResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "The papers joined to any article of the concept, each once: `document_total` of `/api/concepts/{key}`, whatever the page."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptDocumentDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "total",
+          "items"
+        ],
+        "title": "ConceptDocumentsResponse",
+        "description": "Response for GET /api/concepts/{key}/documents."
+      },
       "ConceptExplanationDTO": {
         "properties": {
           "label": {
@@ -19054,6 +19257,35 @@
         ],
         "title": "ConceptJudgmentDTO",
         "description": "A judgment that cites an article of the concept."
+      },
+      "ConceptJudgmentsResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "The judgments that cite any article of the concept, each once: `judgment_total` of `/api/concepts/{key}`, whatever the page."
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptJudgmentDTO"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "total",
+          "items"
+        ],
+        "title": "ConceptJudgmentsResponse",
+        "description": "Response for GET /api/concepts/{key}/judgments."
       },
       "ConceptRefDTO": {
         "properties": {

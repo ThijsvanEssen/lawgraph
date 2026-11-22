@@ -545,6 +545,11 @@ names the concepts it is one of under `concepts`; `/api/concepts/{key}` gives on
 with their heading or the start of their text, the judgments and papers that cite any of them,
 each counted once, the newest of them, and a link to an official page that explains it (a
 government domain; none where none is kept). The block adds no text of its own.
+`/api/concepts/{key}/judgments` and `/documents` page through all of them, the destination of
+"N of M": `total` is the `judgment_total` or `document_total` of the block, `items` the rows
+of the block (`judgment` or `document`, and `article_ids`, the articles of the concept it cites
+or is joined to), `limit` and `offset`. Judgments sort as the passages of an article do
+(`sort` `date_desc`, the default, or `citation_count`); papers newest first.
 `lawgraph curated check concept-articles --db` notes an article the graph does not have; the
 route names it under `missing`.
 
