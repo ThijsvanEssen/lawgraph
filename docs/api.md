@@ -602,6 +602,21 @@ changes). No text of its own. It is null when no dossier hit plays, when no hit 
 (`matched` `any`), and while typing; the four reads of it run side by side, and only when a
 dossier plays.
 
+### Suggestions (`suggestions`)
+
+A full search (`mode=full`, the first page) that found nothing and names nothing (`best` null)
+answers at most 3 queries to try instead (`core/suggestions.py`), each of which finds a law, a
+dossier or what a concept is about: first its words apart when it is one word of two words of
+the titles of the laws and dossiers, a linking `s` between them or not (`coalitiecrisis`:
+`coalitie crisis`), then the names most like its searched words by their trigrams, as `pg_trgm`
+compares them (similarity 0.4 or more, the most like first, then a concept, then the word in the
+most titles; one name of a concept): a term or variant of the list of concepts, a name of an act
+of `eu-core` (`aiact`: `AI Act`) or a word of four characters or more of the titles of the laws
+(no publication of the Staatsblad or Staatscourant) and the dossiers (`wanprestatei`:
+`wanprestatie`). The vocabulary is kept per data version of `instruments` and `dossiers`
+(`db/queries/search/suggestions.py`); a search waits 0.5 s for it at most, then answers none.
+Empty otherwise, and while typing.
+
 ### Neighbour filters
 
 `/api/nodes/{collection}/{key}` and `.../neighborhood` take the same filters:

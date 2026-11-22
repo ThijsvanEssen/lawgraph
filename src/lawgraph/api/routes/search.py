@@ -32,6 +32,7 @@ from lawgraph.core.concepts import Concept, concept_named
 from lawgraph.core.logging import get_logger
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
+from lawgraph.core.suggestions import suggest
 from lawgraph.core.time import dutch_today, iso_day
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossiers import load_dossier_names
@@ -50,7 +51,9 @@ from lawgraph.db.queries.search.parser import kept_notation_parser
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, exact_hit
 from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.signers import Signed
+from lawgraph.db.queries.search.suggestions import load_suggestion_words
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES, hit_by_key
+from lawgraph.db.request_context import read_budget
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
 router = APIRouter()
@@ -61,6 +64,10 @@ _DEFAULT_SEARCH_TYPES = sorted(SEARCH_TYPES)
 # The most hits of a type skipped by ``offset``: the full search ranks the first this many
 # plus a page (deeper, the facets and the period narrow the search).
 OFFSET_MAX = 500
+
+# How long a search that found nothing waits for the vocabulary of its suggestions (s);
+# past it the answer has none, and the vocabulary goes on being read for the next.
+SUGGESTIONS_WAIT = 0.5
 
 
 @router.get(
@@ -298,6 +305,15 @@ OFFSET_MAX = 500
         "as the pages of the dossier, the votes and the commitments give them; null when "
         "none had, with `matched` `any`, or without `dossiers` in `types`."
         "\n\n"
+        "Suggestions (`mode=full`, the first page): a search that found nothing and names "
+        "nothing (`best` null) has in `suggestions` at most 3 queries to try instead, each "
+        "of which finds a law, a dossier or what a concept is about: its words apart when "
+        "it is one word of two words of the titles of the laws and dossiers (`coalitiecrisis`: "
+        "`coalitie crisis`), then the names most like it by their trigrams (`pg_trgm` "
+        "similarity 0.4 or more): a term of the list of concepts, a name of an act of "
+        "`eu-core` (`aiact`: `AI Act`) or a word of those titles (`wanprestatei`: "
+        "`wanprestatie`); none when its vocabulary is not read within 0.5 s."
+        "\n\n"
         "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
         "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
         "how many hits it has (`total`; `capped`: at least that many, the count stops "
@@ -463,6 +479,8 @@ def search(
         if mode == "full" and not offset and not any_word
         else None
     )
+    best = _best(grouped, resolved, concept)
+    found_nothing = mode == "full" and not offset and not total and not partial
 
     return SearchResponse(
         q=q,
@@ -478,11 +496,16 @@ def search(
         words=words.words,
         left_out=words.left_out,
         matched="any" if any_word else "all",
-        best=_best(grouped, resolved, concept),
+        best=best,
         offset=offset,
         counts=_counts(counted, fetched, offset + limit) if facets else None,
         facets=_facets(counted) if facets else None,
         active_dossier=playing,
+        suggestions=(
+            _suggestions(store, words.words or [q])
+            if found_nothing and best is None
+            else []
+        ),
     )
 
 
@@ -582,6 +605,14 @@ def _best(
         if hit.exact
     }
     return exact.pop() if len(exact) == 1 else None
+
+
+def _suggestions(store: GraphStore, words: list[str]) -> list[str]:
+    """What to search instead of *words*, which found nothing (``core.suggestions``); none
+    when the vocabulary is not read within ``SUGGESTIONS_WAIT``."""
+    with read_budget(SUGGESTIONS_WAIT, "The vocabulary of the suggestions"):
+        return suggest(load_suggestion_words(store), " ".join(words))
+    return []
 
 
 def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:

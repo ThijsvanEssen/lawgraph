@@ -862,3 +862,32 @@ def test_no_hit_of_every_word_answers_those_of_one(
     body = TestClient(app).get("/api/search", params={"q": "huurcontract"}).json()
     assert asked == [False]
     assert (body["matched"], body["total"]) == ("all", 0)
+
+
+def test_a_search_that_found_nothing_suggests_what_to_search_instead(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Of the full search, the first page, without a hit and naming nothing: its words
+    apart and the names like it (``SUGGESTION_WORDS``); none otherwise."""
+    hits: dict[str, list[dict[str, Any]]] = {"articles": []}
+    stub_route(
+        monkeypatch,
+        "search",
+        signed_of=None,
+        search_full=lambda store, **kwargs: (hits, set()),
+        search_live=lambda store, **kwargs: (hits, set()),
+        concept_named=lambda q, words: None,
+    )
+    client = TestClient(app)
+
+    def suggested(**params: Any) -> list[str]:
+        body = client.get("/api/search", params=params).json()
+        return list(body["suggestions"])
+
+    assert suggested(q="coalitiecrisis") == ["coalitie crisis", "coalitie"]
+    assert suggested(q="wanprestatei") == ["wanprestatie"]
+    assert suggested(q="xyzzy") == []
+    assert suggested(q="coalitiecrisis", mode="live") == []
+    assert suggested(q="coalitiecrisis", offset=20) == []
+    hits["articles"] = [_item("271", "articles", SCORE_WORDS)]
+    assert suggested(q="coalitiecrisis") == []

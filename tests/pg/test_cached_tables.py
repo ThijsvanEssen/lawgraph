@@ -32,7 +32,7 @@ from lawgraph.db.queries import (
     nodes,
     seo,
 )
-from lawgraph.db.queries.search import signers, types
+from lawgraph.db.queries.search import signers, suggestions, types
 from lawgraph.db.schema import SEARCH_FIELDS
 from tests.optional import present
 from tests.pg.plans import Call, explain, plan_nodes, recorded
@@ -171,7 +171,8 @@ def _exercise(store: GraphStore) -> None:
     on the page of a member, what a publication changes, the passages that explain
     an article, the block of a concept, the laws a law's articles refer to and are
     referred to by, the dossiers and activities a committee leads, the dossiers of a
-    faction, and the factions and members a query may name."""
+    faction, the factions and members a query may name, and the words a search that
+    found nothing suggests."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -197,6 +198,7 @@ def _exercise(store: GraphStore) -> None:
     signers.signed_for(store, ["motie", "vvd"])
     types.ministries_found(store, "BZK", ["bzk"])
     faction_dossiers(store, "factions/vvd", 100, 0, "opened")
+    suggestions.load_suggestion_words(store)
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(
