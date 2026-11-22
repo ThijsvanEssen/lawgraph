@@ -41,7 +41,7 @@ def derived(row: dict[str, Any], in_graph: set[str]) -> dict[str, Any]:
     }
 
 
-class TKDossierEuSemanticPipeline(SemanticPipelineBase):
+class TKDossierEUSemanticPipeline(SemanticPipelineBase):
     """Write ``eu_ref`` and ``implements`` on every dossier whose title or laws give them."""
 
     def run(self) -> PipelineResult:

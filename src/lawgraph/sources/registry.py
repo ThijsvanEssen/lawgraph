@@ -221,7 +221,9 @@ from lawgraph.pipelines.semantic.tk_cited_papers import (
 from lawgraph.pipelines.semantic.tk_coalition_votes import (
     TKCoalitionVotesSemanticPipeline,
 )
-from lawgraph.pipelines.semantic.tk_dossier_eu import TKDossierEuSemanticPipeline
+from lawgraph.pipelines.semantic.tk_dossier_eu import (
+    TKDossierEUSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
 )
@@ -255,8 +257,8 @@ from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPi
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
 
-# How a source is spelled in a class name, where capitalising it is not enough.
-_CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
+# How a word is spelled in a class name, where capitalising it is not enough.
+_CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR", "eu": "EU"}
 
 
 @dataclass(frozen=True)
@@ -316,9 +318,9 @@ class Pipeline:
 
 
 def _class_name(phase: Phase, source: str, part: str | None) -> str:
-    words = "".join(word.capitalize() for word in (part or "").split("-"))
-    prefix = _CLASS_PREFIX.get(source, source.capitalize())
-    return f"{prefix}{words}{phase.capitalize()}Pipeline"
+    words = [source, *(part or "").split("-")]
+    name = "".join(_CLASS_PREFIX.get(w, w.capitalize()) for w in words if w)
+    return f"{name}{phase.capitalize()}Pipeline"
 
 
 @dataclass(frozen=True)
@@ -1188,7 +1190,7 @@ SEMANTIC: list[Pipeline] = [
         "activities: also of a dossier another source made.",
     ),
     _pipeline(
-        TKDossierEuSemanticPipeline,
+        TKDossierEUSemanticPipeline,
         "The EU proposal each dossier is about (COM numbers of its title) and the EU acts it "
         "implements: by its title, and those the laws it legislated implement.",
     ),

@@ -225,6 +225,15 @@ _ACT_IN_TITLE = re.compile(
     r"(?:(?:de|het)\s+)?(?:\S+\s+\S+\s*(?:en|,)\s+)?$",
     re.IGNORECASE,
 )
+# What stands between an act named in a title and the next one of the same list: "tot
+# wijziging van Richtlijn nr. 78/855/EEG van de Raad en Richtlijn nr. 82/891/EEG": the second
+# is amended too.
+_SAME_LIST = re.compile(
+    r"\s*(?:van\s+(?:de\s+Raad|de\s+Commissie|het\s+Europees\s+Parlement\s+en\s+de\s+Raad)"
+    r"(?:\s+van\s+de\s+Europese\s+Unie)?(?:\s+van\s+\d{1,2}\s+\w+\s+\d{4})?\s*)?"
+    r"(?:,|en)\s*(?:de\s+|het\s+)?",
+    re.IGNORECASE,
+)
 
 
 def eu_act_celex(match: re.Match[str]) -> str | None:
@@ -271,19 +280,24 @@ def implemented_acts(clauses: Iterable[str]) -> list[str]:
     ``Gelet op`` …). An act cited in the title of another ("tot intrekking van Richtlijn
     95/46/EG") is not implemented: the title of a cited act runs to its reference in the
     Official Journal ("(PbEU 2016, L 119)"), and without one an act named after "wijziging
-    van" or "intrekking van" is part of a title.
+    van" or "intrekking van" is part of a title, and so is the next act of that list ("tot
+    wijziging van Richtlijn 78/855/EEG van de Raad en Richtlijn 82/891/EEG").
     """
     found: dict[str, None] = {}
     for clause in clauses:
         if not _IMPLEMENTING_CLAUSE.search(clause):
             continue
-        title_end = -1
+        title_end = amended_end = -1
         for match in EU_ACT_PATTERN.finditer(clause):
             if match.start() < title_end:
                 continue  # in the title of the act before it
             if _ACT_IN_TITLE.search(
                 clause[max(0, match.start() - 120) : match.start()]
+            ) or (
+                amended_end >= 0
+                and _SAME_LIST.fullmatch(clause, amended_end, match.start())
             ):
+                amended_end = match.end()
                 continue
             celex = eu_act_celex(match)
             if celex:

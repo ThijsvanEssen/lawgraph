@@ -15,6 +15,20 @@ from lawgraph.config.constants import (
 )
 from lawgraph.db.counting import Store
 
+
+def legislated_implements(dossier: str) -> str:
+    """SQL ``FROM … WHERE``: the ``IMPLEMENTS`` edges (``m``) from an instrument (``s``)
+    ``LEGISLATED_IN`` the dossier whose id is the SQL *dossier*, to the EU act ``eu``. Binds
+    ``implements`` and ``legislated_in``."""
+    return f"""
+        FROM {COLLECTION_EDGES} l
+        JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
+        JOIN {COLLECTION_EDGES} m ON m.from_id = s.id AND m.relation = %(implements)s
+        JOIN {COLLECTION_INSTRUMENTS} eu ON eu.id = m.to_id
+        WHERE l.to_id = {dossier} AND l.relation = %(legislated_in)s
+          AND l.from_collection = '{COLLECTION_INSTRUMENTS}'"""
+
+
 # Per dossier the EU acts the instruments LEGISLATED_IN it implement, each with the bases of
 # those IMPLEMENTS edges (``meta.bases``), as ``[celex, bases]``.
 _DOSSIERS_SQL = f"""
@@ -23,12 +37,7 @@ SELECT ds.id, ds.key, lg_str(ds.pj_title) AS title,
        (
            SELECT json_agg(json_build_array(eu.celex, m.doc -> 'meta' -> 'bases')
                            ORDER BY eu.celex ASC NULLS FIRST, m.key ASC)
-           FROM {COLLECTION_EDGES} l
-           JOIN {COLLECTION_EDGES} m
-             ON m.from_id = l.from_id AND m.relation = %(implements)s
-           JOIN {COLLECTION_INSTRUMENTS} eu ON eu.id = m.to_id
-           WHERE l.to_id = ds.id AND l.relation = %(legislated_in)s
-             AND l.from_collection = '{COLLECTION_INSTRUMENTS}'
+           {legislated_implements("ds.id")}
              AND eu.celex IS NOT NULL
        ) AS legislated
 FROM {COLLECTION_DOSSIERS} ds

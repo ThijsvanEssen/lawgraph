@@ -9,7 +9,9 @@ from typing import Any
 from lawgraph.db import GraphStore
 from lawgraph.db.queries.dossier_filters import DossierFilters
 from lawgraph.db.queries.dossiers import get_dossiers
-from lawgraph.pipelines.semantic.tk_dossier_eu import TKDossierEuSemanticPipeline
+from lawgraph.pipelines.semantic.tk_dossier_eu import (
+    TKDossierEUSemanticPipeline,
+)
 from tests.asserts import assert_status
 from tests.databases import Api
 
@@ -83,7 +85,7 @@ def _props(store: GraphStore, key: str) -> dict[str, Any]:
 
 def test_the_step_stores_eu_ref_and_implements(store: GraphStore) -> None:
     _graph(store)
-    result = TKDossierEuSemanticPipeline(store).run()
+    result = TKDossierEUSemanticPipeline(store).run()
     assert result.updated == 4
     assert _props(store, "36982")["eu_ref"] == [{"com": "COM(2026) 560", "celex": None}]
     assert _props(store, "36712")["eu_ref"] == [
@@ -99,16 +101,16 @@ def test_the_step_stores_eu_ref_and_implements(store: GraphStore) -> None:
     # a dossier that says nothing of the EU gets no key
     assert "eu_ref" not in _props(store, "36100")
     # a second run has nothing left to write
-    assert TKDossierEuSemanticPipeline(store).run().updated == 0
+    assert TKDossierEUSemanticPipeline(store).run().updated == 0
 
 
 def test_a_title_that_no_longer_names_it_clears_it(store: GraphStore) -> None:
     _graph(store)
-    TKDossierEuSemanticPipeline(store).run()
+    TKDossierEUSemanticPipeline(store).run()
     store.bulk_insert_or_update_nodes(
         "dossiers", [_dossier("36982", "Omnibus over belastingen")]
     )
-    assert TKDossierEuSemanticPipeline(store).run().updated == 1
+    assert TKDossierEUSemanticPipeline(store).run().updated == 1
     assert _props(store, "36982")["eu_ref"] is None
 
 
@@ -119,7 +121,7 @@ def _keys(store: GraphStore, **filters: Any) -> list[str]:
 
 def test_the_list_filters_on_eu_and_celex(store: GraphStore) -> None:
     _graph(store)
-    TKDossierEuSemanticPipeline(store).run()
+    TKDossierEUSemanticPipeline(store).run()
     assert _keys(store, eu="proposal") == ["36712", "36982"]
     assert _keys(store, eu="implementation") == ["35000", "36930"]
     assert _keys(store, celex="32019L1937") == ["35000"]
@@ -129,7 +131,7 @@ def test_the_list_filters_on_eu_and_celex(store: GraphStore) -> None:
 
 def test_the_api_lists_eu_proposals_with_their_ref(store: GraphStore, api: Api) -> None:
     _graph(store)
-    TKDossierEuSemanticPipeline(store).run()
+    TKDossierEUSemanticPipeline(store).run()
     body = api.get("/api/dossiers?eu=proposal&sort=title&facets=false").json()
     assert body["total"] == 2
     first = {item["number"]: item for item in body["items"]}["36712"]

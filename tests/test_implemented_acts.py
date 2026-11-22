@@ -76,6 +76,26 @@ def test_without_a_journal_reference_an_amended_act_is_still_part_of_the_title()
     assert implemented_acts([clause]) == ["32019L2162"]
 
 
+def test_every_act_of_the_list_the_title_amends_is_not_implemented() -> None:
+    """The title of Kamerstukdossier 31334."""
+    clause = (
+        "Uitvoering van richtlijn nr. 2007/63/EG van het Europees Parlement en de Raad van de "
+        "Europese Unie van 13 november 2007 tot wijziging van Richtlijn nr. 78/855/EEG van de "
+        "Raad en Richtlijn nr. 82/891/EEG van de Raad wat betreft de verplichte opstelling "
+        "van een verslag van een onafhankelijke deskundige bij fusies of splitsingen van "
+        "naamloze vennootschappen"
+    )
+    assert implemented_acts([clause]) == ["32007L0063"]
+
+
+def test_an_act_after_the_amended_one_that_is_implemented_still_counts() -> None:
+    clause = (
+        "ter implementatie van Richtlijn (EU) 2024/2811 tot wijziging van Richtlijn "
+        "2014/65/EU en ter uitvoering van Verordening (EU) 2024/2809"
+    )
+    assert implemented_acts([clause]) == ["32024L2811", "32024R2809"]
+
+
 @pytest.mark.parametrize(
     "clause",
     [
