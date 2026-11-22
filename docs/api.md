@@ -131,7 +131,7 @@ advocate-general → its judgment, never the other way; `formal_relation` or `ca
 `ANSWERS` (a preliminary ruling → the decision that asked its questions; `formal_relation` or
 `referral_text`). A judgment has the inbound bucket, its conclusion or its referring decision
 the outbound one. Two judgments tied so are not also under `REFERS_TO`, and such a link is not
-in `inbound_citation_count`. `/api/judgments/{ecli}` has `judgment.unresolved_appeal_targets`:
+in `inbound_citation_count`. `/api/judgments/{ecli}` has its text once, in `judgment.paragraphs` and `judgment.footnotes`: `judgment.props` leaves out `text`, `paragraphs` and `footnotes`, but keeps `text` while `judgment.parties` is null (its parties are then read from its opening). It has `judgment.unresolved_appeal_targets`:
 the decisions an appeal names in its text that are not loaded (`court`, `date`,
 `case_number`), empty for most; and `judgment.unresolved_citations`: the articles it cites of
 laws that are not in the graph ("genoemd, niet in het netwerk": `law` as written, such as `Rv`,
