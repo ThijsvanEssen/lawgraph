@@ -118,6 +118,13 @@ def test_the_table_is_read_by_the_titles_of_its_groups() -> None:
     )
 
 
+def test_a_municipality_the_cbs_has_not_filled_in_is_left_out() -> None:
+    payload = _payload(2027)
+    for row in payload["rows"][1:]:
+        row["Naam_34"] = row["Naam_36"] = "."
+    assert [m.code for m in cd.read_table(payload)] == ["GM0361"]
+
+
 def test_a_table_without_the_ressorten_raises() -> None:
     properties = [p for p in PROPERTIES if p.get("ID") != "G3"]
     with pytest.raises(ValueError, match="Ressorten"):
@@ -251,6 +258,9 @@ def test_the_normalize_checks_this_year_and_fails_a_changed_table(
     monkeypatch.setattr(queries, "write", lambda store, rows: written.append(rows))
     monkeypatch.setattr(normalize_cbs, "dutch_today", lambda: dt.date(2026, 11, 21))
     store = InMemoryStore()
+    unfilled = _payload(2027)
+    for row in unfilled["rows"]:
+        row["Naam_34"] = row["Naam_36"] = "."
     broken = {"year": 2024, "properties": PROPERTIES[:4], "rows": []}
     store.insert_raw_sources(
         [
@@ -259,6 +269,7 @@ def test_the_normalize_checks_this_year_and_fails_a_changed_table(
                 ("85385NED", _payload(2025)),
                 ("86247NED", _payload(2026)),
                 ("84000NED", broken),
+                ("87000NED", unfilled),
             )
         ]
     )
@@ -268,7 +279,7 @@ def test_the_normalize_checks_this_year_and_fails_a_changed_table(
     pipeline.add_outcomes(result)
 
     (rows,) = written
-    assert {r["year"] for r in rows} == {2025, 2026}
+    assert {r["year"] for r in rows} == {2025, 2026}  # 2027 holds only "."
     assert {r["year"] for r in rows if r["district_check"]} == {2026}
     assert result.updated == 2 * len(PLACES)
     assert result.skipped == 1 and "84000NED" in str(result.errors)
