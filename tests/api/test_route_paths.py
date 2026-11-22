@@ -108,6 +108,8 @@ ROUTES = [
     ("GET", "/api/lookup"),
     ("GET", "/api/aliases"),
     ("GET", "/api/concepts/{key}"),
+    ("GET", "/api/concepts/{key}/judgments"),
+    ("GET", "/api/concepts/{key}/documents"),
     ("GET", "/api/courts/districts"),
     ("GET", "/api/instruments/{bwb_id}/above"),
     ("GET", "/api/feed.atom"),

@@ -146,3 +146,51 @@ def test_check_notes_an_article_of_a_block_the_graph_does_not_have(
         in notes
     )
     assert not [n for n in notes if "BWBR0001840/120" in n], notes
+
+
+def test_the_lists_count_as_the_block_does_and_page(
+    store: GraphStore, api: Any
+) -> None:
+    _seed(store)
+    version_cache.clear()
+    base = "/api/concepts/toetsing-van-wetten"
+    block = api.get(base).json()
+
+    first = api.get(f"{base}/judgments?limit=3").json()
+    rest = api.get(f"{base}/judgments?limit=3&offset=3").json()
+    oldest = api.get(f"{base}/judgments?limit=1&offset=6").json()
+    papers = api.get(f"{base}/documents?limit=2").json()
+    last = api.get(f"{base}/documents?limit=2&offset=2").json()
+
+    assert first["total"] == rest["total"] == block["judgment_total"] == 7
+    assert [i["judgment"]["key"] for i in first["items"]] == ["j7", "j6", "j5"]
+    assert [i["judgment"]["key"] for i in rest["items"]] == ["j4", "j3", "j2"]
+    assert block["judgments"] == first["items"] + rest["items"][:2]
+    # j1 cites both articles
+    assert oldest["items"][0]["article_ids"] == sorted([A93, A120])
+    assert papers["total"] == last["total"] == block["document_total"] == 3
+    assert [d["document"]["key"] for d in papers["items"]] == ["d3", "d2"]
+    assert block["documents"] == papers["items"]
+    assert [d["article_ids"] for d in last["items"]] == [sorted([A93, A120])]
+
+
+def test_the_judgments_sort_by_citation_count(store: GraphStore, api: Any) -> None:
+    _seed(store)
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [_node("j2", "judgment", ecli="ECLI:NL:RBDHA:2025:2", date_eff="2025-02-01",
+               tier="rechtbank", court_code="RBDHA", inbound_citation_count=9)],
+    )  # fmt: skip
+    version_cache.clear()
+
+    cited = api.get("/api/concepts/toetsing-van-wetten/judgments?sort=citation_count")
+
+    assert_status(cited, 200)
+    keys = [i["judgment"]["key"] for i in cited.json()["items"]]
+    assert keys[:3] == ["j2", "j7", "j6"]
+    assert cited.json()["total"] == 7
+
+
+def test_the_lists_of_an_unknown_concept_are_404(api: Any) -> None:
+    assert_status(api.get("/api/concepts/onbekend/judgments"), 404)
+    assert_status(api.get("/api/concepts/onbekend/documents"), 404)
