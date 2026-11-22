@@ -76,6 +76,9 @@ class Page:
     # ``lib/first-paint``): the fields of its API answer that paint reads, its kind in
     # ``kind``; None for a page the front end does not paint first
     first_paint: dict[str, Any] | None = None
+    # the API answers the app asks first, given in the page (``#api-seed``): the key the
+    # app keeps each by → its JSON as the route answers it (``api/seo/seed``)
+    seed: dict[str, str] = field(default_factory=dict)
     # whether the JSON-LD also names Concordans as an ``Organization`` (``/`` and ``/over``)
     organization: bool = False
     # the API answers the app of the page asks first, preloaded beside its JavaScript

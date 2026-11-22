@@ -95,14 +95,20 @@ def _law_articles(law: str) -> str:
     )
 
 
+def article_address(pad: Pad) -> tuple[str, str]:
+    """The law and number by which the app asks the article at *pad*
+    (``askArticleAhead``): the law in upper case, the number as the API has it (``162``
+    for BW 6:162)."""
+    law = pad.a.upper()
+    return law, native_number(law, pad.b)
+
+
 def source_preloads(pad: Pad, node_id: str) -> list[str]:
     """What the app asks first of the source *node_id* at the address *pad*."""
     _, key = parse_node_id(node_id)
     if pad.soort == "artikel":
-        law = pad.a.upper()
-        article = f"/api/articles/{uri_component(law)}/" + uri_component(
-            native_number(law, pad.b)
-        )
+        law, number = article_address(pad)
+        article = f"/api/articles/{uri_component(law)}/{uri_component(number)}"
         return [
             article,
             f"{article}/history",
