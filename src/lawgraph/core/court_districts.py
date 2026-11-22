@@ -31,6 +31,8 @@ MUNICIPALITIES = "Codes en namen van gemeenten"
 DISTRICTS = "Arrondissementen (rechtsgebieden)"
 CIRCUITS = "Ressorten (rechtsgebieden)"
 PROVINCES = "Provincies"
+# What the CBS writes in a column that has no value (yet).
+UNFILLED = ("", ".")
 GROUPS = (MUNICIPALITIES, DISTRICTS, CIRCUITS, PROVINCES)
 
 Check = Literal["agrees", "differs", "not_in_text"]
@@ -88,8 +90,10 @@ def plain(name: str) -> str:
 
 
 def read_table(payload: Mapping[str, Any]) -> list[Municipality]:
-    """The municipalities of a stored table (``{properties, rows}``). Raises when a group of
-    ``GROUPS`` or its code or name is missing: the table has changed."""
+    """The municipalities of a stored table (``{properties, rows}``) that have an
+    arrondissement and a ressort: the CBS writes "." where a year is not filled in yet, and
+    that is no map. Raises when a group of ``GROUPS`` or its code or name is missing: the
+    table has changed."""
     properties = payload.get("properties") or []
     titles = {
         p.get("ID"): p.get("Title") for p in properties if p.get("Type") == "TopicGroup"
@@ -112,7 +116,7 @@ def read_table(payload: Mapping[str, Any]) -> list[Municipality]:
     def value(row: Mapping[str, Any], group: str, title: str) -> str:
         return str(row.get(keys[(group, title)]) or "").strip()
 
-    return [
+    municipalities = [
         Municipality(
             code=value(row, MUNICIPALITIES, "Code"),
             name=value(row, MUNICIPALITIES, "Naam"),
@@ -124,6 +128,11 @@ def read_table(payload: Mapping[str, Any]) -> list[Municipality]:
         )
         for row in payload.get("rows") or []
         if value(row, MUNICIPALITIES, "Code")
+    ]
+    return [
+        m
+        for m in municipalities
+        if m.district not in UNFILLED and m.circuit not in UNFILLED
     ]
 
 

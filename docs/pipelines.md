@@ -2356,7 +2356,7 @@ run them, the daily run (incremental `retrieve all`, `normalize all --since`) do
 (`core/court_districts.py`). The columns of a table are found by the title of their group
 ("Codes en namen van gemeenten", "Arrondissementen (rechtsgebieden)", "Ressorten
 (rechtsgebieden)", "Provincies"), as their keys differ per year; a table without one fails the
-step. Each row carries the CBS code and name of the municipality, its province, arrondissement
+step. A municipality whose arrondissement or ressort is "." (the CBS writes that for a year it has not filled in yet) is left out, so a year with only "." is not stored and is never the newest year of the API. Each row carries the CBS code and name of the municipality, its province, arrondissement
 and ressort, and the articles of the Wet op de rechterlijke indeling (`BWBR0002080`, as
 `normalize bwb` wrote them) that draw them: `district_article` (4 to 13), `circuit_article`
 (14 to 17). For this year's table it also says how that text compares: articles 4 to 13 give

@@ -72,6 +72,11 @@ class CbsNormalizePipeline(NormalizePipelineBase[Stored]):
                 )
                 continue
             year = int(payload["year"])
+            if not municipalities:
+                logger.info(
+                    "%d: the CBS table has no arrondissementen yet; skipped.", year
+                )
+                continue
             checked = year == this_year and bool(law.districts)
             rows += court_districts.rows(year, municipalities, law, checked)
             if checked:
