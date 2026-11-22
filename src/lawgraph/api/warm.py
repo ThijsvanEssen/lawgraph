@@ -3,8 +3,9 @@ and whenever the data version changes (``version_cache.on_new_version``), in the
 The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search, the lower courts of Actueel, the pages of the newest cabinets,
 the dossiers of the active factions, the pages of the most cited laws (judgments, related
-laws, EU links) and the dossiers of the homepage; after those the lists under the filters
-visitors choose most (``_common_filter_parts``). Off with ``LAWGRAPH_API_WARM_UP=false``."""
+laws, EU links), the dossiers of the homepage and the bills of its network; after those the
+lists under the filters visitors choose most (``_common_filter_parts``). Off with
+``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
@@ -16,13 +17,14 @@ from functools import partial
 from typing import Any
 
 from lawgraph.api.list_totals import list_totals
-from lawgraph.api.routes.dossiers import get_dossier
+from lawgraph.api.routes.dossiers import get_changed_articles, get_dossier
 from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
 from lawgraph.api.routes.instruments import (
     get_instrument_eu_links,
     get_instrument_related_route,
 )
 from lawgraph.api.routes.stats import coverage_data, stats_data
+from lawgraph.api.schemas.feed import FeedItemDTO
 from lawgraph.config.constants import (
     CHAMBER_EK,
     CHAMBER_TK,
@@ -39,6 +41,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
 from lawgraph.core import search_stats
+from lawgraph.core.dossier_stages import BUDGET_KIND, LEGISLATIVE_KINDS
 from lawgraph.core.feed import EVENT_VOTE
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
@@ -243,13 +246,59 @@ HOME_EK_VOTES: int = FIRST_PAGES["home_ek_votes"]
 ACTUEEL_SUMMARY: dict[str, int] = FIRST_PAGES["actueel_summary"]
 
 
+def _ek_votes() -> FeedFilters:
+    return FeedFilters(
+        kinds=(EVENT_VOTE,), chamber=CHAMBER_EK, until=dutch_today().isoformat()
+    )
+
+
 def _warm_home_summary(store: GraphStore) -> None:
     get_feed_summary(store, _home_filters(), limit=HOME_SUMMARY["limit"])
     get_chamber_schedule(store, dutch_today().isoformat())
-    votes = FeedFilters(
-        kinds=(EVENT_VOTE,), chamber=CHAMBER_EK, until=dutch_today().isoformat()
-    )
-    get_feed(store, votes, limit=HOME_EK_VOTES, facets=False)
+    get_feed(store, _ek_votes(), limit=HOME_EK_VOTES, facets=False)
+
+
+# The bills the network of the homepage asks the changed articles of at most, one at a time
+# until one changes an article (``POGINGEN`` of ``wetsnetwerk.ts`` in the explorer).
+HOME_BILLS = 4
+# The kinds of dossier whose bill changes articles: a budget changes none.
+_AMENDING_KINDS = tuple(kind for kind in LEGISLATIVE_KINDS if kind != BUDGET_KIND)
+
+
+def _passed_bills(rows: list[dict[str, Any]]) -> list[str]:
+    """The dossiers of the bills passed in the events *rows*, newest first, the Eerste
+    Kamer first on a day, each once: the candidates of the network of the homepage."""
+    items = [FeedItemDTO.from_row(row) for row in rows]
+    bills = [
+        item
+        for item in items
+        if item.kind == EVENT_VOTE
+        and item.vote
+        and item.vote.passed
+        and item.dossier
+        and item.subkind in _AMENDING_KINDS
+    ]
+    bills.sort(key=lambda item: item.vote.chamber if item.vote else "")
+    bills.sort(key=lambda item: item.date, reverse=True)
+    return list(dict.fromkeys(item.dossier.number for item in bills if item.dossier))
+
+
+def _warm_home_bills(store: GraphStore) -> None:
+    """The changed articles of the bills the network of the homepage tries, as it tries
+    them: the passed bills of its summary, then those of the votes of the Eerste Kamer,
+    until one changes an article or ``HOME_BILLS`` were asked."""
+    summary = get_feed_summary(store, _home_filters(), limit=HOME_SUMMARY["limit"])
+    votes = get_feed(store, _ek_votes(), limit=HOME_EK_VOTES, facets=False)
+    asked: set[str] = set()
+    for rows in (summary.get("items") or [], votes.get("items") or []):
+        for number in _passed_bills(rows):
+            if len(asked) >= HOME_BILLS:
+                return
+            if number in asked:
+                continue
+            asked.add(number)
+            if get_changed_articles(number, store).total:
+                return
 
 
 def _warm_actueel(store: GraphStore) -> None:
@@ -331,6 +380,8 @@ PARTS: tuple[Part, ...] = (
     # the lower courts of Actueel (``lower_courts=true``), before the slow parts after "warm"
     Part("lower courts", _warm_lower_courts),
     Part("actueel", _warm_actueel),
+    # the bills of the network of the homepage (``/dossiers/{number}/changed-articles``)
+    Part("bills of the homepage", _warm_home_bills),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),
     Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),

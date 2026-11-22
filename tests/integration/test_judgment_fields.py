@@ -126,7 +126,8 @@ def test_a_conclusion_has_its_text_and_paragraphs(api: Api) -> None:
         ("1", "Inleiding"),
         ("1.1", "De advocaat-generaal concludeert tot verwerping van het beroep."),
     ]
-    assert "concludeert tot verwerping" in judgment["props"]["text"]
+    # its text once: in its paragraphs, not again in its props
+    assert not {"text", "paragraphs", "footnotes"} & judgment["props"].keys()
 
 
 def test_a_judgment_lists_the_judgments_it_cites_and_counts_them(
