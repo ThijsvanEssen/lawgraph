@@ -9,6 +9,8 @@ from functools import partial
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_JUDGMENTS,
+    RELATION_ANSWERS,
     RELATION_PART_OF,
     RELATION_REFERS_TO,
     RELATION_RELATED_TO,
@@ -16,6 +18,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core.case_numbers import case_number_keys
 from lawgraph.core.ecli import ECLI_EU_PREFIX, is_ecli
+from lawgraph.core.judgment_kinds import KIND_PRELIMINARY_RULING
 from lawgraph.core.models import judgment_id
 from lawgraph.db import GraphStore
 from lawgraph.db._rows import node_doc
@@ -284,7 +287,8 @@ class JudgmentFilters:
 
     *subject* is one of ``props.subjects`` as the source writes it: ``Strafrecht``,
     ``Bestuursrecht; Belastingrecht``. *procedure* is the procedure (psi:procedure) as the
-    source writes it: ``Hoger beroep``, ``Cassatie``.
+    source writes it: ``Hoger beroep``, ``Cassatie``. *referred_by* is the country of the
+    ECLI of the decision a judgment answers (``ANSWERS``): ``NL``.
     """
 
     q: str | None = None
@@ -297,6 +301,7 @@ class JudgmentFilters:
     # the main area of law: a subject up to its first ';' (``Bestuursrecht``)
     subject_area: str | None = None
     procedure: str | None = None
+    referred_by: str | None = None
     from_date: str | None = None
     to_date: str | None = None
     cited_by_min: int | None = None
@@ -333,6 +338,13 @@ _CLAUSES: dict[str, str] = {
     "subject": "j.subjects @> ARRAY[%(subject)s]::text[]",
     "subject_area": "lg_subject_areas(j.subjects) @> ARRAY[%(subject_area)s]::text[]",
     "procedure": "j.procedure = %(procedure)s",
+    # it answers the questions of a decision of a court of that country: an edge by the
+    # index of the edges out of the judgment, the decision by its id
+    "referred_by": f"""EXISTS (
+        SELECT FROM edges e JOIN judgments r ON r.id = e.to_id
+        WHERE e.from_id = j.id AND e.relation = '{RELATION_ANSWERS}'
+          AND e.to_collection = '{COLLECTION_JUDGMENTS}'
+          AND starts_with(r.ecli, %(referred_by)s))""",
     "from": "j.date_eff >= %(from)s",
     "to": "j.date_eff <= %(to)s",
     "cited_by_min": "j.inbound_citation_count >= %(cited_by_min)s",
@@ -351,6 +363,10 @@ def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[st
         "subject": ("subject", filters.subject),
         "subject_area": ("subject_area", filters.subject_area),
         "procedure": ("procedure", filters.procedure),
+        "referred_by": (
+            "referred_by",
+            f"ECLI:{filters.referred_by}:" if filters.referred_by else None,
+        ),
         "from": ("from", filters.from_date),
         "to": ("to", filters.to_date),
     }
@@ -560,7 +576,8 @@ def get_judgments_list(
     )
 
     def items() -> list[Any]:
-        return _page(store, order, chosen.where(), params, hits_first=hits_first)
+        page = _page(store, order, chosen.where(), params, hits_first=hits_first)
+        return _with_referring_decisions(store, page)
 
     total = partial(_total, store, filtered, chosen.where(), params)
 
@@ -648,6 +665,44 @@ def _page(
             params,
         )
     )
+
+
+def _answers_questions(row: dict[str, Any]) -> bool:
+    """Whether a row of the list can answer the questions of another decision: a ruling of
+    a court of the Union, or a prejudiciële beslissing of the Hoge Raad."""
+    ecli = str(row.get("ecli") or "")
+    return (
+        ecli.startswith(ECLI_EU_PREFIX)
+        or row.get("decision_kind") == KIND_PRELIMINARY_RULING
+    )
+
+
+def _with_referring_decisions(
+    store: GraphStore, rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """*rows* each with ``referring_decision``: the decision whose questions it answers
+    (``ANSWERS``; ``ecli``, ``court_code``, ``date``), the first by date, or None. One
+    statement for the rows that can answer one (``_answers_questions``), none without
+    them: the edges out of each by their index, the decisions by id."""
+    ids = [row["id"] for row in rows if _answers_questions(row)]
+    found: dict[str, dict[str, Any]] = {}
+    if ids:
+        found = {
+            row["from_id"]: row["decision"]
+            for row in store.query(
+                f"""
+                SELECT DISTINCT ON (e.from_id) e.from_id,
+                       json_build_object('ecli', r.ecli, 'court_code', r.court_code,
+                                         'date', r.date_eff) AS decision
+                FROM edges e JOIN judgments r ON r.id = e.to_id
+                WHERE e.from_id = ANY(%(ids)s) AND e.relation = '{RELATION_ANSWERS}'
+                  AND e.to_collection = '{COLLECTION_JUDGMENTS}'
+                ORDER BY e.from_id, r.date_eff NULLS LAST, r.ecli NULLS LAST
+                """,
+                {"ids": ids},
+            )
+        }
+    return [{**row, "referring_decision": found.get(row["id"])} for row in rows]
 
 
 def _with_narrower(

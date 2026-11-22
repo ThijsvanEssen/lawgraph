@@ -2380,7 +2380,7 @@ def test_the_start_page_is_its_core_without_a_read(
     client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``/``: the heading, what Concordans does, a search form that works without scripts
-    (the SearchAction), three features and three questions, read of nothing."""
+    (the SearchAction) and the questions, read of nothing."""
 
     def no_read(*_: Any, **__: Any) -> None:
         raise AssertionError("the start page reads nothing")
@@ -2404,7 +2404,7 @@ def test_the_start_page_is_its_core_without_a_read(
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
-    assert "/stemmingen" in hrefs and "/bundels" in hrefs
+    assert "/stemmingen" in hrefs and "/bundels" in hrefs and "/europa" in hrefs
     assert "Probeer" not in main and "stappen" not in main
     assert "onderschrift" not in main and "kenmerken" not in main
     assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Begin met een vraag"]
@@ -2412,6 +2412,7 @@ def test_the_start_page_is_its_core_without_a_read(
         "Wie haalt dit artikel aan?",
         "Hoe stemde de Kamer?",
         "Hoe houd ik bij wat ik vind?",
+        "Wat speelt er in Europa?",
     ]
     (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
     assert site["url"] == "https://concordans.nl/"

@@ -114,6 +114,8 @@ URLS = [
     "/api/judgments?subject=Strafrecht",
     "/api/judgments?subject_area=Strafrecht",
     "/api/judgments?procedure=Cassatie",
+    # the preliminary rulings on questions of a Dutch court: an edge per ruling of the tier
+    "/api/judgments?tier=hvj_eu&referred_by=NL",
     "/api/judgments?q=onrechtmatige+daad",
     f"/api/judgments/{ECLI}",
     "/api/instruments",

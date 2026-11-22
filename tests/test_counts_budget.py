@@ -346,4 +346,5 @@ def test_an_exact_match_still_counting_is_the_answer(
         judgments.JudgmentFilters(q="18/04298"),
         facets=False,
     )
-    assert found["items"] == [row] and found["partial"] is True
+    assert found["items"] == [{**row, "referring_decision": None}]
+    assert found["partial"] is True

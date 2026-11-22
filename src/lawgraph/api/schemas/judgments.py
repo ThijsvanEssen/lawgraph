@@ -12,7 +12,6 @@ from lawgraph.api.schemas.common import (
     PARTIAL_COUNTS,
     ArticleCitationSpan,
     ArticleRelationDTO,
-    FacetCountDTO,
     JudgmentOutcomeFields,
     JudgmentSummaryDTO,
     PathSource,
@@ -25,10 +24,11 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.completeness import COMPLETENESS, Completeness
 from lawgraph.api.schemas.criminal_decision import CriminalFields, criminal_decision
+from lawgraph.api.schemas.judgment_facets import JudgmentFacets
 from lawgraph.api.schemas.nodes import BaseNodeDTO
 from lawgraph.api.schemas.tables import ArticleTableDTO, text_tables
 from lawgraph.config.constants import Collection
-from lawgraph.core.ecli import ecli_source
+from lawgraph.core.ecli import court_code, ecli_source
 from lawgraph.core.judgment_chamber import chamber_of
 from lawgraph.core.judgment_kinds import JudgmentKind
 from lawgraph.core.judgment_metadata import subject_areas
@@ -727,6 +727,30 @@ _COURT_KIND = (
 )
 
 
+class ReferringDecisionDTO(StrictModel):
+    """The decision whose questions a preliminary ruling answers (``ANSWERS``)."""
+
+    ecli: str
+    court: str | None = Field(
+        description="Its court code (`RBROT`), of a decision not in the graph from its "
+        "ECLI."
+    )
+    date: str | None = Field(
+        description="Its date; null for a decision not in the graph."
+    )
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any] | None) -> ReferringDecisionDTO | None:
+        if not row or not row.get("ecli"):
+            return None
+        ecli = str(row["ecli"])
+        return cls(
+            ecli=ecli,
+            court=row.get("court_code") or court_code(ecli),
+            date=row.get("date"),
+        )
+
+
 class JudgmentListItemDTO(WithCite, WithPath):
     """Row in the paginated /api/judgments list."""
 
@@ -762,6 +786,14 @@ class JudgmentListItemDTO(WithCite, WithPath):
     )
     series_id: str | None = None
     series_size: int | None = None
+    referring_decision: ReferringDecisionDTO | None = Field(
+        default=None,
+        description="The decision whose questions it answers (`ANSWERS`): of a "
+        "preliminary ruling of the Court of Justice the Dutch decision that referred "
+        "them, of a prejudiciële beslissing of the Hoge Raad the decision that asked it; "
+        "the first by date when it answers several. Null for another judgment, and for "
+        "a ruling whose referring decision is not known (a gap, never a guess).",
+    )
 
     @classmethod
     def from_document(cls, row: dict[str, Any]) -> JudgmentListItemDTO:
@@ -786,74 +818,11 @@ class JudgmentListItemDTO(WithCite, WithPath):
             outbound_citation_count=row.get("outbound_citation_count"),
             series_id=row.get("series_id"),
             series_size=row.get("series_size"),
+            referring_decision=ReferringDecisionDTO.from_row(
+                row.get("referring_decision")
+            ),
             cite=judgment_cite_dto(row),
         )
-
-
-class SubjectFacetCount(StrictModel):
-    """A subject of the Rechtspraak under a main area, as the source writes it."""
-
-    value: str = Field(
-        description="The subject as the source writes it (`Bestuursrecht; Belastingrecht`); "
-        "the `subject` filter takes it."
-    )
-    label: str = Field(description="The part after the main area: `Belastingrecht`.")
-    count: int
-
-
-class SubjectAreaFacetCount(FacetCountDTO):
-    """A main area of law with the subjects under it."""
-
-    narrower: list[SubjectFacetCount] = Field(
-        default_factory=list,
-        description="The subjects of the source under this main area, most first; "
-        "counted without the `subject_area` and `subject` filters.",
-    )
-
-
-class JudgmentFacets(StrictModel):
-    """The judgments under the filters, counted; each without its own filter."""
-
-    tier: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per tier, most first; counted without the `tier` and "
-        "`court_kind` filters.",
-    )
-    court_kind: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per kind of court, most first; counted without the `court_kind` "
-        "filter (within a chosen `tier`).",
-    )
-    source: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per source (`rechtspraak`, `echr`), most first; counted without "
-        "the `source` filter.",
-    )
-    year: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per year of `date` (`2024`), oldest first after null (no date); "
-        "counted without `from` and `to`.",
-    )
-    subjects: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per area of law, as the source writes it (`Strafrecht`, "
-        "`Bestuursrecht; Belastingrecht`), most first; a judgment counts for each of its "
-        "areas; counted without the `subject` filter.",
-    )
-    subject_area: list[SubjectAreaFacetCount] = Field(
-        default_factory=list,
-        description="Per main area of law: a subject up to its first `;` (`Bestuursrecht` "
-        "holds `Bestuursrecht; Belastingrecht`), most first; a judgment counts once for "
-        "each of its main areas. `narrower`: the subjects under it as the source writes "
-        "them. The whole tree is counted without the `subject_area` and `subject` filters, "
-        "so the other areas stay in view when one is chosen.",
-    )
-    procedure: list[FacetCountDTO] = Field(
-        default_factory=list,
-        description="Per procedure (Rechtspraak `psi:procedure`, as written: `Hoger "
-        "beroep`, `Cassatie`; null when it gives none), most first; counted without the "
-        "`procedure` filter.",
-    )
 
 
 class JudgmentListResponse(StrictModel):
