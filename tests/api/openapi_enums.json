@@ -516,6 +516,13 @@
   "vervallen",
   "vervangen"
  ],
+ "/components/schemas/DossierImplementsDTO/properties/bases/items/anyOf/0#const": [
+  "title"
+ ],
+ "/components/schemas/DossierImplementsDTO/properties/bases/items/anyOf/1": [
+  "national_implementing_measure",
+  "considerans"
+ ],
  "/components/schemas/DossierInstrumentDTO/properties/relation": [
   "legislated_in",
   "establishes",
@@ -1895,6 +1902,10 @@
   "last_activity",
   "closed_on",
   "title"
+ ],
+ "/paths//api/dossiers/get/parameters/17/schema/anyOf/0": [
+  "proposal",
+  "implementation"
  ],
  "/paths//api/dossiers/{number}/get/parameters/1/schema": [
   "name",

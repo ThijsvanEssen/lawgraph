@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-eu`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -408,6 +408,16 @@ goes otherwise.
 or of a reference) is not in a run of `normalize tk-dossiers`. Every dossier without a title,
 the source of its title or an opening date takes them from its papers and activities as that
 pipeline gives them (`core/dossier_stages.select_title`, `opened_on`).
+
+**Semantic `tk-dossier-eu`.** The Tweede Kamer has no field for the EU document a dossier is
+about or the EU acts it implements; its title names them (`core/dossier_eu.py`). `eu_ref`:
+`{com, celex}` per COM number of the title (`COM (2025) 80`, written `COM(2025) 80`), `celex`
+the CELEX of that document when the graph holds it (`52025PC0080`, a proposal, or
+`52025DC0080`; `retrieve eurlex --mode com` fetches only the proposals of adopted acts), else
+null. `implements`: `{celex, bases}` per EU act the title says it implements (basis `title`,
+read as a considerans is: `core/eu_citations.implemented_acts`) and per act an instrument
+`LEGISLATED_IN` the dossier `IMPLEMENTS` (the `meta.bases` of that edge). Over every dossier;
+writes only what changes, null where nothing is left.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:
@@ -2405,6 +2415,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `kst-sru` | `normalize tk-dossiers` and `normalize kst-sru` |
 | semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `kst-sru`, `eerstekamer-bills`) |
+| semantic `tk-dossier-eu` | the dossier titles (`normalize tk-dossiers`, `tk-dossier-titles`), `bwb-implements` (`IMPLEMENTS`), `bwb-amendments` (`LEGISLATED_IN`) and `normalize eurlex` (the COM documents) |
 | semantic `tk-dossier-outcomes` | `bwb-amendments`, `normalize staatsblad-laws` and `verdragenbank` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `kst-sru` | `normalize tk-dossiers` (the dossiers it does not write, and the documents of the Tweede Kamer's API its copies give way to) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |

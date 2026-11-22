@@ -1353,6 +1353,8 @@ so. Its schema does not name it.
 | `cabinet` | `str` | The cabinet in office that day. |
 | `first_signed` | `object` | The signature `ministry`, `initiative` and `cabinet` are read from (`semantic tk-government`): the first of the earliest document of the dossier signed first by a Kamerlid or a bewindspersoon, `{date, member, capacity, function, paper}` (`member` its key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document). |
 | `same_number_count` | `int` | The other dossiers with the same number (`normalize tk-dossiers`). |
+| `eu_ref` | `list[object]` | `{com, celex}` per COM number of its title (`semantic tk-dossier-eu`). |
+| `implements` | `list[object]` | `{celex, bases}` of the EU acts it implements (`semantic tk-dossier-eu`). |
 
 <!-- props:dossiers:end -->
 

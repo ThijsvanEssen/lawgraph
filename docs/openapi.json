@@ -3419,7 +3419,7 @@
           "dossiers"
         ],
         "summary": "Dossiers",
-        "description": "Every dossier, open and closed, filtered by status, outcome, track, the start of its number, committee, subject (a number, a dossier, or words of the title, such as its short title), stage, ministry, initiative and the day it opened. ``total`` is the absolute count, independent of ``limit``. ``facets`` counts the dossiers per status, outcome, track, current stage and ministry under the other filters, each dimension without its own filter; ``facets=false`` leaves them out (null): the pages after the first need none.\n\nevery dossier, open and closed; `status` (`open`, `closed`, `all`, default `all`), `outcome`, `kind` (comma-separated, the values of `facets.kind`), `number` (the start of the label: `36264` gives that dossier and its chapters, `37020-` the chapters of 37020), `committee` (slug), `subject` (a number, a dossier such as `37035-XXII`, or words of the title, which holds the short title: `Verzamelwet gegevensbescherming`), `phase` (the current one; comma-separated, one of them), `has_phase` (all listed phases done), `ministry`, `initiative`, `opened_from`, `opened_to` (dates), `sort` (`number`: in the order of the Kamer, no suffix, numeric suffixes by value, budget chapters by value with their letter, then the rest (`props.order`); `opened_on`, `last_activity` and `closed_on` newest first; `title`; ties by key; default `number` with a `number` filter, else `opened_on`), `limit`, `offset`; `total` counts every match. `facets`: per `status`, `outcome`, `kind`, `phase` and `ministry` a list of `{value, count}` under the current filters, each dimension counted without its own filter, the largest first (`value` null counts the dossiers without one); `facets=false` gives `facets` null and counts nothing but `total`, the choice for the pages after the first. Every dossier summary in the API carries `short_title` (a budget by its chapter and year, `Begroting Defensie 2027`, a change of it also by its nota, `Suppletoire begroting gemeentefonds 2026 (Miljoenennota)`, a slotwet as `Slotwet Defensie 2025`; else the parentheses that end the title, before where the act it carries out was published: not `PbEU 2022, L 173`, `Trb.`, `Stb.`), and `ministry` (of the bewindspersoon who signed its earliest signed document first), `initiative` (a Kamerlid signed first) and `cabinet` (in office then), null when unknown",
+        "description": "Every dossier, open and closed, filtered by status, outcome, track, the start of its number, committee, subject (a number, a dossier, or words of the title, such as its short title), stage, ministry, initiative, the day it opened and what it says of the EU (``eu``, ``celex``). ``total`` is the absolute count, independent of ``limit``. ``facets`` counts the dossiers per status, outcome, track, current stage and ministry under the other filters, each dimension without its own filter; ``facets=false`` leaves them out (null): the pages after the first need none.\n\nevery dossier, open and closed; `status` (`open`, `closed`, `all`, default `all`), `outcome`, `kind` (comma-separated, the values of `facets.kind`), `number` (the start of the label: `36264` gives that dossier and its chapters, `37020-` the chapters of 37020), `committee` (slug), `subject` (a number, a dossier such as `37035-XXII`, or words of the title, which holds the short title: `Verzamelwet gegevensbescherming`), `phase` (the current one; comma-separated, one of them), `has_phase` (all listed phases done), `ministry`, `initiative`, `opened_from`, `opened_to` (dates), `eu` (`proposal`: a non-empty `eu_ref`; `implementation`: a non-empty `implements`), `celex` (in `eu_ref` or `implements`), `sort` (`number`: in the order of the Kamer, no suffix, numeric suffixes by value, budget chapters by value with their letter, then the rest (`props.order`); `opened_on`, `last_activity` and `closed_on` newest first; `title`; ties by key; default `number` with a `number` filter, else `opened_on`), `limit`, `offset`; `total` counts every match. `facets`: per `status`, `outcome`, `kind`, `phase` and `ministry` a list of `{value, count}` under the current filters, each dimension counted without its own filter, the largest first (`value` null counts the dossiers without one); `facets=false` gives `facets` null and counts nothing but `total`, the choice for the pages after the first. Every dossier summary in the API carries `short_title` (a budget by its chapter and year, `Begroting Defensie 2027`, a change of it also by its nota, `Suppletoire begroting gemeentefonds 2026 (Miljoenennota)`, a slotwet as `Slotwet Defensie 2025`; else the parentheses that end the title, before where the act it carries out was published: not `PbEU 2022, L 173`, `Trb.`, `Stb.`), and `ministry` (of the bewindspersoon who signed its earliest signed document first), `initiative` (a Kamerlid signed first) and `cabinet` (in office then), null when unknown; `eu_ref` (`{com, celex}` per COM number its title names, `celex` null while the graph lacks that document) and `implements` (`{celex, bases}` of the EU acts it implements: `title` its title, `national_implementing_measure` or `considerans` the `IMPLEMENTS` of a law it legislated), empty for none (`semantic tk-dossier-eu`)",
         "operationId": "list_dossiers_api_dossiers_get",
         "parameters": [
           {
@@ -3720,6 +3720,47 @@
               "title": "Seat"
             },
             "description": "An office, by any of its names (``GET /api/seats/{seat}``): the dossiers its holder that day signed first."
+          },
+          {
+            "name": "eu",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "proposal",
+                    "implementation"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "``proposal``: the dossiers about a COM document (``eu_ref``); ``implementation``: those that implement an EU act (``implements``).",
+              "title": "Eu"
+            },
+            "description": "``proposal``: the dossiers about a COM document (``eu_ref``); ``implementation``: those that implement an EU act (``implements``)."
+          },
+          {
+            "name": "celex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9][0-9A-Z()]{5,20}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A CELEX number: the dossiers whose ``eu_ref`` or ``implements`` holds it, e.g. ``32024L2811``.",
+              "title": "Celex"
+            },
+            "description": "A CELEX number: the dossiers whose ``eu_ref`` or ``implements`` holds it, e.g. ``32024L2811``."
           }
         ],
         "responses": {
@@ -10988,6 +11029,22 @@
       },
       "ActorDossierDTO": {
         "properties": {
+          "eu_ref": {
+            "items": {
+              "$ref": "#/components/schemas/EuRefDTO"
+            },
+            "type": "array",
+            "title": "Eu Ref",
+            "description": "The COM documents its title names (an EU proposal); empty for none."
+          },
+          "implements": {
+            "items": {
+              "$ref": "#/components/schemas/DossierImplementsDTO"
+            },
+            "type": "array",
+            "title": "Implements",
+            "description": "The EU acts it implements, by CELEX; empty for none known."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -11348,6 +11405,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "eu_ref",
+          "implements",
           "id",
           "key",
           "number",
@@ -23092,6 +23151,22 @@
       },
       "DossierDetailResponse": {
         "properties": {
+          "eu_ref": {
+            "items": {
+              "$ref": "#/components/schemas/EuRefDTO"
+            },
+            "type": "array",
+            "title": "Eu Ref",
+            "description": "The COM documents its title names (an EU proposal); empty for none."
+          },
+          "implements": {
+            "items": {
+              "$ref": "#/components/schemas/DossierImplementsDTO"
+            },
+            "type": "array",
+            "title": "Implements",
+            "description": "The EU acts it implements, by CELEX; empty for none known."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -23528,6 +23603,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "eu_ref",
+          "implements",
           "id",
           "key",
           "number",
@@ -23989,6 +24066,45 @@
         ],
         "title": "DossierFacetsDTO",
         "description": "Per dimension the number of dossiers per value under the current filters, each\ndimension counted without its own filter (so the other values of a chosen dimension\nkeep their counts), the largest first."
+      },
+      "DossierImplementsDTO": {
+        "properties": {
+          "celex": {
+            "type": "string",
+            "title": "Celex",
+            "examples": [
+              "32024L2811"
+            ]
+          },
+          "bases": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "title"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "national_implementing_measure",
+                    "considerans"
+                  ]
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Bases",
+            "description": "What says so: ``title`` the dossier's title (\"ter implementatie van Richtlijn (EU) 2024/2811\"); ``national_implementing_measure`` and ``considerans`` the ``IMPLEMENTS`` of a law the dossier legislated (``GET /api/instruments/{identifier}/eu-links``)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "celex",
+          "bases"
+        ],
+        "title": "DossierImplementsDTO",
+        "description": "An EU act the dossier implements."
       },
       "DossierInstrumentDTO": {
         "properties": {
@@ -24906,6 +25022,22 @@
       },
       "DossierSummaryDTO": {
         "properties": {
+          "eu_ref": {
+            "items": {
+              "$ref": "#/components/schemas/EuRefDTO"
+            },
+            "type": "array",
+            "title": "Eu Ref",
+            "description": "The COM documents its title names (an EU proposal); empty for none."
+          },
+          "implements": {
+            "items": {
+              "$ref": "#/components/schemas/DossierImplementsDTO"
+            },
+            "type": "array",
+            "title": "Implements",
+            "description": "The EU acts it implements, by CELEX; empty for none known."
+          },
           "id": {
             "type": "string",
             "title": "Id"
@@ -25233,6 +25365,8 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
+          "eu_ref",
+          "implements",
           "id",
           "key",
           "number",
@@ -26407,6 +26541,38 @@
         ],
         "title": "EuLinkDTO",
         "description": "An `IMPLEMENTS` or `REFERS_TO` edge between a national instrument and an EU act.\n\n`IMPLEMENTS` rests on an implementation source (`bases`): EUR-Lex lists the publication\nas a national implementing measure of the act, or it enacted the regulation\n(`national_implementing_measure`, `meta.publications`), or the considerans of the\nregulation says it implements the act (`considerans`). It links instruments: no source\nnames the article that implements. `REFERS_TO`: the text of the regulation names the\nCELEX number of an act it does not implement."
+      },
+      "EuRefDTO": {
+        "properties": {
+          "com": {
+            "type": "string",
+            "title": "Com",
+            "description": "As EUR-Lex writes it: ``COM(2025) 80``.",
+            "examples": [
+              "COM(2025) 80"
+            ]
+          },
+          "celex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Celex",
+            "description": "The CELEX number of that document (``52025PC0080`` a proposal, ``52025DC0080`` another document) when the graph holds it (``GET /api/instruments/{identifier}``); null when it does not."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "com",
+          "celex"
+        ],
+        "title": "EuRefDTO",
+        "description": "A document of the European Commission the dossier is about, by the COM number its\ntitle names (the Tweede Kamer gives no field for it)."
       },
       "ExplainedTargetDTO": {
         "properties": {
