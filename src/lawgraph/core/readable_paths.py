@@ -193,14 +193,14 @@ def short_law_path(pathname: str) -> Pad | None:
     return Pad("artikel", name, rest[0]) if rest else Pad("wet", name)
 
 
-def _e(part: str) -> str:
+def uri_component(part: str) -> str:
     """``encodeURIComponent``."""
     return quote(part, safe="-_.!~*'()")
 
 
 def _keep(part: str) -> str:
     """``encodeURIComponent`` with the colon kept: it is safe in a segment."""
-    return _e(part).replace("%3A", ":")
+    return uri_component(part).replace("%3A", ":")
 
 
 def pad_href(pad: Pad) -> str:
@@ -209,15 +209,15 @@ def pad_href(pad: Pad) -> str:
     if s == "uitspraak":
         return f"/uitspraken/{_keep(pad.a)}"
     if s == "artikel":
-        return f"/wetten/{_e(pad.a)}/artikel/{_keep(pad.b)}"
+        return f"/wetten/{uri_component(pad.a)}/artikel/{_keep(pad.b)}"
     if s == "bijlage":
-        return f"/wetten/{_e(pad.a)}/bijlage/{_e(pad.b)}"
+        return f"/wetten/{uri_component(pad.a)}/bijlage/{uri_component(pad.b)}"
     if s == "wet":
-        return f"/wetten/{_e(pad.a)}"
+        return f"/wetten/{uri_component(pad.a)}"
     if s == "dossier":
-        return f"/dossiers/{_e(pad.a)}"
+        return f"/dossiers/{uri_component(pad.a)}"
     if s == "kamerstuk":
-        return f"/kamerstukken/{_e(pad.a)}/{_e(pad.b)}"
+        return f"/kamerstukken/{uri_component(pad.a)}/{uri_component(pad.b)}"
     if s == "publicatie":
         return f"/{pad.a}/{pad.b}/{pad.c}"
     prefix = {

@@ -6,8 +6,16 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from lawgraph.api.schemas.common import FacetCountDTO, StrictModel, WithPath
+from lawgraph.api.schemas.commitments import CommitmentDTO
+from lawgraph.api.schemas.common import (
+    FacetCountDTO,
+    PathSource,
+    StrictModel,
+    WithPath,
+)
 from lawgraph.api.schemas.completeness import Completeness
+from lawgraph.api.schemas.decisions import DecisionSummaryDTO
+from lawgraph.api.schemas.dossiers import DossierDocumentDTO, DossierInstrumentDTO
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.config.constants import Collection
 from lawgraph.db.queries.search.searched import Searched
@@ -97,6 +105,47 @@ class SearchCountDTO(StrictModel):
     )
 
 
+class ActiveDossierDTO(WithPath):
+    """The dossier of the Kamer a search finds that plays now: activity in the last 30
+    days."""
+
+    path_source = PathSource("dossiers")
+
+    id: str
+    key: str
+    number: str = Field(description="Its number as the Kamer cites it: `36611`.")
+    title: str | None = None
+    short_title: str | None = Field(
+        None, description="The name it goes by, as `/api/dossiers` gives it."
+    )
+    last_activity: str = Field(
+        description="The day of the newest paper, activity held or decision in it, as "
+        "`/api/dossiers` gives it."
+    )
+    documents: list[DossierDocumentDTO] = Field(
+        description="Its 3 newest papers, as `/api/dossiers/{number}/documents` gives them."
+    )
+    document_count: int = Field(description="All its papers.")
+    motions: list[DecisionSummaryDTO] = Field(
+        description="The votes on its motions of the last 30 days, the newest first (5 at "
+        "most), as `/api/decisions?kind=Motie&unvoted=true` gives them: with `passed` and "
+        "`tally`, or `passed` null and the reason in `decision_kind` for a motion held, "
+        "withdrawn or lapsed."
+    )
+    commitments: list[CommitmentDTO] = Field(
+        description="Its open commitments (`Openstaand`), the newest made first (3 at "
+        "most), as `/api/commitments` gives them."
+    )
+    commitment_count: int = Field(description="All its open commitments.")
+    law: DossierInstrumentDTO | None = Field(
+        None,
+        description="The Dutch law it makes or changes: the first of `instruments` of "
+        "`/api/dossiers/{number}?sort=importance` that is not an EU act (a law that came "
+        "out of it before one it amends, introduces or repeals; of those the most cited); "
+        "null without one.",
+    )
+
+
 class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
 
@@ -169,4 +218,12 @@ class SearchResponse(StrictModel):
         "`judgments.year` (of the decision), `documents.kind`, `instruments.validity` "
         "(`in_force`, `expired`, `not_in_force_yet`, as `/api/instruments` says it; null "
         "when its source says none). Null without `facets=true`.",
+    )
+    active_dossier: ActiveDossierDTO | None = Field(
+        default=None,
+        description="Of the full search (`mode=full`, the first page), when a hit of "
+        "`dossiers` had activity in the last 30 days (`extra.last_activity`): that dossier "
+        "with what plays in it. Of several the one of the best `score`, then the newest "
+        "activity. Null when none does, with `matched` `any`, or without `dossiers` in "
+        "`types`.",
     )

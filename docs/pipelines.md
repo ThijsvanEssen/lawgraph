@@ -302,7 +302,7 @@ hold `raw_match`, `snippet`, `reason` (`bwb_article`, `celex_article`, `bwb_inst
 
 | Relation | Detection | Confidence |
 |----------|-----------|-----------|
-| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records/kinds.py`: `may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
+| `AMENDS` (Document to Instrument, `voorgesteld`) | an amendement, the text of a bill (`Voorstel van wet`, `Nota van wijziging`, `Nota van verbetering`, `Wijzigingen voorgesteld door de regering`, `Oorspronkelijke tekst`, `Bijgewerkte tekst`, `Eindtekst`) or its `Memorie van toelichting` (`core/tk_records/kinds.py`: `may_amend`) whose title (of an amendement: its `dossier_title`) contains `wijziging van` and a known instrument name as a whole word (not the `Erfgoedwet` in `Erfgoedwetgeving`); any other paper on the bill's dossier, a motie too, amends nothing. Not an EU act the title names (a bill implements EU law, it does not amend it), nor an act of the document's own dossier (the instrument `LEGISLATED_IN` it, whose citeertitel closes the title once it is published). A title that contains `wijziging van` but names no known instrument ("Wijziging van enkele belastingwetten en enige andere wetten (Belastingplan 2027)") leaves it to the text: the laws its wijzigingsartikelen (roman `article` sections) each name first. A document the step reads loses the `AMENDS` edges of the step it no longer gets, and every run removes an edge of any document to the act of its own dossier (one linked before its act was published) | 0.85 |
 | `IMPLEMENTS` (Instrument to Instrument) | an implementation source (`meta.bases`): EUR-Lex lists the publication as a national implementing measure of the act (`retrieve eurlex-nim`): from the publication when the graph has it, and from every regulation it enacted (`props.enacted_publication`; not one it merely changed) (`national_implementing_measure`, `meta.publications`); or the considerans of the regulation implements the act (`considerans`: "ter uitvoering van", "te implementeren", "om te zetten", the "Gelet op" of an order; an act cited in the title of the implemented one, up to its reference in the Official Journal, is not implemented; `props.implements_celex`, kept by `normalize bwb`). Not per article: a measure names no article, and an amending act may change many laws. Both instruments must exist; the edges are derived in full on every run | 1.0 |
 | `REFERS_TO` (Instrument to Instrument) | an EU act whose CELEX number the BWB XML of a regulation names (`props.celex_refs`) and that it does not implement | 1.0 |
 
@@ -313,7 +313,7 @@ instrument `LEGISLATED_IN` it): a bill, its memorandum, a nota van wijziging and
 make that act, they do not change it. A document of one law changes it wherever its text says
 so; a document of several changes each in its own wijzigingsartikel (the roman `article`
 sections, `ARTIKEL I`, `ARTIKEL II` …): the law of a part is the one of them it names first, and
-a part that names none of them (or the text before the first part) changes none. Targets must exist. Every edge is written with status
+a part that names none of them (or the text before the first part) changes none. An article number may be numbered per chapter (`2.10a`). Targets must exist. Every edge is written with status
 `voorgesteld`; the edges are derived in full on every run, and one no longer derived goes.
 
 <!-- amendment-wordings:begin (generated: python -m lawgraph.pipelines.semantic.tk_amendment_articles) -->
@@ -324,7 +324,7 @@ a part that names none of them (or the text before the first part) changes none.
 | `Na artikel N wordt een artikel M ingevoegd` (article M) | `INTRODUCES` | 0.85 |
 | `Artikel N ... komt te luiden` | `AMENDS` | 0.85 |
 | `Artikel N ... vervalt` / `komt te vervallen` | `REPEALS` | 0.80 |
-| `In artikel N ... wordt` | `AMENDS` | 0.80 |
+| `In artikel N ... wordt` / `worden` / `komt` / `komen` | `AMENDS` | 0.80 |
 
 <!-- amendment-wordings:end -->
 
@@ -2356,7 +2356,7 @@ run them, the daily run (incremental `retrieve all`, `normalize all --since`) do
 (`core/court_districts.py`). The columns of a table are found by the title of their group
 ("Codes en namen van gemeenten", "Arrondissementen (rechtsgebieden)", "Ressorten
 (rechtsgebieden)", "Provincies"), as their keys differ per year; a table without one fails the
-step. Each row carries the CBS code and name of the municipality, its province, arrondissement
+step. A municipality whose arrondissement or ressort is "." (the CBS writes that for a year it has not filled in yet) is left out, so a year with only "." is not stored and is never the newest year of the API. Each row carries the CBS code and name of the municipality, its province, arrondissement
 and ressort, and the articles of the Wet op de rechterlijke indeling (`BWBR0002080`, as
 `normalize bwb` wrote them) that draw them: `district_article` (4 to 13), `circuit_article`
 (14 to 17). For this year's table it also says how that text compares: articles 4 to 13 give

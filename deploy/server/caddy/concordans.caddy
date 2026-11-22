@@ -74,6 +74,10 @@ concordans.nl {
 
 	@immutable path /_app/immutable/*
 	header @immutable Cache-Control "public, max-age=31536000, immutable"
+	# a font has no hash in its name: 30 days, then the kept one while it is asked again; a
+	# font that changes gets a new name
+	@fonts path /fonts/*
+	header @fonts Cache-Control "public, max-age=2592000, stale-while-revalidate=31536000"
 	@notImmutable not path /_app/immutable/*
 	header @notImmutable ?Cache-Control "no-cache"
 	header {

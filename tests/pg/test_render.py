@@ -1664,6 +1664,34 @@ def test_a_page_whose_reads_take_too_long_keeps_its_title(
     assert f'<meta name="focus" content="{focus}' in response.text
 
 
+def test_a_page_preloads_what_its_app_asks_first(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first calls of the app, beside its JavaScript (``api/seo/preload``): of a source by
+    its address and node, also past the render budget; of a page of the app by its path and
+    query; none for another page."""
+    from lawgraph.db.request_context import ReadTimedOut
+
+    link = '<link rel="preload" as="fetch" crossorigin href="{}" />'
+    article = _get(client, "/wetten/BWBR0005289/artikel/6:162").text
+    assert link.format("/api/articles/BWBR0005289/162") in article
+    assert link.format("/api/nodes/articles/bwbr0005289_162?limit=1") in article
+    search = _get(client, "/?q=huur").text
+    assert (
+        link.format("/api/search?q=huur&amp;types=judgments&amp;limit=6&amp;mode=full")
+        in search
+    )
+    assert 'rel="preload"' not in _get(client, "/bundels").text
+
+    def slow(*args: Any, **kwargs: Any) -> Any:
+        raise ReadTimedOut("past the budget")
+
+    monkeypatch.setattr(render, "_source_page", slow)
+    late = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(late, 503)
+    assert link.format("/api/articles/BWBR0005289/162") in late.text
+
+
 def _seed_debate(store: GraphStore) -> None:
     """A wetgevingsoverleg with its verslag, a motion submitted in it and a commitment made
     in it, led by a committee; and the vote of another day, with nothing made in it."""

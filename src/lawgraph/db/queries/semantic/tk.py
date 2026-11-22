@@ -260,7 +260,9 @@ def own_acts(acts: Mapping[str, set[str]], props: Mapping[str, Any]) -> set[str]
     }
 
 
-_TO_SCAN_FOR_AMENDMENTS_SQL = f"""
+def _to_scan_sql(chosen: str) -> str:
+    """SQL: the Tweede Kamer documents with a text for which *chosen* (on ``c``) holds."""
+    return f"""
 SELECT {slim_sql("c", "bwb_id", "text", "sections", "dossier_numbers")}
 FROM (
     SELECT d.id, d.key, d.type, d.labels, coalesce(p.props, '{{}}'::json) AS props
@@ -272,17 +274,20 @@ FROM (
 ) c
 WHERE {is_present("c.props -> 'text'")}
   AND lg_str(c.props -> 'text') IS DISTINCT FROM ''
-  AND ({is_present("c.props -> 'bwb_id'")} OR c.id = ANY(%(amending)s::text[]))
+  AND ({chosen})
 ORDER BY c.key
 """
 
 
 def tk_documents_to_scan_for_amendments(
-    store: Store, amending: list[str]
+    store: Store, amending: list[str], *, own_law: bool = True
 ) -> Iterator[dict[str, Any]]:
-    """The Tweede Kamer documents with a text and a law to amend: their own ``bwb_id``, or
-    their id in *amending*; with their ``dossier_numbers``."""
-    return store.query(_TO_SCAN_FOR_AMENDMENTS_SQL, {"amending": amending})
+    """The Tweede Kamer documents with a text and a law to amend: their own ``bwb_id`` (not
+    without *own_law*), or their id in *amending*; with their ``dossier_numbers``."""
+    chosen = "c.id = ANY(%(amending)s::text[])"
+    if own_law:
+        chosen = f"{is_present("c.props -> 'bwb_id'")} OR {chosen}"
+    return store.query(_to_scan_sql(chosen), {"amending": amending})
 
 
 _AMENDED_INSTRUMENTS_SQL = f"""

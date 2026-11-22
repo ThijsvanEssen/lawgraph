@@ -78,6 +78,9 @@ class Page:
     first_paint: dict[str, Any] | None = None
     # whether the JSON-LD also names Concordans as an ``Organization`` (``/`` and ``/over``)
     organization: bool = False
+    # the API answers the app of the page asks first, preloaded beside its JavaScript
+    # (``api/seo/preload``)
+    preload: list[str] = field(default_factory=list)
 
 
 def organization(base: str) -> dict[str, Any]:

@@ -18,6 +18,7 @@ from lawgraph.api.routes import (
     factions,
     instruments,
     judgments,
+    ministries,
 )
 from lawgraph.config.constants import (
     CHAMBER_TK,
@@ -120,6 +121,8 @@ LISTS: dict[str, ListTotal] = {
             commitments.list_commitments(store=store, limit=1, facets=False).total
         ),
     ),
+    # a list of the register (``data/ministries.json``), not of the graph: nothing to wait for
+    "ministries": ListTotal((), lambda store: len(ministries.list_ministries())),
     # as the list opens (the Tweede Kamer), from its kept count without waiting for it:
     # null until it is counted (the warm-up counts it)
     "decisions": ListTotal(
