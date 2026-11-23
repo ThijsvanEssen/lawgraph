@@ -25,7 +25,7 @@ from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import seo
+from lawgraph.db.queries import lookup, seo
 from tests.asserts import assert_status
 from tests.fakes import PATIENCE, until
 from tests.paths import fixture_text
@@ -658,6 +658,30 @@ def test_a_law_at_its_short_address_redirects_to_its_bwb_id(
     assert_status(_get(client, "/actueel"), 200)
     for path in ("/xyz", "/xyz/1", "/bw", "/bw/99/1"):
         assert _get(client, path).status_code == 404, path
+
+
+@pytest.mark.parametrize("path", ["/bestaatniet", "/wetten/xyz"])
+def test_a_name_not_known_in_time_is_a_late_page(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    """Whether a path is the abbreviation of a law (``/bestaatniet``, ``/wetten/xyz``) is
+    read within the render budget: past it (every connection of the pool held, 23 Nov)
+    the shell as a late page, not a wait past the 2 s after which Caddy gives up (504)."""
+    from lawgraph.db.request_context import ReadTimedOut, read_time_left
+
+    waits: list[float | None] = []
+
+    def slow(*args: Any, **kwargs: Any) -> Any:
+        waits.append(read_time_left())
+        raise ReadTimedOut("no connection of the pool came free")
+
+    monkeypatch.setattr(render, "RENDER_BUDGET", 1.0)
+    monkeypatch.setattr(lookup, "law_named", slow)
+    response = _get(client, path)
+    assert waits and all(w is not None and w <= 1.0 for w in waits), waits
+    assert_status(response, 503)
+    assert response.headers[render.LATE_HEADER] == "1"
+    assert response.headers["retry-after"] == render.LATE_RETRY_AFTER
 
 
 def test_a_page_of_the_app_goes_before_the_abbreviation_of_a_law(

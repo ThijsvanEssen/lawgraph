@@ -226,12 +226,16 @@ def _same_person_path(store: GraphStore, member_id: str) -> str | None:
 def _to_named_law(store: GraphStore, named: Pad, request: Request) -> Response:
     """A 301 from a law, a book of a code or an article by the abbreviation it is cited
     by (``law_by_name``, ``short_law_path``) to its readable address; 404 for an
-    abbreviation of no law."""
+    abbreviation of no law. Read within ``RENDER_BUDGET``: every path of one segment is
+    asked here (``/bestaatniet``), and past it the page is late."""
+    number = f"{named.b}:" if named.soort == "boek" else named.b or None
+    law_id: str | None = None
+    with read_budget(RENDER_BUDGET, f"The law named {named.a}") as budget:
+        law_id = lookup.law_named(store, named.a, number)
+    if budget.ran_out:
+        return _late(request, Page("", "", "/" + request.path_params["path"]))
     if named.soort == "boek":
-        law_id = lookup.law_named(store, named.a, f"{named.b}:")
         named = Pad("wet", named.a)
-    else:
-        law_id = lookup.law_named(store, named.a, named.b or None)
     if law_id is None:
         return _html(request, NOT_FOUND, 404, CACHE_PAGE, None)
     return _redirect(pad_href(replace(named, a=law_id)) + _query(request))
