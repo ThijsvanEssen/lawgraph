@@ -137,7 +137,7 @@ def get_article_with_relations(
     )
 
 
-def _version_identity(
+def version_identity(
     article: dict[str, Any], bwb_id: str, article_number: str
 ) -> tuple[str, dict[str, Any]]:
     """The SQL condition on ``v`` (an ArticleVersion) that selects the versions of
@@ -163,7 +163,7 @@ def explained_targets(
     """The SQL of what an EXPLAINS edge of *article* points at, and its parameters: the
     article itself (``rank`` 1) and its versions as ``get_article_history`` finds them
     (``rank`` 0, with their ``valid_from``), each by its ``id``."""
-    identity, bind = _version_identity(article, bwb_id, article_number)
+    identity, bind = version_identity(article, bwb_id, article_number)
     bind["article_id"] = article["id"]
     targets = f"""
     SELECT %(article_id)s::text AS id, 1 AS rank, NULL::text AS valid_from
@@ -238,6 +238,7 @@ _VERSION_BULK = (
     "headings",
     "footnote_marks",
     "footnotes",
+    "redactions",
     "references",
 )
 
@@ -264,7 +265,7 @@ def _versions(
         ]
         return _with_titles(store, article, versions)
 
-    identity, bind = _version_identity(article, bwb_id, article_number)
+    identity, bind = version_identity(article, bwb_id, article_number)
     if version_key is not None:
         identity += " AND v.key = %(version_key)s"
         bind["version_key"] = version_key

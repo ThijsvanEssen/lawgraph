@@ -307,6 +307,10 @@ SLICE_HELP = {
         "Start past this row id: the next slice of a run over all.",
         "Stop after this many rows (a slice).",
     ),
+    "semantic bwb-amounts": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many regulations (a slice).",
+    ),
     "semantic bwb-captions": (
         "Start past this BWB id: the next slice of a run over all.",
         "Stop after this many regulations (a slice).",

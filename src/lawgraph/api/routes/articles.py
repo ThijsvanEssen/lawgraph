@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -22,6 +23,7 @@ from lawgraph.api.params import (
     parse_choices,
     tier_values,
 )
+from lawgraph.api.schemas.amounts import ArticleAmountsResponse, amounts_response
 from lawgraph.api.schemas.article_cited_by import (
     ArticleCitedByItem,
     ArticleCitedByResponse,
@@ -65,6 +67,7 @@ from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.api.schemas.concept_ref import ConceptRefDTO
 from lawgraph.api.validity import article_validity_dto, ended_article_validity_dto
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
+from lawgraph.core.amount_series import version_on, versions
 from lawgraph.core.concept_articles import concepts_of
 from lawgraph.core.delegations import (
     delegation_clauses,
@@ -77,7 +80,9 @@ from lawgraph.core.models import (
 )
 from lawgraph.core.reference_targets import reference_targets
 from lawgraph.core.staatsblad_laws import is_law
+from lawgraph.core.time import iso_day
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.amounts import article_amounts
 from lawgraph.db.queries.article_text import ArticleTextData, get_article_texts
 from lawgraph.db.queries.articles import (
     CITED_BY_INLINE_BELOW,
@@ -613,4 +618,37 @@ def get_delegated(
     ]
     return ArticleDelegatedResponse(
         article_id=article.id, clauses=clauses, items=items, total=len(items)
+    )
+
+
+@router.get(
+    "/{bwb_id}/{article_number}/amounts",
+    response_model=ArticleAmountsResponse,
+    summary="The numbers in the text of an article",
+    description=(
+        "The amounts, percentages, time limits and dates in the text of the version in "
+        "force on `date` (the current one without it), each with the part that holds it, "
+        "from when to when it holds, and its value in every version around it "
+        "(`history`): a calculation on a day takes the value of that day. Read from the "
+        "text of each version (`semantic bwb-amounts`), never set by hand; what is in "
+        "doubt is left out. An empty list when the text holds none; 404 when the article "
+        "is unknown."
+    ),
+    responses=NOT_FOUND,
+    tags=["articles"],
+)
+def get_article_amounts(
+    article: ArticleAddress,
+    store: Annotated[GraphStore, Depends(get_store)],
+    date: Annotated[
+        dt.date | None,
+        Query(description="The day, YYYY-MM-DD; the current version when left out."),
+    ] = None,
+) -> ArticleAmountsResponse:
+    node = require_node(store, COLLECTION_ARTICLES, article.key, "Article")
+    found = versions(article_amounts(store, node, article.bwb_id, article.number))
+    at = version_on(found, iso_day(date))
+    props = node.get("props") or {}
+    return amounts_response(
+        props.get("bwb_id") or article.bwb_id, article.number, found, at
     )

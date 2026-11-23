@@ -151,6 +151,7 @@ from lawgraph.pipelines.semantic import (
 )
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_amounts import BWBAmountsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_captions import BWBCaptionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
@@ -1018,6 +1019,12 @@ SEMANTIC: list[Pipeline] = [
         BWBDefinitionsSemanticPipeline,
         "The definitions each regulation gives itself (its begripsbepalingen), read from "
         "its stored toestand; and those of each law of the Staatsblad, from its publications.",
+        options=slice_args("regulations", "BWB id"),
+    ),
+    _pipeline(
+        BWBAmountsSemanticPipeline,
+        "The numbers in the text of every version of every article (amounts, percentages, "
+        "time limits, dates), each with the version it holds for.",
         options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(

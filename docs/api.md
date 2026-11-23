@@ -504,6 +504,23 @@ that holds, whatever its score, and is not left out; only what `q` identifies or
 `/api/search`) carry the same day as `expired_on`. Expired on a day: `expired_on` is on or
 before it.
 
+### Numbers in the text
+
+`GET /api/articles/{bwb_id}/{article_number}/amounts?date=YYYY-MM-DD` gives the amounts,
+percentages, time limits and dates in the text of the version in force on `date` (the current
+one without it), as `semantic bwb-amounts` read them from the text of each version
+(`lg_amounts`, [data model](data-model.md)); none is set by hand, and what is in doubt is left
+out. Each has `kind`, `value` (null for a date), `unit`, `date`, `text` as printed, `part`
+(the `anchor` of its block in `/text`), `start` and `end` in the text of the version, `cell` in
+a table, `source` and the days it holds: `valid_from` (the day of its redaction, else the
+start of its version) and `valid_until` (the end of its version, exclusive; null while in
+force), so a calculation on a day takes the value of that day. `source` is `redaction` for a
+value the editors of the BWB add after the amount the law prints ("per 1 juli 2026: €
+14,99", art. 8 Wml): the value in force from its `valid_from`; the printed amount is a value
+of its own (`text`). `history` is the same number in each version around this one, oldest
+first, while its part holds as many numbers of its kind; where that count changes it stops.
+No version on `date`: `version_key` null and no numbers; an unknown article 404.
+
 ### Resolve notations
 
 `/api/resolve` reads `q` as, in this order:
