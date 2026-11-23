@@ -762,7 +762,7 @@ def _walk_params(
     filters: NeighborFilter,
     stop_at: Collection[str] | None = None,
 ) -> dict[str, Any]:
-    """The arguments of ``lg_neighborhood`` (``db/schema.py``) for a walk from *focal_id*."""
+    """The arguments of ``lg_neighborhood`` (``db/neighborhood_sql.py``) from *focal_id*."""
     return {
         "stop": sorted(stop_at) if stop_at is not None else None,
         "seats": list(WALK_SEATS),
