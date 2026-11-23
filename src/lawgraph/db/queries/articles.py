@@ -44,6 +44,13 @@ from lawgraph.db.queries._helpers import (
     run_together,
 )
 from lawgraph.db.queries._json_sql import array_or_empty, first_present
+from lawgraph.db.queries.cited_by_table import (
+    AREA_KEPT,
+    TIERS_KEPT,
+    YEAR_KEPT,
+    cited_by_facets,
+    court_kept,
+)
 from lawgraph.db.queries.dossiers import collect_dossier_numbers, get_dossier_titles
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.queries.not_found import NotFound, require_node
@@ -866,42 +873,13 @@ class CitedBy:
     )
 
 
-# ``hits``: per judgment that cites the article (a row of ``lg_cited_by``), one row per
-# mention that passes the court and lid filters (one for an edge without one, a link of the
-# metadata; none of an ECHR judgment, counted apart), with only what sorts and counts it;
-# ``kept``: those of the tiers, the year and the main area of law asked for; ``page``: those
-# of the page, cut by a limit (so the planner reads their edges by key, not every edge). The
-# mentions of the page are read whole from their edges after the cut. Each facet counts the
-# judgments of ``hits`` under the other filter.
-_TIERS_KEPT = "(%(tiers)s::text[] IS NULL OR h.tier = ANY(%(tiers)s::text[]))"
-_YEAR_KEPT = "(%(year)s::text IS NULL OR h.year = %(year)s::text)"
-_AREA_KEPT = "(%(area)s::text IS NULL OR h.areas @> ARRAY[%(area)s::text])"
-
-
 def _court_kept(row: str) -> str:
     """SQL: the row *row* of ``lg_cited_by`` is of the court asked for, and has a passage
     (an ECHR judgment without one is counted apart)."""
     return (
         f"({row}.mentions > 0 OR {row}.court_code IS DISTINCT FROM '{CODE_ECHR}')"
-        f" AND (%(court)s::text IS NULL OR {row}.court_code = %(court)s::text)"
+        f" AND {court_kept(row)}"
     )
-
-
-def _cited_by_facet(value: str, where: str, order: str, *, many: bool = False) -> str:
-    """SQL: the judgments of ``hits`` under *where*, counted per *value*, in *order*; with
-    *many*, *value* is an array and a judgment counts for each of its values."""
-    source = (
-        f"hits h CROSS JOIN LATERAL unnest(h.{value}) AS u(value)" if many else "hits h"
-    )
-    column = "u.value" if many else f"h.{value}"
-    return f"""(
-            SELECT coalesce(json_agg(json_build_object('value', f.value, 'count', f.n)
-                                     ORDER BY {order}), '[]'::json)
-            FROM (
-                SELECT {column} AS value, count(DISTINCT h.edge)::int AS n
-                FROM {source} WHERE {where} GROUP BY {column}
-            ) f
-        )"""
 
 
 # The mentions of a row ``c`` of ``lg_cited_by`` as ``m.position`` (from 0): every one by
@@ -915,6 +893,13 @@ _MENTIONS_OF_LID = """(
         ) m"""
 
 
+# ``hits``: per judgment that cites the article (a row of ``lg_cited_by``), one row per
+# mention that passes the court and lid filters (one for an edge without one, a link of the
+# metadata; none of an ECHR judgment, counted apart), with only what sorts and counts it;
+# ``kept``: those of the tiers, the year and the main area of law asked for; ``page``: those
+# of the page, cut by a limit (so the planner reads their edges by key, not every edge). The
+# mentions of the page are read whole from their edges after the cut. Each facet counts the
+# judgments of ``hits`` under the other filter.
 def _cited_by_sql(order: str, *, lid: bool) -> str:
     """The statement of ``get_article_cited_by``, its passages in *order*; with *lid*, of
     the passages that name ``%(lid)s`` alone."""
@@ -927,7 +912,7 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         WHERE c.article_id = %(article_id)s AND {_court_kept("c")}
     ),
     kept AS (
-        SELECT h.* FROM hits h WHERE {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
+        SELECT h.* FROM hits h WHERE {TIERS_KEPT} AND {YEAR_KEPT} AND {AREA_KEPT}
     ),
     page AS (
         SELECT h.edge, h.position, row_number() OVER (ORDER BY {order}) AS n
@@ -939,26 +924,7 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
         (SELECT count(*)::int FROM kept) AS total,
         -- one edge per judgment and article
         (SELECT count(DISTINCT edge)::int FROM kept) AS judgment_total,
-        json_build_object(
-            'year', {
-        _cited_by_facet(
-            "year", f"{_TIERS_KEPT} AND {_AREA_KEPT}", "f.value ASC NULLS FIRST"
-        )
-    },
-            'tier', {
-        _cited_by_facet(
-            "tier", f"{_YEAR_KEPT} AND {_AREA_KEPT}", "f.n DESC, f.value ASC"
-        )
-    },
-            'subject_area', {
-        _cited_by_facet(
-            "areas",
-            f"{_TIERS_KEPT} AND {_YEAR_KEPT}",
-            "f.n DESC, f.value ASC",
-            many=True,
-        )
-    }
-        ) AS facets,
+        {cited_by_facets("hits", "edge")} AS facets,
         (
             SELECT coalesce(json_agg(json_build_object(
                 'judgment', {
@@ -988,7 +954,7 @@ def _cited_by_sql(order: str, *, lid: bool) -> str:
 _CITED_BY_COUNTS = f"""
     SELECT
         count(*) FILTER (WHERE
-            {_court_kept("h")} AND {_TIERS_KEPT} AND {_YEAR_KEPT} AND {_AREA_KEPT}
+            {_court_kept("h")} AND {TIERS_KEPT} AND {YEAR_KEPT} AND {AREA_KEPT}
         )::int AS judgment_total,
         count(*) FILTER (WHERE h.court_code = '{CODE_ECHR}')::int AS echr_judgment_total
     FROM (

@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.43",
+    "version": "0.80.44",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -269,10 +269,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them.",
+              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier.",
               "title": "Tier"
             },
-            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them."
+            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier."
           },
           {
             "name": "year",
@@ -288,10 +288,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year.",
+              "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year.",
               "title": "Year"
             },
-            "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year."
+            "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year."
           },
           {
             "name": "lid",
@@ -1892,10 +1892,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year.",
+              "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year.",
               "title": "Year"
             },
-            "description": "The judgments of this year (of their date) alone; ``facets.year`` still counts every year."
+            "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year."
           },
           {
             "name": "tier",
@@ -1913,10 +1913,10 @@
                   "type": "null"
                 }
               ],
-              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; ``facets.tier`` still counts every tier.",
+              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier.",
               "title": "Tier"
             },
-            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; ``facets.tier`` still counts every tier."
+            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier."
           },
           {
             "name": "subject_area",
@@ -1931,10 +1931,10 @@
                   "type": "null"
                 }
               ],
-              "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area.",
+              "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area.",
               "title": "Subject Area"
             },
-            "description": "A main area of law of the judgment's source, as ``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; ``facets.subject_area`` still counts every area."
+            "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area."
           }
         ],
         "responses": {
@@ -9302,7 +9302,7 @@
           "concepts"
         ],
         "summary": "The judgments that cite an article of a concept",
-        "description": "The judgments that cite any article of the concept, each once with the articles of the concept it cites (`article_ids`), as the block of `/api/concepts/{key}` lists its newest five: `total` is its `judgment_total`. `sort` as the passages of an article (`/api/articles/{bwb_id}/{article_number}/cited-by`): `date_desc` (default) the newest first, `citation_count` the most cited first (a standard judgment), then the newest. 404 when no concept has the key.",
+        "description": "The judgments that cite any article of the concept, each once with the articles of the concept it cites (`article_ids`), as the block of `/api/concepts/{key}` lists its newest five. Filters and `sort` as the passages of an article (`/api/articles/{bwb_id}/{article_number}/cited-by`): `court` (ECLI court code), `tier` (repeated: any of them), `year` (of the judgment's date) and `subject_area` (a main area of law of the judgment's source: `Strafrecht`); `total` counts the judgments that match, whatever the page (without filters the `judgment_total` of the block). `facets` counts them per `year` (oldest first, null for none first), per `tier` and per `subject_area` (most first), each without its own filter, under the others. `sort`: `date_desc` (default) the newest first, `citation_count` the most cited first (a standard judgment), then the newest. 404 when no concept has the key.",
         "operationId": "get_concept_judgments_api_concepts__key__judgments_get",
         "parameters": [
           {
@@ -9354,6 +9354,82 @@
               "title": "Sort"
             },
             "description": "`date_desc`: the newest judgment first; `citation_count`: the most cited judgment first (a standard judgment), then the newest."
+          },
+          {
+            "name": "court",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ECLI court code, e.g. 'HR', 'RBAMS'",
+              "title": "Court"
+            },
+            "description": "ECLI court code, e.g. 'HR', 'RBAMS'"
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Tier"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier.",
+              "title": "Tier"
+            },
+            "description": "The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; repeated, the judgments of any of them; `facets.tier` still counts every tier."
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year.",
+              "title": "Year"
+            },
+            "description": "The judgments of this year (of their date) alone; `facets.year` still counts every year."
+          },
+          {
+            "name": "subject_area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area.",
+              "title": "Subject Area"
+            },
+            "description": "A main area of law of the judgment's source, as `facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, `Bestuursrecht`; `facets.subject_area` still counts every area."
           }
         ],
         "responses": {
@@ -9397,7 +9473,7 @@
           "concepts"
         ],
         "summary": "The papers joined to an article of a concept",
-        "description": "The papers an edge joins to any article of the concept (a memorandum that explains it, a paper that names it), each once with the articles of the concept it is joined to (`article_ids`), newest first, as the block of `/api/concepts/{key}` lists its newest two: `total` is its `document_total`. 404 when no concept has the key.",
+        "description": "The papers an edge joins to any article of the concept (a memorandum that explains it, a paper that names it), each once with the articles of the concept it is joined to (`article_ids`), newest first, as the block of `/api/concepts/{key}` lists its newest two. `year` (of the paper's date) filters; `total` counts the papers that match, whatever the page (without `year` the `document_total` of the block). 404 when no concept has the key.",
         "operationId": "get_concept_documents_api_concepts__key__documents_get",
         "parameters": [
           {
@@ -9433,6 +9509,25 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The papers of this year (of their date).",
+              "title": "Year"
+            },
+            "description": "The papers of this year (of their date)."
           }
         ],
         "responses": {
@@ -17381,7 +17476,7 @@
           "subject_area"
         ],
         "title": "CitedByFacets",
-        "description": "The judgments that cite an article, counted whatever the page, each facet under the\nother filters."
+        "description": "The judgments that cite an article (or any article of a concept), counted whatever\nthe page, each facet under the other filters."
       },
       "CitedByJudgment": {
         "properties": {
@@ -19253,7 +19348,7 @@
           "total": {
             "type": "integer",
             "title": "Total",
-            "description": "The papers joined to any article of the concept, each once: `document_total` of `/api/concepts/{key}`, whatever the page."
+            "description": "The papers joined to any article of the concept and of the `year`, each once, whatever the page; without `year` `document_total` of `/api/concepts/{key}`."
           },
           "items": {
             "items": {
@@ -19326,7 +19421,10 @@
           "total": {
             "type": "integer",
             "title": "Total",
-            "description": "The judgments that cite any article of the concept, each once: `judgment_total` of `/api/concepts/{key}`, whatever the page."
+            "description": "The judgments that cite any article of the concept and match the filters, each once, whatever the page; without filters `judgment_total` of `/api/concepts/{key}`."
+          },
+          "facets": {
+            "$ref": "#/components/schemas/CitedByFacets"
           },
           "items": {
             "items": {
@@ -19341,6 +19439,7 @@
         "required": [
           "key",
           "total",
+          "facets",
           "items"
         ],
         "title": "ConceptJudgmentsResponse",

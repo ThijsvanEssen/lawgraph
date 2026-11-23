@@ -77,6 +77,46 @@ ActorDossierSort = Annotated[
 Tier = StrEnum("Tier", {tier: tier for tier in TIERS})  # type: ignore[misc]
 CourtKind = StrEnum("CourtKind", {kind: kind for kind in COURT_KINDS})  # type: ignore[misc]
 
+# The filters of a list of the judgments that cite an article (or a law, a concept), each
+# with the facet that counts every value of it (``facets``).
+CourtCode = Annotated[
+    str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
+]
+Tiers = Annotated[
+    list[Tier] | None,
+    Query(
+        description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
+        "repeated, the judgments of any of them; `facets.tier` still counts every tier."
+    ),
+]
+JudgmentYear = Annotated[
+    str | None,
+    Query(
+        pattern=r"^\d{4}$",
+        description="The judgments of this year (of their date) alone; "
+        "`facets.year` still counts every year.",
+    ),
+]
+SubjectArea = Annotated[
+    str | None,
+    Query(
+        description="A main area of law of the judgment's source, as "
+        "`facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, "
+        "`Bestuursrecht`; `facets.subject_area` still counts every area."
+    ),
+]
+
+
+def tier_values(tiers: list[Tier] | None) -> tuple[str, ...]:
+    """The tiers of a ``Tiers`` parameter, none for all."""
+    return tuple(t.value for t in tiers or ())
+
+
+def area_value(area: str | None) -> str | None:
+    """The main area of law of a ``SubjectArea`` parameter, None for all."""
+    return (area or "").strip() or None
+
+
 # A ministry (``core.ministries.MINISTRIES``) and a post in a cabinet (``POSTS``).
 MinistryKey = StrEnum("MinistryKey", {m.key: m.key for m in MINISTRIES})  # type: ignore[misc]
 Post = StrEnum("Post", {post: post for post in POSTS})  # type: ignore[misc]
