@@ -6,8 +6,10 @@ the Court writes it ("Schrems, C‑362/14, EU:C:2015:650, punt 73"; ``core.cjeu`
 places that name it as ``semantic rechtspraak-citations`` keeps them (``meta.mentions``); a
 judgment that is not loaded becomes a stub. ``ANSWERS`` from a preliminary ruling on a
 question of a Dutch court to the decision that referred it: the ``*A9*`` decision of the
-national decisions CELLAR names (``meta.national``), by its ECLI, else the decision of the
-graph of that date with that case number. The articles a judgment cites are read with
+national decisions CELLAR names (``meta.national``, ``core.cjeu.dutch_referrals``), by its
+ECLI, else the decision of the graph of that date with that case number. A referring
+decision without an ECLI that is not in the graph (not published with a document, or from
+before rechtspraak.nl) stays unanswered. The articles a judgment cites are read with
 those of the Rechtspraak (``semantic rechtspraak``). Derived in full on every run: an edge
 no judgment supports any more goes.
 """
@@ -22,7 +24,7 @@ from lawgraph.config.constants import (
     RELATION_REFERS_TO,
 )
 from lawgraph.core.case_numbers import Referral
-from lawgraph.core.cjeu import referrals
+from lawgraph.core.cjeu import dutch_referrals
 from lawgraph.core.ecli import eu_ecli_mentions
 from lawgraph.core.logging import get_logger
 from lawgraph.core.mentions import Mention
@@ -44,8 +46,6 @@ EDGE_SOURCE = edge_source(__name__)
 # By the ECLI CELLAR names, by the date and case number.
 CONFIDENCE_ECLI = 1.0
 CONFIDENCE_CASE_NUMBER = 0.9
-# The country a case was referred from whose courts the graph holds.
-NETHERLANDS = "NLD"
 
 
 def cited_places(paragraphs: list[dict[str, Any]]) -> dict[str, list[Mention]]:
@@ -86,8 +86,7 @@ class EurlexCjeuSemanticPipeline(SemanticPipelineBase):
                 if other != ecli:
                     cited.append((read[-1], other, places_meta(mentions)))
             facts = judgment.props.get("meta") or {}
-            if facts.get("country") == NETHERLANDS:
-                referred += [(ecli, r) for r in referrals(facts.get("national"))]
+            referred += [(ecli, r) for r in dutch_referrals(facts)]
 
         edges = EdgeWriter(self.store, what=None, remembers=True)
         ids = self._resolve_eclis({other for _, other, _ in cited})

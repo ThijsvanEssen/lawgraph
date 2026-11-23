@@ -192,8 +192,9 @@ class EUClient(BaseClient):
     def judgment_facts(self, celex_ids: list[str]) -> dict[str, dict[str, str]]:
         """``{celex: facts}`` of the judgments of *celex_ids* CELLAR has (``core.cjeu``): its
         ``ecli``, ``date``, Dutch ``title``, the ``national`` decisions of its case and the
-        ``country`` it was referred from (``NLD``); a fact CELLAR lacks is left out. Asked
-        ``DATES_BATCH`` at a time; a page that fails raises."""
+        ``country`` it was referred from (``NLD``; joined cases from several countries name
+        each, sorted: ``BEL NLD``); a fact CELLAR lacks is left out. Asked ``DATES_BATCH``
+        at a time; a page that fails raises."""
         facts: dict[str, dict[str, str]] = {}
         for start in range(0, len(celex_ids), DATES_BATCH):
             batch = celex_ids[start : start + DATES_BATCH]
@@ -206,7 +207,7 @@ class EUClient(BaseClient):
                     continue
                 found = facts.setdefault(celex, {})
                 if country := values.pop("country", ""):
-                    values["country"] = country.rsplit("/", 1)[-1]
+                    found["country"] = _joined(found.get("country"), country)
                 for name, value in values.items():
                     # one of several (the titles of joined cases): the same on every run
                     if value and (name not in found or value < found[name]):
@@ -347,6 +348,11 @@ def _last_modified_sparql(celex_ids: list[str]) -> str:
         f"SELECT ?celex ?modified WHERE {{ VALUES ?celex {{ {values} }} "
         "?work cdm:resource_legal_id_celex ?celex ; cmr:lastModificationDate ?modified . }"
     )
+
+
+def _joined(countries: str | None, uri: str) -> str:
+    """*countries* (codes split by a space) with the code of the country *uri*, sorted."""
+    return " ".join(sorted({*(countries or "").split(), uri.rsplit("/", 1)[-1]}))
 
 
 def _judgment_facts_sparql(celex_ids: list[str]) -> str:

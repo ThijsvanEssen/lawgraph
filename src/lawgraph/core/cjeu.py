@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.case_numbers import Referral
-from lawgraph.core.ecli import cited_eclis
+from lawgraph.core.ecli import cited_eclis, country_code
 from lawgraph.core.eurlex_html import parse_html
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, JudgmentKind
 from lawgraph.core.judgment_paragraphs import ParagraphIds, ParagraphKind
@@ -54,6 +54,10 @@ _KIND_OF_DOCUMENT: dict[str, JudgmentKind] = {
 _REFERRING = "*A9*"
 # The date and the case numbers of a national decision: "van 20/03/2020 (ROT 19/1249)".
 _NATIONAL_DATE = re.compile(r"\b(\d{2})/(\d{2})/(\d{4})\b")
+# An ECLI with "=" before its number, as CELLAR sometimes writes it: "ECLI:NL:HR:2024=922".
+_ECLI_EQUALS = re.compile(r"(ECLI:[A-Z]{2}:[A-Z0-9.]+:\d{4})=", re.IGNORECASE)
+# The country a case was referred from whose courts the graph holds (``country``).
+NETHERLANDS = "NLD"
 
 # The markup of a paragraph: a heading, a heading below it, the signature.
 _HEADING = re.compile(r"coj-sum-title-1|Titre1|^S40Titre")
@@ -117,7 +121,7 @@ def referrals(national: str | None) -> list[Referral]:
         line = html.unescape(collapse_ws(line))
         if not line.startswith(_REFERRING):
             continue
-        eclis = tuple(cited_eclis(line))
+        eclis = tuple(cited_eclis(_ECLI_EQUALS.sub(r"\1:", line)))
         day = _NATIONAL_DATE.search(line)
         numbers = _last_brackets(line)
         if eclis:
@@ -130,6 +134,20 @@ def referrals(national: str | None) -> list[Referral]:
                     date=f"{day[3]}-{day[2]}-{day[1]}",
                 )
             )
+    return found
+
+
+def dutch_referrals(facts: dict[str, Any]) -> list[Referral]:
+    """The ``referrals`` of a case CELLAR says was referred from the Netherlands, with other
+    countries maybe (*facts* ``country`` ``BEL NLD``): of the decisions a line names by
+    ECLI, the Dutch ones."""
+    if NETHERLANDS not in str(facts.get("country") or "").split():
+        return []
+    found = []
+    for referral in referrals(facts.get("national")):
+        dutch = tuple(e for e in referral.eclis if country_code(e) == "NL")
+        if dutch or not referral.eclis:
+            found.append(Referral(eclis=dutch) if dutch else referral)
     return found
 
 
