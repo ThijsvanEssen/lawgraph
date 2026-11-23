@@ -155,6 +155,30 @@ def read_budget_ms() -> int:
     return min(READ_TIMEOUT_MS, left)
 
 
+class Places:
+    """At most *n* blocks at a time (``held``; one that *needs* none passes); one more waits
+    *wait* seconds for a place, or what the request has left, then ``ReadTimedOut`` (503)."""
+
+    def __init__(self, n: int, wait: float) -> None:
+        self.n, self.wait = n, wait
+        self._free = threading.BoundedSemaphore(n)
+
+    @contextlib.contextmanager
+    def held(self, needs: bool = True) -> Iterator[None]:
+        if not needs:
+            yield
+            return
+        left = read_time_left()
+        if not self._free.acquire(
+            timeout=self.wait if left is None else min(self.wait, left)
+        ):
+            raise ReadTimedOut(f"No place free among the {self.n} running.")
+        try:
+            yield
+        finally:
+            self._free.release()
+
+
 class ReadTimedOut(RuntimeError):
     """A statement that reads ran past ``LAWGRAPH_READ_TIMEOUT_MS`` and was cancelled."""
 
