@@ -8,6 +8,7 @@ import pytest
 
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.sources.registry import find
@@ -89,13 +90,11 @@ def test_the_referrals_are_those_of_the_hoge_raad_and_of_the_court(
         {"country": "NLD", "national": "<p>*A9* Hoge Raad, ECLI:NL:HR:2024:922</p>"},
     ]
     monkeypatch.setattr(
-        _gaps.gap_queries,
+        gap_queries,
         "unanswered_preliminary_rulings",
         lambda store, paragraphs: hoge_raad,
     )
-    monkeypatch.setattr(
-        _gaps.gap_queries, "unanswered_cjeu_rulings", lambda store: court
-    )
+    monkeypatch.setattr(gap_queries, "unanswered_cjeu_rulings", lambda store: court)
     assert [
         (r.date, r.case_numbers, r.tier)
         for r in _gaps.unanswered_referrals(cast(Any, None))
