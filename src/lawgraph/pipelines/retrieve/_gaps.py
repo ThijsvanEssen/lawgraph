@@ -27,6 +27,7 @@ from lawgraph.config.constants import (
 )
 from lawgraph.core import curated
 from lawgraph.core.case_numbers import REFERRAL_PARAGRAPHS, Referral, read_referrals
+from lawgraph.core.cjeu import dutch_referrals
 from lawgraph.core.concordance_html import read_tables
 from lawgraph.core.document_completeness import kamerstuk_address
 from lawgraph.core.dossier_numbers import first_reading_dossiers
@@ -143,18 +144,23 @@ def rechtspraak_gaps(store: Store) -> Gaps:
 
 def unanswered_referrals(store: Store) -> list[Referral]:
     """The referrals, by case number and date, of the preliminary rulings that answer no
-    decision in the graph: the referring decision is not loaded, and the Rechtspraak can
-    only be asked for it through the index of its date."""
-    referrals: list[Referral] = []
-    for row in gap_queries.unanswered_preliminary_rulings(
-        store, paragraphs=REFERRAL_PARAGRAPHS
-    ):
-        referrals += [
-            referral
-            for referral in read_referrals(row["paragraphs"])
-            if referral.case_numbers and referral.date and referral not in referrals
-        ]
-    return referrals
+    decision in the graph: of the Hoge Raad from their text, of the Court from the
+    ``*A9*`` lines CELLAR gives (``core.cjeu.dutch_referrals``). The referring decision is
+    not loaded, and the Rechtspraak can only be asked for it through the index of its date.
+    """
+    named = [
+        referral
+        for row in gap_queries.unanswered_preliminary_rulings(
+            store, paragraphs=REFERRAL_PARAGRAPHS
+        )
+        for referral in read_referrals(row["paragraphs"])
+    ]
+    named += [
+        referral
+        for row in gap_queries.unanswered_cjeu_rulings(store)
+        for referral in dutch_referrals(row)
+    ]
+    return list(dict.fromkeys(r for r in named if r.case_numbers and r.date))
 
 
 def eurlex_gaps(store: Store) -> list[str]:

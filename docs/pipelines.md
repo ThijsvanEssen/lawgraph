@@ -791,7 +791,7 @@ came after.
 | `--ecli ECLI` (repeatable) | also fetch these judgments as they are (`--mode gaps` uses this for the cited judgments); skipped when stored in the last 24 hours |
 | `--mode withdrawn` | only the judgments withdrawn since `--since` (above); a year is about 240 pages of the index |
 | `--minutes N` | `--mode withdrawn`: stop after N minutes; the same command goes on there |
-| `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge: the index of the date the ruling names, of every court (60 to 450 judgments a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names is fetched |
+| `--mode gaps` | the cited judgments that are stubs, and the decisions that asked the questions of a preliminary ruling without an `ANSWERS` edge (of the Hoge Raad from its text, of the Court from the `*A9*` lines of `meta.national`): the index of every ECLI of the date the ruling names, of every court (up to about 1,000 a day), is read once per date, and an entry whose title (`ECLI, court, dd-mm-yyyy, case numbers`) has a case number the ruling names, of the tier of the court it names when both are known, is fetched; one without a document too (its content is the RDF: court, date, case number), not a withdrawn one |
 
 `retrieve all` reads the `--window` (a judgment is in it by its decision date). How many
 judgments that is and how long it takes: `docs/operations.md`, "Slow steps".
@@ -1251,8 +1251,9 @@ numbers between the brackets that end the line ("Rechtbank Rotterdam, Uitspraak 
 line names first when both are known (`court_sources.named_tier`: the one judgment tier each
 of whose words stands in a word of the name, `Arrondissementsrechtbank te Amsterdam` is
 `rechtbank`); `meta.basis` `national_decision`. A referring decision without an ECLI that is
-not in the graph (rechtspraak.nl has it without a document, or not at all, as most from before
-2000) stays unanswered. The articles a judgment cites are linked by
+not in the graph is fetched by `retrieve rechtspraak --mode gaps`, also when rechtspraak.nl has
+it without a document (a judgment of its metadata only); one rechtspraak.nl does not have, as
+most from before 2000, stays unanswered. The articles a judgment cites are linked by
 `semantic rechtspraak`. Derived in full on every run.
 
 ## BWB (Dutch legislation)

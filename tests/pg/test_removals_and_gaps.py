@@ -422,6 +422,28 @@ def test_unanswered_preliminary_rulings(store: GraphStore) -> None:
     ]
 
 
+def test_unanswered_cjeu_rulings(store: GraphStore) -> None:
+    line = "<p>*A9* Gerechtshof te Amsterdam, beschikking van 12/12/2002 (658/2002)</p>"
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("c2", source="cjeu", meta={"country": "BEL NLD", "national": line}),
+            _node("c1", source="cjeu", meta={"country": "NLD", "national": line}),
+            _node("c3", source="cjeu", meta={"country": "NLD", "national": line}),
+            _node("de", source="cjeu", meta={"country": "DEU", "national": line}),
+            _node("old", source="cjeu"),  # stored before its facts were kept
+            _node("nl", source="rechtspraak", meta={"country": "NLD"}),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [_edge("ans", "judgments/c3", "judgments/q", relation=RELATION_ANSWERS)]
+    )
+    assert list(gap_queries.unanswered_cjeu_rulings(store)) == [
+        {"country": "NLD", "national": line},
+        {"country": "BEL NLD", "national": line},
+    ]
+
+
 def test_unretrieved_celex_refs(store: GraphStore) -> None:
     store.bulk_insert_or_update_nodes(
         "instruments",
