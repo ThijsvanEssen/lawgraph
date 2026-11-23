@@ -40,6 +40,7 @@ from lawgraph.db.request_context import (
     set_read_deadline,
 )
 from lawgraph.db.store import statement_text, version_stamp
+from lawgraph.db.table_reads import note
 
 logger = get_logger(__name__)
 
@@ -202,15 +203,13 @@ RUN_QUIET = 300.0
 # database -> (the data version last seen, when it began to move, when it last moved)
 _moves: dict[str, tuple[str, float, float]] = {}
 _warmers: list[Callable[[Any], None]] = []
-_wanted: dict[
-    str, tuple[Any, float, str | None]
-] = {}  # database -> (store, due, version)
+# database -> (store, due, version)
+_wanted: dict[str, tuple[Any, float, str | None]] = {}
 _warm_wake = threading.Condition(_lock)
 _warm_worker: threading.Thread | None = None
 _warming: set[str] = set()  # the databases a warm-up runs for now
-_polled: dict[
-    str, Any
-] = {}  # database -> the store its version is read with while idle
+# database -> the store its version is read with while idle
+_polled: dict[str, Any] = {}
 
 
 def _seen(name: str, version: str) -> None:
@@ -467,6 +466,7 @@ def cached[T](
     and kept: for a cheap one a request needs (a search's frequencies of its words), which
     must not wait behind the slow computations of the pool (a warm-up, the counts of the
     feed)."""
+    note(tables)
     version = _version(store, tables)
     if version is None:
         return compute()
@@ -524,13 +524,15 @@ def lasting[T](
     compute: Callable[[], T],
     max_age: float,
     *,
+    tables: tuple[str, ...] | None = None,
     inline: bool = False,
 ) -> T:
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     From ``REFRESH_AHEAD`` of its age on a request takes the kept one at once while the new one
     computes, also once it is older, and the warm-up (no deadline) waits for the new one;
-    *inline* as ``cached``."""
+    *tables* (for the warm-up alone, ``table_reads``) and *inline* as ``cached``."""
+    note(tables)
     if not isinstance(store, VersionedStore):
         return compute()
     entry_key = ((_database(store), "lasting"), key)
@@ -774,16 +776,18 @@ def lasting_rows(
     params: dict[str, Any] | None = None,
     *,
     max_age: float,
+    tables: tuple[str, ...] | None = None,
     **options: Any,
 ) -> list[Any]:
     """The rows of *statement* with *params*, kept *max_age* seconds whatever the data does
-    (``lasting``): for a count every visitor of a filter asks, that a run of the pipelines
-    hardly moves and that reads many rows."""
+    (``lasting``, *tables* too): for a count every visitor of a filter asks, that a run of
+    the pipelines hardly moves and that reads many rows."""
     return lasting(
         store,
         _rows_key(statement, params, options),
         lambda: list(store.query(statement, params, **options)),
         max_age,
+        tables=tables,
     )
 
 

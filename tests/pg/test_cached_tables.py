@@ -1,9 +1,10 @@
-"""An answer kept per table (``version_cache.cached(tables=...)``) and a part of the warm-up
-left out while its tables stand still (``warm.Part.tables``) must read those tables alone:
-one that reads a table it does not name keeps an old answer after that table changed, and
-nothing says so. So every statement they run is planned here (``EXPLAIN``), and every
-table its plan reads, or a function of ours it calls reads, must be named; a table a trigger
-keeps from a table of the graph counts as that table (``_kept_by``)."""
+"""An answer that names its tables (``version_cache.cached(tables=...)``, kept while they
+stand still, or ``lasting(tables=...)``, which keeps a part of the warm-up out while they
+do) must read those tables alone: one that reads a table it does not name keeps an old
+answer after that table changed, and nothing says so. So every statement they run is
+planned here (``EXPLAIN``), and every table its plan reads, or a function of ours it calls
+reads, must be named; a table a trigger keeps from a table of the graph counts as that
+table (``_kept_by``)."""
 
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from lawgraph.db.queries import (
     committees,
     concepts,
     instruments,
+    judgments,
     nodes,
     seo,
 )
@@ -136,21 +138,23 @@ def _read(store: GraphStore, statements: list[Call]) -> set[str]:
 def kept(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> list[tuple[str, tuple[str, ...], Callable[[], Any]]]:
-    """Every ``cached`` call with tables: where it was made, its tables, its computation."""
+    """Every ``cached`` and ``lasting`` call with tables: where it was made, its tables,
+    its computation."""
     calls: list[tuple[str, tuple[str, ...], Callable[[], Any]]] = []
-    original = version_cache.cached
+    for name in ("cached", "lasting"):
+        original = getattr(version_cache, name)
 
-    def cached(
-        store_: Any, key: Any, compute: Any, *, tables: Any = None, **options: Any
-    ) -> Any:
-        if tables is not None:
-            calls.append((_caller(), tables, compute))
-        return original(store_, key, compute, tables=tables, **options)
+        def noting(
+            *args: Any, original: Any = original, tables: Any = None, **options: Any
+        ) -> Any:
+            if tables is not None:
+                calls.append((_caller(), tables, args[2]))
+            return original(*args, tables=tables, **options)
 
-    monkeypatch.setattr(version_cache, "cached", cached)
-    for module in list(sys.modules.values()):
-        if getattr(module, "cached", None) is original:
-            monkeypatch.setattr(module, "cached", cached)
+        monkeypatch.setattr(version_cache, name, noting)
+        for module in list(sys.modules.values()):
+            if getattr(module, name, None) is original:
+                monkeypatch.setattr(module, name, noting)
     _seed(store)
     version_cache.clear()
     return calls
@@ -171,7 +175,8 @@ def _exercise(store: GraphStore) -> None:
     on the page of a member, what a publication changes, the passages that explain
     an article, the block of a concept, the laws a law's articles refer to and are
     referred to by, the dossiers and activities a committee leads, the dossiers of a
-    faction, and the factions and members a query may name."""
+    faction, the factions and members a query may name, and the judgments under every
+    filter that reads another table."""
     warm.forget()
     warm.warm_up(store)
     for table, fields in SEARCH_FIELDS.items():
@@ -197,6 +202,9 @@ def _exercise(store: GraphStore) -> None:
     signers.signed_for(store, ["motie", "vvd"])
     types.ministries_found(store, "BZK", ["bzk"])
     faction_dossiers(store, "factions/vvd", 100, 0, "opened")
+    judgments.get_judgments_list(
+        store, judgments.JudgmentFilters(q="beroep", referred_by="ECLI:NL"), limit=1
+    )
 
 
 def test_every_answer_kept_per_table_reads_only_its_tables(
@@ -211,47 +219,32 @@ def test_every_answer_kept_per_table_reads_only_its_tables(
         assert not unnamed, f"{where} reads {sorted(unnamed)} and names {tables}"
 
 
-def test_every_part_left_out_by_its_tables_reads_only_them(
-    store: GraphStore, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _seed(store)
-    version_cache.clear()
-    read: dict[str, list[Call]] = {}
-    run = warm._run
-
-    def recorded(name: str, part: Callable[[], object]) -> bool:
-        with _statements(store) as statements:
-            done = run(name, part)
-        read[name] = statements
-        return done
-
-    monkeypatch.setattr(warm, "_run", recorded)
-    # one lane, so that the statements recorded during a part are its own (the tail names
-    # no tables)
-    monkeypatch.setattr(warm, "TAIL", ())
-    warm.warm_up(store)
-    kept = [part for part in warm.PARTS if part.tables is not None]
-    assert {part.name for part in kept} <= set(read), "a part with tables never ran"
-    for part in kept:
-        unnamed = _read(store, read[part.name]) - set(part.tables or ())
-        assert not unnamed, (
-            f"warm-up part {part.name} reads {sorted(unnamed)}, names {part.tables}"
-        )
-
-
 def _declared() -> set[str]:
     """``<file>:<function>`` of every call in src that keeps an answer per table."""
     found = set()
     for path in SRC.rglob("*.py"):
         tree = ast.parse(path.read_text())
-        for top in ast.walk(tree):
-            if not isinstance(top, ast.FunctionDef | ast.AsyncFunctionDef):
+        functions = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        ]
+        # a function within another is its caller's (``_caller``)
+        nested = {
+            id(inner)
+            for outer in functions
+            for inner in ast.walk(outer)
+            if inner is not outer
+            and isinstance(inner, ast.FunctionDef | ast.AsyncFunctionDef)
+        }
+        for top in functions:
+            if id(top) in nested:
                 continue
             for node in ast.walk(top):
                 if (
                     isinstance(node, ast.Call)
                     and getattr(node.func, "id", getattr(node.func, "attr", None))
-                    in ("cached", "cached_rows")
+                    in ("cached", "cached_rows", "lasting", "lasting_rows")
                     and any(k.arg == "tables" for k in node.keywords)
                 ):
                     found.add(f"{path.relative_to(SRC)}:{top.name}")
@@ -264,6 +257,7 @@ def test_every_call_that_names_tables_is_checked(
     """A new ``cached(..., tables=...)`` is planned above, or this fails."""
     _exercise(store)
     callers = {where for where, _, _ in kept}
-    # cached_rows names its tables for its caller: the call checked is that of the caller
+    # cached_rows and lasting_rows name their tables for their caller: the call checked is
+    # that of the caller
     declared = {d for d in _declared() if not d.startswith("db/version_cache.py:")}
     assert declared <= callers, sorted(declared - callers)

@@ -93,7 +93,7 @@ def table_statistics(store: Store, table: str) -> dict[str, float]:
             means.update(_means(store, table, rare, "")[1])
         return {"N": estimate, **means}
 
-    return lasting(store, ("bm25-stats", table), count, STATS_MAX_AGE)
+    return lasting(store, ("bm25-stats", table), count, STATS_MAX_AGE, tables=(table,))
 
 
 def _means(

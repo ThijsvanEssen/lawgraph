@@ -18,7 +18,7 @@ from typing import Any
 
 from lawgraph.api.list_totals import list_totals
 from lawgraph.api.routes.dossiers import get_changed_articles, get_dossier
-from lawgraph.api.routes.factions import FACTION_DOSSIER_TABLES, faction_dossiers
+from lawgraph.api.routes.factions import faction_dossiers
 from lawgraph.api.routes.instruments import (
     get_instrument_eu_links,
     get_instrument_related_route,
@@ -30,13 +30,7 @@ from lawgraph.config.constants import (
     CHAMBER_TK,
     CHAMBERS,
     COLLECTION_ARTICLES,
-    COLLECTION_DOCUMENTS,
-    COLLECTION_DOSSIERS,
-    COLLECTION_FACTIONS,
-    COLLECTION_INSTRUMENT_VERSIONS,
-    COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
-    COLLECTION_MEMBERS,
     KIND_TREATY,
 )
 from lawgraph.config.settings import SEARCH_STATS_DIR
@@ -45,7 +39,7 @@ from lawgraph.core.dossier_stages import BUDGET_KIND, LEGISLATIVE_KINDS
 from lawgraph.core.feed import EVENT_VOTE
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today, format_duration
-from lawgraph.db import GraphStore, version_cache
+from lawgraph.db import GraphStore, table_reads, version_cache
 from lawgraph.db.queries._bm25 import common_share, table_statistics
 from lawgraph.db.queries.activities import get_chamber_schedule
 from lawgraph.db.queries.articles import (
@@ -54,9 +48,6 @@ from lawgraph.db.queries.articles import (
 from lawgraph.db.queries.cabinets import get_cabinet, get_cabinets
 from lawgraph.db.queries.chains import warm_most_cited_chains
 from lawgraph.db.queries.decisions import DecisionFilters, decision_counts
-from lawgraph.db.queries.delegations import (
-    TABLES as DELEGATED_TABLES,
-)
 from lawgraph.db.queries.delegations import (
     count_expired_delegated,
     get_delegated_by_law,
@@ -78,7 +69,7 @@ from lawgraph.db.queries.nodes import (
     NeighborFilter,
     get_node_neighborhood,
 )
-from lawgraph.db.queries.overlay import IN_FLUX_TABLES, get_in_flux_counts
+from lawgraph.db.queries.overlay import get_in_flux_counts
 from lawgraph.db.queries.search.clause import tokenize_search_query
 from lawgraph.db.queries.search.dispatch import search_all
 from lawgraph.db.queries.search.parser import load_code_aliases, load_notation_parser
@@ -91,6 +82,7 @@ from lawgraph.db.queries.warm_nodes import (
     warm_articles,
 )
 from lawgraph.db.schema import SEARCH_FIELDS
+from lawgraph.db.store import version_stamp
 
 logger = get_logger(__name__)
 
@@ -355,19 +347,13 @@ def _warm_faction_dossiers(store: GraphStore) -> None:
 
 @dataclass(frozen=True)
 class Part:
-    """One part of the warm-up: its name (in the log), what it computes and, for a part
-    whose answers are kept per table (``version_cache.cached(tables=...)``), the tables it
-    reads. Such a part is left out while its tables stand still, as a poll of judgments
-    leaves the instruments; ``tests/pg/test_cached_tables.py`` checks its tables against
-    those the plans of its statements read. A part without tables runs on every warm-up;
-    one made of parts kept per table (``stats``) finds them kept."""
+    """One part of the warm-up: its name (in the log) and what it computes. A part is left
+    out while the tables its answers read stand still (``_warm_part``), as a poll of
+    judgments leaves the instruments."""
 
     name: str
     run: Callable[[GraphStore], object]
-    tables: tuple[str, ...] | None = None
 
-
-_INSTRUMENT_TABLES = (COLLECTION_INSTRUMENTS, COLLECTION_INSTRUMENT_VERSIONS)
 
 # The parts in their order.
 PARTS: tuple[Part, ...] = (
@@ -384,48 +370,37 @@ PARTS: tuple[Part, ...] = (
     Part("bills of the homepage", _warm_home_bills),
     # the totals of the lists without a filter (``lists``; each kept per its tables)
     Part("list totals", list_totals),
-    Part("coverage", coverage_data, (COLLECTION_JUDGMENTS,)),
+    Part("coverage", coverage_data),
     Part("cabinets", _warm_cabinets),
     Part(
         "instruments",
         lambda store: get_instruments_list(
             store, article_count_min=1, limit=LISTS["instruments"]
         ),
-        _INSTRUMENT_TABLES,
     ),
     # the names of the largest laws the explorer asks once per visit, when idle
     # (``primeInstrumentNames``)
     Part(
         "instrument names",
         lambda store: get_instruments_list(store, **FIRST_PAGES["instrument_names"]),
-        _INSTRUMENT_TABLES,
     ),
     # the facets of the list of laws without a filter, as Bladeren opens it
     # (``?limit=1``, its page asked apart with ``facets=false``)
-    Part(
-        "instrument facets",
-        lambda store: get_instruments_list(store, limit=1),
-        _INSTRUMENT_TABLES,
-    ),
+    Part("instrument facets", lambda store: get_instruments_list(store, limit=1)),
     Part(
         "documents",
         lambda store: list_documents(store, chambers=("TK",), limit=LISTS["documents"]),
-        (COLLECTION_DOCUMENTS,),
     ),
-    Part("search notation", load_notation_parser, (COLLECTION_INSTRUMENTS,)),
-    Part("search codes", load_code_aliases, (COLLECTION_INSTRUMENTS,)),
+    Part("search notation", load_notation_parser),
+    Part("search codes", load_code_aliases),
     # the laws a dossier title names (``get_laws_named``)
-    Part("dossier law names", load_law_names, (COLLECTION_INSTRUMENTS,)),
-    Part("dossier names", load_dossier_names, (COLLECTION_DOSSIERS,)),
-    Part("member slugs", load_member_slugs, (COLLECTION_MEMBERS,)),
+    Part("dossier law names", load_law_names),
+    Part("dossier names", load_dossier_names),
+    Part("member slugs", load_member_slugs),
     # the open proposed changes per node, which the explorer asks on every page
-    Part("in flux", get_in_flux_counts, IN_FLUX_TABLES),
+    Part("in flux", get_in_flux_counts),
     *(
-        Part(
-            f"search {table}",
-            partial(table_statistics, table=table),
-            (table,),
-        )
+        Part(f"search {table}", partial(table_statistics, table=table))
         for table in SEARCH_FIELDS
     ),
     # as the list opens: of every source, the European among them
@@ -441,11 +416,7 @@ PARTS: tuple[Part, ...] = (
         "decision counts",
         lambda store: [decision_counts(store, filters) for filters in FIRST_DECISIONS],
     ),
-    Part(
-        "faction dossiers",
-        _warm_faction_dossiers,
-        (COLLECTION_FACTIONS, *FACTION_DOSSIER_TABLES),
-    ),
+    Part("faction dossiers", _warm_faction_dossiers),
 )
 # The long tail, warmed after ``PARTS``: on prod (15 Oct) these took 2 to 5 of the 5 to 8
 # minutes to ``warm``. Not beside them: the disk is what a warm-up waits for, and two lanes
@@ -454,36 +425,56 @@ TAIL: tuple[Part, ...] = (
     Part("judgments citing a law", _warm_law_judgments),
     Part("links of laws", _warm_law_links),
     Part("dossiers of the homepage", _warm_dossiers),
-    Part("regulations under a law", _warm_delegated, DELEGATED_TABLES),
+    Part("regulations under a law", _warm_delegated),
 )
-# The version of its tables each of the parts with tables was last warmed for, per
-# database, in this process.
-_warmed_parts: dict[tuple[str, str], str] = {}
+# Per database and part, the tables of the answers it kept when it was last warmed and their
+# versions then (``_stamp``), in this process.
+_warmed_parts: dict[tuple[str, str], tuple[frozenset[str], str]] = {}
+
+
+def _stamp(versions: dict[str, int], tables: frozenset[str]) -> str:
+    """The versions of *tables* among *versions*, and the day: an answer that names today
+    (``get_delegated_by_law``) is gone at midnight."""
+    return f"{version_stamp(versions, tables)}@{dutch_today()}"
+
+
+def _warm_part(store: GraphStore, part: Part) -> None:
+    """*part*, unless the tables of every answer it asked when it was last warmed stand
+    still since. What they read is noted as it runs (``table_reads.reading``): the tables
+    each answer of ``cached`` or ``lasting`` names, which ``tests/pg/test_cached_tables.py``
+    checks against the plans of its statements. A part that asks an answer naming no tables
+    (one kept per data version), or none at all, runs on every warm-up."""
+    key = (store.name, part.name)
+    kept = _warmed_parts.get(key)
+    if kept is not None:
+        tables, stamp = kept
+        if stamp == _stamp(store.table_versions(), tables):
+            logger.info(
+                "Warm-up of %s left: %s did not change.",
+                part.name,
+                ", ".join(sorted(tables)) or "its tables",
+            )
+            return
+    versions = store.table_versions()
+    with table_reads.reading() as reads:
+        done = _run(part.name, partial(part.run, store))
+    if done and reads and table_reads.ANY not in reads:
+        found = frozenset(reads)
+        _warmed_parts[key] = (found, _stamp(versions, found))
+    else:
+        _warmed_parts.pop(key, None)
 
 
 def _warm_lane(store: GraphStore, version: str, parts: tuple[Part, ...]) -> bool:
-    """*parts* in their order; whether every one was reached before newer data arrived. The
-    first warm-up of the process goes on whatever arrives: during a run the data never
-    stands still, and until then the API has no earlier answer to give."""
+    """*parts* in their order (``_warm_part``); whether every one was reached before newer
+    data arrived. The first warm-up of the process goes on whatever arrives: during a run
+    the data never stands still, and until then the API has no earlier answer to give."""
     for part in parts:
         if version_cache.superseded(store, version) and _warmed is not None:
             # newer data arrived: the warm-up of that version follows once it stands still
             logger.info("Warm-up stopped before %s: the data changed.", part.name)
             return False
-        run = partial(part.run, store)
-        if part.tables is None:
-            _run(part.name, run)
-            continue
-        # per day too: an answer that names today (``get_delegated_by_law``) is gone at midnight
-        stamp = f"{store.data_version(part.tables)}@{dutch_today()}"
-        if _warmed_parts.get((store.name, part.name)) == stamp:
-            logger.info(
-                "Warm-up of %s left: %s did not change.",
-                part.name,
-                ", ".join(part.tables),
-            )
-        elif _run(part.name, run):
-            _warmed_parts[(store.name, part.name)] = stamp
+        _warm_part(store, part)
     return True
 
 

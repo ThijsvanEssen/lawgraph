@@ -9,6 +9,7 @@ from functools import partial
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_EDGES,
     COLLECTION_JUDGMENTS,
     RELATION_ANSWERS,
     RELATION_PART_OF,
@@ -351,6 +352,14 @@ _CLAUSES: dict[str, str] = {
 }
 
 
+def _tables(names: list[str]) -> tuple[str, ...]:
+    """The tables the counts of the list under the filters *names* read (``referred_by``
+    reads the edges)."""
+    if "referred_by" in names:
+        return (COLLECTION_JUDGMENTS, COLLECTION_EDGES)
+    return (COLLECTION_JUDGMENTS,)
+
+
 def _judgment_filters(filters: JudgmentFilters, bind: dict[str, Any]) -> list[str]:
     """The filters (names in ``_CLAUSES``) *filters* sets, their values put in *bind*."""
     values: dict[str, tuple[str, Any]] = {
@@ -471,6 +480,7 @@ def _column_facets(
             FROM judgments j {where} GROUP BY GROUPING SETS ({sets})""",
         without_page(params),
         max_age=FACETS_MAX_AGE,
+        tables=(COLLECTION_JUDGMENTS,),
     )
     facets: dict[str, list[dict[str, Any]]] = {}
     for name in _COLUMN_FACETS:
@@ -552,6 +562,7 @@ def get_judgments_list(
             facet_rows(value, rows, chosen.where(*leave_out), by_count=name != "year"),
             without_page(params),
             max_age=FACETS_MAX_AGE,
+            tables=_tables(names),
         )
 
     def narrower() -> list[Any]:
@@ -566,6 +577,7 @@ def get_judgments_list(
             facet_rows("value", subjects, "WHERE strpos(value, ';') > 0"),
             without_page(params),
             max_age=FACETS_MAX_AGE,
+            tables=_tables(names),
         )
 
     filtered = [*names, *(["search"] if search else [])]
@@ -734,7 +746,13 @@ def _total(
     else:
         statement = f"SELECT count(*) FROM judgments j {where}"
     return int(
-        lasting_rows(store, statement, without_page(params), max_age=FACETS_MAX_AGE)[0]
+        lasting_rows(
+            store,
+            statement,
+            without_page(params),
+            max_age=FACETS_MAX_AGE,
+            tables=_tables(names),
+        )[0]
     )
 
 
