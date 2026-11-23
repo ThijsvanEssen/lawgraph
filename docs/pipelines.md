@@ -1147,7 +1147,7 @@ judgment (a CELEX number of sector 6) is stored with what CELLAR says of it, by 
 query: `meta.ecli` (`cdm:case-law_ecli`), `meta.date` (`work_date_document`), `meta.title` (the
 Dutch `expression_title`; of joined cases the first in order), `meta.national` (the national
 decisions of its case, `case-law_national-judgement`) and `meta.country` (`NLD`, the country
-it was referred from).
+it was referred from; joined cases from several countries name each, sorted: `BEL NLD`).
 Incremental asks that moment for every act in the graph and fetches an act that is not stored,
 stored without the moment, or stored with an earlier one; an act CELLAR has no moment for is
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
@@ -1239,11 +1239,14 @@ Overview).
 judgment its paragraphs name by ECLI as the Court writes it ("Schrems, C‑362/14,
 EU:C:2015:650, punt 73"; with or without `ECLI:`), 0.95, with the places as `semantic
 rechtspraak-citations` keeps them (data model); one not loaded becomes a stub. `ANSWERS` from a
-judgment referred from the Netherlands (`meta.country` `NLD`) to the decision that referred its
-questions, the `*A9*` line of `meta.national`: its ECLI (1.0), else the decision (not a
+judgment referred from the Netherlands (`NLD` in `meta.country`) to the decision that referred
+its questions, the `*A9*` line of `meta.national`: its Dutch ECLI (1.0; also `ECLI:NL:HR:2024=922`
+read as `…:2024:922`), else the decision (not a
 conclusion) of its date with one of the case numbers between the brackets that end the line
 ("Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)", 0.9), as `rechtspraak-referrals`
-compares them; `meta.basis` `national_decision`. The articles a judgment cites are linked by
+compares them; `meta.basis` `national_decision`. A referring decision without an ECLI that is
+not in the graph (rechtspraak.nl has it without a document, or not at all, as most from before
+2000) stays unanswered. The articles a judgment cites are linked by
 `semantic rechtspraak`. Derived in full on every run.
 
 ## BWB (Dutch legislation)
