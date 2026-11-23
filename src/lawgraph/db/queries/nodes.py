@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import contextlib
-import threading
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -46,7 +44,7 @@ from lawgraph.db.queries._helpers import _extract_confidence
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.derived_neighbors import DerivedBucket, derived_pages
 from lawgraph.db.queries.not_found import require_node
-from lawgraph.db.request_context import ReadTimedOut, read_time_left
+from lawgraph.db.request_context import Places
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
 
@@ -786,28 +784,8 @@ def _walk_params(
     }
 
 
-# Walks past the first level (``lg_walk``) at the same time, each on a connection of the
-# requests: through the articles a judgment cites one reads every judgment citing them (15 to
-# over 30 s on prod). One that finds no place within ``WALK_WAIT`` seconds answers 503.
-WALKS = 3
-WALK_WAIT = 5.0
-_walks = threading.BoundedSemaphore(WALKS)
-
-
-@contextlib.contextmanager
-def _walk_place(depth: int) -> Iterator[None]:
-    """A place among the ``WALKS`` for a walk of *depth* past the first level; one of a
-    single level is cheap and needs none. ``ReadTimedOut`` when none comes free in time."""
-    if depth == 1:
-        yield
-        return
-    left = read_time_left()
-    if not _walks.acquire(timeout=WALK_WAIT if left is None else min(WALK_WAIT, left)):
-        raise ReadTimedOut(f"No place for a walk among the {WALKS} running.")
-    try:
-        yield
-    finally:
-        _walks.release()
+# Walks past the first level at a time, each on a request's connection (15-30 s on prod).
+WALKS = Places(3, wait=5.0)
 
 
 def get_node_neighborhood(
@@ -841,7 +819,7 @@ def get_node_neighborhood(
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
     # one statement: the walk, the nodes it kept and the edges between them
-    with _walk_place(depth):
+    with WALKS.held(depth > 1):
         found = next(
             store.query(
                 f"""

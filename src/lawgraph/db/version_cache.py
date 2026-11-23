@@ -149,7 +149,6 @@ REFRESH_AHEAD_MAX_RUNNING = WORKERS
 _lock = threading.Lock()
 # database -> (data version, the version of each table or None, read at)
 _versions: dict[str, tuple[str | None, dict[str, int] | None, float]] = {}
-_reading: set[str] = set()  # the databases whose version a thread reads now
 # An answer kept for the tables it reads (``cached(tables=...)``) is computed again after this
 # many seconds, whatever their versions say: a safety net for a table its declaration lacks.
 MAX_AGE = 3600.0
@@ -374,16 +373,13 @@ def _version(
     now = time.monotonic()
     with _lock:
         known, per_table, read_at = _versions.get(name, (None, None, float("-inf")))
-        due = now - read_at >= VERSION_TTL and not (known and name in _reading)
-        if due:
-            _reading.add(name)
+        due = now - read_at >= VERSION_TTL
+        if due and known:
+            # the others take the known version while this read is under way
+            _versions[name] = (known, per_table, now + VERSION_READ)
     if due:
         before = known
-        try:
-            read, read_tables = _read_versions(store)
-        finally:
-            with _lock:
-                _reading.discard(name)
+        read, read_tables = _read_versions(store)
         if read:
             known, per_table = read, read_tables
         with _lock:
@@ -812,7 +808,6 @@ def clear() -> None:
         _latest.clear()
         _lasting.clear()
         _running.clear()
-        _reading.clear()
         _wanted.clear()
         _warm_started.clear()
         _moves.clear()
