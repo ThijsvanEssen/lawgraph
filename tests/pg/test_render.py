@@ -188,6 +188,7 @@ def client(
     monkeypatch.setattr(seo, "CITED_BUDGET", 5.0)
     monkeypatch.setattr(seo_article, "EXTRA_BUDGET", 5.0)
     monkeypatch.setattr(render, "RENDER_BUDGET", 30.0)
+    monkeypatch.setattr(render, "SEED_BUDGET", 5.0)
     version_cache.clear()
     shell.forget()
     _seed(store)
@@ -2380,7 +2381,7 @@ def test_the_start_page_is_its_core_without_a_read(
     client: TestClient, store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """``/``: the heading, what Concordans does, a search form that works without scripts
-    (the SearchAction), three features and three questions, read of nothing."""
+    (the SearchAction) and the questions, read of nothing."""
 
     def no_read(*_: Any, **__: Any) -> None:
         raise AssertionError("the start page reads nothing")
@@ -2404,7 +2405,7 @@ def test_the_start_page_is_its_core_without_a_read(
     assert form and 'name="q"' in form[1]
     hrefs = re.findall(r'href="([^"]*)"', main)
     assert "/wetten/BWBR0005289/artikel/6:162" in hrefs
-    assert "/stemmingen" in hrefs and "/bundels" in hrefs
+    assert "/stemmingen" in hrefs and "/bundels" in hrefs and "/europa" in hrefs
     assert "Probeer" not in main and "stappen" not in main
     assert "onderschrift" not in main and "kenmerken" not in main
     assert re.findall(r"<h2[^>]*>(.*?)</h2>", main) == ["Begin met een vraag"]
@@ -2412,6 +2413,7 @@ def test_the_start_page_is_its_core_without_a_read(
         "Wie haalt dit artikel aan?",
         "Hoe stemde de Kamer?",
         "Hoe houd ik bij wat ik vind?",
+        "Wat speelt er in Europa?",
     ]
     (site,) = [g for g in page["data"]["@graph"] if g["@type"] == "WebSite"]
     assert site["url"] == "https://concordans.nl/"
@@ -2491,6 +2493,53 @@ def test_an_article_is_painted_first_with_what_the_head_of_its_reader_shows(
     text = response.text
     assert text.index("</main>") < text.index("first-paint-data")
     assert text.index("first-paint-data") < text.index("<script>paint()</script>")
+
+
+def _api_seed(text: str) -> tuple[str, int] | None:
+    """The JSON of the page's ``#api-seed`` and where it stands, or None."""
+    found = re.search(
+        r'<script type="application/json" id="api-seed">(.*?)</script>', text, re.S
+    )
+    return (found[1], found.start()) if found else None
+
+
+def test_an_article_gives_the_answer_the_app_asks_first_after_its_first_paint(
+    painting: TestClient,
+) -> None:
+    """``#api-seed``: the answer of ``/api/articles/{law}/{number}`` as the route gives
+    it, under the key the explorer keeps it by (``once``: lower case)."""
+    response = _get(painting, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    found = _api_seed(response.text)
+    assert found is not None
+    data, at = found
+    route = painting.get("/api/articles/BWBR0005289/162")
+    assert_status(route, 200)
+    assert json.loads(data) == {"articles/bwbr0005289/162": route.json()}
+    # the route's own bytes, only escaped for the script
+    assert shell.inline_json(route.text) in data
+    assert response.text.index("<script>paint()</script>") < at
+
+
+@pytest.mark.parametrize(
+    "path", ["/wetten/BWBR0005289", "/uitspraken/ECLI:NL:HR:2019:2006"]
+)
+def test_only_an_article_gives_the_answer_the_app_asks_first(
+    painting: TestClient, path: str
+) -> None:
+    response = _get(painting, path)
+    assert_status(response, 200)
+    assert "api-seed" not in response.text
+
+
+def test_a_page_whose_seed_takes_too_long_goes_without(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past ``SEED_BUDGET`` the page does not wait: the app asks the route."""
+    monkeypatch.setattr(render, "SEED_BUDGET", 0.0)
+    response = _get(client, "/wetten/BWBR0005289/artikel/6:162")
+    assert_status(response, 200)
+    assert _api_seed(response.text) is None
 
 
 def test_an_article_in_a_recodification_is_not_painted_first(

@@ -145,6 +145,7 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
         "outbound_citation_count": 2,
         "series_id": "s1",
         "series_size": 2,
+        "referring_decision": None,
     }
     assert list(first)[:4] == [
         "id",
@@ -152,7 +153,7 @@ def test_the_list_unfiltered_newest_first_with_the_key_settling_ties(
         "ecli",
         "display_name",
     ]  # as the query names them
-    assert list(first)[-3:] == ["outbound_citation_count", "series_id", "series_size"]
+    assert list(first)[-3:] == ["series_id", "series_size", "referring_decision"]
     # a judgment without an ECLI shows its key
     assert result["items"][3]["ecli"] == _key(ECHR)
     assert result["items"][3]["date"] is None
@@ -825,7 +826,11 @@ def test_rows_read_by_their_place_are_the_rows_read_by_their_id(
             store, monkeypatch, filters, sort=sort, offset=offset
         )
         assert items
-        assert items == _page_by_id(store, statement, params)
+        # the referring decision is read after the page, by a statement of its own
+        assert items == [
+            {**row, "referring_decision": None}
+            for row in _page_by_id(store, statement, params)
+        ]
 
 
 def _scans(store: GraphStore, statement: str, params: Any) -> list[str]:
@@ -931,6 +936,57 @@ def test_a_row_of_a_judgment_of_the_union_is_cited_with_its_case_number(
     assert item.cite.short == "HvJ EU 17 februari 2022, C-160/20"
     # a Dutch court's case number is no part of its cite, and not read
     assert rows[HR1]["case_number"] is None
+
+
+def test_the_rulings_on_questions_of_a_dutch_court_with_the_decision_that_asked(
+    store: GraphStore,
+) -> None:
+    """B184: ``referred_by`` keeps the judgments that answer a decision of a court of that
+    country (``ANSWERS``); each row names that decision, of one not in the graph (a stub)
+    its court from its ECLI."""
+    asked, unknown, other = "ECLI:EU:C:2022:101", "ECLI:EU:C:2023:5", "ECLI:EU:C:2021:9"
+    referring, stub = "ECLI:NL:RBROT:2020:1", "ECLI:NL:CRVB:2021:7"
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _judgment(asked, ecli=asked, date_eff="2022-02-17", tier="hvj_eu"),
+            _judgment(unknown, ecli=unknown, date_eff="2023-01-10", tier="hvj_eu"),
+            # referred from another country: no edge
+            _judgment(other, ecli=other, date_eff="2021-03-01", tier="hvj_eu"),
+            _judgment(
+                referring, ecli=referring, date_eff="2020-03-20", court_code="RBROT"
+            ),
+            _judgment(stub, ecli=stub, stub=True),
+        ],
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            _edge("a1", _jid(asked), _jid(referring), "ANSWERS"),
+            _edge("a2", _jid(unknown), _jid(stub), "ANSWERS"),
+        ]
+    )
+
+    found = get_judgments_list(
+        store, JudgmentFilters(tiers=("hvj_eu",), referred_by="NL")
+    )
+    assert _ids(found) == [_jid(unknown), _jid(asked)]
+    assert found["total"] == 2
+    decisions = [
+        JudgmentListItemDTO.from_document(row).referring_decision
+        for row in found["items"]
+    ]
+    assert [d.model_dump() if d else None for d in decisions] == [
+        {"ecli": stub, "court_code": "CRVB", "date": None},
+        {"ecli": referring, "court_code": "RBROT", "date": "2020-03-20"},
+    ]
+    assert get_judgments_list(store, JudgmentFilters(referred_by="BE"))["items"] == []
+    every = {
+        row["ecli"]: row["referring_decision"]
+        for row in get_judgments_list(store, JudgmentFilters(tiers=("hvj_eu",)))[
+            "items"
+        ]
+    }
+    assert every[other] is None
 
 
 def test_the_facets_counted_in_one_read_are_those_counted_one_by_one(

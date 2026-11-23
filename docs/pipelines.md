@@ -7,7 +7,7 @@ what the semantic pipelines detect. Confidence values are fixed in code unless n
 
 | Source | Retrieve | Normalize | Semantic |
 |--------|----------|-----------|----------|
-| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
+| Tweede Kamer | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content`, `tk-transposition-tables` | `tk`, `tk-dossiers`, `tk-document-links`, `tk-case-actors`, `tk-content` | `tk`, `tk-amends`, `tk-amendment-articles`, `tk-mvt`, `tk-mvt-articles`, `tk-dossier-titles`, `tk-dossier-eu`, `tk-dossier-outcomes`, `tk-dossier-relations`, `tk-cited-papers`, `tk-government`, `tk-coalition-votes`, `tk-person-duplicates`, `tk-faction-succession`, `tk-dictum`, `tk-paper-outcomes`, `tk-motion-kinds`, `tk-transposition-tables` |
 | Rechtspraak | `rechtspraak`, `rechtspraak-instanties` | `rechtspraak` (`lawgraph courts build` reads the Instanties list) | `rechtspraak`, `rechtspraak-appeal`, `rechtspraak-conclusions`, `rechtspraak-referrals`, `rechtspraak-related`, `rechtspraak-duplicates`, `rechtspraak-citations`, `rechtspraak-series` |
 | EUR-Lex | `eurlex`, `eurlex-nim` | `eurlex` (`semantic bwb-implements` reads `eurlex-nim`) | `eurlex`, `eurlex-cjeu` |
 | BWB | `bwb`, `bwb-history` | `bwb`, `bwb-history` | `bwb`, `bwb-captions`, `bwb-grondslagen`, `bwb-amendments`, `bwb-annexes`, `bwb-publications`, `bwb-implements`, `bwb-relation-types` |
@@ -408,6 +408,16 @@ goes otherwise.
 or of a reference) is not in a run of `normalize tk-dossiers`. Every dossier without a title,
 the source of its title or an opening date takes them from its papers and activities as that
 pipeline gives them (`core/dossier_stages.select_title`, `opened_on`).
+
+**Semantic `tk-dossier-eu`.** The Tweede Kamer has no field for the EU document a dossier is
+about or the EU acts it implements; its title names them (`core/dossier_eu.py`). `eu_ref`:
+`{com, celex}` per COM number of the title (`COM (2025) 80`, written `COM(2025) 80`), `celex`
+the CELEX of that document when the graph holds it (`52025PC0080`, a proposal, or
+`52025DC0080`; `retrieve eurlex --mode com` fetches only the proposals of adopted acts), else
+null. `implements`: `{celex, bases}` per EU act the title says it implements (basis `title`,
+read as a considerans is: `core/eu_citations.implemented_acts`) and per act an instrument
+`LEGISLATED_IN` the dossier `IMPLEMENTS` (the `meta.bases` of that edge). Over every dossier;
+writes only what changes, null where nothing is left.
 
 **Semantic `tk-dossier-outcomes`.** Whether a dossier is closed, how it ended and on which day,
 read from the graph (`core/dossier_stages.derive_outcome`); the first rule that holds wins:
@@ -1073,7 +1083,10 @@ zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, i
 vonnis`. Two case numbers are the same when they share a number of five digits or more,
 else a roll number (`22/2463T`), else all their letters and digits
 (`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
-21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
+21-346`, `200.273.775/01` is `200.273.775`; or when the digits of one are those of groups
+that follow each other in the other, without leading zeros (`same_digits`: `AWB 21/4536` is
+`awb-21_4536`, `10/2941` is `10/02941`, `13.751.400-16` is `13/751400-16`; one group of fewer
+than five digits is too little). A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it. The edges of
 a ruling are derived in full each run; with `--since` only those of the rulings fetched since
@@ -1137,7 +1150,7 @@ judgment (a CELEX number of sector 6) is stored with what CELLAR says of it, by 
 query: `meta.ecli` (`cdm:case-law_ecli`), `meta.date` (`work_date_document`), `meta.title` (the
 Dutch `expression_title`; of joined cases the first in order), `meta.national` (the national
 decisions of its case, `case-law_national-judgement`) and `meta.country` (`NLD`, the country
-it was referred from).
+it was referred from; joined cases from several countries name each, sorted: `BEL NLD`).
 Incremental asks that moment for every act in the graph and fetches an act that is not stored,
 stored without the moment, or stored with an earlier one; an act CELLAR has no moment for is
 fetched only when it is not stored. `--celex` and the other modes skip an act stored in the
@@ -1229,11 +1242,17 @@ Overview).
 judgment its paragraphs name by ECLI as the Court writes it ("Schrems, C‑362/14,
 EU:C:2015:650, punt 73"; with or without `ECLI:`), 0.95, with the places as `semantic
 rechtspraak-citations` keeps them (data model); one not loaded becomes a stub. `ANSWERS` from a
-judgment referred from the Netherlands (`meta.country` `NLD`) to the decision that referred its
-questions, the `*A9*` line of `meta.national`: its ECLI (1.0), else the decision (not a
-conclusion) of its date with one of the case numbers between the brackets that end the line
-("Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)", 0.9), as `rechtspraak-referrals`
-compares them; `meta.basis` `national_decision`. The articles a judgment cites are linked by
+judgment referred from the Netherlands (`NLD` in `meta.country`) to the decision that referred
+its questions, the `*A9*` line of `meta.national`: its Dutch ECLI (1.0; also `ECLI:NL:HR:2024=922`
+read as `…:2024:922`, and without `ECLI:` (`NL:RBDHA:2021:800`, `CRVB:2019:2782`) when of the
+year of its date), else the decision (not a conclusion) of its date with one of the case
+numbers between the brackets that end the line ("Rechtbank Rotterdam, Uitspraak van 20/03/2020
+(ROT 19/1249)", 0.9), as `rechtspraak-referrals` compares them, of the tier of the court the
+line names first when both are known (`court_sources.named_tier`: the one judgment tier each
+of whose words stands in a word of the name, `Arrondissementsrechtbank te Amsterdam` is
+`rechtbank`); `meta.basis` `national_decision`. A referring decision without an ECLI that is
+not in the graph (rechtspraak.nl has it without a document, or not at all, as most from before
+2000) stays unanswered. The articles a judgment cites are linked by
 `semantic rechtspraak`. Derived in full on every run.
 
 ## BWB (Dutch legislation)
@@ -1425,6 +1444,21 @@ publications with the divisions later laws replaced in place, each article at th
 its `path`), and kept under its official id (`stb-2026-56`); the law keeps how many it gives
 (`definitions_found`). A run that reaches the end of the toestanden (the daily run, the last
 slice) reads them: their ids sort after every BWB id.
+
+**Semantic `bwb-amounts`.** The numbers in the text of every version of every article
+(`core/bwb_amounts.py`), a row each in `lg_amounts` ([data model](data-model.md)): of each
+regulation its ArticleVersions are read (text, `parts`, `tables`, `redactions`; no XML), so a
+new toestand that changes an amount is a new version with a row of its own, and the old one
+holds until it begins. An amount (`€ 3.115`, `€ 1.000,–`, `€ 22,5 miljoen`, `€ 3 350`, `227
+euro`), a percentage (`6,398%`, `vijf procent`), a time limit only after a word that makes it
+one (`binnen zes weken`, `ten minste een maand`, `termijn van twee maanden`, "De termijn …
+bedraagt zes weken"), not after a penalty or an age or before `per`, and a date only after
+`vóór`, `per` or `met ingang van` (a date in the title of an act it cites is none). A
+redaction that opens with its day ("per 1 juli 2026: € 14,99") gives its values that day as
+`valid_from`. An amount in words, a fraction and a number without such a word are left out.
+Only a row that changed is written. `--since`: the regulations whose toestand was fetched
+since then (the daily run); without it every one, also in slices (`--after BWB-ID`, `--limit
+N`; `weekly.sh` in slices of `AMOUNTS_SLICE`).
 
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
@@ -2405,6 +2439,7 @@ thesaurus of `retrieve tooi`, `normalize rijksoverheid` also `retrieve staatscou
 | semantic `eerstekamer` | `normalize tk-dossiers` and `normalize eerstekamer` |
 | semantic `kst-sru` | `normalize tk-dossiers` and `normalize kst-sru` |
 | semantic `tk-dossier-titles` | `normalize tk-dossiers` (documents, activities and their edges to the dossier) and every source that makes a dossier (`normalize eerstekamer`, `kst-sru`, `eerstekamer-bills`) |
+| semantic `tk-dossier-eu` | the dossier titles (`normalize tk-dossiers`, `tk-dossier-titles`), `bwb-implements` (`IMPLEMENTS`), `bwb-amendments` (`LEGISLATED_IN`) and `normalize eurlex` (the COM documents) |
 | semantic `tk-dossier-outcomes` | `bwb-amendments`, `normalize staatsblad-laws` and `verdragenbank` (`LEGISLATED_IN`), `normalize tk-dossiers` (documents, decisions and their edges to the dossier) and `normalize eerstekamer-votes` (the votes of the Eerste Kamer, `ek_rejected`) |
 | normalize `kst-sru` | `normalize tk-dossiers` (the dossiers it does not write, and the documents of the Tweede Kamer's API its copies give way to) |
 | normalize `eerstekamer-composition` | `normalize tk-dossiers` (the members of the Tweede Kamer its members are matched to) |

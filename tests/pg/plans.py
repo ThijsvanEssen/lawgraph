@@ -121,13 +121,18 @@ def _flags_only(condition: str) -> bool:
 
 def _narrowed(node: dict[str, Any], partial: frozenset[str]) -> bool:
     """Whether a condition of the scan, or the condition of the partial index it reads
-    (``WHERE semantic_type IS NOT NULL``), finds its rows."""
-    indexes = {node.get("Index Name")} | {
-        child.get("Index Name") for child in node.get("Plans", [])
-    }
+    (``WHERE semantic_type IS NOT NULL``), finds its rows; of a bitmap scan also the
+    condition of its index, which a commuted operator does not repeat as a recheck
+    (``s_title_g %> 'x'`` for ``'x' <% s_title_g``: a filter above it)."""
+    children = node.get("Plans", [])
+    indexes = {node.get("Index Name")} | {child.get("Index Name") for child in children}
     if indexes & partial:
         return True
-    condition = node.get("Index Cond") or node.get("Recheck Cond")
+    condition = (
+        node.get("Index Cond")
+        or node.get("Recheck Cond")
+        or " AND ".join(c["Index Cond"] for c in children if "Index Cond" in c)
+    )
     if not condition:
         return False
     return not _flags_only(condition)

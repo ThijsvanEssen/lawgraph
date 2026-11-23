@@ -75,8 +75,10 @@ from lawgraph.core.raw_records import meta, payload_text
 from lawgraph.core.time import OPEN_END, shift_day
 from lawgraph.db import EdgeWriter, NodeWriter
 from lawgraph.db.counting import Store
+from lawgraph.db.queries import raw as raw_queries
 from lawgraph.db.queries import removals
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
+from lawgraph.db.store import GraphStore
 from lawgraph.pipelines.normalize._bwb_places import Crumbs, Places
 from lawgraph.pipelines.normalize.base import NormalizePipelineBase, Records
 
@@ -288,15 +290,55 @@ class Written:
 
 
 class BWBHistoryNormalizePipeline(NormalizePipelineBase[Toestanden]):
-    """Normalize all historical BWB toestanden into instrument and article versions."""
+    """Normalize all historical BWB toestanden into instrument and article versions.
+
+    *after* and *limit*: a slice of a run over all, past that BWB id, at least so many
+    toestanden and never half a regulation (it reads every toestand of the regulations it
+    starts on), so each slice is that run for its regulations; the log names where the next
+    one starts.
+    """
+
+    def __init__(
+        self, *, store: GraphStore, after: str | None = None, limit: int | None = None
+    ) -> None:
+        super().__init__(store=store)
+        self.after = after
+        self.limit = limit
+        self._upto: str | None = None  # where the slice ends
+
+    def run(self, *, since: dt.datetime | None = None) -> PipelineResult:
+        result = super().run(since=since)
+        if self.limit is not None:
+            if self._upto is None:
+                logger.info(
+                    "Read to the end of the regulations: the end, nothing to go on."
+                )
+            else:
+                logger.info(
+                    "The last read was %s (go on with --after %s).",
+                    self._upto,
+                    self._upto,
+                )
+        return result
 
     def fetch_raw(self, *, since: dt.datetime | None = None) -> Toestanden:
-        """Stream the raw historical toestanden (each is a large XML document)."""
+        """Stream the raw historical toestanden (each is a large XML document), of the
+        slice."""
+        kinds = [RAW_KIND_BWB_TOESTAND_ALL]
+        self._upto = (
+            None
+            if self.limit is None
+            else raw_queries.regulation_slice_end(
+                self.store, kinds=kinds, past=self.after, toestanden=self.limit
+            )
+        )
+        sliced = self.after is not None or self.limit is not None
         records = self._iter_raw_sources(
             source=SOURCE_BWB,
-            kinds=[RAW_KIND_BWB_TOESTAND_ALL],
+            kinds=kinds,
             since=since,
             chronological=True,
+            regulations=(self.after, self._upto) if sliced else None,
         )
         return Toestanden(records, incremental=since is not None)
 

@@ -48,8 +48,8 @@ def test_the_schema_can_be_ensured_again(conn: psycopg.Connection) -> None:
     # names (lg_judgment_persons), and the references each record read could not link
     # (lg_unlinked_references), and the judgments citing each article (lg_cited_by), and
     # the steps between the sources (source_steps, source_step_nodes), and the court map per
-    # municipality and year (lg_court_districts)
-    assert tables == len(NODE_COLLECTIONS) + 29
+    # municipality and year (lg_court_districts), and the numbers in the articles (lg_amounts)
+    assert tables == len(NODE_COLLECTIONS) + 30
 
 
 def test_strings_sort_by_the_icu_root_upper_case_first(

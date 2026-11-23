@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from lawgraph.config.constants import (
+    RAW_KIND_BWB_TOESTAND_ALL,
     RAW_KIND_EURLEX_NIM,
     SOURCE_BWB,
     SOURCE_EURLEX,
@@ -15,7 +16,7 @@ from lawgraph.config.constants import (
     SOURCE_STAATSCOURANT,
 )
 from lawgraph.db import GraphStore, raw_source_doc
-from lawgraph.db.queries import instrument_names
+from lawgraph.db.queries import instrument_names, raw
 from lawgraph.db.queries.normalize import bwb as normalize_bwb
 from lawgraph.db.queries.semantic import bwb as semantic_bwb
 from lawgraph.db.queries.semantic import eu as semantic_eu
@@ -1073,3 +1074,47 @@ def test_article_texts_reads_the_text_of_the_articles_asked_for(
     assert list(semantic_bwb.article_texts(store, ["bwbr0000001_2"])) == [
         {"key": "bwbr0000001_2", "text": "Tekst 2"}
     ]
+
+
+def test_a_slice_of_the_history_holds_whole_regulations(store: GraphStore) -> None:
+    history = {"R1": ["2020", "2021", "2022"], "R2": ["2020"], "R3": ["2020", "2021"]}
+    store.insert_raw_sources(
+        [
+            raw_source_doc(
+                source=SOURCE_BWB,
+                kind=RAW_KIND_BWB_TOESTAND_ALL,
+                external_id=f"{bwb_id}@{year}-01-01",
+                payload_text="<toestand/>",
+                meta={"bwb_id": bwb_id, "start_date": f"{year}-01-01"},
+            )
+            for bwb_id, years in history.items()
+            for year in years
+        ]
+    )
+    kinds = [RAW_KIND_BWB_TOESTAND_ALL]
+
+    def read(past: str | None, upto: str | None) -> list[str]:
+        return [
+            r["external_id"]
+            for r in raw.iter_raw_records(
+                store,
+                source=SOURCE_BWB,
+                kinds=kinds,
+                since_iso=None,
+                batch_size=10,
+                chronological=True,
+                regulations=(past, upto),
+            )
+        ]
+
+    def end(past: str | None) -> str | None:
+        return raw.regulation_slice_end(store, kinds=kinds, past=past, toestanden=2)
+
+    # two toestanden end inside R1: the slice reads all of R1
+    assert end(None) == "R1"
+    assert read(None, "R1") == ["R1@2020-01-01", "R1@2021-01-01", "R1@2022-01-01"]
+    assert end("R1") == "R3"
+    assert read("R1", "R3") == ["R2@2020-01-01", "R3@2020-01-01", "R3@2021-01-01"]
+    # exactly two left, then none: the slice past R3 reads to the end, which is nothing
+    assert end("R2") == "R3"
+    assert (end("R3"), read("R3", None)) == (None, [])

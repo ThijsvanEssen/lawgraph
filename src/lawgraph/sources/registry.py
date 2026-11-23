@@ -151,6 +151,7 @@ from lawgraph.pipelines.semantic import (
 )
 from lawgraph.pipelines.semantic.bwb import BWBSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_amendments import BWBAmendmentsSemanticPipeline
+from lawgraph.pipelines.semantic.bwb_amounts import BWBAmountsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_annexes import BWBAnnexesSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_captions import BWBCaptionsSemanticPipeline
 from lawgraph.pipelines.semantic.bwb_definitions import BWBDefinitionsSemanticPipeline
@@ -221,6 +222,9 @@ from lawgraph.pipelines.semantic.tk_cited_papers import (
 from lawgraph.pipelines.semantic.tk_coalition_votes import (
     TKCoalitionVotesSemanticPipeline,
 )
+from lawgraph.pipelines.semantic.tk_dossier_eu import (
+    TKDossierEUSemanticPipeline,
+)
 from lawgraph.pipelines.semantic.tk_dossier_outcomes import (
     TKDossierOutcomesSemanticPipeline,
 )
@@ -254,8 +258,8 @@ from lawgraph.pipelines.semantic.tooi_ministries import TooiMinistriesSemanticPi
 from lawgraph.pipelines.semantic.verdragenbank import VerdragenbankSemanticPipeline
 from lawgraph.sources.addresses import Phase, address_of, name_of
 
-# How a source is spelled in a class name, where capitalising it is not enough.
-_CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR"}
+# How a word is spelled in a class name, where capitalising it is not enough.
+_CLASS_PREFIX = {"tk": "TK", "bwb": "BWB", "echr": "ECHR", "eu": "EU"}
 
 
 @dataclass(frozen=True)
@@ -315,9 +319,9 @@ class Pipeline:
 
 
 def _class_name(phase: Phase, source: str, part: str | None) -> str:
-    words = "".join(word.capitalize() for word in (part or "").split("-"))
-    prefix = _CLASS_PREFIX.get(source, source.capitalize())
-    return f"{prefix}{words}{phase.capitalize()}Pipeline"
+    words = [source, *(part or "").split("-")]
+    name = "".join(_CLASS_PREFIX.get(w, w.capitalize()) for w in words if w)
+    return f"{name}{phase.capitalize()}Pipeline"
 
 
 @dataclass(frozen=True)
@@ -887,6 +891,7 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         BWBHistoryNormalizePipeline,
         "Article and instrument versions from the stored toestanden.",
+        options=slice_args("toestanden of whole regulations", "BWB id"),
         after=("bwb",),  # the articles and instruments
     ),
     _pipeline(
@@ -1015,6 +1020,12 @@ SEMANTIC: list[Pipeline] = [
         BWBDefinitionsSemanticPipeline,
         "The definitions each regulation gives itself (its begripsbepalingen), read from "
         "its stored toestand; and those of each law of the Staatsblad, from its publications.",
+        options=slice_args("regulations", "BWB id"),
+    ),
+    _pipeline(
+        BWBAmountsSemanticPipeline,
+        "The numbers in the text of every version of every article (amounts, percentages, "
+        "time limits, dates), each with the version it holds for.",
         options=slice_args("regulations", "BWB id"),
     ),
     _pipeline(
@@ -1185,6 +1196,11 @@ SEMANTIC: list[Pipeline] = [
         TKDossierTitlesSemanticPipeline,
         "The title and opening date of every dossier without, from its papers and "
         "activities: also of a dossier another source made.",
+    ),
+    _pipeline(
+        TKDossierEUSemanticPipeline,
+        "The EU proposal each dossier is about (COM numbers of its title) and the EU acts it "
+        "implements: by its title, and those the laws it legislated implement.",
     ),
     _pipeline(
         TKDossierOutcomesSemanticPipeline,

@@ -398,6 +398,10 @@ class ArticleProps(_CommonProps):
     """The footnotes its source writes where their marker stands (`<noot>`), not in `text`:
     `{number, text}`, in text order, those of its heading (without a marker) first; their
     links are `references` with `footnote`. Absent without one."""
+    redactions: list[dict[str, Any]] | None = None
+    """What the editors of the BWB add to its text (`<redactie type="extra">`), set apart by
+    a space: `{start, end}`, offsets into `text` ("per 1 juli 2026: € 14,99" after the
+    amount the law prints); absent without one."""
     references: list[dict[str, Any]] | None = None
     """Every `extref`/`intref` of its text that names a regulation, an annex or an EU act:
     `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of
@@ -476,6 +480,8 @@ class ArticleVersionProps(_CommonProps):
     """As on Article: offsets into `text`."""
     footnotes: list[dict[str, Any]] | None = None
     """As on Article."""
+    redactions: list[dict[str, Any]] | None = None
+    """As on Article: offsets into `text`."""
     effect: str | None = None
     """BWB effect: `nieuw`, `wijziging`, `vervallen`, ..."""
     source_publication: str | None = None
@@ -1097,6 +1103,10 @@ class DossierProps(_CommonProps):
     key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document)."""
     same_number_count: int | None = None
     """The other dossiers with the same number (`normalize tk-dossiers`)."""
+    eu_ref: list[dict[str, Any]] | None = None
+    """`{com, celex}` per COM number of its title (`semantic tk-dossier-eu`)."""
+    implements: list[dict[str, Any]] | None = None
+    """`{celex, bases}` of the EU acts it implements (`semantic tk-dossier-eu`)."""
 
 
 # ---------------------------------------------------------------------------

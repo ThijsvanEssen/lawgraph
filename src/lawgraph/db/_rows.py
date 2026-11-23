@@ -47,6 +47,7 @@ NEIGHBOR_PROPS_LEFT_OUT = (
     "tables",
     "headings",
     "footnote_marks",
+    "redactions",
     "references",
     "breadcrumb",
 )

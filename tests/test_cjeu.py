@@ -119,12 +119,16 @@ def test_the_parties_are_the_second_part_of_the_title() -> None:
 def test_the_referring_decision_is_the_a9_line_of_the_national_decisions() -> None:
     facts = _facts()
     assert cjeu.referrals(facts[ROOKPREVENTIE]["national"]) == [
-        Referral(case_numbers=("ROT 19/1249",), date="2020-03-20")
+        Referral(case_numbers=("ROT 19/1249",), date="2020-03-20", tier="rechtbank")
     ]
     # two referring decisions; brackets inside the case number stay in it
     assert cjeu.referrals(facts["62021CJ0562"]["national"]) == [
-        Referral(case_numbers=("13/751539-21",), date="2021-09-14"),
-        Referral(case_numbers=("13/752022-20 (EAB III)",), date="2021-09-14"),
+        Referral(case_numbers=("13/751539-21",), date="2021-09-14", tier="rechtbank"),
+        Referral(
+            case_numbers=("13/752022-20 (EAB III)",),
+            date="2021-09-14",
+            tier="rechtbank",
+        ),
     ]
     # an earlier decision (*A8*) is not the referring one; the brackets that end it count
     assert cjeu.referrals(facts[VIKING]["national"]) == [
@@ -132,6 +136,37 @@ def test_the_referring_decision_is_the_a9_line_of_the_national_decisions() -> No
     ]
     by_ecli = "<p>*A9* Hoge Raad, Arrest van 01/02/2019 (ECLI:NL:HR:2019:123)</p>"
     assert cjeu.referrals(by_ecli) == [Referral(eclis=("ECLI:NL:HR:2019:123",))]
+    # C-465/24: CELLAR writes "=" before the number
+    typo = "<p>*A9* Hoge Raad der Nederlanden, Uitspraak van 21/06/2024 (ECLI:NL:HR:2024=922)</p>"
+    assert cjeu.referrals(typo) == [Referral(eclis=("ECLI:NL:HR:2024:922",))]
+
+
+def test_joined_cases_from_several_countries_name_each_country() -> None:
+    def row(country: str) -> dict[str, Any]:
+        uri = f"http://publications.europa.eu/resource/authority/country/{country}"
+        return {"celex": {"value": "61985CJ0005"}, "country": {"value": uri}}
+
+    answer = {"results": {"bindings": [row("NLD"), row("BEL"), row("NLD")]}}
+    client = EUClient(session=ScriptedSession(lambda sent: answer))
+    assert client.judgment_facts(["61985CJ0005"])["61985CJ0005"]["country"] == "BEL NLD"
+
+
+def test_the_dutch_referrals_are_those_of_a_case_referred_from_the_netherlands() -> (
+    None
+):
+    national = (
+        "<p>*A9* Hof van Cassatie, Arrest van 01/02/2019 (ECLI:BE:CASS:2019:1)</p>"
+        "<p>*A9* Hoge Raad, Arrest van 01/02/2019 (ECLI:NL:HR:2019:123)</p>"
+        "<p>*A9* Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)</p>"
+    )
+    dutch = [
+        Referral(eclis=("ECLI:NL:HR:2019:123",)),
+        Referral(case_numbers=("ROT 19/1249",), date="2020-03-20", tier="rechtbank"),
+    ]
+    assert cjeu.dutch_referrals({"country": "BEL NLD", "national": national}) == dutch
+    assert cjeu.dutch_referrals({"country": "NLD", "national": national}) == dutch
+    assert cjeu.dutch_referrals({"country": "BEL", "national": national}) == []
+    assert cjeu.dutch_referrals({"national": national}) == []
 
 
 # ── the text ─────────────────────────────────────────────────────────────────

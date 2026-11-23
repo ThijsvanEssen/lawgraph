@@ -48,6 +48,7 @@ from lawgraph.api.seo.pages.judgments import withdrawn_page
 from lawgraph.api.seo.pages.titles import title_and_description
 from lawgraph.api.seo.paint import PAINT_BUDGET
 from lawgraph.api.seo.preload import app_preloads, source_preloads
+from lawgraph.api.seo.seed import SEED_BUDGET
 from lawgraph.api.seo.sources import SOURCE_PAGES
 from lawgraph.core.models import parse_node_id
 from lawgraph.core.readable_paths import (
@@ -160,6 +161,8 @@ def _source_page(store: GraphStore, pad: Pad, node_id: str) -> Page:
         # read only for a front end that paints it (its first-paint.js beside the shell)
         if source.paint is not None and shell.shell().first_paint:
             page.first_paint = _first_paint(store, source.paint, row)
+        if source.seed is not None:
+            page.seed = _seed(store, source.seed, pad)
         return page
     props: dict[str, Any] = (lookup.answer(store, node_id) or {}).get("props") or {}
     name = str(props.get("display_name") or "")
@@ -183,6 +186,19 @@ def _first_paint(
     with read_budget(PAINT_BUDGET, "The first paint of a page") as budget:
         found = paint(store, row)
     return None if budget.ran_out else found
+
+
+def _seed(
+    store: GraphStore,
+    seed: Callable[[GraphStore, Pad], dict[str, str]],
+    pad: Pad,
+) -> dict[str, str]:
+    """The API answer the app asks first of the source at *pad* (``api/seo/seed``),
+    within ``SEED_BUDGET``; none past it: the app asks it."""
+    found: dict[str, str] = {}
+    with read_budget(SEED_BUDGET, "The seed of a page") as budget:
+        found = seed(store, pad)
+    return {} if budget.ran_out else found
 
 
 def _in_the_bwb(store: GraphStore, pad: Pad) -> str | None:

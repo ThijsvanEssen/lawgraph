@@ -1,4 +1,4 @@
-"""The start page (``/``): what Concordans promises, a search form and three questions it
+"""The start page (``/``): what Concordans promises, a search form and the questions it
 answers, as the start page of the app draws them (``home/`` of the front end). Fixed text,
 read of nothing: it is the first paint, without a script or a request. The text is
 ``start.json`` of the front end, the one source of both (beside its ``index.html``); the
@@ -46,6 +46,16 @@ START: dict[str, Any] = {
                 ),
                 "linkLabel": "Begin een bundel",
                 "href": "/bundels",
+            },
+            {
+                "title": "Wat speelt er in Europa?",
+                "text": (
+                    "Voorstellen van de Europese Commissie, de omzetting van richtlijnen "
+                    "in Nederlandse wetten en de vragen van Nederlandse rechters aan het "
+                    "Hof van Justitie."
+                ),
+                "linkLabel": "Bekijk Europa",
+                "href": "/europa",
             },
         ],
     },

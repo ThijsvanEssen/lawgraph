@@ -114,6 +114,8 @@ URLS = [
     "/api/judgments?subject=Strafrecht",
     "/api/judgments?subject_area=Strafrecht",
     "/api/judgments?procedure=Cassatie",
+    # the preliminary rulings on questions of a Dutch court: an edge per ruling of the tier
+    "/api/judgments?tier=hvj_eu&referred_by=NL",
     "/api/judgments?q=onrechtmatige+daad",
     f"/api/judgments/{ECLI}",
     "/api/instruments",
@@ -463,6 +465,20 @@ def test_a_page_read_whole_is_found() -> None:
     on_partial = {"Node Type": "Index Scan", "Index Name": "edges_semantic_type"}
     sorted_partial = {"Node Type": "Sort", "Plans": [on_partial]}
     assert plan_faults(sorted_partial, frozenset({"edges_semantic_type"})) == []
+    # a bitmap scan narrowed by its index, the commuted operator a filter above it
+    trigram = {
+        "Node Type": "Bitmap Heap Scan",
+        "Relation Name": "dossiers",
+        "Filter": "('x'::text <% s_title_g)",
+        "Plans": [
+            {
+                "Node Type": "Bitmap Index Scan",
+                "Index Name": "dossiers_s_title_g",
+                "Index Cond": "(s_title_g %> 'x'::text)",
+            }
+        ],
+    }
+    assert plan_faults({"Node Type": "Sort", "Plans": [trigram]}) == []
 
 
 def _shape(node: dict[str, Any]) -> list[str]:

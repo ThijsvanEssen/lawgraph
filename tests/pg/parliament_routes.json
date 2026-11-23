@@ -243,6 +243,8 @@
     ],
     "dossiers": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d1",
       "key": "d1",
       "number": "",
@@ -281,6 +283,8 @@
       "ministry_name": null
      },
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d2",
       "key": "d2",
       "number": "",
@@ -319,6 +323,8 @@
       "ministry_name": null
      },
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d4",
       "key": "d4",
       "number": "",
@@ -357,6 +363,8 @@
       "ministry_name": null
      },
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d5",
       "key": "d5",
       "number": "",
@@ -395,6 +403,8 @@
       "ministry_name": null
      },
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d3",
       "key": "d3",
       "number": "",
@@ -605,6 +615,8 @@
     ],
     "dossiers": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d4",
       "key": "d4",
       "number": "",
@@ -752,6 +764,8 @@
     ],
     "dossiers": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/d2",
       "key": "d2",
       "number": "",
@@ -3877,6 +3891,8 @@
     "total": 2,
     "items": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38002",
       "key": "38002",
       "number": "38002",
@@ -3921,6 +3937,8 @@
       "ministry_name": null
      },
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38001",
       "key": "38001",
       "number": "38001",
@@ -3975,6 +3993,8 @@
     "total": 2,
     "items": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38001",
       "key": "38001",
       "number": "38001",
@@ -4029,6 +4049,8 @@
     "total": 1,
     "items": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38001",
       "key": "38001",
       "number": "38001",
@@ -4082,6 +4104,8 @@
     "total": 1,
     "items": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38001",
       "key": "38001",
       "number": "38001",
@@ -4136,6 +4160,8 @@
     "total": 1,
     "items": [
      {
+      "eu_ref": [],
+      "implements": [],
       "id": "dossiers/38002",
       "key": "38002",
       "number": "38002",

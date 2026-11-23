@@ -51,6 +51,13 @@ class SearchResultItem(WithPath):
         "`GDPR`), when the hit is the article or law that term is about (art. 6:74 BW, the "
         "AVG): a hit found by the list, not by its own words. Null for every other hit.",
     )
+    concept_why: str | None = Field(
+        default=None,
+        description="With `concept`: the source that ties the term to this hit, the `why` "
+        "of the list (`art. 6:74 BW: elke tekortkoming in de nakoming verplicht tot "
+        "schadevergoeding`). Null for a name of an act of `eu-core` (`DSA`), which is its "
+        "own name, and for every other hit.",
+    )
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -146,6 +153,20 @@ class ActiveDossierDTO(WithPath):
     )
 
 
+class BestBlockDTO(StrictModel):
+    """The concept block (``/api/concepts/{key}``) the query is a term of."""
+
+    key: str = Field(description="Its key: `bezwaar-en-beroep`.")
+    name: str = Field(description="Its name: `Bezwaar en beroep`.")
+    concept: str = Field(
+        description="The term of the curated list of concepts the query is: `bezwaar maken`."
+    )
+    concept_why: str | None = Field(
+        default=None,
+        description="The source that ties the term to the block, the `why` of the list.",
+    )
+
+
 class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
 
@@ -195,7 +216,14 @@ class SearchResponse(StrictModel):
         "an identifier, a law, faction or member by its whole name or abbreviation), "
         "else the hit of the concept `q` is the term of (`concept`), else the one hit of "
         "`results` that is `exact`. Null when none is, or more than "
-        "one (`BW`: each book), however well words match (`huurverhoging`).",
+        "one (`BW`: each book), however well words match (`huurverhoging`), and when "
+        "`best_block` is set.",
+    )
+    best_block: BestBlockDTO | None = Field(
+        default=None,
+        description="The concept block `q` is a term of (`bezwaar maken`), for a search box "
+        "to open on Enter instead of `best`, unless `resolved` names something with "
+        "confidence 0.9 or more. Null for every other query.",
     )
     offset: int = Field(
         default=0,
@@ -226,4 +254,14 @@ class SearchResponse(StrictModel):
         "with what plays in it. Of several the one of the best `score`, then the newest "
         "activity. Null when none does, with `matched` `any`, or without `dossiers` in "
         "`types`.",
+    )
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="Of the full search (`mode=full`, the first page) that found nothing "
+        "and names nothing (`best` null): at most 3 queries to try instead, best first, "
+        "each of which finds a law, a dossier or what a concept is about: the names most "
+        "like it by their trigrams, a term or variant of the list of concepts, "
+        "a name of an act of `eu-core` (`aiact`: `AI Act`) or a word of the titles of the "
+        "laws and dossiers "
+        "(`wanprestatei`: `wanprestatie`). Empty otherwise.",
     )

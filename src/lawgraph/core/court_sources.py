@@ -102,6 +102,19 @@ def places(courts: list[dict[str, Any]]) -> set[str]:
     }
 
 
+def named_tier(name: str) -> str | None:
+    """The tier of a court of the Netherlands a text names (``Arrondissementsrechtbank te
+    Amsterdam``: ``rechtbank``): the one tier of ``TIER_OF_TYPE`` each of whose words stands
+    in a word of *name*; None for none or several."""
+    words = slug(name, " ").split()
+    tiers = [
+        tier
+        for tier in set(TIER_OF_TYPE.values())
+        if all(any(part in word for word in words) for part in tier.split("_"))
+    ]
+    return tiers[0] if len(tiers) == 1 else None
+
+
 def court_kind(name: str, tier: str, known_places: set[str]) -> str:
     """The kind of a court: its tier, for a tier of one kind; else its official name
     without the place, in lower case and joined by ``_``.

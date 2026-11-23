@@ -15,6 +15,7 @@ from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import FacetCountDTO, judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import (
+    BestBlockDTO,
     SearchCountDTO,
     SearchedDTO,
     SearchResponse,
@@ -28,7 +29,8 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MINISTRIES,
 )
-from lawgraph.core.concepts import Concept, concept_named
+from lawgraph.core import concept_articles
+from lawgraph.core.concepts import BLOCK, Concept, concept_named
 from lawgraph.core.logging import get_logger
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
@@ -50,6 +52,7 @@ from lawgraph.db.queries.search.parser import kept_notation_parser
 from lawgraph.db.queries.search.ranking import SCORE_IDENTIFIER, exact_hit
 from lawgraph.db.queries.search.searched import SEARCHED
 from lawgraph.db.queries.search.signers import Signed
+from lawgraph.db.queries.search.suggestions import suggested
 from lawgraph.db.queries.search.types import SEARCH_TYPES, SEARCHES, hit_by_key
 from lawgraph.db.version_cache import STALE_WAIT, stale_wait
 
@@ -298,6 +301,13 @@ OFFSET_MAX = 500
         "as the pages of the dossier, the votes and the commitments give them; null when "
         "none had, with `matched` `any`, or without `dossiers` in `types`."
         "\n\n"
+        "Suggestions (`mode=full`, the first page): a search that found nothing and names "
+        "nothing (`best` null) has in `suggestions` at most 3 queries to try instead, each "
+        "of which finds a law, a dossier or what a concept is about: the names most like "
+        "its words by their trigrams (`pg_trgm` similarity 0.4 or more): a term of the "
+        "list of concepts, a name of an act of `eu-core` (`aiact`: `AI Act`) or a word of "
+        "the titles of the laws and dossiers (`wanprestatei`: `wanprestatie`)."
+        "\n\n"
         "Pages and facets (`mode=full`): `offset` skips that many hits of each type (a "
         "page of `limit`, `offset` at most 500). `facets=true` adds `counts`, per type "
         "how many hits it has (`total`; `capped`: at least that many, the count stops "
@@ -463,6 +473,9 @@ def search(
         if mode == "full" and not offset and not any_word
         else None
     )
+    best_block = _best_block(named, resolved)
+    best = None if best_block else _best(grouped, resolved, concept)
+    found_nothing = mode == "full" and not offset and not total and not partial
 
     return SearchResponse(
         q=q,
@@ -478,11 +491,17 @@ def search(
         words=words.words,
         left_out=words.left_out,
         matched="any" if any_word else "all",
-        best=_best(grouped, resolved, concept),
+        best=best,
+        best_block=best_block,
         offset=offset,
         counts=_counts(counted, fetched, offset + limit) if facets else None,
         facets=_facets(counted) if facets else None,
         active_dossier=playing,
+        suggestions=(
+            suggested(store, " ".join(words.words) or q)
+            if found_nothing and best is None and best_block is None
+            else []
+        ),
     )
 
 
@@ -541,15 +560,15 @@ def _concept_item(
     store: GraphStore, q: str, named: Concept, types: list[str]
 ) -> SearchResultItem | None:
     """The article or law of the concept *q* names (``core.concepts``) as a hit of score 1,
-    ``exact``, with ``concept`` its term; None when its type is not searched or the graph
-    does not have it."""
+    ``exact``, with ``concept`` its term and ``concept_why`` its source; None when its type
+    is not searched or the graph does not have it."""
     if named.collection not in types:
         return None
     hit = hit_by_key(store, named.collection, named.key)
     if hit is None:
         return None
     item = _item(q, {**hit, "score": SCORE_IDENTIFIER, "exact": True}, {})
-    return item.model_copy(update={"concept": named.term})
+    return item.model_copy(update={"concept": named.term, "concept_why": named.why})
 
 
 # A match of ``/api/resolve`` this sure is what the query names (``resolve.CONFIDENCE_NAME``:
@@ -568,9 +587,8 @@ def _best(
     hit that is ``exact``, a ministry before the committees (``BZK``: the ministry, not the
     committee for it); None when there is none or more than one (``BW``: every book),
     however well the words match."""
-    match = resolved.match if resolved else None
-    if match is not None and resolved and resolved.confidence >= BEST_CONFIDENCE:
-        return match.id
+    if sure := _sure(resolved):
+        return sure
     if concept is not None:
         return concept.id
     ministry = any(hit.exact for hit in grouped.get(COLLECTION_MINISTRIES, []))
@@ -582,6 +600,28 @@ def _best(
         if hit.exact
     }
     return exact.pop() if len(exact) == 1 else None
+
+
+def _sure(resolved: ResolveResponse | None) -> str | None:
+    """The id of the match of *resolved* of ``BEST_CONFIDENCE`` or more; None without."""
+    if resolved and resolved.match and resolved.confidence >= BEST_CONFIDENCE:
+        return resolved.match.id
+    return None
+
+
+def _best_block(
+    named: Concept | None, resolved: ResolveResponse | None
+) -> BestBlockDTO | None:
+    """The concept block *named* names (``core.concepts.BLOCK``), unless *resolved* names
+    something sure (``_sure``): what the sources name goes before the list."""
+    if named is None or named.collection != BLOCK or _sure(resolved):
+        return None
+    block = concept_articles.concepts().get(named.key)
+    if block is None:
+        return None
+    return BestBlockDTO(
+        key=block.key, name=block.name, concept=named.term, concept_why=named.why
+    )
 
 
 def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:

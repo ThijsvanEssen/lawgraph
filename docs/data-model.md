@@ -838,6 +838,7 @@ Articles:
 | `headings` | `list[object]` | The headings in its text, each on a line of its own (a `<tussenkop>`, the title of a table): `{start, end}`, offsets into `text`; absent without headings. |
 | `footnote_marks` | `list[object]` | Where the marker of a footnote (`<sup>1</sup>`, a `<noot>`) stood in its text, which leaves it out: `{at, number}`, `text[:at]` the words before it; the footnote itself is a paragraph of `text` that opens with its number, or, with `footnote`, the one of `footnotes` at that place. Absent without footnotes. |
 | `footnotes` | `list[object]` | The footnotes its source writes where their marker stands (`<noot>`), not in `text`: `{number, text}`, in text order, those of its heading (without a marker) first; their links are `references` with `footnote`. Absent without one. |
+| `redactions` | `list[object]` | What the editors of the BWB add to its text (`<redactie type="extra">`), set apart by a space: `{start, end}`, offsets into `text` ("per 1 juli 2026: € 14,99" after the amount the law prints); absent without one. |
 | `references` | `list[object]` | Every `extref`/`intref` of its text that names a regulation, an annex or an EU act: `{kind, bwb_id, article, doc, text, start, end, leden, onderdelen, aanhef}`, `celex` of an EU act, `annex` the key of the annex linked to; one of a footnote with `footnote`, its place in `footnotes`, `start` and `end` offsets into that footnote's text. |
 | `breadcrumb` | `list[object]` | The divisions that hold it, outermost first: `{type, label, title}`; absent outside every division. |
 | `inbound_citation_count` | `int` | The `REFERS_TO` and `EXPLAINS` edges to it (`semantic graph-list-stats`). |
@@ -869,6 +870,7 @@ Article versions:
 | `headings` | `list[object]` | As on Article: offsets into `text`. |
 | `footnote_marks` | `list[object]` | As on Article: offsets into `text`. |
 | `footnotes` | `list[object]` | As on Article. |
+| `redactions` | `list[object]` | As on Article: offsets into `text`. |
 | `effect` | `str` | BWB effect: `nieuw`, `wijziging`, `vervallen`, ... |
 | `source_publication` | `str` | `bron`: "Stb.2019-33". |
 | `origin_publication` | `object` | The publication it came from: id, kind, year, number, effect, signed, published, dossiers. |
@@ -1353,6 +1355,8 @@ so. Its schema does not name it.
 | `cabinet` | `str` | The cabinet in office that day. |
 | `first_signed` | `object` | The signature `ministry`, `initiative` and `cabinet` are read from (`semantic tk-government`): the first of the earliest document of the dossier signed first by a Kamerlid or a bewindspersoon, `{date, member, capacity, function, paper}` (`member` its key, `capacity` `kamerlid` or `bewindspersoon`, `paper` the id of the document). |
 | `same_number_count` | `int` | The other dossiers with the same number (`normalize tk-dossiers`). |
+| `eu_ref` | `list[object]` | `{com, celex}` per COM number of its title (`semantic tk-dossier-eu`). |
+| `implements` | `list[object]` | `{celex, bases}` of the EU acts it implements (`semantic tk-dossier-eu`). |
 
 <!-- props:dossiers:end -->
 
@@ -1977,9 +1981,21 @@ graph has (null for none), counted as not linked with `count`. The detail routes
 `REFERS_TO` edges of the node to a stub (`completeness.references`). Apart from the props, so a run that counts every judgment
 rewrites no texts.
 
+`lg_amounts` holds the numbers in the text of each ArticleVersion (`core/bwb_amounts.py`),
+kept by `semantic bwb-amounts`, a row each: `version_id`, `bwb_id`, `span_start` and
+`span_end` (offsets into the text of the version), `part` (the id of the innermost part that
+holds it; null in an article without parts), `kind` (`bedrag`, `percentage`, `termijn`,
+`datum`), `value` (null for a date), `unit` (`EUR`, `%`, `dag`, `werkdag`, `week`, `maand`,
+`jaar`, `uur`, `datum`), `date` (`2027-01-01`, a day of every year `--04-01`), `source`
+(`text`, or `redaction`: in what the editors of the BWB add, `redactions` of the version),
+`valid_from` (the day such a redaction names; null: the start of the version) and `cell` (row
+and cell in a table). Key `(version_id, span_start)`, an index on `bwb_id`. A value holds as
+long as its version does; a new toestand with another amount is another version with a row of
+its own. `/api/articles/{bwb_id}/{article_number}/amounts` reads it.
+
 `lg_data_version` holds a counter per table of the graph, and one each for
-`lg_instrument_definitions`, whose definitions the article routes mark, and
-`lg_unlinked_references`, which the detail routes read. A statement trigger on each
+`lg_instrument_definitions`, whose definitions the article routes mark, `lg_amounts`, which
+the article routes read, and `lg_unlinked_references`, which the detail routes read. A statement trigger on each
 (`<table>_version_insert`, `_update`, `_delete`) raises it with every statement that changes
 the table; a retrieve changes none of them. `lg_article_terms` has no trigger: `semantic
 graph-article-terms` raises the counter of `articles` once, at the end of a run that changed

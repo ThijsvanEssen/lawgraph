@@ -307,6 +307,10 @@ SLICE_HELP = {
         "Start past this row id: the next slice of a run over all.",
         "Stop after this many rows (a slice).",
     ),
+    "semantic bwb-amounts": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many regulations (a slice).",
+    ),
     "semantic bwb-captions": (
         "Start past this BWB id: the next slice of a run over all.",
         "Stop after this many regulations (a slice).",
@@ -318,6 +322,10 @@ SLICE_HELP = {
     "normalize bwb": (
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many toestanden (a slice).",
+    ),
+    "normalize bwb-history": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many toestanden of whole regulations (a slice).",
     ),
     "normalize rechtspraak": (
         "Start past this record key: the next slice of a run over all.",

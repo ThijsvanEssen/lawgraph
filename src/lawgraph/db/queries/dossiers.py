@@ -64,10 +64,11 @@ from lawgraph.db.queries._keyset import InvalidCursor, Keyset, SortKey
 from lawgraph.db.queries._lists import where
 from lawgraph.db.queries.activities import lead_committee
 from lawgraph.db.queries.coalition_sql import coalition_factions, coalition_object
-from lawgraph.db.queries.dossier_filters import DossierFilters
+from lawgraph.db.queries.dossier_filters import DossierFilters, eu_conditions
 from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.normalize import tk as normalize_tk
 from lawgraph.db.queries.seats import seat_dossiers
+from lawgraph.db.queries.semantic.dossier_eu import legislated_implements
 from lawgraph.db.schema import node_of
 from lawgraph.db.version_cache import cached
 
@@ -819,14 +820,10 @@ def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str,
     publication, ``wet`` from the act itself; each act and basis once, by id."""
     rows = store.query(
         f"""
-        SELECT DISTINCT m.to_id AS id,
+        SELECT DISTINCT eu.id AS id,
                CASE WHEN {is_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
                     ELSE 'wet' END AS basis
-        FROM {COLLECTION_EDGES} l
-        JOIN {COLLECTION_INSTRUMENTS} s ON s.id = l.from_id
-        JOIN {COLLECTION_EDGES} m ON m.from_id = s.id AND m.relation = %(implements)s
-        WHERE l.to_id = %(dossier_id)s AND l.relation = %(legislated_in)s
-          AND l.from_collection = '{COLLECTION_INSTRUMENTS}'
+        {legislated_implements("%(dossier_id)s")}
         ORDER BY 1 ASC NULLS FIRST, 2 ASC NULLS FIRST
         """,
         {
@@ -1238,6 +1235,7 @@ def _dossier_filters(
         bind["number"] = filters.number
     if filters.subject:
         shared.append(_subject_filter(filters.subject, bind))
+    shared.extend(eu_conditions(filters, bind))
     if filters.has_phase:
         shared.append(_HAS_PHASE)
         bind["has_phase"] = list(filters.has_phase)

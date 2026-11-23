@@ -516,3 +516,75 @@ def test_the_detail_says_what_a_criminal_judgment_decided() -> None:
     found = JudgmentDTO.from_document(doc).criminal_decision
     assert found is not None and found.model_dump() == decided
     assert JudgmentDTO.from_document(_JUDGMENT_DOC).criminal_decision is None
+
+
+def test_the_list_of_rulings_referred_from_a_country_names_the_decision(monkeypatch):
+    """B184: ``referred_by`` is passed on as written; ``referring_decision`` is null for a
+    row without one, and of a decision not in the graph its court is read from its ECLI."""
+    asked: list[JudgmentFilters] = []
+    rows = [
+        {
+            **_LIST_ROW,
+            "referring_decision": {
+                "ecli": "ECLI:NL:RBROT:2020:1",
+                "court_code": None,
+                "date": None,
+            },
+        },
+        _LIST_ROW,
+    ]
+
+    def fake(store, filters, **_):
+        asked.append(filters)
+        return {"total": 2, "items": rows}
+
+    stub_route(monkeypatch, "judgments", get_judgments_list=fake)
+    first, second = client.get(
+        "/api/judgments", params={"tier": "hvj_eu", "referred_by": "NL"}
+    ).json()["items"]
+    assert asked[0] == JudgmentFilters(tiers=("hvj_eu",), referred_by="NL")
+    assert first["referring_decision"] == {
+        "ecli": "ECLI:NL:RBROT:2020:1",
+        "court_code": "RBROT",
+        "date": None,
+    }
+    assert second["referring_decision"] is None
+    assert_status(client.get("/api/judgments", params={"referred_by": "nl"}), 422)
+
+
+def _detail_props(monkeypatch: Any, **props: Any) -> dict[str, Any]:
+    judgment = {**_JUDGMENT_DOC, "props": {**_JUDGMENT_DOC["props"], **props}}
+    stub_route(
+        monkeypatch,
+        "judgments",
+        get_judgment_with_relations=lambda store, ecli: JudgmentDetailData(
+            judgment=judgment, articles=[]
+        ),
+    )
+    payload = client.get("/api/judgments/ECLI:NL:HR:2020:123").json()
+    return payload["judgment"]
+
+
+_TEXT = {
+    "text": "De Hoge Raad verwerpt het beroep.",
+    "paragraphs": [{"id": "p1", "text": "De Hoge Raad verwerpt het beroep."}],
+    "footnotes": [{"label": "1", "text": "Een noot.", "paragraph_id": "p1"}],
+}
+
+
+def test_the_detail_sends_its_text_once(monkeypatch):
+    """Its text in ``paragraphs`` and ``footnotes``, not again in ``props``."""
+    judgment = _detail_props(monkeypatch, parties=[], **_TEXT)
+
+    assert [p["text"] for p in judgment["paragraphs"]] == [_TEXT["text"]]
+    assert [n["text"] for n in judgment["footnotes"]] == ["Een noot."]
+    assert judgment["props"]["ecli"] == "ECLI:NL:HR:2020:123"
+    assert not {"text", "paragraphs", "footnotes"} & judgment["props"].keys()
+
+
+def test_the_detail_keeps_its_whole_text_while_its_parties_are_not_read(monkeypatch):
+    """Without ``parties`` the reader takes them from the opening of its whole text."""
+    props = _detail_props(monkeypatch, **_TEXT)["props"]
+
+    assert props["text"] == _TEXT["text"]
+    assert not {"paragraphs", "footnotes"} & props.keys()

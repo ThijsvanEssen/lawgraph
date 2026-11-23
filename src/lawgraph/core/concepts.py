@@ -2,9 +2,11 @@
 ``concepts`` of ``lawgraph curated``): a term of the law or of its practice, an abbreviation
 or an English word (``wanprestatie``, ``ontslag op staande voet``, ``GDPR``, ``minimum
 wage``) and the one article or law it is about (art. 6:74 BW, art. 7:677 BW, the AVG, art. 7
-Wml). The names of an act of the list ``eu-core`` (``data/curated/eu_kern.json``) are terms
-of that act (``DSA``, ``AI Act``, ``digitaledienstenverordening``). ``/api/search`` puts that
-article or law first when the query is the term."""
+Wml), or the concept block of ``data/curated/concept_articles.json`` it names (``bezwaar
+maken``: the block ``bezwaar-en-beroep``). The names of an act of the list ``eu-core``
+(``data/curated/eu_kern.json``) are terms of that act (``DSA``, ``AI Act``,
+``digitaledienstenverordening``). ``/api/search`` puts that article or law first when the
+query is the term, or names that block as its best."""
 
 from __future__ import annotations
 
@@ -16,14 +18,21 @@ from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENT
 from lawgraph.core.models import make_node_key
 from lawgraph.core.text_fold import plain_words
 
+# The ``collection`` of a concept that names a concept block (``core.concept_articles``), whose
+# ``key`` is the key of the block: no collection of the graph.
+BLOCK = "concept_blocks"
+
 
 @dataclass(frozen=True)
 class Concept:
-    """A term of the list and the node it is about (an article, else a law)."""
+    """A term of the list and the node it is about (an article, else a law), or the concept
+    block it names (``BLOCK``), and ``why``: the source that ties them (its ``why`` in the
+    list); None for a name of an act of ``eu-core``, which names its own act."""
 
     term: str
     collection: str
     key: str
+    why: str | None = None
 
 
 def concept_key(text: str) -> str:
@@ -33,12 +42,16 @@ def concept_key(text: str) -> str:
 
 
 def concept_of(term: str, value: dict[str, object]) -> Concept:
-    """The concept of an entry of the list: *term* and its ``law`` (a BWB id or CELEX
-    number) with its ``article``, or the law itself without one."""
+    """The concept of an entry of the list: *term* and its ``block``, else its ``law`` (a
+    BWB id or CELEX number) with its ``article``, or the law itself without one; with its
+    ``why``."""
+    why = str(value.get("why") or "") or None
+    if block := value.get("block"):
+        return Concept(term, BLOCK, str(block), why)
     law, article = str(value["law"]), value.get("article")
     if article:
-        return Concept(term, COLLECTION_ARTICLES, make_node_key(law, str(article)))
-    return Concept(term, COLLECTION_INSTRUMENTS, make_node_key(law))
+        return Concept(term, COLLECTION_ARTICLES, make_node_key(law, str(article)), why)
+    return Concept(term, COLLECTION_INSTRUMENTS, make_node_key(law), why)
 
 
 # The brackets at the end of the title of an EU act that are no short title.
@@ -74,12 +87,13 @@ def eu_names(name: str, title: str) -> list[str]:
     return [*found, short] if short else found
 
 
-def _eu_concepts() -> dict[str, Concept]:
-    """The names of the acts of ``eu-core`` (``eu_names``) and the act each is of, with
-    its ``name`` as the term; a name two acts have (``Hernieuwbare energie``) is neither's."""
+def _eu_names() -> dict[str, tuple[str, Concept]]:
+    """The names of the acts of ``eu-core`` (``eu_names``) by ``concept_key``: each as
+    written and the concept of its act, with its ``name`` as the term; a name two acts have
+    (``Hernieuwbare energie``) is neither's."""
     from lawgraph.core.curated import LISTS
 
-    found: dict[str, Concept] = {}
+    found: dict[str, tuple[str, Concept]] = {}
     shared: set[str] = set()
     for celex, value in LISTS["eu-core"].entries().items():
         concept = Concept(
@@ -87,24 +101,31 @@ def _eu_concepts() -> dict[str, Concept]:
         )
         for name in eu_names(str(value["name"]), str(value["title"])):
             key = concept_key(name)
-            if key in found and found[key] != concept:
+            if key in found and found[key][1] != concept:
                 shared.add(key)
-            found[key] = concept
-    return {key: c for key, c in found.items() if key and key not in shared}
+            found[key] = (name, concept)
+    return {key: n for key, n in found.items() if key and key not in shared}
+
+
+@functools.cache
+def concept_names() -> dict[str, tuple[str, Concept]]:
+    """Every term and variant of the list and every name of an act of ``eu-core`` that is
+    no term of the list (``_eu_names``), by ``concept_key``: as written, and its concept."""
+    from lawgraph.core.curated import LISTS
+
+    found = _eu_names()
+    for term, value in LISTS["concepts"].entries().items():
+        concept = concept_of(term, value)
+        for name in (term, *(value.get("variants") or [])):
+            found[concept_key(name)] = (name, concept)
+    return found
 
 
 @functools.cache
 def concepts() -> dict[str, Concept]:
     """Every term and variant of the list (``concept_key``) and its concept, and the names
-    of the acts of ``eu-core`` (``_eu_concepts``) that are no term of the list."""
-    from lawgraph.core.curated import LISTS
-
-    found: dict[str, Concept] = _eu_concepts()
-    for term, value in LISTS["concepts"].entries().items():
-        concept = concept_of(term, value)
-        for name in (term, *(value.get("variants") or [])):
-            found[concept_key(name)] = concept
-    return found
+    of the acts of ``eu-core`` that are no term of the list (``concept_names``)."""
+    return {key: concept for key, (_, concept) in concept_names().items()}
 
 
 def concept_named(q: str, words: list[str]) -> Concept | None:

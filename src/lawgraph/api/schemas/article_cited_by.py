@@ -144,8 +144,8 @@ class ArticleCitedByItem(QualifierFields, CitationOriginFields):
 
 
 class CitedByFacets(StrictModel):
-    """The judgments that cite an article, counted whatever the page, each facet under the
-    other filters."""
+    """The judgments that cite an article (or any article of a concept), counted whatever
+    the page, each facet under the other filters."""
 
     year: list[FacetCountDTO] = Field(
         description="Per year of the judgment's date, oldest first, null (no date) "
@@ -159,6 +159,16 @@ class CitedByFacets(StrictModel):
         "`Bestuursrecht`), most first; a judgment counts for each of its areas; without "
         "the `subject_area` filter."
     )
+
+    @classmethod
+    def of(cls, facets: dict[str, Any] | None) -> CitedByFacets:
+        """From the ``facets`` of a query (``cited_by_table.cited_by_facets``)."""
+        return cls(
+            **{
+                name: [FacetCountDTO(**row) for row in (facets or {}).get(name) or []]
+                for name in ("year", "tier", "subject_area")
+            }
+        )
 
 
 class ArticleCitedByResponse(StrictModel):

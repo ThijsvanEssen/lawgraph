@@ -135,7 +135,19 @@ def get_dossier_changed_articles(
     left out: ``([{law, changes}], truncated)``, the laws by title, the
     changes in the order of the law (a law that is not in the graph last, by id). Each
     change: ``{article, relation, stage, source, effective_date}``, the relation in lower
-    case (``amends``), as the dossier hub names it."""
+    case (``amends``), as the dossier hub names it. Kept per data version: the homepage
+    asks it of the bills it shows (5 to 6 s cold on prod, 22 Nov), which the warm-up asks
+    first (``api.warm``)."""
+    return cached(
+        store,
+        ("dossier changed articles", dossier_id, limit),
+        lambda: _changed_articles(store, dossier_id, limit),
+    )
+
+
+def _changed_articles(
+    store: GraphStore, dossier_id: str, limit: int
+) -> tuple[list[dict[str, Any]], bool]:
     rows = store.query(
         _CHANGES_SQL,
         {

@@ -49,13 +49,15 @@ def by_case_number(
     ruling: str, referral: Referral, candidates: list[dict[str, Any]]
 ) -> list[str]:
     """The referring decisions among *candidates* (rows of ``judgments_on_dates``): of the
-    date the text gives, with one of the case numbers it names; upper case."""
+    date the text gives, of the tier of the court it names when both are known, with one of
+    the case numbers it names; upper case."""
     return sorted(
         {
             row["ecli"].upper()
             for row in candidates
             if row["date"] == referral.date
             and row["ecli"].upper() != ruling
+            and not (referral.tier and row.get("tier") not in (None, referral.tier))
             and referral.names(row["case_number"])
         }
     )

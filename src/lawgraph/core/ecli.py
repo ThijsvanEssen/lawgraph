@@ -9,10 +9,11 @@ number or an LJN (two letters and four digits), another country's an alphanumeri
 that may hold dots, underscores or hyphens. Whether a court code exists is not checked here.
 
 What a text shows is repaired: an LJN whose digits the text sets apart ("BH 2815",
-"BH:4033"), a number set apart from its year ("2019: 322"), NL and the court swapped
-("ECLI:HR:NL:2023:26"), a range ("2018:2374-2375") that is its members, a word glued to the
-number ("661verworpen", "BV2954.vgl") or the next ECLI glued to it, and a zero or one typed
-for a letter of an LJN ("A09006"). Anything else that is not valid is dropped.
+"BH:4033"), a number set apart from its year ("2019: 322") or by an equals sign
+("2024=922"), NL and the court swapped ("ECLI:HR:NL:2023:26"), a range ("2018:2374-2375")
+that is its members, a word glued to the number ("661verworpen", "BV2954.vgl") or the next
+ECLI glued to it, and a zero or one typed for a letter of an LJN ("A09006"). Anything else
+that is not valid is dropped.
 """
 
 from __future__ import annotations
@@ -72,9 +73,10 @@ _GLUED = re.compile(r"(\d{1,6}|[A-Z]{2}\d{4})\.?[A-Z]+")
 # "LJN:BX7991" where the number goes.
 _LJN_LABEL = re.compile(r":(?P<ljn>[A-Z]{2}\d{4})\b", re.IGNORECASE)
 
-# An ECLI as a text writes it: a space may follow the colon before the number.
+# An ECLI as a text writes it: a space may follow the colon before the number, which CELLAR
+# sometimes writes as "=".
 _CANDIDATE = re.compile(
-    rf"\bECLI:(?P<country>{_COUNTRY}):(?P<court>{_COURT_SHAPE}):(?P<year>{_YEAR}):\s?"
+    rf"\bECLI:(?P<country>{_COUNTRY}):(?P<court>{_COURT_SHAPE}):(?P<year>{_YEAR})[:=]\s?"
     rf"(?!ECLI:)(?P<number>{_NUMBER_SHAPE})\b",
     re.IGNORECASE,
 )
@@ -120,6 +122,12 @@ def court_code(ecli: str) -> str | None:
     none."""
     parts = _parts(ecli)
     return parts[2] if len(parts) > 2 else None
+
+
+def ecli_year(ecli: str) -> str | None:
+    """The year of an ECLI: ``2019`` of ``ECLI:NL:HR:2019:1858``; None when it has none."""
+    parts = _parts(ecli)
+    return parts[3] if len(parts) > 3 else None
 
 
 def is_ecli(value: str) -> bool:

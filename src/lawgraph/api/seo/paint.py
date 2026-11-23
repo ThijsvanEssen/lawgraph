@@ -277,8 +277,6 @@ def _law_neighbor(instrument: dict[str, Any] | None) -> dict[str, Any] | None:
 _JUDGMENT_TEXT = 6000
 
 # What the props of a judgment hold of its text, which its paragraphs give.
-_JUDGMENT_BULK = ("paragraphs", "text", "footnotes", "sections")
-
 # The relations the band "Behoort bij" of a judgment names: its procesgang and its conclusie.
 _BAND = NeighborFilter(relations=(RELATION_APPEAL_OF, RELATION_ADVISES_ON))
 _EARLIER = NeighborFilter(relations=(RELATION_APPEAL_OF,), direction="outbound")
@@ -325,15 +323,7 @@ def judgment_paint(store: GraphStore, row: dict[str, Any]) -> dict[str, Any] | N
         for note in judgment.footnotes
         if note.paragraph_id in ids
     ]
-    # its props without its text, which its paragraphs hold
-    light_props = {
-        name: value
-        for name, value in (judgment.props or {}).items()
-        if name not in _JUDGMENT_BULK
-    }
-    shown = judgment.model_copy(
-        update={"paragraphs": kept, "footnotes": notes, "props": light_props}
-    )
+    shown = judgment.model_copy(update={"paragraphs": kept, "footnotes": notes})
     return {
         "kind": "judgment",
         "judgment": shown.model_dump(mode="json"),

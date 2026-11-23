@@ -1,4 +1,6 @@
 concordans.nl {
+	# compressed on the way: the pages of the API and what has no .br/.gz on disk; a file the
+	# build compressed (precompress in the explorer) goes out as that file, `encode` lets it be
 	encode zstd gzip
 
 	handle /api/* {
@@ -8,12 +10,16 @@ concordans.nl {
 	handle /_app/immutable/* {
 		root * /srv/lawgraph/concordans/immutable
 		uri strip_prefix /_app/immutable
-		file_server
+		file_server {
+			precompressed br gzip
+		}
 	}
 
 	handle /_app/* {
 		root * /srv/lawgraph/concordans/current
-		file_server
+		file_server {
+			precompressed br gzip
+		}
 	}
 
 	# the sitemaps `lawgraph sitemaps` writes (daily.sh): sitemap.xml and its parts, plain XML
@@ -31,7 +37,9 @@ concordans.nl {
 	}
 	handle @file {
 		root * /srv/lawgraph/concordans/current
-		file_server
+		file_server {
+			precompressed br gzip
+		}
 	}
 
 	# every other path: the page from the API (HTML, 301 or 404), #394
@@ -56,7 +64,9 @@ concordans.nl {
 			handle_response @down {
 				root * /srv/lawgraph/concordans/current
 				rewrite * /index.html
-				file_server
+				file_server {
+					precompressed br gzip
+				}
 			}
 		}
 	}
@@ -68,7 +78,9 @@ concordans.nl {
 		handle @down {
 			root * /srv/lawgraph/concordans/current
 			rewrite * /index.html
-			file_server
+			file_server {
+				precompressed br gzip
+			}
 		}
 	}
 

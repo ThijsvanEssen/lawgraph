@@ -2297,6 +2297,31 @@ CREATE TABLE IF NOT EXISTS {DEFINITIONS_TABLE} (
 )
 """
 
+# The numbers in the text of each ArticleVersion (``core.bwb_amounts``): amounts,
+# percentages, time limits and dates, a row each, kept by ``semantic bwb-amounts``. Offsets
+# into the text of the version; a value holds for as long as its version does, or from the
+# day of the redaction it stands in (``valid_from``). Not a table of the graph, but the
+# article routes serve it: writing it raises the data version.
+AMOUNTS_TABLE = "lg_amounts"
+AMOUNTS = f"""
+CREATE TABLE IF NOT EXISTS {AMOUNTS_TABLE} (
+    version_id text NOT NULL,
+    bwb_id text NOT NULL,
+    span_start integer NOT NULL,
+    span_end integer NOT NULL,
+    part text,
+    kind text NOT NULL,
+    value numeric,
+    unit text NOT NULL,
+    date text,
+    source text NOT NULL,
+    valid_from text,
+    cell smallint[],
+    PRIMARY KEY (version_id, span_start)
+);
+CREATE INDEX IF NOT EXISTS lg_amounts_bwb_id ON {AMOUNTS_TABLE} (bwb_id)
+"""
+
 # Per node a step read the references of: how many its text makes that the step recognized and
 # could not link (a law or an article not in the graph), 0 when it linked every one; no row
 # when the step has not read it (``core.completeness.references_part``). Kept by ``semantic
@@ -2650,6 +2675,7 @@ def statements() -> list[str]:
         SEARCH_CANDIDATES,
         DECISION_COALITION,
         INSTRUMENT_DEFINITIONS,
+        AMOUNTS,
         UNLINKED_REFERENCES,
         *feed_events(),
         *source_steps(),
@@ -2657,7 +2683,7 @@ def statements() -> list[str]:
         COURT_DISTRICTS,
         nodes_view(),
     ]
-    for table in (COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE):
+    for table in (COLLECTION_EDGES, DEFINITIONS_TABLE, AMOUNTS_TABLE, UNLINKED_TABLE):
         found += data_version_triggers(table)
     return found
 

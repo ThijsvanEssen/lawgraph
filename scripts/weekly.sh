@@ -9,8 +9,9 @@
 #   this same day, and runs them again at 00:00 UTC. What the steps of this run change reaches them then;
 # - rechtspraak-citations is left to the daily run: a judgment cited by ECLI that is not loaded yet is a stub the
 #   edge already reaches, and fills when it comes; the run over all (1h58m) adds nothing new each week;
-# - rechtspraak (the article citations: a law loaded this week takes its citations over) and bwb-definitions go
-#   in slices of RECHTSPRAAK_SLICE judgments (default 100000) and DEFINITIONS_SLICE regulations (default 5000).
+# - rechtspraak (the article citations: a law loaded this week takes its citations over), bwb-definitions and
+#   bwb-amounts go in slices of RECHTSPRAAK_SLICE judgments (default 100000), DEFINITIONS_SLICE and AMOUNTS_SLICE
+#   regulations (default 5000).
 # A failing step does not stop the run; at the end the failures, and the steps skipped because a poll held the lock
 # past LAWGRAPH_LOCK_WAIT, are told through one alert. Each step adds what did not end well, with its reason, to the
 # record of the run (LAWGRAPH_RUN_RECORD, see _run.sh); a skip and a slice that goes no further are added here.
@@ -117,6 +118,7 @@ for name in $(.venv/bin/lawgraph semantic all --list); do
     tk-mvt | tk-mvt-articles | tk-paper-outcomes | tk-transposition-tables | tooi-ministries | verdragenbank) ;;
     rechtspraak) slices rechtspraak "${RECHTSPRAAK_SLICE:-100000}" ;;
     bwb-definitions) slices bwb-definitions "${DEFINITIONS_SLICE:-5000}" ;;
+    bwb-amounts) slices bwb-amounts "${AMOUNTS_SLICE:-5000}" ;;
     *) run semantic "$name" ;;
   esac
 done

@@ -262,21 +262,12 @@ def _eu_core(entries: Entries) -> list[str]:
 
 def _concepts(entries: Entries) -> list[str]:
     from lawgraph.core.concepts import concept_key
-    from lawgraph.core.identifiers import is_bwb_id, parse_celex
 
     found = []
     claimed: dict[str, str] = {}
     for term, value in entries.items():
         value = value or {}
-        law, article = str(value.get("law") or ""), value.get("article")
-        if not (is_bwb_id(law) or parse_celex(law)) or law != law.upper():
-            found.append(
-                f"{term}: law {law!r} is no BWB id or CELEX number in upper case"
-            )
-        if article is not None and (
-            not isinstance(article, str) or not article.strip()
-        ):
-            found.append(f"{term}: article {article!r} is no article number")
+        found += _concept_target(term, value)
         if not str(value.get("why") or "").strip():
             found.append(
                 f"{term}: needs why, the source that ties it to its article or law"
@@ -296,6 +287,26 @@ def _concepts(entries: Entries) -> list[str]:
                 found.append(
                     f"{name}: a term of both {claimed[concept_key(name)]} and {term}"
                 )
+    return found
+
+
+def _concept_target(term: str, value: dict[str, Any]) -> list[str]:
+    """What is wrong with what a term names: a ``block`` of ``concept-articles`` (and no
+    law), else a ``law`` (BWB id or CELEX number) with an optional ``article``."""
+    from lawgraph.core.identifiers import is_bwb_id, parse_celex
+
+    if "block" in value:
+        if "law" in value or "article" in value:
+            return [f"{term}: names a block or a law, not both"]
+        if value["block"] not in LISTS["concept-articles"].entries():
+            return [f"{term}: block {value['block']!r} is no key of concept-articles"]
+        return []
+    law, article = str(value.get("law") or ""), value.get("article")
+    found = []
+    if not (is_bwb_id(law) or parse_celex(law)) or law != law.upper():
+        found.append(f"{term}: law {law!r} is no BWB id or CELEX number in upper case")
+    if article is not None and (not isinstance(article, str) or not article.strip()):
+        found.append(f"{term}: article {article!r} is no article number")
     return found
 
 
@@ -521,8 +532,8 @@ LISTS: dict[str, CuratedList] = {
         _list(
             "concepts",
             "concepts.json",
-            "term -> {variants, law, article, why}: the article or law a search for a term "
-            "of the law, its practice or English names",
+            "term -> {variants, law, article | block, why}: the article, law or concept "
+            "block a search for a term of the law, its practice or English names",
             _records("concepts", "term"),
             _concepts,
         ),

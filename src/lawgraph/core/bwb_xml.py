@@ -22,9 +22,10 @@ The BWB XML already says most of what we need, so we read it instead of guessing
 
 Text offsets of references, of the structure of the article (``ArticleXml.parts``: aanhef,
 leden, onderdelen), of its tables (``ArticleXml.tables``) and of its headings
-(``ArticleXml.headings``) and the markers of its footnotes (``ArticleXml.footnote_marks``)
-refer to ``ArticleXml.text`` (same string). A footnote the XML writes where its marker
-stands (``<noot>``) is no text of the article but one of ``ArticleXml.footnotes``.
+(``ArticleXml.headings``), the markers of its footnotes (``ArticleXml.footnote_marks``) and
+the additions of the editors (``ArticleXml.redactions``) refer to ``ArticleXml.text`` (same
+string). A footnote the XML writes where its marker stands (``<noot>``) is no text of the
+article but one of ``ArticleXml.footnotes``.
 """
 
 from __future__ import annotations
@@ -294,6 +295,20 @@ class Heading:
 
 
 @dataclass(frozen=True)
+class Redaction:
+    """What the editors of the BWB add to the text (``<redactie type="extra">``), as a span
+    of ``ArticleXml.text``: "per 1 juli 2026: € 14,99" after the amount the law prints
+    (art. 8 Wml), the amount in force from that day."""
+
+    start: int
+    end: int
+
+    def to_dict(self) -> dict[str, int]:
+        """JSON-able form stored in ``props.redactions``."""
+        return {"start": self.start, "end": self.end}
+
+
+@dataclass(frozen=True)
 class FootnoteMark:
     """Where the marker of a footnote stood in the text of an article (``<sup>1</sup>``
     after "Richtlijn (EU) 2019/944"): ``text[:at]`` the words before it. The marker is no
@@ -410,6 +425,7 @@ class ArticleXml:
     footnote_marks: tuple[FootnoteMark, ...] = ()
     # its ``<noot>`` footnotes in document order, those of its heading first
     footnotes: tuple[Footnote, ...] = ()
+    redactions: tuple[Redaction, ...] = ()
 
     @property
     def is_repealed(self) -> bool:
@@ -667,6 +683,7 @@ class TextBuilder:
         self.marks: list[FootnoteMark] = []
         # its ``<noot>`` footnotes, in document order
         self.notes: list[Footnote] = []
+        self.redactions: list[Redaction] = []
         self._open: list[_OpenPart] = []
         self._siblings: dict[tuple[str, str], list[str]] = {}
 
@@ -700,6 +717,11 @@ class TextBuilder:
             for mark in raw.marks
         )
         self.notes.extend(raw.notes)
+        self.redactions.extend(
+            Redaction(base + r.start - lead, base + r.end - lead)
+            for r in raw.redactions
+            if r.start >= lead and r.end - lead <= len(text)
+        )
         self.add(text)
 
     def value(self) -> str:
@@ -757,6 +779,7 @@ class _Flat:
     refs: list[Reference]
     marks: list[FootnoteMark] = field(default_factory=list)
     notes: list[Footnote] = field(default_factory=list)
+    redactions: list[Redaction] = field(default_factory=list)
 
 
 def _footnote_number(marker: ET.Element | None) -> str:
@@ -839,15 +862,22 @@ def _unlaid(text: str) -> str:
     return _LAYOUT.sub(" ", text)
 
 
+def _added(element: ET.Element) -> bool:
+    """Whether *element* is an addition of the editors (``<redactie type="extra">``)."""
+    return local_name(element.tag) == "redactie" and element.get("type") == "extra"
+
+
 def _flatten(element: ET.Element, footnotes: frozenset[str] = frozenset()) -> _Flat:
     """Concatenate all text of *element*, a line break of its layout a space; note reference
     offsets (unstripped). A ``<sup>`` of one of *footnotes* is the marker of that footnote,
     noted as a mark and no text, unless a paragraph opens with it (the footnote itself). A
-    ``<noot>`` is a mark and a footnote of its own (``_note``), no text."""
+    ``<noot>`` is a mark and a footnote of its own (``_note``), no text. An addition of the
+    editors is a redaction, apart from the words around it by a space."""
     out: list[str] = []
     refs: list[Reference] = []
     marks: list[FootnoteMark] = []
     notes: list[Footnote] = []
+    redactions: list[Redaction] = []
     length = 0
 
     def walk(node: ET.Element, opens: bool = False) -> None:
@@ -863,6 +893,10 @@ def _flatten(element: ET.Element, footnotes: frozenset[str] = frozenset()) -> _F
             marks.append(FootnoteMark(length, note.number, footnote=len(notes)))
             notes.append(note)
             return
+        added = _added(node)
+        if added and out and not out[-1][-1:].isspace():
+            out.append(" ")
+            length += 1
         start = length
         if node.text:
             text = _unlaid(node.text)
@@ -873,8 +907,12 @@ def _flatten(element: ET.Element, footnotes: frozenset[str] = frozenset()) -> _F
             walk(child, child is first)
             if child.tail:
                 tail = _unlaid(child.tail)
+                if _added(child) and tail[:1].isalnum():
+                    tail = " " + tail  # "€ 14,99</redactie>indien"
                 out.append(tail)
                 length += len(tail)
+        if added:
+            redactions.append(Redaction(start, length))
         if name in ("extref", "intref"):
             doc = node.get("doc") or ""
             jci = parse_jci(doc)
@@ -898,7 +936,7 @@ def _flatten(element: ET.Element, footnotes: frozenset[str] = frozenset()) -> _F
             )
 
     walk(element)
-    return _Flat("".join(out), refs, marks, notes)
+    return _Flat("".join(out), refs, marks, notes, redactions)
 
 
 def _article_number(article: ET.Element) -> str | None:
@@ -1334,15 +1372,16 @@ def _article_text(
     list[Heading],
     list[FootnoteMark],
     list[Footnote],
+    list[Redaction],
 ]:
     """Article text in document order: leden as ``1. text``, other paragraphs and
     list items on their own lines. A paragraph next to the leden (for example
     "Dit artikel is nog niet in werking getreden") is part of the article.
 
     Also the offsets of the leden, onderdelen and aanhef in that text, and of the references,
-    the tables, the headings and the markers of its footnotes (``_footnote_numbers``), and
-    its ``<noot>`` footnotes, those of the title of its ``<kop>`` (which have no marker in
-    the text) first.
+    the tables, the headings, the markers of its footnotes (``_footnote_numbers``) and the
+    redactions, and its ``<noot>`` footnotes, those of the title of its ``<kop>`` (which have
+    no marker in the text) first.
     An article without leden but with a list has the paragraphs before it as its aanhef; a
     paragraph that is only a term ("adviseren:") holds the list after it."""
     builder = TextBuilder()
@@ -1398,6 +1437,11 @@ def _article_text(
         for heading in builder.headings
         if heading.start >= lead and heading.end - lead <= len(text)
     ]
+    redactions = [
+        Redaction(r.start - lead, r.end - lead)
+        for r in builder.redactions
+        if r.start >= lead and r.end - lead <= len(text)
+    ]
     refs = [
         replace(ref, start=ref.start - lead, end=ref.end - lead)
         for ref in builder.refs
@@ -1412,7 +1456,7 @@ def _article_text(
         (part for part in shifted if part is not None),
         key=lambda part: (part.start, -part.end),
     )
-    return text, refs, parts, tables, headings, marks, builder.notes
+    return text, refs, parts, tables, headings, marks, builder.notes, redactions
 
 
 def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
@@ -1424,7 +1468,7 @@ def parse_annexes(root: ET.Element) -> tuple[AnnexXml, ...]:
         if label in seen:
             continue
         seen.add(label)
-        text, refs, parts, tables, headings, marks, notes = _article_text(element)
+        text, refs, parts, tables, headings, marks, notes, _ = _article_text(element)
         annexes.append(
             AnnexXml(
                 label=label,
@@ -1546,7 +1590,9 @@ def article_heads(
 def _parse_article(
     article: ET.Element, breadcrumb: tuple[Crumb, ...], annex: str | None
 ) -> ArticleXml:
-    text, refs, parts, tables, headings, marks, notes = _article_text(article)
+    text, refs, parts, tables, headings, marks, notes, redactions = _article_text(
+        article
+    )
     origin, commencement = _brondata(article)
     number = _article_number(article)
     if annex and number:
@@ -1571,6 +1617,7 @@ def _parse_article(
         headings=tuple(headings),
         footnote_marks=tuple(marks),
         footnotes=tuple(notes),
+        redactions=tuple(redactions),
     )
 
 
@@ -2051,6 +2098,7 @@ def article_props(
             "footnote_marks": [mark.to_dict() for mark in article.footnote_marks]
             or None,
             "footnotes": _footnotes(article.footnotes),
+            "redactions": [r.to_dict() for r in article.redactions] or None,
             "references": references,
             "breadcrumb": [crumb.to_dict() for crumb in article.breadcrumb] or None,
         }
@@ -2076,6 +2124,7 @@ def article_version_props(
             "footnote_marks": [mark.to_dict() for mark in article.footnote_marks]
             or None,
             "footnotes": _footnotes(article.footnotes),
+            "redactions": [r.to_dict() for r in article.redactions] or None,
             "instrument_citation_title": citation_title,
             "display_name": article_display_name(article.label, citation_title),
             "stam_id": article.stam_id,

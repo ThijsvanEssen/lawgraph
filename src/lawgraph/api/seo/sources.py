@@ -37,6 +37,8 @@ from lawgraph.api.seo.paint import (
     judgment_paint,
     law_paint,
 )
+from lawgraph.api.seo.seed import article_seed
+from lawgraph.core.readable_paths import Pad
 from lawgraph.db import GraphStore
 from lawgraph.db.queries import seo
 
@@ -46,18 +48,24 @@ class SourcePage:
     """The read of a kind of page (store, node id → its row, or None), the page it builds
     of the row, its ``og:image`` (or a function of the row to it), and where the front
     end paints it first, what that paint reads (store, row → ``Page.first_paint``;
-    ``api/seo/paint``)."""
+    ``api/seo/paint``), and the API answer the app asks first of it (store, address →
+    ``Page.seed``; ``api/seo/seed``)."""
 
     read: Callable[[GraphStore, str], dict[str, Any] | None]
     build: Callable[[dict[str, Any]], Page]
     image: str | Callable[[dict[str, Any]], str] = SITE_IMAGE
     paint: Callable[[GraphStore, dict[str, Any]], dict[str, Any] | None] | None = None
+    seed: Callable[[GraphStore, Pad], dict[str, str]] | None = None
 
 
 SOURCE_PAGES: dict[str, SourcePage] = {
     "wet": SourcePage(seo.law, law_page, "/og/wet.png", paint=law_paint),
     "artikel": SourcePage(
-        article, article_page, "/og/artikel.png", paint=article_paint
+        article,
+        article_page,
+        "/og/artikel.png",
+        paint=article_paint,
+        seed=article_seed,
     ),
     "uitspraak": SourcePage(
         seo.judgment, judgment_page, "/og/uitspraak.png", paint=judgment_paint

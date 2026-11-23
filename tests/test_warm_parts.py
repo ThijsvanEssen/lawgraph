@@ -3,9 +3,13 @@ the tables of a part kept per table are tables of the database."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any
+
 import pytest
 
 from lawgraph.api import warm
+from lawgraph.core.feed import EVENT_VOTE
 from lawgraph.db import version_cache
 from lawgraph.db.schema import NODE_COLLECTIONS, SEARCH_FIELDS
 
@@ -53,3 +57,59 @@ def test_the_first_warm_up_goes_on_while_the_data_moves(
     assert not warm._warm_lane(Moving(), "0", parts)  # type: ignore[arg-type]
     assert ran == []
     assert version_cache.superseded(Moving(), "0")
+
+
+def _vote(number: str, day: str, chamber: str = "TK", **props: Any) -> dict[str, Any]:
+    return {
+        "kind": EVENT_VOTE,
+        "id": f"decisions/{number}-{chamber}",
+        "date": day,
+        "dossier": {"key": number, "number": number},
+        "props": {"kind": "Wetgeving", "passed": True, "chamber": chamber, **props},
+    }
+
+
+def test_the_bills_of_the_homepage_are_warmed_as_its_network_tries_them(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The passed bills of the summary, newest first and the Eerste Kamer first on a day,
+    then those of the votes of the Eerste Kamer, until one changes an article: a budget, a
+    vote that failed and a dossier asked already are left."""
+    summary = [
+        _vote("36001", "2026-11-18"),
+        _vote("36002", "2026-11-20", passed=False),
+        _vote("36003", "2026-11-20", kind="Begroting"),
+        _vote("36004", "2026-11-19"),
+        _vote("36005", "2026-11-19", "EK"),
+    ]
+    older = [_vote("36001", "2026-11-10", "EK"), _vote("36006", "2026-11-03", "EK")]
+    monkeypatch.setattr(warm, "get_feed_summary", lambda *a, **k: {"items": summary})
+    monkeypatch.setattr(warm, "get_feed", lambda *a, **k: {"items": older})
+    asked: list[str] = []
+
+    def changed(number: str, store: object) -> SimpleNamespace:
+        asked.append(number)
+        return SimpleNamespace(total=int(number == "36006"))
+
+    monkeypatch.setattr(warm, "get_changed_articles", changed)
+    warm._warm_home_bills(object())  # type: ignore[arg-type]
+
+    assert asked == ["36005", "36004", "36001", "36006"]
+
+
+def test_the_bills_of_the_homepage_stop_at_the_first_that_changes_an_article(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bills = [_vote(str(36000 + n), f"2026-11-{10 + n}") for n in range(9)]
+    monkeypatch.setattr(warm, "get_feed_summary", lambda *a, **k: {"items": bills})
+    monkeypatch.setattr(warm, "get_feed", lambda *a, **k: {"items": bills})
+    asked: list[str] = []
+
+    def changed(number: str, store: object) -> SimpleNamespace:
+        asked.append(number)
+        return SimpleNamespace(total=0)
+
+    monkeypatch.setattr(warm, "get_changed_articles", changed)
+    warm._warm_home_bills(object())  # type: ignore[arg-type]
+
+    assert len(asked) == warm.HOME_BILLS

@@ -41,21 +41,30 @@ def _iter_raw_records(
     chronological: bool = False,
     after: str | None = None,
     limit: int | None = None,
+    regulations: tuple[str | None, str | None] | None = None,
 ) -> Iterator[dict[str, Any]]:
+    past, upto = regulations or (None, None)
     records = [
         doc
         for doc in _records(store, source, kinds)
-        if _since(doc, since_iso) and (after is None or doc["key"] > after)
+        if _since(doc, since_iso)
+        and (after is None or doc["key"] > after)
+        and (past is None or _regulation(doc) > past)
+        and (upto is None or _regulation(doc) <= upto)
     ]
     if chronological:
         records.sort(
             key=lambda doc: (
-                (doc.get("meta") or {}).get("bwb_id") or "",
+                _regulation(doc),
                 (doc.get("meta") or {}).get("start_date") or "",
                 doc["key"],
             )
         )
     return islice(records, limit)
+
+
+def _regulation(doc: dict[str, Any]) -> str:
+    return str((doc.get("meta") or {}).get("bwb_id") or "")
 
 
 def _fetched_since(

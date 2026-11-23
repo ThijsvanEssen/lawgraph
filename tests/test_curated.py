@@ -235,6 +235,18 @@ def test_a_concept_needs_a_law_a_reason_and_terms_of_its_own(copy: Path) -> None
         assert concept(wrong), wrong
 
 
+def test_a_concept_names_a_block_of_concept_articles_or_a_law(copy: Path) -> None:
+    def concept(value: str) -> list[str]:
+        return command.main(["set", "concepts", "nieuw begrip", value]).errors
+
+    assert not concept('{"block": "gezag-over-de-politie", "why": "Pw 11-13"}')
+    for wrong in (
+        '{"block": "geen-blok", "why": "x"}',  # no key of concept-articles
+        '{"block": "gezag-over-de-politie", "law": "BWBR0031788", "why": "x"}',
+    ):
+        assert concept(wrong), wrong
+
+
 def test_a_concept_block_needs_two_articles_and_an_official_explanation(
     copy: Path,
 ) -> None:

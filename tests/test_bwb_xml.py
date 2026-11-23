@@ -10,6 +10,7 @@ from lawgraph.core.bwb_xml import (
     EFFECT_INTRODUCES,
     EFFECT_REPEALS,
     EFFECT_REPUBLISHES,
+    article_version_props,
     effect_kind,
     expiry_date,
     instrument_props,
@@ -496,3 +497,25 @@ def test_a_reference_to_an_eu_act_or_an_annex_is_kept() -> None:
         ("intref", "BWBR0020368", None, None, "bijlage"),
     ]
     assert "celex" not in props["references"][2]
+
+
+def test_an_addition_of_the_editors_is_a_redaction_apart_by_a_space() -> None:
+    """``<redactie type="extra">`` in art. 8 Wml: no longer glued to the amount before it
+    ("€ 10,60per 1 juli 2026") or the word after it; its span is a redaction."""
+    xml = """<toestand bwb-id="BWBR0002638"><wetgeving><wettekst>
+      <artikel stam-id="1" versie-id="2" label="Artikel 8"><kop><nr>8</nr></kop>
+      <al>per uur € 10,60<redactie type="extra">per 1 juli 2026: € 14,99</redactie>indien
+        het geldt; elders <redactie type="vervanging">Vervallen</redactie>.</al>
+      </artikel></wettekst></wetgeving></toestand>"""
+
+    (article,) = parse_toestand(xml).articles
+
+    assert article.text == (
+        "per uur € 10,60 per 1 juli 2026: € 14,99 indien het geldt; elders Vervallen."
+    )
+    assert [article.text[r.start : r.end] for r in article.redactions] == [
+        "per 1 juli 2026: € 14,99"
+    ]
+    assert article_version_props(article, "BWBR0002638", None, 0)["redactions"] == [
+        r.to_dict() for r in article.redactions
+    ]

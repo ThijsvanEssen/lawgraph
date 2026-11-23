@@ -77,9 +77,10 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Iterator[GraphStore]:
         _seed(store)
         cli("normalize", "bwb")
         cli("normalize", "bwb-history")
-        cli(
-            "normalize", "bwb-history"
-        )  # a second run must not make old versions current
+        # a second run must not make old versions current; as slices of one toestand,
+        # each reads a whole regulation (both toestanden), then the next reads nothing
+        cli("normalize", "bwb-history", "--limit", "1")
+        cli("normalize", "bwb-history", "--after", LAW, "--limit", "1")
         yield store
 
 

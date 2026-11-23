@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import Field
 
-from lawgraph.api.schemas.article_cited_by import CitedByJudgment
+from lawgraph.api.schemas.article_cited_by import CitedByFacets, CitedByJudgment
 from lawgraph.api.schemas.articles import ExplainingDocumentDTO, passage_excerpt
 from lawgraph.api.schemas.common import PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.documents import origin_fields
@@ -92,6 +92,31 @@ class ConceptDocumentDTO(StrictModel):
         )
 
 
+class ConceptJudgmentsResponse(StrictModel):
+    """Response for GET /api/concepts/{key}/judgments."""
+
+    key: str
+    total: int = Field(
+        description="The judgments that cite any article of the concept and match the "
+        "filters, each once, whatever the page; without filters `judgment_total` of "
+        "`/api/concepts/{key}`."
+    )
+    facets: CitedByFacets
+    items: list[ConceptJudgmentDTO]
+
+
+class ConceptDocumentsResponse(StrictModel):
+    """Response for GET /api/concepts/{key}/documents."""
+
+    key: str
+    total: int = Field(
+        description="The papers joined to any article of the concept and of the `year`, "
+        "each once, whatever the page; without `year` `document_total` of "
+        "`/api/concepts/{key}`."
+    )
+    items: list[ConceptDocumentDTO]
+
+
 class ConceptResponse(StrictModel):
     """Response for GET /api/concepts/{key}."""
 
@@ -143,16 +168,23 @@ class ConceptResponse(StrictModel):
             ],
             missing=[ref for i, ref in refs.items() if i not in docs],
             judgment_total=int(overview.get("judgment_total") or 0),
-            judgments=[
-                ConceptJudgmentDTO(
-                    judgment=CitedByJudgment.from_doc(row["judgment"]),
-                    article_ids=list(row.get("article_ids") or []),
-                )
-                for row in overview.get("judgments") or []
-            ],
+            judgments=judgment_items(overview.get("judgments")),
             document_total=int(overview.get("document_total") or 0),
-            documents=[
-                ConceptDocumentDTO.from_row(row)
-                for row in overview.get("documents") or []
-            ],
+            documents=document_items(overview.get("documents")),
         )
+
+
+def judgment_items(rows: list[dict[str, Any]] | None) -> list[ConceptJudgmentDTO]:
+    """The ``judgments`` of a ``concept_overview`` or the ``items`` of a page of them."""
+    return [
+        ConceptJudgmentDTO(
+            judgment=CitedByJudgment.from_doc(row["judgment"]),
+            article_ids=list(row.get("article_ids") or []),
+        )
+        for row in rows or []
+    ]
+
+
+def document_items(rows: list[dict[str, Any]] | None) -> list[ConceptDocumentDTO]:
+    """The ``documents`` of a ``concept_overview`` or the ``items`` of a page of them."""
+    return [ConceptDocumentDTO.from_row(row) for row in rows or []]
