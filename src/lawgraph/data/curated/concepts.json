@@ -1,5 +1,5 @@
 {
- "about": "By hand: the terms a search names an article or a law by when no source does: a term of the law or of its practice (wanprestatie), an English word (GDPR, minimum wage) or an abbreviation the sources do not give. Each term has its variants, the one article (`law`: a BWB id or CELEX number, `article`: its number as the graph has it; without one the law itself) it is about, and `why`: the source that ties them. A term is added only after its article has been read: it exists, holds and rules the term. A law abbreviation the sources give (Awb, Sr, AVG) needs no entry. A term or variant is one concept's only, compared in lower case without accents and punctuation. `lawgraph curated set concepts`.",
+ "about": "By hand: the terms a search names an article or a law by when no source does: a term of the law or of its practice (wanprestatie), an English word (GDPR, minimum wage) or an abbreviation the sources do not give. Each term has its variants, the one article (`law`: a BWB id or CELEX number, `article`: its number as the graph has it; without one the law itself) it is about or the concept block of concept_articles.json it names (`block`: its key; for a broad term of everyday language whose articles make one doctrine), and `why`: the source that ties them. A term is added only after its article has been read: it exists, holds and rules the term. A law abbreviation the sources give (Awb, Sr, AVG) needs no entry. A term or variant is one concept's only, compared in lower case without accents and punctuation. `lawgraph curated set concepts`.",
  "concepts": [
   {
    "term": "wanprestatie",
@@ -958,11 +958,15 @@
   {
    "term": "bezwaar maken",
    "variants": [
-    "bezwaarschrift"
+    "bezwaarschrift",
+    "bezwaar indienen",
+    "in bezwaar gaan",
+    "bezwaar en beroep",
+    "beroep instellen",
+    "in beroep gaan"
    ],
-   "law": "BWBR0005537",
-   "article": "7:1",
-   "why": "art. 7:1 Awb: bezwaar vóór beroep bij de bestuursrechter"
+   "why": "Awb 6:7, 6:8, 6:11, 7:1 en 8:1: termijn, begin, te laat, bezwaar vóór beroep, beroep bij de bestuursrechter",
+   "block": "bezwaar-en-beroep"
   },
   {
    "term": "hoorplicht",
@@ -1154,11 +1158,12 @@
   {
    "term": "minimumloon",
    "variants": [
-    "minimum wage"
+    "minimum wage",
+    "wettelijk minimumloon",
+    "minimumuurloon"
    ],
-   "law": "BWBR0002638",
-   "article": "7",
-   "why": "art. 7 Wml: de aanspraak van de werknemer op het minimumloon"
+   "why": "art. 7, 8 en 13 Wml: de aanspraak, het bedrag en geen inhouding op het minimumloon",
+   "block": "minimumloon"
   },
   {
    "term": "dakkapel",
@@ -1337,7 +1342,8 @@
     "belastingschijf",
     "schijventarief",
     "tarief inkomstenbelasting",
-    "tarieven inkomstenbelasting"
+    "tarieven inkomstenbelasting",
+    "schijven inkomstenbelasting"
    ],
    "law": "BWBR0011353",
    "article": "2.10",
@@ -1428,6 +1434,69 @@
    "variants": [],
    "law": "32022R1925",
    "why": "Verordening (EU) 2022/1925: de Engelse titel in het Publicatieblad eindigt op (Digital Markets Act); de Nederlandse naam is digitalemarktenverordening"
+  },
+  {
+   "term": "garantie",
+   "variants": [
+    "wettelijke garantie",
+    "product kapot",
+    "kapot product",
+    "garantie op een product"
+   ],
+   "block": "consumentenkoop-en-garantie",
+   "why": "art. 7:17, 7:18 en 7:23 BW: de zaak moet aan de overeenkomst beantwoorden, bij consumentenkoop in het bijzonder, en de koper meldt een gebrek binnen bekwame tijd"
+  },
+  {
+   "term": "ontslag",
+   "variants": [
+    "ontslagen worden",
+    "ontslagrecht",
+    "ontslagvergoeding"
+   ],
+   "block": "ontslag-en-transitievergoeding",
+   "why": "art. 7:669, 7:673 en 7:677 BW: opzegging om een redelijke grond, de transitievergoeding en opzegging om een dringende reden"
+  },
+  {
+   "term": "inkomstenbelasting",
+   "variants": [
+    "income tax"
+   ],
+   "block": "inkomstenbelasting",
+   "why": "art. 2.10, 8.10 en 8.11 Wet IB 2001: het tarief in box 1, de algemene heffingskorting en de arbeidskorting"
+  },
+  {
+   "term": "algemene heffingskorting",
+   "variants": [],
+   "law": "BWBR0011353",
+   "article": "8.10",
+   "why": "art. 8.10 Wet IB 2001: de algemene heffingskorting en haar bedrag"
+  },
+  {
+   "term": "arbeidskorting",
+   "variants": [],
+   "law": "BWBR0011353",
+   "article": "8.11",
+   "why": "art. 8.11 Wet IB 2001: de arbeidskorting voor wie arbeidsinkomen geniet"
+  },
+  {
+   "term": "huurtoeslag",
+   "variants": [
+    "huursubsidie",
+    "recht op huurtoeslag"
+   ],
+   "block": "huurtoeslag",
+   "why": "art. 7, 13 en 14 Wet op de huurtoeslag: het recht naar draagkracht, de maximale huurgrens en het norminkomen"
+  },
+  {
+   "term": "reizigersbagage",
+   "variants": [
+    "wat mag ik meenemen uit het buitenland",
+    "bagage uit het buitenland",
+    "douanevrijstelling bagage"
+   ],
+   "law": "32009R1186",
+   "article": "41",
+   "why": "art. 41 Verordening (EG) nr. 1186/2009: goederen in de persoonlijke bagage van reizigers uit een derde land zijn vrijgesteld van rechten bij invoer"
   }
  ]
 }

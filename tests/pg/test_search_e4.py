@@ -9,8 +9,8 @@ nothing or the wrong thing, run for real on the small test server:
   without a hit of every word the hits of one say so (``matched``);
 * "Rutte" found the Besluit archief Rutten before the member;
 * an LJN was not read as the judgment it numbers;
-* a term ("wanprestatie", "GDPR", "minimum wage") found the words, not the article or law it
-  is about: the curated list of concepts names it (``core.concepts``).
+* a term ("wanprestatie", "GDPR", "minimum wage") found the words, not the article, law or
+  concept block it is about: the curated list of concepts names it (``core.concepts``).
 """
 
 from __future__ import annotations
@@ -284,7 +284,6 @@ E4_CONCEPTS = [
         f"articles/{make_node_key(BW7, '248')}",
     ),  # 2: Art. IX Reparatiewet
     ("GDPR", f"instruments/{make_node_key(AVG)}"),  # 20: a title that holds GDPR
-    ("minimum wage", f"articles/{make_node_key(WML, '7')}"),  # 21: Besluit stuwage
     # 30: its words without the stop words
     (
         "wat is de opzegtermijn van mijn huurcontract",
@@ -327,6 +326,26 @@ def test_a_term_opens_the_article_or_law_the_list_names_by_it(
         "opzegtermijn huur",
     }
     assert [h["id"] for h in answer["results"][collection]].count(named) == 1
+
+
+@pytest.mark.parametrize("mode", ["full", "live"])
+def test_a_term_of_a_block_names_the_block_as_best(
+    store: GraphStore, api: Api, mode: str
+) -> None:
+    """21: "minimum wage" found art. 6 Besluit stuwage. The term names the block
+    ``minimumloon`` (Wml 7, 8 and 13): ``best_block``, and no ``best`` nor hit by the list."""
+    answer = _search(api, "minimum wage", mode=mode, resolve="true")
+    assert answer["best_block"] == {
+        "key": "minimumloon",
+        "name": "Minimumloon",
+        "concept": "minimumloon",
+    }
+    assert answer["best"] is None
+    assert not [h for hits in answer["results"].values() for h in hits if h["concept"]]
+    assert answer["suggestions"] == []
+
+    other = _search(api, "minimumloon wet", mode=mode)
+    assert other["best_block"] is None
 
 
 def test_a_term_is_no_hit_of_a_type_not_searched_or_within_a_period(

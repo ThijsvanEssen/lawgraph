@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
-from lawgraph.core.concepts import concept_named, concepts, eu_names, short_title
+from lawgraph.core import concept_articles
+from lawgraph.core.concepts import (
+    BLOCK,
+    concept_named,
+    concepts,
+    eu_names,
+    short_title,
+)
 from lawgraph.core.curated import LISTS
 from lawgraph.core.models import make_node_key
 from tests.optional import present
@@ -39,6 +46,17 @@ def test_a_term_without_an_article_names_its_law() -> None:
         COLLECTION_INSTRUMENTS,
         make_node_key("32016R0679"),
     )
+
+
+def test_a_term_of_a_block_names_the_block() -> None:
+    named = present(concept_named("bezwaar maken", ["bezwaar", "maken"]))
+    assert (named.term, named.collection, named.key) == (
+        "bezwaar maken",
+        BLOCK,
+        "bezwaar-en-beroep",
+    )
+    blocks = concept_articles.concepts()
+    assert {c.key for c in concepts().values() if c.collection == BLOCK} <= set(blocks)
 
 
 def test_a_query_that_holds_a_term_names_nothing() -> None:

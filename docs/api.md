@@ -540,6 +540,12 @@ defines or rules it). `/api/search` puts that article or law first among the hit
 type, score 1 and `exact`, with `concept` the term, and makes it `best` unless `resolved`
 names something with confidence 0.9 or more: what the sources name goes before the list.
 
+A broad term of everyday language whose articles make one doctrine names a concept block
+instead (`block`, a key of `concept-articles`, below: `bezwaar maken`, `garantie`, `ontslag`,
+`huurtoeslag`). `/api/search` then gives `best_block` (`key`, `name`, and `concept` the term)
+for a search box to open `/api/concepts/{key}` on Enter, and `best` null; no hit is marked
+`concept`. `resolved` with confidence 0.9 or more goes first here too (`best_block` null).
+
 The acts of the list `eu-core` (`eu_kern.json`) are named so too, by their `name` before a
 bracket or comma (`AI-verordening`, `NIS2`), each name of capitals in its bracket (`DSA`,
 `AI Act`, `AVG/GDPR`) and the short title CELLAR ends their `title` with
@@ -547,7 +553,7 @@ bracket or comma (`AI-verordening`, `NIS2`), each name of capitals in its bracke
 first; a name two acts have is neither's (`core/concepts.py` `eu_names`).
 
 The list is kept by hand with `lawgraph curated set concepts <term> '<json>'` (docs/operations.md):
-one article per term, a term or variant of one concept only, compared in lower case without
+one article, law or block per term, a term or variant of one concept only, compared in lower case without
 accents and punctuation. An entry is added only after its article has been read (it exists,
 holds, and rules the term); a law abbreviation the sources give (`Awb`, `Sr`, `AVG`) needs
 none, `/api/resolve` has it. `lawgraph curated check concepts --db` (and `lawgraph check`)

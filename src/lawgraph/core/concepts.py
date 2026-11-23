@@ -2,9 +2,11 @@
 ``concepts`` of ``lawgraph curated``): a term of the law or of its practice, an abbreviation
 or an English word (``wanprestatie``, ``ontslag op staande voet``, ``GDPR``, ``minimum
 wage``) and the one article or law it is about (art. 6:74 BW, art. 7:677 BW, the AVG, art. 7
-Wml). The names of an act of the list ``eu-core`` (``data/curated/eu_kern.json``) are terms
-of that act (``DSA``, ``AI Act``, ``digitaledienstenverordening``). ``/api/search`` puts that
-article or law first when the query is the term."""
+Wml), or the concept block of ``data/curated/concept_articles.json`` it names (``bezwaar
+maken``: the block ``bezwaar-en-beroep``). The names of an act of the list ``eu-core``
+(``data/curated/eu_kern.json``) are terms of that act (``DSA``, ``AI Act``,
+``digitaledienstenverordening``). ``/api/search`` puts that article or law first when the
+query is the term, or names that block as its best."""
 
 from __future__ import annotations
 
@@ -16,10 +18,15 @@ from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENT
 from lawgraph.core.models import make_node_key
 from lawgraph.core.text_fold import plain_words
 
+# The ``collection`` of a concept that names a concept block (``core.concept_articles``), whose
+# ``key`` is the key of the block: no collection of the graph.
+BLOCK = "concept_blocks"
+
 
 @dataclass(frozen=True)
 class Concept:
-    """A term of the list and the node it is about (an article, else a law)."""
+    """A term of the list and the node it is about (an article, else a law), or the concept
+    block it names (``BLOCK``)."""
 
     term: str
     collection: str
@@ -33,8 +40,10 @@ def concept_key(text: str) -> str:
 
 
 def concept_of(term: str, value: dict[str, object]) -> Concept:
-    """The concept of an entry of the list: *term* and its ``law`` (a BWB id or CELEX
-    number) with its ``article``, or the law itself without one."""
+    """The concept of an entry of the list: *term* and its ``block``, else its ``law`` (a
+    BWB id or CELEX number) with its ``article``, or the law itself without one."""
+    if block := value.get("block"):
+        return Concept(term, BLOCK, str(block))
     law, article = str(value["law"]), value.get("article")
     if article:
         return Concept(term, COLLECTION_ARTICLES, make_node_key(law, str(article)))
