@@ -1,5 +1,4 @@
-"""The parts of the warm-up: one name each (what is kept of a part is kept by its name), and
-the tables of a part kept per table are tables of the database."""
+"""The parts of the warm-up: one name each (what is kept of a part is kept by its name)."""
 
 from __future__ import annotations
 
@@ -11,19 +10,11 @@ import pytest
 from lawgraph.api import warm
 from lawgraph.core.feed import EVENT_VOTE
 from lawgraph.db import version_cache
-from lawgraph.db.schema import NODE_COLLECTIONS, SEARCH_FIELDS
 
 
 def test_every_part_has_its_own_name() -> None:
     names = [part.name for part in (*warm.PARTS, *warm.TAIL)]
     assert len(names) == len(set(names))
-
-
-def test_the_tables_of_a_part_are_tables_of_the_database() -> None:
-    known = {*NODE_COLLECTIONS, *SEARCH_FIELDS, "edges"}
-    for part in (*warm.PARTS, *warm.TAIL):
-        if part.tables is not None:
-            assert part.tables and set(part.tables) <= known, part.name
 
 
 def test_the_first_warm_up_goes_on_while_the_data_moves(
@@ -41,6 +32,9 @@ def test_the_first_warm_up_goes_on_while_the_data_moves(
         def data_version(self, tables: object = None) -> str:
             self.reads += 1
             return str(self.reads)
+
+        def table_versions(self) -> dict[str, int]:
+            return {}
 
     ran: list[str] = []
 

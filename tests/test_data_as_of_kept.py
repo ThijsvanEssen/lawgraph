@@ -60,5 +60,3 @@ def test_a_request_takes_the_kept_answer_while_the_new_one_is_read_ahead(
 def test_the_warm_up_reads_it_once_after_the_stats() -> None:
     names = [part.name for part in warm.PARTS]
     assert names.index("data as of") == names.index("stats") + 1
-    part = next(p for p in warm.PARTS if p.name == "data as of")
-    assert part.tables is None

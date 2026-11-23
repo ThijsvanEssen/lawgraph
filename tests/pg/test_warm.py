@@ -395,7 +395,8 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A poll of judgments warms what reads judgments again, and leaves the list of the
-    instruments (``PART_TABLES``)."""
+    instruments: a part is left out while the tables its answers name stand still. One
+    that asks an answer naming none (the feed, the data stand) runs every time."""
     ran: list[str] = []
     run = warm._run
 
@@ -413,8 +414,8 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
         [{"key": "poll", "type": "judgment", "labels": [], "props": {"title": "p"}}],
     )
     warm.warm_up(store)
-    assert "coverage" in ran
-    assert "instruments" not in ran and "search instruments" not in ran
+    assert {"coverage", "judgments", "home summary", "data as of"} <= set(ran)
+    assert not {"instruments", "search instruments"} & set(ran)
     assert warm.is_warm(store.data_version())
 
     ran.clear()
@@ -423,7 +424,8 @@ def test_a_part_is_left_out_while_its_tables_stand_still(
         [{"key": "x", "type": "instrument", "labels": [], "props": {"title": "x"}}],
     )
     warm.warm_up(store)
-    assert "instruments" in ran and "coverage" not in ran
+    assert "instruments" in ran
+    assert not {"coverage", "judgments"} & set(ran)
 
     # the next day: an answer that names today is gone at midnight (``get_delegated_by_law``)
     ran.clear()

@@ -2004,6 +2004,8 @@ raise it with every batch and empty the cached search answers that often during 
 (`GraphStore.data_version`). An answer the API keeps names the tables it reads
 (`version_cache.cached(tables=...)`) and is kept while their counters stand still; after an hour
 it is computed again behind the kept one. One that names none is kept until any counter moves.
+An answer kept for a time (`version_cache.lasting`) may name its tables too: a part of the
+warm-up whose answers all name tables is left out while those stand still.
 
 ### Derived columns
 

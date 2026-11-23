@@ -14,6 +14,7 @@ from lawgraph.config.constants import (
     COLLECTION_EDGES,
     COLLECTION_INSTRUMENT_VERSIONS,
     COLLECTION_INSTRUMENTS,
+    COLLECTION_JUDGMENTS,
     ENACTING_RELATIONS,
     RELATION_AMENDS,
     RELATION_BASED_ON,
@@ -214,6 +215,8 @@ def get_division_articles(
 # data does: the citations of the Awb are 600,000, a poll adds a few. A newer answer is
 # computed in the background after that, while the kept one is served (``lasting``).
 CITING_MAX_AGE = 3600.0
+# The tables the judgments citing a law are read from.
+CITING_TABLES = (COLLECTION_ARTICLES, COLLECTION_EDGES, COLLECTION_JUDGMENTS)
 
 
 @dataclass(frozen=True)
@@ -263,6 +266,7 @@ def get_citing_judgments(
             ("law citations", *law, law_citations.generation(law)),
             lambda: _law_citations(store, scope.prop, scope.value, law),
             CITING_MAX_AGE,
+            tables=CITING_TABLES,
         )
         law_citations.used(law)
         reading = index.read(sort, limit, offset, year, chosen, area)
@@ -273,6 +277,7 @@ def get_citing_judgments(
             ("law judgments", scope.prop, scope.value, tuple(ids)),
             lambda: _citing_items(store, scope.prop, scope.value, ids),
             CITING_MAX_AGE,
+            tables=CITING_TABLES,
         )
         if ids
         else []
