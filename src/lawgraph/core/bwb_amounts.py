@@ -70,8 +70,8 @@ _MONTH = "|".join(MONTHS)
 
 _EURO = re.compile(
     rf"€{_SP}?(?P<int>\d{{1,3}}(?:(?:\.|{_SP})\d{{3}}(?!\d))+|\d+)"
-    rf"(?:,(?P<dec>\d{{1,2}}(?!\d)|[–-]))?(?:{_SP}(?P<mult>miljoen|miljard)\b)?"
-    rf"|(?<![\d.,])(?P<int2>\d{{1,3}}(?:\.\d{{3}})+|\d+)(?:,(?P<dec2>\d{{2}}))?{_SP}euro\b"
+    rf"(?:,(?P<cents>\d{{1,2}}(?!\d)|[–-]))?(?:{_SP}(?P<mult>miljoen|miljard)\b)?"
+    rf"|(?<![\d.,])(?P<int2>\d{{1,3}}(?:\.\d{{3}})+|\d+)(?:,(?P<cents2>\d{{2}}))?{_SP}euro\b"
 )
 _PERCENT = re.compile(
     rf"(?<![\d,/])(?P<num>\d+(?:,\d+)?)(?:{_SP}?%|{_SP}(?:procent|percent)\b)"
@@ -166,7 +166,7 @@ def _decimal(number: str) -> Decimal:
 
 def _euros(match: re.Match[str]) -> Decimal:
     whole = match["int"] or match["int2"]
-    cents = match["dec"] or match["dec2"] or ""
+    cents = match["cents"] or match["cents2"] or ""
     value = _decimal(whole)
     if cents.isdigit():
         value += Decimal(cents) / Decimal(10 ** len(cents))
