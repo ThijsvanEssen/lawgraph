@@ -555,20 +555,21 @@ law or of its practice (`wanprestatie`, `ontslag op staande voet`, `tbs`) or an 
 `concepts` (`data/curated/concepts.json`, `core/concepts.py`) gives each term its variants,
 the one article (or law) it is about and `why`, the source that ties them (the article that
 defines or rules it). `/api/search` puts that article or law first among the hits of its
-type, score 1 and `exact`, with `concept` the term, and makes it `best` unless `resolved`
-names something with confidence 0.9 or more: what the sources name goes before the list.
+type, score 1 and `exact`, with `concept` the term and `concept_why` its `why`, and makes it
+`best` unless `resolved` names something with confidence 0.9 or more: what the sources name
+goes before the list.
 
 A broad term of everyday language whose articles make one doctrine names a concept block
 instead (`block`, a key of `concept-articles`, below: `bezwaar maken`, `garantie`, `ontslag`,
-`huurtoeslag`). `/api/search` then gives `best_block` (`key`, `name`, and `concept` the term)
-for a search box to open `/api/concepts/{key}` on Enter, and `best` null; no hit is marked
-`concept`. `resolved` with confidence 0.9 or more goes first here too (`best_block` null).
+`huurtoeslag`). `/api/search` then gives `best_block` (`key`, `name`, `concept` the term and
+`concept_why` its `why`) for a search box to open `/api/concepts/{key}` on Enter, and `best`
+null; no hit is marked `concept`. `resolved` with confidence 0.9 or more goes first here too (`best_block` null).
 
 The acts of the list `eu-core` (`eu_kern.json`) are named so too, by their `name` before a
 bracket or comma (`AI-verordening`, `NIS2`), each name of capitals in its bracket (`DSA`,
 `AI Act`, `AVG/GDPR`) and the short title CELLAR ends their `title` with
-(`digitaledienstenverordening`); `concept` is then the `name`. A term of `concepts` goes
-first; a name two acts have is neither's (`core/concepts.py` `eu_names`).
+(`digitaledienstenverordening`); `concept` is then the `name` and `concept_why` null (the name
+is the act's own, no source ties it). A term of `concepts` goes first; a name two acts have is neither's (`core/concepts.py` `eu_names`).
 
 The list is kept by hand with `lawgraph curated set concepts <term> '<json>'` (docs/operations.md):
 one article, law or block per term, a term or variant of one concept only, compared in lower case without

@@ -51,6 +51,13 @@ class SearchResultItem(WithPath):
         "`GDPR`), when the hit is the article or law that term is about (art. 6:74 BW, the "
         "AVG): a hit found by the list, not by its own words. Null for every other hit.",
     )
+    concept_why: str | None = Field(
+        default=None,
+        description="With `concept`: the source that ties the term to this hit, the `why` "
+        "of the list (`art. 6:74 BW: elke tekortkoming in de nakoming verplicht tot "
+        "schadevergoeding`). Null for a name of an act of `eu-core` (`DSA`), which is its "
+        "own name, and for every other hit.",
+    )
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -153,6 +160,10 @@ class BestBlockDTO(StrictModel):
     name: str = Field(description="Its name: `Bezwaar en beroep`.")
     concept: str = Field(
         description="The term of the curated list of concepts the query is: `bezwaar maken`."
+    )
+    concept_why: str | None = Field(
+        default=None,
+        description="The source that ties the term to the block, the `why` of the list.",
     )
 
 

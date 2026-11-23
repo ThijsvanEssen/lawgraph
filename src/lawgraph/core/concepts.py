@@ -26,11 +26,13 @@ BLOCK = "concept_blocks"
 @dataclass(frozen=True)
 class Concept:
     """A term of the list and the node it is about (an article, else a law), or the concept
-    block it names (``BLOCK``)."""
+    block it names (``BLOCK``), and ``why``: the source that ties them (its ``why`` in the
+    list); None for a name of an act of ``eu-core``, which names its own act."""
 
     term: str
     collection: str
     key: str
+    why: str | None = None
 
 
 def concept_key(text: str) -> str:
@@ -41,13 +43,15 @@ def concept_key(text: str) -> str:
 
 def concept_of(term: str, value: dict[str, object]) -> Concept:
     """The concept of an entry of the list: *term* and its ``block``, else its ``law`` (a
-    BWB id or CELEX number) with its ``article``, or the law itself without one."""
+    BWB id or CELEX number) with its ``article``, or the law itself without one; with its
+    ``why``."""
+    why = str(value.get("why") or "") or None
     if block := value.get("block"):
-        return Concept(term, BLOCK, str(block))
+        return Concept(term, BLOCK, str(block), why)
     law, article = str(value["law"]), value.get("article")
     if article:
-        return Concept(term, COLLECTION_ARTICLES, make_node_key(law, str(article)))
-    return Concept(term, COLLECTION_INSTRUMENTS, make_node_key(law))
+        return Concept(term, COLLECTION_ARTICLES, make_node_key(law, str(article)), why)
+    return Concept(term, COLLECTION_INSTRUMENTS, make_node_key(law), why)
 
 
 # The brackets at the end of the title of an EU act that are no short title.
