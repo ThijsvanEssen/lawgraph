@@ -705,14 +705,15 @@ the data version they were computed for (`api/response_cache.py`, `db/whole_answ
 
 - the answer of the data version now: given at once, 304 on its `ETag`;
 - after a write: the old answer while the new one computes in the background (a request waits
-  0.2 s for it), never longer than 6 hours after the newer version came; while the pipelines
-  write nothing is computed;
+  0.2 s for it), until it is 6 hours old, so never longer than that after the newer version
+  came; while the pipelines write nothing is computed;
 - equal requests at the same moment: one computation, which goes on when its client leaves;
 - an answer that ran past a budget (a page late, 503 `X-Render-Late`, or one without its first
   paint): not kept, but computed again in the background without those budgets, on the
   background connections, two at a time, and kept for the next request;
-- never kept: a search, `/api/health`, a status other than 200, 301, 404 and 410, `no-store` (a
-  partial answer), a query over 1 KB, a request with `Authorization` or `Range`. No route
+- never kept: a search (it goes past the cache, so that a search the client leaves stops
+  reading), a status other than 200, 301, 404 and 410, `no-store` (a partial answer,
+  `/api/health`), a query over 1 KB, a request with `Authorization` or `Range`. No route
   answers per visitor; a client's `Cache-Control` is not followed.
 
 The request log has a line for each: `cache=hit` (kept), `stale` (of the version before),

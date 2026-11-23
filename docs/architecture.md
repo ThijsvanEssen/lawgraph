@@ -146,7 +146,9 @@ against the plans of its statements). Whole answers of `/render` and `/api` are 
 their gzip, per path, query and data version (`api/response_cache.py` on `db/whole_answers.py`):
 equal requests at the same moment are computed once, after a write the old answer is given
 until the new one is done (never 6 hours after the newer version came), and a page that ran
-past its budget is computed whole in the background for the next request.
+past its budget is computed whole in the background for the next request. It is not
+`lasting()`: it keeps bytes under a ceiling of memory, not a count of entries, and a
+computation in the background there belongs to no request.
 
 ## Error messages
 

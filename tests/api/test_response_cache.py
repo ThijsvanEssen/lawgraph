@@ -203,7 +203,7 @@ def test_the_old_answer_is_given_until_the_new_one_is_done(
 
 
 @pytest.mark.parametrize(("hours", "old"), [(5.99, True), (6.01, False)])
-def test_the_old_answer_is_never_given_six_hours_after_a_newer_version(
+def test_the_old_answer_is_never_given_six_hours_after_it_was_computed(
     monkeypatch: pytest.MonkeyPatch,
     routes: _Routes,
     data: _Data,
@@ -211,15 +211,13 @@ def test_the_old_answer_is_never_given_six_hours_after_a_newer_version(
     old: bool,
 ) -> None:
     clock = ManualClock()
-    monkeypatch.setattr(version_cache, "_clock", clock)
+    monkeypatch.setattr(whole_answers, "_now", clock.now)
     monkeypatch.setattr(response_cache, "STALE_WAIT", 0.0)
 
     async def test(client: httpx.AsyncClient) -> None:
         await client.get("/render/wetten/a")
-        clock.advance(3600)  # the answer was computed an hour before the data changed
-        data.version = "2"
-        await client.get("/render/uitspraken/b")  # the new version is seen
         clock.advance(hours * 3600)
+        data.version = "2"  # a newer version, at most as old as the answer
         routes.held = asyncio.Event()
         asking = asyncio.create_task(client.get("/render/wetten/a"))
         await asyncio.sleep(0.1)
@@ -289,7 +287,6 @@ def test_a_request_while_the_whole_answer_computes_gets_the_short_one(
     ("path", "headers", "status", "answer_headers"),
     [
         ("/api/search?q=huur", {}, 200, []),
-        ("/api/health", {}, 200, []),
         ("/api/stats", {"authorization": "Bearer x"}, 200, []),
         ("/api/stats?q=" + "x" * 1100, {}, 200, []),
         ("/api/stats", {}, 500, []),

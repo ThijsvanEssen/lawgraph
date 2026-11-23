@@ -10,12 +10,11 @@ request waits for it no longer than its own deadline, then answers 503, and the
 computation goes on for the next. Once the data changed a request waits ``STALE_WAIT`` for
 the new answer at most, then takes the last one (of the version before): a facet count or
 the statistics of the search minutes old is good, a search that hangs on every write of the
-pipelines is not. During a run of the pipelines (``_in_run``: the data keeps moving) a request
+pipelines is not. During a run of the pipelines (``in_run``: the data keeps moving) a request
 that has an earlier answer takes it at once, and nothing is computed for it until it is
 ``MAX_AGE`` old: what is computed now is out of date before it is done. ``on_new_version``
 functions (the API's warm-up) run in the background when a store shows a version it did not
-have. A store without ``data_version`` (a fake) keeps nothing. When each version was left
-for a newer one (``left_ago``) bounds how old a whole answer may be (``whole_answers``).
+have. A store without ``data_version`` (a fake) keeps nothing.
 """
 
 from __future__ import annotations
@@ -214,21 +213,17 @@ _polled: dict[str, Any] = {}
 
 
 def _seen(name: str, version: str) -> None:
-    """Note the data version of database *name* as just read: the one before it was left
-    now (``_left``)."""
+    """Note the data version of database *name* as just read."""
     now = _clock.now()
     with _lock:
         known, began, moved = _moves.get(name, (version, now, -RUN_QUIET))
         if version != known:
             began = now if now - moved > RUN_QUIET else began
             moved = now
-            _left[(name, known)] = now
-            for old in [v for v, at in _left.items() if now - at > MAX_STALE]:
-                del _left[old]
         _moves[name] = (version, began, moved)
 
 
-def _in_run(name: str) -> bool:
+def in_run(name: str) -> bool:
     """Whether the pipelines are writing database *name* now, as far as its versions tell
     (``RUN_AFTER``, ``RUN_QUIET``); one change alone, as of a short poll, is no run."""
     _, began, moved = _moves.get(name, ("", 0.0, -RUN_QUIET))
@@ -485,10 +480,10 @@ def cached[T](
             request_timing.hit()
             return _values[entry_key]  # type: ignore[no-any-return]
         last, last_at = _latest.get((version[0], key), (_NONE, 0.0))
-        in_run = (
-            last is not _NONE and read_time_left() is not None and _in_run(version[0])
+        moving = (
+            last is not _NONE and read_time_left() is not None and in_run(version[0])
         )
-        if in_run and time.monotonic() - last_at <= MAX_AGE:
+        if moving and time.monotonic() - last_at <= MAX_AGE:
             request_timing.hit()
             return last  # type: ignore[no-any-return]
     started = time.perf_counter()
@@ -583,9 +578,9 @@ def _compute_or_wait[T](
     the last on the pool, is how a first answer ran past its deadline."""
     with _lock:
         nested = _in_cache_worker()
-        in_run = _in_run(entry_key[0][0])
+        moving = in_run(entry_key[0][0])
         future = _running.get(entry_key)
-        if future is None and in_run:
+        if future is None and moving:
             future = next(
                 (
                     f
@@ -601,7 +596,7 @@ def _compute_or_wait[T](
         _nested(key)
         return run()
     assert future is not None
-    return _answer(future, last, key, in_run)  # type: ignore[no-any-return]
+    return _answer(future, last, key, moving)  # type: ignore[no-any-return]
 
 
 def _in_cache_worker() -> bool:
@@ -808,30 +803,9 @@ def _rows_key(
     )
 
 
-# When each data version was left for a newer one, per (database, version): a whole answer
-# of it (``whole_answers``) is given at most ``MAX_STALE`` after (Thijs, 23 Nov: "Max 6 uur").
-MAX_STALE = 6 * 3600.0
-_left: dict[tuple[str, str], float] = {}
-
-
-def left_ago(database: str, version: str) -> float | None:
-    """Seconds since a newer data version of *database* than *version* was first seen;
-    None while none was (or past ``MAX_STALE``, forgotten)."""
-    with _lock:
-        left = _left.get((database, version))
-    return None if left is None else _clock.now() - left
-
-
-def in_run(database: str) -> bool:
-    """Whether the pipelines are writing *database* now (``_in_run``)."""
-    with _lock:
-        return _in_run(database)
-
-
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
-        _left.clear()
         _versions.clear()
         _values.clear()
         _computed_at.clear()

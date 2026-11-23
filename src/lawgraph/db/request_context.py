@@ -189,58 +189,48 @@ class RequestCancelled(ReadTimedOut):
 
 @dataclasses.dataclass
 class Budget:
-    """Whether the reads of a ``read_budget`` block ran past it."""
+    """Whether the reads of a ``read_budget`` block ran past it; of ``watching_budgets``
+    whether any did, and whether they are *patient*."""
 
     ran_out: bool = False
+    patient: bool = False
 
 
-# Whether a ``read_budget`` lets its reads take all the request has left (``patient``).
-_patient: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "lawgraph_patient", default=False
-)
-# The ``Budget`` that notes whether any ``read_budget`` of the request ran out
-# (``watching_budgets``); None outside one.
-_shortfall: contextvars.ContextVar[Budget | None] = contextvars.ContextVar(
-    "lawgraph_shortfall", default=None
+# What notes whether any ``read_budget`` of the request ran out (``watching_budgets``).
+_watched: contextvars.ContextVar[Budget | None] = contextvars.ContextVar(
+    "lawgraph_watched", default=None
 )
 
 
 @contextlib.contextmanager
-def patient() -> Iterator[None]:
-    """Within it no ``read_budget`` cuts its reads short of what the request has left: an
-    answer computed in the background for the next visitor, whom nobody keeps waiting
-    (``api/response_cache``), is computed whole."""
-    token = _patient.set(True)
-    try:
-        yield
-    finally:
-        _patient.reset(token)
-
-
-@contextlib.contextmanager
-def watching_budgets() -> Iterator[Budget]:
+def watching_budgets(*, patient: bool = False) -> Iterator[Budget]:
     """Within it the ``ran_out`` of the budget yielded tells whether any ``read_budget``
-    ran out: the answer lacks a part it has when given time."""
-    budget = Budget()
-    token = _shortfall.set(budget)
+    ran out: the answer lacks a part it has when given time. *patient*: none cuts its
+    reads short of what the request has left, for an answer computed in the background for
+    the next visitor, whom nobody keeps waiting (``api/response_cache``)."""
+    budget = Budget(patient=patient)
+    token = _watched.set(budget)
     try:
         yield budget
     finally:
-        _shortfall.reset(token)
+        _watched.reset(token)
 
 
 @contextlib.contextmanager
 def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[Budget]:
     """The reads of the block end within *seconds*, or within what the request has left
-    less *reserve* when that ends first (``patient``: the latter alone). A block that runs
-    past it ends there, logged: ``ran_out``, and the caller answers without what it read
-    (a computation of the cache it waited for goes on). A request whose client went away
-    (``RequestCancelled``) ends as ever."""
+    less *reserve* when that ends first (in a patient ``watching_budgets``: the latter
+    alone). A block that runs past it ends there, logged: ``ran_out``, and the caller
+    answers without what it read (a computation of the cache it waited for goes on). A
+    request whose client went away (``RequestCancelled``) ends as ever."""
     left = read_time_left()
+    watched = _watched.get()
     if left is None:
         capped = seconds
+    elif watched is not None and watched.patient:
+        capped = left - reserve
     else:
-        capped = left - reserve if _patient.get() else min(seconds, left - reserve)
+        capped = min(seconds, left - reserve)
     token = set_read_deadline(max(0.0, capped))
     budget = Budget()
     try:
@@ -249,7 +239,7 @@ def read_budget(seconds: float, what: str, *, reserve: float = 0.0) -> Iterator[
         raise
     except ReadTimedOut:
         budget.ran_out = True
-        if (watched := _shortfall.get()) is not None:
+        if watched is not None:
             watched.ran_out = True
         logger.info("%s took over %s s: answered without it.", what, seconds)
     finally:

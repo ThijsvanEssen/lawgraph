@@ -1,11 +1,11 @@
 """Whole answers of the API (``api/response_cache``), on the data versions of
 ``version_cache``: one per key, of the version it was computed for, kept by its size in
 bytes, the one used longest ago going first once together they pass ``RESPONSE_BYTES``. It
-is the answer of its version, and of a newer one for ``version_cache.MAX_STALE`` (6 h) after
-that came (``version_cache.left_ago``) while the new one computes. One computation per key
-at a time (``Computing``): by the request that asks first, in its own deadline (``look``),
-or in the background (``fill``), ``FILLS`` of those at most. Nothing is computed here: the
-caller computes and ``settle``s.
+is the answer of its version, and of a newer one while the new one computes, until it is
+``MAX_STALE`` (6 h) old: so never longer than that after the newer version came. One
+computation per key at a time (``Computing``): by the request that asks first, in its own
+deadline (``look``), or in the background (``fill``), ``FILLS`` of those at most. Nothing
+is computed here: the caller computes and ``settle``s.
 """
 
 from __future__ import annotations
@@ -28,15 +28,21 @@ FILLS = 2
 # A computation running this long is taken for lost (its event loop ended): the next asks
 # again.
 LOST_AFTER = 2 * settings.API_REQUEST_TIMEOUT_MS / 1000
+# How long after it was computed an answer may still be given for a newer data version
+# (seconds): Thijs, 23 Nov: "Max 6 uur".
+MAX_STALE = 6 * 3600.0
+_now = time.monotonic  # the clock (the tests move one by hand)
 
 
 @dataclasses.dataclass(frozen=True)
 class Kept:
-    """A whole answer (*value*, of *size* bytes) of data version *version*."""
+    """A whole answer (*value*, of *size* bytes) of data version *version*, computed
+    *at* (``_now``)."""
 
     version: str
     value: Any
     size: int
+    at: float = dataclasses.field(default_factory=lambda: _now())
 
 
 @dataclasses.dataclass
@@ -75,7 +81,7 @@ _computing: dict[tuple[str, Hashable], Computing] = {}
 
 def look(database: str, version: str, key: Hashable) -> Look:
     """The whole answer for *key* of data version *version* of *database*: kept, of an
-    earlier version left at most ``MAX_STALE`` ago (computed again behind it, unless the
+    earlier version computed at most ``MAX_STALE`` ago (computed again behind it, unless the
     pipelines are writing: ``version_cache.in_run``), or computed by the request that asks
     first."""
     entry = (database, key)
@@ -87,9 +93,8 @@ def look(database: str, version: str, key: Hashable) -> Look:
         running = _computing.get(entry)
         if running is not None and running.lost():
             running = None
-        if kept is not None:
-            ago = version_cache.left_ago(database, kept.version)
-            kept = kept if ago is not None and ago <= version_cache.MAX_STALE else None
+        if kept is not None and _now() - kept.at > MAX_STALE:
+            kept = None
         if kept is None and running is None:
             running = _computing[entry] = _new(background=False)
             return Look(None, computing=running, lead=True)

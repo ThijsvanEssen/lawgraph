@@ -12,15 +12,15 @@
   in its own deadline and goes on when its client leaves (``cache;desc=shared``);
 - an answer that lacks a part because a budget ran out (a page late, 503 with
   ``X-Render-Late``, or one without its first paint) is not kept: it is computed again in
-  the background without those budgets (``patient``), on the background connections,
+  the background without those budgets (``watching_budgets``), on the background connections,
   ``FILLS`` at a time, and kept for the next request. One that asks meanwhile waits
   ``FILL_WAIT`` for it, then gets the answer that was short (``cache;desc=late``).
 
-Kept: 200, 301, 404 and 410 without ``no-store`` (a partial answer, ``no_store_if``) and
-without a cookie. Never kept: a search (its words are counted, and are a long tail), the
-health of the API, a query longer than ``MAX_QUERY``, a request with ``Authorization`` or
-``Range``. No route answers per visitor (no cookies, no authentication). A client's own
-``Cache-Control`` is not followed: a crawler that sends ``no-cache`` gets the kept answer.
+Kept: 200, 301, 404 and 410 without ``no-store`` (a partial answer and the health of the
+API, ``no_store_if``) and without a cookie. Never kept: a search (``UNCACHED``), a query
+longer than ``MAX_QUERY``, a request with ``Authorization`` or ``Range``. No route answers
+per visitor (no cookies, no authentication). A client's own ``Cache-Control`` is not
+followed: a crawler that sends ``no-cache`` gets the kept answer.
 """
 
 from __future__ import annotations
@@ -50,12 +50,15 @@ from lawgraph.config.settings import API_REQUEST_TIMEOUT_MS
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.core.time import dutch_today
 from lawgraph.db import GraphStore, version_cache, whole_answers
-from lawgraph.db.request_context import in_background, patient, watching_budgets
+from lawgraph.db.request_context import in_background, watching_budgets
 
 logger = get_logger(__name__)
 
 KEPT_STATUSES = frozenset({200, 301, 404, 410})
-UNCACHED = ("/api/search", "/api/health", "/api/docs")
+# A search goes past the cache, not marked ``no-store``: the cache decides before the route
+# is known, and a search the client leaves (the next keystroke) must stop reading, which a
+# computation for equal requests does not.
+UNCACHED = "/api/search"
 MAX_QUERY = 1024
 # How long a request that has the answer of a version before waits for the new one (seconds).
 STALE_WAIT = version_cache.STALE_WAIT
@@ -233,7 +236,7 @@ class ResponseCacheMiddleware:
         computing: whole_answers.Computing,
     ) -> None:
         try:
-            with in_background(), patient():
+            with in_background():
                 answer = (await self._compute(scope, fill=True)).shared()
         except BaseException as exc:
             whole_answers.settle(database, key, computing, exc)
@@ -263,7 +266,7 @@ class ResponseCacheMiddleware:
             elif message["type"] == "http.response.body":
                 body.append(message.get("body", b""))
 
-        with watching_budgets() as budget:
+        with watching_budgets(patient=fill) as budget:
             await self._app(_inner(scope, fill), _staying(), capture)
         return Answer(status, headers, b"".join(body), budget.ran_out)
 
