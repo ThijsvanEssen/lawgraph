@@ -38,6 +38,7 @@ from lawgraph.core.court_sources import named_tier
 from lawgraph.core.ecli import (
     cited_eclis,
     country_code,
+    ecli_year,
     is_valid_ecli,
     short_ecli_mentions,
 )
@@ -150,7 +151,7 @@ def _abbreviated(line: str, year: str | None) -> tuple[str, ...]:
     return tuple(
         ecli
         for ecli, _, _ in short_ecli_mentions(line)
-        if is_valid_ecli(ecli) and ecli.split(":")[3] == year
+        if is_valid_ecli(ecli) and ecli_year(ecli) == year
     )
 
 
