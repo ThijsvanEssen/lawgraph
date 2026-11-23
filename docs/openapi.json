@@ -16319,6 +16319,34 @@
         "title": "BasisLawDTO",
         "description": "Another law a regulation names in its preamble, with the articles it names."
       },
+      "BestBlockDTO": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "Its key: `bezwaar-en-beroep`."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Its name: `Bezwaar en beroep`."
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept",
+            "description": "The term of the curated list of concepts the query is: `bezwaar maken`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "name",
+          "concept"
+        ],
+        "title": "BestBlockDTO",
+        "description": "The concept block (``/api/concepts/{key}``) the query is a term of."
+      },
       "BusyCallDTO": {
         "properties": {
           "thread": {
@@ -42031,7 +42059,18 @@
               }
             ],
             "title": "Best",
-            "description": "The id of what `q` names exactly, for a search box to open on Enter: the match of `resolved` when its confidence is 0.9 or more (a citation, an identifier, a law, faction or member by its whole name or abbreviation), else the hit of the concept `q` is the term of (`concept`), else the one hit of `results` that is `exact`. Null when none is, or more than one (`BW`: each book), however well words match (`huurverhoging`)."
+            "description": "The id of what `q` names exactly, for a search box to open on Enter: the match of `resolved` when its confidence is 0.9 or more (a citation, an identifier, a law, faction or member by its whole name or abbreviation), else the hit of the concept `q` is the term of (`concept`), else the one hit of `results` that is `exact`. Null when none is, or more than one (`BW`: each book), however well words match (`huurverhoging`), and when `best_block` is set."
+          },
+          "best_block": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BestBlockDTO"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The concept block `q` is a term of (`bezwaar maken`), for a search box to open on Enter instead of `best`, unless `resolved` names something with confidence 0.9 or more. Null for every other query."
           },
           "offset": {
             "type": "integer",
@@ -42116,6 +42155,7 @@
           "left_out",
           "matched",
           "best",
+          "best_block",
           "offset",
           "counts",
           "facets",

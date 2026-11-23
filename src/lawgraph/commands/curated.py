@@ -24,7 +24,7 @@ from typing import Any
 
 from lawgraph.config.constants import COLLECTION_ARTICLES, COLLECTION_INSTRUMENTS
 from lawgraph.core.concept_articles import concepts
-from lawgraph.core.concepts import concept_of
+from lawgraph.core.concepts import BLOCK, concept_of
 from lawgraph.core.curated import LISTS, Entries, place, problems
 from lawgraph.core.models import PipelineResult, make_node_key
 from lawgraph.db import GraphStore
@@ -110,13 +110,16 @@ def database_problems(store: GraphStore) -> list[str]:
 
 
 def concept_notes(store: GraphStore) -> list[str]:
-    """A concept whose article or law no node of the graph is: a typing error in its law or
-    article number, an article renumbered, or a law a partial database does not hold; a
-    search for the term then names nothing. A note, as a key of the seating plan is."""
+    """A concept whose article or law no node of the graph is (a block is checked by the
+    list): a typing error in its law or article number, an article renumbered, or a law a
+    partial database does not hold; a search for the term then names nothing. A note, as a
+    key of the seating plan is."""
     found = []
     by_collection: dict[str, dict[str, str]] = {}
     for term, value in LISTS["concepts"].entries().items():
         concept = concept_of(term, value)
+        if concept.collection == BLOCK:
+            continue  # its block is a key of concept-articles (``_concept_target``)
         by_collection.setdefault(concept.collection, {})[term] = concept.key
     for collection, keys in by_collection.items():
         present = store.existing_keys(collection, set(keys.values()))

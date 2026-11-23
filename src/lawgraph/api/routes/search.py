@@ -15,6 +15,7 @@ from lawgraph.api.routes.resolve import RESOLVE_MAX_LENGTH
 from lawgraph.api.schemas.common import FacetCountDTO, judgment_cite_dto
 from lawgraph.api.schemas.resolve import ResolveResponse
 from lawgraph.api.schemas.search import (
+    BestBlockDTO,
     SearchCountDTO,
     SearchedDTO,
     SearchResponse,
@@ -28,7 +29,8 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
     COLLECTION_MINISTRIES,
 )
-from lawgraph.core.concepts import Concept, concept_named
+from lawgraph.core import concept_articles
+from lawgraph.core.concepts import BLOCK, Concept, concept_named
 from lawgraph.core.logging import get_logger
 from lawgraph.core.motion_kinds import MOTION_KINDS
 from lawgraph.core.names import article_cite
@@ -471,7 +473,8 @@ def search(
         if mode == "full" and not offset and not any_word
         else None
     )
-    best = _best(grouped, resolved, concept)
+    best_block = _best_block(named, resolved)
+    best = None if best_block else _best(grouped, resolved, concept)
     found_nothing = mode == "full" and not offset and not total and not partial
 
     return SearchResponse(
@@ -489,13 +492,14 @@ def search(
         left_out=words.left_out,
         matched="any" if any_word else "all",
         best=best,
+        best_block=best_block,
         offset=offset,
         counts=_counts(counted, fetched, offset + limit) if facets else None,
         facets=_facets(counted) if facets else None,
         active_dossier=playing,
         suggestions=(
             suggested(store, " ".join(words.words) or q)
-            if found_nothing and best is None
+            if found_nothing and best is None and best_block is None
             else []
         ),
     )
@@ -583,9 +587,8 @@ def _best(
     hit that is ``exact``, a ministry before the committees (``BZK``: the ministry, not the
     committee for it); None when there is none or more than one (``BW``: every book),
     however well the words match."""
-    match = resolved.match if resolved else None
-    if match is not None and resolved and resolved.confidence >= BEST_CONFIDENCE:
-        return match.id
+    if sure := _sure(resolved):
+        return sure
     if concept is not None:
         return concept.id
     ministry = any(hit.exact for hit in grouped.get(COLLECTION_MINISTRIES, []))
@@ -597,6 +600,26 @@ def _best(
         if hit.exact
     }
     return exact.pop() if len(exact) == 1 else None
+
+
+def _sure(resolved: ResolveResponse | None) -> str | None:
+    """The id of the match of *resolved* of ``BEST_CONFIDENCE`` or more; None without."""
+    if resolved and resolved.match and resolved.confidence >= BEST_CONFIDENCE:
+        return resolved.match.id
+    return None
+
+
+def _best_block(
+    named: Concept | None, resolved: ResolveResponse | None
+) -> BestBlockDTO | None:
+    """The concept block *named* names (``core.concepts.BLOCK``), unless *resolved* names
+    something sure (``_sure``): what the sources name goes before the list."""
+    if named is None or named.collection != BLOCK or _sure(resolved):
+        return None
+    block = concept_articles.concepts().get(named.key)
+    if block is None:
+        return None
+    return BestBlockDTO(key=block.key, name=block.name, concept=named.term)
 
 
 def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:

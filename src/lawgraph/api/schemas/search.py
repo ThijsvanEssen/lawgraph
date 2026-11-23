@@ -146,6 +146,16 @@ class ActiveDossierDTO(WithPath):
     )
 
 
+class BestBlockDTO(StrictModel):
+    """The concept block (``/api/concepts/{key}``) the query is a term of."""
+
+    key: str = Field(description="Its key: `bezwaar-en-beroep`.")
+    name: str = Field(description="Its name: `Bezwaar en beroep`.")
+    concept: str = Field(
+        description="The term of the curated list of concepts the query is: `bezwaar maken`."
+    )
+
+
 class SearchResponse(StrictModel):
     """Full-text search response, grouped by type."""
 
@@ -195,7 +205,14 @@ class SearchResponse(StrictModel):
         "an identifier, a law, faction or member by its whole name or abbreviation), "
         "else the hit of the concept `q` is the term of (`concept`), else the one hit of "
         "`results` that is `exact`. Null when none is, or more than "
-        "one (`BW`: each book), however well words match (`huurverhoging`).",
+        "one (`BW`: each book), however well words match (`huurverhoging`), and when "
+        "`best_block` is set.",
+    )
+    best_block: BestBlockDTO | None = Field(
+        default=None,
+        description="The concept block `q` is a term of (`bezwaar maken`), for a search box "
+        "to open on Enter instead of `best`, unless `resolved` names something with "
+        "confidence 0.9 or more. Null for every other query.",
     )
     offset: int = Field(
         default=0,

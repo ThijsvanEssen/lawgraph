@@ -22,6 +22,86 @@
     "BWBR0031788/12",
     "BWBR0031788/13"
    ]
+  },
+  {
+   "key": "bezwaar-en-beroep",
+   "name": "Bezwaar en beroep",
+   "articles": [
+    "BWBR0005537/6:7",
+    "BWBR0005537/6:8",
+    "BWBR0005537/6:11",
+    "BWBR0005537/7:1",
+    "BWBR0005537/8:1"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/themas/overheid-en-democratie/bezwaar-en-beroep"
+   }
+  },
+  {
+   "key": "consumentenkoop-en-garantie",
+   "name": "Consumentenkoop en garantie",
+   "articles": [
+    "BWBR0005290/17",
+    "BWBR0005290/18",
+    "BWBR0005290/23"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/documenten/vraag-en-antwoord/bescherming-van-consumenten/welke-garanties-heb-ik-op-een-product"
+   }
+  },
+  {
+   "key": "minimumloon",
+   "name": "Minimumloon",
+   "articles": [
+    "BWBR0002638/7",
+    "BWBR0002638/8",
+    "BWBR0002638/13"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/themas/werk/minimumloon"
+   }
+  },
+  {
+   "key": "ontslag-en-transitievergoeding",
+   "name": "Ontslag en transitievergoeding",
+   "articles": [
+    "BWBR0005290/669",
+    "BWBR0005290/673",
+    "BWBR0005290/677"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/themas/werk/ontslag"
+   }
+  },
+  {
+   "key": "inkomstenbelasting",
+   "name": "Inkomstenbelasting",
+   "articles": [
+    "BWBR0011353/2.10",
+    "BWBR0011353/8.10",
+    "BWBR0011353/8.11"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/themas/werk/inkomstenbelasting"
+   }
+  },
+  {
+   "key": "huurtoeslag",
+   "name": "Huurtoeslag",
+   "articles": [
+    "BWBR0008659/7",
+    "BWBR0008659/13",
+    "BWBR0008659/14"
+   ],
+   "explanation": {
+    "label": "Rijksoverheid",
+    "url": "https://www.rijksoverheid.nl/documenten/vraag-en-antwoord/woning-huren/kan-ik-huurtoeslag-krijgen"
+   }
   }
  ]
 }
