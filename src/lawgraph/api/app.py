@@ -21,6 +21,7 @@ from lawgraph.api.middleware import (
     ReadDeadlineMiddleware,
     log_requests,
 )
+from lawgraph.api.response_cache import ResponseCacheMiddleware
 from lawgraph.api.routes import (
     activities,
     aliases,
@@ -230,7 +231,6 @@ app.include_router(render.router)
 app.middleware("http")(log_requests)
 app.add_middleware(ReadDeadlineMiddleware)
 app.add_middleware(CancelOnDisconnectMiddleware)
-app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CacheControlMiddleware,
     store=_store,
@@ -239,6 +239,9 @@ app.add_middleware(
 # A page of the feed is 87 KB as JSON and some 10 KB compressed; a response under 1 KB is
 # sent as it is. A 304 has no body, and the ETag stays weak, so compression leaves both.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+# whole answers kept as the gzip they leave as (``response_cache``); within the rate limit
+app.add_middleware(ResponseCacheMiddleware, store=_store, api_version=app.version)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

@@ -14,7 +14,8 @@ pipelines is not. During a run of the pipelines (``_in_run``: the data keeps mov
 that has an earlier answer takes it at once, and nothing is computed for it until it is
 ``MAX_AGE`` old: what is computed now is out of date before it is done. ``on_new_version``
 functions (the API's warm-up) run in the background when a store shows a version it did not
-have. A store without ``data_version`` (a fake) keeps nothing.
+have. A store without ``data_version`` (a fake) keeps nothing. When each version was left
+for a newer one (``left_ago``) bounds how old a whole answer may be (``whole_answers``).
 """
 
 from __future__ import annotations
@@ -213,13 +214,17 @@ _polled: dict[str, Any] = {}
 
 
 def _seen(name: str, version: str) -> None:
-    """Note the data version of database *name* as just read."""
+    """Note the data version of database *name* as just read: the one before it was left
+    now (``_left``)."""
     now = _clock.now()
     with _lock:
         known, began, moved = _moves.get(name, (version, now, -RUN_QUIET))
         if version != known:
             began = now if now - moved > RUN_QUIET else began
             moved = now
+            _left[(name, known)] = now
+            for old in [v for v, at in _left.items() if now - at > MAX_STALE]:
+                del _left[old]
         _moves[name] = (version, began, moved)
 
 
@@ -803,9 +808,30 @@ def _rows_key(
     )
 
 
+# When each data version was left for a newer one, per (database, version): a whole answer
+# of it (``whole_answers``) is given at most ``MAX_STALE`` after (Thijs, 23 Nov: "Max 6 uur").
+MAX_STALE = 6 * 3600.0
+_left: dict[tuple[str, str], float] = {}
+
+
+def left_ago(database: str, version: str) -> float | None:
+    """Seconds since a newer data version of *database* than *version* was first seen;
+    None while none was (or past ``MAX_STALE``, forgotten)."""
+    with _lock:
+        left = _left.get((database, version))
+    return None if left is None else _clock.now() - left
+
+
+def in_run(database: str) -> bool:
+    """Whether the pipelines are writing *database* now (``_in_run``)."""
+    with _lock:
+        return _in_run(database)
+
+
 def clear() -> None:
     """Forget every kept answer (the tests)."""
     with _lock:
+        _left.clear()
         _versions.clear()
         _values.clear()
         _computed_at.clear()

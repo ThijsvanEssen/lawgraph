@@ -14,6 +14,9 @@ os.environ.setdefault("ALLOW_NETWORK_TESTS", "0")
 os.environ["LAWGRAPH_RATE_LIMIT_CALLS"] = "1000000"
 # The API warms its answers up in the background at its start; the tests ask themselves.
 os.environ["LAWGRAPH_API_WARM_UP"] = "false"
+# A test asks a route again after it changed what the route reads without a new data version
+# (a stub, a setting): the whole answers are kept only by the tests of that cache.
+os.environ["LAWGRAPH_RESPONSE_CACHE_MB"] = "0"
 # A test that runs the scheduled scripts or the deploy's lock sets the wait it relies on;
 # one set where the suite runs (the deploy sets half an hour) is no test's.
 os.environ.pop("LAWGRAPH_LOCK_WAIT", None)
@@ -32,13 +35,15 @@ def _fresh_version_cache(monkeypatch) -> Iterator[None]:
     """Every test reads the data version at every call and starts with nothing kept: a test
     writes and reads again within the seconds the API keeps an answer."""
     from lawgraph.api import warm
-    from lawgraph.db import version_cache
+    from lawgraph.db import version_cache, whole_answers
 
     monkeypatch.setattr(version_cache, "VERSION_TTL", 0.0)
     version_cache.clear()
+    whole_answers.clear()
     warm.forget()
     yield
     version_cache.clear()
+    whole_answers.clear()
     warm.forget()
 
 

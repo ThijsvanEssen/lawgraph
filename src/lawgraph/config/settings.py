@@ -231,6 +231,11 @@ API_WARM_UP = _flag("LAWGRAPH_API_WARM_UP", True)
 # a poll that writes every half hour does not keep the database warming. Between them the API
 # answers from what it kept of the data before.
 WARM_UP_MIN_INTERVAL = _float("LAWGRAPH_WARM_UP_MIN_INTERVAL", 0)
+# Megabytes the API keeps of whole answers of ``/render`` and ``/api`` (gzip, the one used
+# longest ago going first; ``api/response_cache.py``); 0: none. On web-1 (7.9 GB, Postgres
+# 1 GB shared_buffers and the rest page cache) 256 MB is some 8,000 pages of 30 KB and 5 % of
+# the page cache, and keeps the API under 1 GB.
+RESPONSE_CACHE_MB = _float("LAWGRAPH_RESPONSE_CACHE_MB", 256)
 RATE_LIMIT_CALLS = _int("LAWGRAPH_RATE_LIMIT_CALLS", 200)
 RATE_LIMIT_PERIOD = _float("LAWGRAPH_RATE_LIMIT_PERIOD", 60)
 TRUSTED_PROXIES = frozenset(_list("LAWGRAPH_TRUSTED_PROXIES"))

@@ -51,46 +51,32 @@ VERSION_WAIT = 0.5
 NO_STORE = b"no-store"
 
 
-class CacheControlMiddleware:
-    """An explicit ``Cache-Control`` on every GET and HEAD response (``no-store`` on one
-    that is not a success, or that its route marked so: ``no_store_if``), and on a
-    success a weak ``ETag`` of the API version and the data version; a request whose
-    ``If-None-Match`` names the current tag is 304.
-
-    Every response of one API and data version has the same ``ETag``: a cache keeps it per
-    URL, and after a migration (a write to the graph) or a release none of them matches
-    any more, so a browser that asks again gets the new answer, not a 304 for its old one.
-
-    The data version, kept ``VERSION_TTL``, is read again on a thread of its own, one read
-    at a time, which a request waits for ``VERSION_WAIT`` at most once a version is known:
-    never for a free worker of the pool the routes run on. Waiting for one, a
-    request waited before its line of the log (``log_requests``) for as long as slow
+class VersionReader:
+    """The data version of the store for the event loop: as this process read it less than
+    ``VERSION_TTL`` ago (``version_cache.known_version``), else read again on a thread of
+    its own, one read at a time, which a request waits for ``VERSION_WAIT`` at most once a
+    version is known: never for a free worker of the pool the routes run on. Waiting for
+    one, a request waited before its line of the log (``log_requests``) for as long as slow
     routes held every worker (16 Oct: 434 s and 825 s without a line)."""
 
-    _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
-
-    def __init__(
-        self, app: ASGIApp, store: Callable[[], GraphStore], api_version: str
-    ) -> None:
-        self._app = app
+    def __init__(self, store: Callable[[], GraphStore]) -> None:
         self._store = store
-        self._api_version = api_version
         self._reader = concurrent.futures.ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="lawgraph-version"
         )
         self._lock = threading.RLock()
         # the database of the store, once read, and the read of its version under way
-        self._database: str | None = None
+        self.database: str | None = None
         self._reading: concurrent.futures.Future[str | None] | None = None
 
     def _data_version(self) -> str | None:
         """The data version (``version_cache.current_version``); None while the database
-        cannot be reached, and so no tag."""
+        cannot be reached."""
         try:
             store = self._store()
-            self._database = store.name
+            self.database = store.name
             return version_cache.current_version(store)
-        except Exception as exc:  # noqa: BLE001 — no stamp is no cache validation
+        except Exception as exc:  # noqa: BLE001 — no version is no cache
             logger.warning("No data version: %s", describe(exc))
             return None
 
@@ -98,12 +84,11 @@ class CacheControlMiddleware:
         with self._lock:
             self._reading = None  # the next request past the TTL reads again
 
-    async def _current_version(self) -> str | None:
-        """The data version as this process read it less than ``VERSION_TTL`` ago
-        (``version_cache.known_version``), else as it reads it now, or, past
-        ``VERSION_WAIT``, the one it knows."""
+    async def current(self) -> str | None:
+        """The data version as known less than ``VERSION_TTL`` ago, else as read now, or,
+        past ``VERSION_WAIT``, the one known."""
         with self._lock:
-            database = self._database
+            database = self.database
             known = None if database is None else version_cache.known_version(database)
             if known is not None and known[1]:
                 return known[0]
@@ -119,6 +104,26 @@ class CacheControlMiddleware:
             return await asyncio.wait_for(waiting, VERSION_WAIT)
         except TimeoutError:
             return known[0]
+
+
+class CacheControlMiddleware:
+    """An explicit ``Cache-Control`` on every GET and HEAD response (``no-store`` on one
+    that is not a success, or that its route marked so: ``no_store_if``), and on a
+    success a weak ``ETag`` of the API version and the data version (``VersionReader``); a
+    request whose ``If-None-Match`` names the current tag is 304.
+
+    Every response of one API and data version has the same ``ETag``: a cache keeps it per
+    URL, and after a migration (a write to the graph) or a release none of them matches
+    any more, so a browser that asks again gets the new answer, not a 304 for its old one."""
+
+    _PUBLIC = ("/api/articles/", "/api/judgments/", "/api/stats")
+
+    def __init__(
+        self, app: ASGIApp, store: Callable[[], GraphStore], api_version: str
+    ) -> None:
+        self._app = app
+        self._versions = VersionReader(store)
+        self._api_version = api_version
 
     def _cache_value(self, path: str) -> str:
         if path == "/api/feed.atom":
@@ -137,9 +142,9 @@ class CacheControlMiddleware:
             return
 
         cache_value = self._cache_value(scope.get("path", ""))
-        version = await self._current_version()
+        version = await self._versions.current()
         etag = f'W/"{self._api_version}-{version}"'.encode() if version else None
-        if etag and etag in _if_none_match(scope):
+        if etag and etag in if_none_match(scope):
             headers = [(b"etag", etag), (b"cache-control", cache_value.encode())]
             await send(
                 {"type": "http.response.start", "status": 304, "headers": headers}
@@ -175,7 +180,7 @@ def no_store_if(response: Response, partial: bool) -> None:
         response.headers["cache-control"] = NO_STORE.decode()
 
 
-def _if_none_match(scope: Scope) -> list[bytes]:
+def if_none_match(scope: Scope) -> list[bytes]:
     """The entity tags of the request's ``If-None-Match``."""
     return [
         tag.strip()
@@ -406,8 +411,9 @@ deze pagina vanzelf opnieuw.</p></body></html>
 
 
 def _refusal(headers: dict[bytes, bytes], retry_after: int) -> StarletteResponse:
-    """The 429 of the rate limit: a page for a browser that asks for one, else JSON."""
-    retry = {"Retry-After": str(retry_after)}
+    """The 429 of the rate limit: a page for a browser that asks for one, else JSON; kept
+    by no cache."""
+    retry = {"Retry-After": str(retry_after), "Cache-Control": NO_STORE.decode()}
     if b"text/html" in headers.get(b"accept", b""):
         return StarletteResponse(
             content=_REFUSAL_PAGE.format(seconds=retry_after),
@@ -423,26 +429,52 @@ def _refusal(headers: dict[bytes, bytes], retry_after: int) -> StarletteResponse
     )
 
 
+# The mark of a request the API makes itself (a page computed in the background,
+# ``response_cache``): its line in the log is ``[fill:<id>]``, no visitor's.
+FILL = "lawgraph.fill"
+# The method a client asked with, where the app is asked a GET for it (``response_cache``).
+ASKED = "lawgraph.asked"
+
+
+def request_line(request_id: str, scope: Scope) -> str:
+    """The start of the line of a request in the log: its id, the network of the client
+    (never its address), the method and the path without its query string (a search term
+    may name a person)."""
+    client = scope.get("client")
+    tag = f"fill:{request_id[:8]}" if scope.get(FILL) else request_id[:8]
+    network = truncated_ip(client[0]) if client else "-"
+    method = scope.get(ASKED) or scope.get("method", "-")
+    return f"[{tag}] {network} {method} {scope.get('path', '-')} →"
+
+
+def log_answer(
+    line: str, status: int, size: str, duration_ms: float, cache: str, db_ms: float
+) -> None:
+    logger.info(
+        "%s %d %sb (%.1fms) cache=%s db=%.1fms worker=%d",
+        line,
+        status,
+        size,
+        duration_ms,
+        cache,
+        db_ms,
+        os.getpid(),
+    )
+
+
 async def log_requests(
     request: Request, call_next: RequestResponseEndpoint
 ) -> StarletteResponse:
-    """One line per request: its id, the network of the client, the method, the path
-    without its query string, the status, the size, how long it took, whether the cache
-    held its answers (``cache=hit|miss|none``), the time in its own statements and the
-    process that answered. The same, as ``Server-Timing``, goes to the client. Every answer
-    carries the id as ``X-Request-ID``; an error no handler answers is a 500 with that id
-    (``errors.internal_error``), and its line holds the traceback."""
+    """One line per request (``request_line``): the status, the size, how long it took,
+    whether the cache held its answers (``cache=hit|miss|none``), the time in its own
+    statements and the process that answered. The same, as ``Server-Timing``, goes to the
+    client. Every answer carries the id as ``X-Request-ID``; an error no handler answers is
+    a 500 with that id (``errors.internal_error``), and its line holds the traceback."""
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
     timing, timing_token = request_timing.start()
-    # the path without its query string (a search term may name a person) and the
-    # network of the client, never its address
-    line = (
-        f"[{request_id[:8]}] "
-        f"{truncated_ip(request.client.host) if request.client else '-'} "
-        f"{request.method} {request.url.path} →"
-    )
+    line = request_line(request_id, request.scope)
     try:
         response = await call_next(request)
     except Exception:  # noqa: BLE001 — an error no handler answers is a 500, logged here
@@ -455,15 +487,8 @@ async def log_requests(
     response.headers["X-Request-ID"] = request_id
     response.headers["Server-Timing"] = server_timing(timing, duration_ms)
     size = response.headers.get("content-length", "-")
-    logger.info(
-        "%s %d %sb (%.1fms) cache=%s db=%.1fms worker=%d",
-        line,
-        response.status_code,
-        size,
-        duration_ms,
-        timing.cache,
-        timing.db * 1000,
-        os.getpid(),
+    log_answer(
+        line, response.status_code, size, duration_ms, timing.cache, timing.db * 1000
     )
     return response
 

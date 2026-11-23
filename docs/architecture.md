@@ -142,7 +142,11 @@ DTOs of `api/schemas/`. Every write to a table of the graph bumps its row in
 `lg_data_version`, and the API's `ETag` follows that version, so a migration shows without a
 restart (`docs/api.md`). An answer kept per table is kept while its tables stand still
 (`db/version_cache.py`; `tests/pg/test_cached_tables.py` checks the tables each one names
-against the plans of its statements).
+against the plans of its statements). Whole answers of `/render` and `/api` are kept too, as
+their gzip, per path, query and data version (`api/response_cache.py` on `db/whole_answers.py`):
+equal requests at the same moment are computed once, after a write the old answer is given
+until the new one is done (never 6 hours after the newer version came), and a page that ran
+past its budget is computed whole in the background for the next request.
 
 ## Error messages
 
