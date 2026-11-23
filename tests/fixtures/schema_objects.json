@@ -163,6 +163,7 @@
   "lg_like",
   "lg_member_names",
   "lg_member_seated",
+  "lg_neighborhood",
   "lg_ngrams",
   "lg_node_key",
   "lg_num",
@@ -183,7 +184,6 @@
   "lg_unset",
   "lg_update",
   "lg_values",
-  "lg_walk",
   "lg_word_query"
  ],
  "indexes": [

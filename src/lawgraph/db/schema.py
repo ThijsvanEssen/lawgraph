@@ -299,137 +299,12 @@ LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
     ) WITH ORDINALITY AS r(m, o)
 $$;
 
--- The nodes within w_depth edges of w_focal, at most w_cap of them, in one statement. A walk
--- that fits the cap is breadth first and keeps every node. One that does not shares the cap
--- out in passes: going down the levels, each but the last takes at most half of the room left
--- (so a hub does not fill the cap with its own neighbours), the last the rest; what is left
--- over goes round again, and what a later pass keeps is walked on from too. A level is read
--- whole (the neighbours along the edges asked for, not kept before) and kept in turns: the
--- first of each relation, direction and collection, in id order, then the second of each (not
--- every article of a law before any paper citing it). A node that is gone is not one; a node
--- outside w_collections (when given) or w_tables is neither kept nor walked through. A node of
--- w_stop (when given) but the focal one is kept but not walked through, but for its seats: an
--- edge out of it whose relation and collection of its other end are one of w_seats ('MEMBER_OF
--- factions'). A law is not walked back to the old articles whose outcome it holds
--- (lg_transposition_outcome). Whether a neighbour is there is asked of its own table only,
--- w_chunk at a time, so a capped walk does not look up the neighbours it will never keep.
-CREATE OR REPLACE FUNCTION lg_walk(
-    w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
-    w_outbound boolean, w_inbound boolean, w_collections text[], w_tables text[],
-    w_stop text[], w_seats text[], w_chunk int DEFAULT 500
-) RETURNS text[]
-LANGUAGE plpgsql STABLE AS $$
-DECLARE
-    seen text[];
-    kept text[];
-    frontier text[];
-    -- of the frontier: the nodes walked through, and those walked to their seats only
-    free text[];
-    stopped text[];
-    seat_relations text[] := ARRAY(SELECT split_part(s, ' ', 1) FROM unnest(w_seats) s);
-    reached text[];
-    -- what was reached, per read a run of it: its level, and what of it is not looked at yet
-    queue text[];
-    r_step int[];
-    r_at int[];
-    r_to int[];
-    fair boolean;
-    level text[];
-    chunk text[];
-    present text[];
-    coll text;
-    room int;
-    n int;
-BEGIN
-    <<walks>>
-    -- one level has nothing to walk on from: its share is the whole cap
-    FOREACH fair IN ARRAY ARRAY[w_depth = 1, true] LOOP
-        seen := ARRAY[w_focal];
-        kept := '{}';
-        frontier := ARRAY[w_focal];
-        queue := '{}';
-        r_step := '{}';
-        r_at := '{}';
-        r_to := '{}';
-        LOOP
-            n := cardinality(kept);
-            FOR step IN 1..w_depth LOOP
-                free := ARRAY(SELECT x FROM unnest(frontier) x WHERE step = 1
-                              OR split_part(x, '/', 1) <> ALL(coalesce(w_stop, '{}')));
-                stopped := ARRAY(SELECT x FROM unnest(frontier) x
-                                 WHERE step > 1 AND split_part(x, '/', 1) = ANY(w_stop));
-                reached := ARRAY(
-                    SELECT f.id FROM (
-                        SELECT e.to_id AS id, e.to_collection AS c, 'out ' || e.relation AS r
-                        FROM public.edges e
-                        WHERE w_outbound AND e.from_id = ANY(free)
-                          AND (w_relations IS NULL OR e.relation = ANY(w_relations))
-                          AND (w_status IS NULL OR e.status = w_status)
-                        UNION
-                        SELECT e.from_id, e.from_collection, 'in ' || e.relation FROM public.edges e
-                        WHERE w_inbound AND e.to_id = ANY(free)
-                          AND (w_relations IS NULL OR e.relation = ANY(w_relations))
-                          AND (w_status IS NULL OR e.status = w_status)
-                          AND NOT public.lg_transposition_outcome(e.relation, e.to_id)
-                        UNION
-                        SELECT e.to_id, e.to_collection, 'out ' || e.relation FROM public.edges e
-                        WHERE w_outbound AND e.from_id = ANY(stopped)
-                          AND e.relation = ANY(seat_relations)
-                          AND e.relation || ' ' || e.to_collection = ANY(w_seats)
-                          AND (w_relations IS NULL OR e.relation = ANY(w_relations))
-                          AND (w_status IS NULL OR e.status = w_status)
-                    ) f
-                    LEFT JOIN unnest(seen) AS s(id) ON s.id = f.id
-                    WHERE s.id IS NULL AND f.c = ANY(w_tables)
-                      AND (w_collections IS NULL OR f.c = ANY(w_collections))
-                    ORDER BY row_number() OVER (PARTITION BY f.r, f.c ORDER BY f.id),
-                             f.r ASC NULLS LAST, f.c ASC NULLS LAST, f.id
-                );
-                room := w_cap - cardinality(kept);
-                -- does not fit: walk again and share the cap out
-                CONTINUE walks WHEN NOT fair
-                    AND (SELECT count(DISTINCT x) FROM unnest(reached) x) > room;
-                r_step := r_step || step;
-                r_at := r_at || cardinality(queue) + 1;
-                r_to := r_to || cardinality(queue) + cardinality(reached);
-                queue := queue || reached;
-                room := CASE WHEN fair AND step < w_depth THEN ceil(room / 2.0)::int ELSE room END;
-                level := '{}';
-                FOR i IN 1..cardinality(r_step) LOOP
-                    CONTINUE WHEN r_step[i] <> step;
-                    WHILE room > 0 AND r_at[i] <= r_to[i] LOOP
-                        chunk := queue[r_at[i]:least(r_at[i] + least(w_chunk, room) - 1, r_to[i])];
-                        r_at[i] := r_at[i] + cardinality(chunk);
-                        FOR coll IN SELECT DISTINCT split_part(x, '/', 1) FROM unnest(chunk) x LOOP
-                            EXECUTE format(
-                                'SELECT coalesce(array_agg(id ORDER BY id), ''{}'')'
-                                ' FROM public.%I WHERE id = ANY($1) AND id <> ALL($2)', coll
-                            ) INTO present USING chunk, seen;
-                            seen := seen || present;
-                            level := level || present;
-                            room := room - cardinality(present);
-                        END LOOP;
-                    END LOOP;
-                END LOOP;
-                kept := kept || level;
-                frontier := level;
-            END LOOP;
-            frontier := '{}';
-            -- a pass with room that keeps nothing has nothing left to keep
-            IF cardinality(kept) IN (n, w_cap) OR NOT fair THEN
-                RETURN kept;
-            END IF;
-        END LOOP;
-    END LOOP;
-END
-$$;
-
 """
 
 # Whether an edge tells what became of an article of an old law that no article of the new
 # law takes the place of: TRANSPOSED_TO the new law itself (an instrument, ``meta.outcome``).
-# It is read from the old article; the new law neither walks (``lg_walk``) nor counts it as a
-# neighbour (db/queries/nodes.py): a recodification leaves some 1,300 of them on its law.
+# It is read from the old article; the new law neither walks (``lg_neighborhood``) nor counts
+# it as a neighbour (db/queries/nodes.py): a recodification leaves some 1,300 of them on its law.
 TRANSPOSITION_OUTCOME = f"""
 CREATE OR REPLACE FUNCTION lg_transposition_outcome(relation text, to_id text)
 RETURNS boolean
@@ -2636,9 +2511,9 @@ def node_of(id_sql: str, collection_sql: str) -> str:
 def node_exists(id_sql: str, collection_sql: str) -> str:
     """SQL: whether the node *id_sql* is in its own table, *collection_sql*, gated on the
     table's name as in ``node_of``: one index probe, and false for a collection that is no
-    table of the graph."""
+    table of the graph. By its schema, so a function of the schema can ask it too."""
     parts = "\n        UNION ALL\n        ".join(
-        f"SELECT 1 FROM {c} x WHERE {collection_sql} = '{c}' AND x.id = {id_sql}"
+        f"SELECT 1 FROM public.{c} x WHERE {collection_sql} = '{c}' AND x.id = {id_sql}"
         for c in NODE_COLLECTIONS
     )
     return f"EXISTS (\n        {parts}\n    )"
@@ -2646,10 +2521,14 @@ def node_exists(id_sql: str, collection_sql: str) -> str:
 
 def statements() -> list[str]:
     """The whole schema, in the order it is created."""
+    # here, not at the top: the walk asks node_exists of this module
+    from lawgraph.db.neighborhood_sql import NEIGHBORHOOD
+
     found = [
         DICTIONARY,
         FUNCTIONS,
         TRANSPOSITION_OUTCOME,
+        NEIGHBORHOOD,
         SEARCH_FUNCTIONS,
         DATA_VERSION,
         TRIGRAMS,
