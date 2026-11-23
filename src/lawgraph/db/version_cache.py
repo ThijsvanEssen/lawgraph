@@ -32,7 +32,13 @@ from lawgraph.config import settings
 from lawgraph.core.logging import describe, get_logger
 from lawgraph.db import request_timing
 from lawgraph.db.counting import Store
-from lawgraph.db.request_context import ReadTimedOut, in_background, read_time_left
+from lawgraph.db.request_context import (
+    ReadTimedOut,
+    in_background,
+    read_time_left,
+    reset_read_deadline,
+    set_read_deadline,
+)
 from lawgraph.db.store import statement_text, version_stamp
 
 logger = get_logger(__name__)
@@ -62,6 +68,10 @@ def _database(store: object) -> str:
 # The data version is read at most this often (seconds): a run of the pipelines shows within
 # it. The tests set it to 0.
 VERSION_TTL = 2.0
+# How long one read of the data version may wait for a connection and run (seconds): with
+# every connection of the pool held, a read that fails keeps the version read before, and the
+# answers kept by it, rather than have every request compute its own.
+VERSION_READ = 1.0
 # Answers kept, the least recently used going first.
 MAX_ENTRIES = 4096
 # How long a request waits for the answer of a new data version (seconds) before it takes
@@ -139,6 +149,7 @@ REFRESH_AHEAD_MAX_RUNNING = WORKERS
 _lock = threading.Lock()
 # database -> (data version, the version of each table or None, read at)
 _versions: dict[str, tuple[str | None, dict[str, int] | None, float]] = {}
+_reading: set[str] = set()  # the databases whose version a thread reads now
 # An answer kept for the tables it reads (``cached(tables=...)``) is computed again after this
 # many seconds, whatever their versions say: a safety net for a table its declaration lacks.
 MAX_AGE = 3600.0
@@ -353,23 +364,33 @@ def _version(
     store: object, tables: tuple[str, ...] | None = None
 ) -> tuple[str, str] | None:
     """``(database, data version)`` of *store*, or of *tables* of it, read at most every
-    ``VERSION_TTL``; None when it has none or the database cannot be read. A data version
-    this process did not know starts the warm-up. A store without versions per table (a
-    fake) gives its data version for any *tables*."""
+    ``VERSION_TTL``, by one thread at a time once a version is known (the others take that
+    one meanwhile); None when it has none. A read that fails keeps the version read before.
+    A data version this process did not know starts the warm-up. A store without versions
+    per table (a fake) gives its data version for any *tables*."""
     if not isinstance(store, VersionedStore):
         return None
     name = _database(store)
     now = time.monotonic()
     with _lock:
         known, per_table, read_at = _versions.get(name, (None, None, float("-inf")))
-    if now - read_at >= VERSION_TTL:
+        due = now - read_at >= VERSION_TTL and not (known and name in _reading)
+        if due:
+            _reading.add(name)
+    if due:
         before = known
-        known, per_table = _read_versions(store)
+        try:
+            read, read_tables = _read_versions(store)
+        finally:
+            with _lock:
+                _reading.discard(name)
+        if read:
+            known, per_table = read, read_tables
         with _lock:
             _versions[name] = (known, per_table, now)
-        if known:
-            _seen(name, known)
-        if known and known != before and before is not None:
+        if read:
+            _seen(name, read)
+        if read and read != before and before is not None:
             warm(store)
     if not known:
         return None
@@ -382,17 +403,25 @@ def _read_versions(
     store: VersionedStore,
 ) -> tuple[str | None, dict[str, int] | None]:
     """The data version of *store* and the version of each of its tables (None for a
-    store that has no ``table_versions``)."""
+    store that has no ``table_versions``), read within ``VERSION_READ``; ``(None, None)``
+    when that fails."""
     found: tuple[str | None, dict[str, int] | None]
+    left = read_time_left()
+    token = set_read_deadline(VERSION_READ if left is None else min(VERSION_READ, left))
     try:
         if not isinstance(store, TableVersionedStore):
             found = store.data_version(), None
         else:
             versions = store.table_versions()
             found = version_stamp(versions), versions
-    except Exception as exc:  # noqa: BLE001 — without a version nothing is kept
+    except ReadTimedOut:
+        # no connection came free in time: the version read before holds, no failure
+        return None, None
+    except Exception as exc:  # noqa: BLE001 — the version read before holds
         _unread(exc)
         return None, None
+    finally:
+        reset_read_deadline(token)
     _unread(None)
     return found
 
@@ -783,6 +812,7 @@ def clear() -> None:
         _latest.clear()
         _lasting.clear()
         _running.clear()
+        _reading.clear()
         _wanted.clear()
         _warm_started.clear()
         _moves.clear()
