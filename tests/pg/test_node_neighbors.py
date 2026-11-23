@@ -575,8 +575,8 @@ def test_an_edge_of_the_neighbourhood_carries_its_meta(
 # ── a hub ───────────────────────────────────────────────────────────────────────────────
 
 HUB = f"{COLLECTION_INSTRUMENTS}/hub"
-# Many pages of 100 per bucket and many chunks of the walk (``_NEIGHBOR_CHUNK``, 500) for
-# each relation: what the counts, the pages and the cap rest on. More edges change no plan
+# Many pages of 100 per bucket for each relation, far more than the cap of a walk: what the
+# counts, the pages and the cap rest on. More edges change no plan
 # the tests check, only the time the seed takes.
 HUB_ARTICLES = 6_000
 HUB_JUDGMENTS = 2_000
