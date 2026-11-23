@@ -57,6 +57,7 @@ def test_the_acts_are_streamed_twenty_at_a_time(
                 "chronological": False,
                 "after": None,
                 "limit": None,
+                "regulations": None,
             },
         ),
     ]

@@ -323,6 +323,10 @@ SLICE_HELP = {
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many toestanden (a slice).",
     ),
+    "normalize bwb-history": (
+        "Start past this BWB id: the next slice of a run over all.",
+        "Stop after this many toestanden of whole regulations (a slice).",
+    ),
     "normalize rechtspraak": (
         "Start past this record key: the next slice of a run over all.",
         "Stop after this many judgments (a slice).",

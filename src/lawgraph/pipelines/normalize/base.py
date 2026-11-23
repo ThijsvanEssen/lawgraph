@@ -115,13 +115,15 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
         chronological: bool = False,
         after: str | None = None,
         limit: int | None = None,
+        regulations: tuple[str | None, str | None] | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Stream raw_sources rows in batches (``RAW_BATCH_SIZE``), each with its text
-        payload; a slice: past the record key *after*, *limit* of them."""
+        payload; a slice: past the record key *after*, *limit* of them, or the toestanden of
+        a range of *regulations* (``iter_raw_records``)."""
         since_iso = iso_timestamp(since)
         # The total of a full run comes from the index; with a date every record would
         # have to be read to count it, so an incremental run shows no total and no ETA.
-        sliced = bool(after) or limit is not None
+        sliced = bool(after) or limit is not None or regulations is not None
         total = (
             None
             if since_iso or sliced
@@ -137,6 +139,7 @@ class NormalizePipelineBase[Raw](PipelineBase, ABC):
             chronological=chronological,
             after=after,
             limit=limit,
+            regulations=regulations,
         )
         yield from progress.track(self.store.with_payloads(rows), _payload_size)
 
