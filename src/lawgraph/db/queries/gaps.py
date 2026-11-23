@@ -12,6 +12,7 @@ from lawgraph.config.constants import (
     RAW_KIND_EURLEX_CELEX,
     RELATION_ANSWERS,
     SOURCE_BWB,
+    SOURCE_CJEU,
     SOURCE_EURLEX,
     TREATY_KINDS,
 )
@@ -115,6 +116,26 @@ def unanswered_preliminary_rulings(
             "answers": RELATION_ANSWERS,
             "paragraphs": paragraphs,
         },
+    )
+
+
+def unanswered_cjeu_rulings(store: Store) -> Iterator[dict[str, Any]]:
+    """``{country, national}`` of the judgments of the Court of a case CELLAR says was
+    referred from the Netherlands (``meta``, ``core.cjeu.dutch_referrals``) that answer no
+    decision, by key."""
+    return store.query(
+        """
+        SELECT j.props -> 'meta' -> 'country' AS country,
+               j.props -> 'meta' -> 'national' AS national
+        FROM judgments j
+        WHERE j.source = %(source)s
+          AND strpos(lg_str(j.props -> 'meta' -> 'country'), 'NLD') > 0
+          AND NOT EXISTS (
+            SELECT 1 FROM edges e WHERE e.from_id = j.id AND e.relation = %(answers)s
+          )
+        ORDER BY j.key
+        """,
+        {"source": SOURCE_CJEU, "answers": RELATION_ANSWERS},
     )
 
 

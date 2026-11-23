@@ -44,6 +44,7 @@ from lawgraph.db.queries._helpers import _extract_confidence
 from lawgraph.db.queries._json_sql import array_or_empty
 from lawgraph.db.queries.derived_neighbors import DerivedBucket, derived_pages
 from lawgraph.db.queries.not_found import require_node
+from lawgraph.db.request_context import Places
 from lawgraph.db.store import read_budget
 from lawgraph.db.version_cache import lasting, stale_wait
 
@@ -783,6 +784,10 @@ def _walk_params(
     }
 
 
+# Walks past the first level at a time, each on a request's connection (15-30 s on prod).
+WALKS = Places(3, wait=5.0)
+
+
 def get_node_neighborhood(
     store: GraphStore,
     collection: str,
@@ -813,38 +818,36 @@ def get_node_neighborhood(
     props = canvas_props("n") if canvas else light_props("n")
     depth = max(1, min(depth, 4))
     cap = max(1, min(cap, FIRST_LEVEL_CAP if depth == 1 else NEIGHBORHOOD_CAP))
-    # One statement: the walk in the database (the cap shared over the levels and, in a
-    # level, per relation; a node of a type the filter leaves out is seen but neither kept
-    # nor walked through), the nodes it kept, and the edges between them and the focal
-    # node.
-    found = next(
-        store.query(
-            f"""
-            WITH walked AS (
-                SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
-                               %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
-                               %(stop)s, %(seats)s, %(chunk)s) AS ids
+    # one statement: the walk, the nodes it kept and the edges between them
+    with WALKS.held(depth > 1):
+        found = next(
+            store.query(
+                f"""
+                WITH walked AS (
+                    SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
+                                   %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
+                                   %(stop)s, %(seats)s, %(chunk)s) AS ids
+                )
+                SELECT
+                    (SELECT coalesce(json_agg(json_build_array(
+                         n.id, n.key, n.type, n.labels, {props}) ORDER BY n.id), '[]')
+                     FROM walked w, nodes n
+                     WHERE n.id = ANY(w.ids) AND {nodes_of_ids_sql("w.ids")}
+                    ) AS nodes,
+                    (SELECT coalesce(json_agg(json_build_array(
+                         e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
+                     FROM walked w, edges e
+                     WHERE e.from_id = ANY(w.ids || %(focal)s::text)
+                       AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
+                        AS edges,
+                    (SELECT {node_date("n")} FROM nodes n
+                     WHERE n.id = %(focal)s
+                       AND n.collection = ANY({sql_text_array(DATED_COLLECTIONS)})) AS day
+                FROM walked
+                """,
+                _walk_params(focal["id"], depth, cap, filters, stop_at),
             )
-            SELECT
-                (SELECT coalesce(json_agg(json_build_array(
-                     n.id, n.key, n.type, n.labels, {props}) ORDER BY n.id), '[]')
-                 FROM walked w, nodes n
-                 WHERE n.id = ANY(w.ids) AND {nodes_of_ids_sql("w.ids")}
-                ) AS nodes,
-                (SELECT coalesce(json_agg(json_build_array(
-                     e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
-                 FROM walked w, edges e
-                 WHERE e.from_id = ANY(w.ids || %(focal)s::text)
-                   AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
-                    AS edges,
-                (SELECT {node_date("n")} FROM nodes n
-                 WHERE n.id = %(focal)s
-                   AND n.collection = ANY({sql_text_array(DATED_COLLECTIONS)})) AS day
-            FROM walked
-            """,
-            _walk_params(focal["id"], depth, cap, filters, stop_at),
         )
-    )
     if found["day"] is not None:
         # the focal node has its date as a neighbour has it (``light_props``)
         focal = {**focal, "props": {**focal["props"], "date": found["day"]}}

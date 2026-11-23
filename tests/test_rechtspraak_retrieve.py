@@ -411,7 +411,8 @@ def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
             ("ECLI:NL:RBROT:2021:197", "8398405 CV EXPL 20-9220"),
         )
     ]
-    rs = _Rs(listed)
+    rs = _Rs([])
+    rs.every_ecli = listed
     referrals = [
         Referral(case_numbers=("8527084 VZ VERZ 20-9656",), date="2021-01-15"),
         Referral(case_numbers=("9999999 CV EXPL 20-1",), date="2021-01-15"),
@@ -419,8 +420,52 @@ def test_a_referral_is_found_in_the_index_of_its_date_by_case_number() -> None:
     pipeline, store = _pipeline(rs)
     pipeline.run(referrals=referrals)
     day = dt.date(2021, 1, 15)
-    assert rs.index_calls == [{"courts": (), "from": day, "to": day}]  # once per date
+    # once per date, the index of every ECLI
+    assert rs.index_calls == [
+        {"courts": (), "from": day, "to": day, "every_ecli_from": None}
+    ]
     assert rs.fetched == ["ECLI:NL:RBROT:2021:207"]
+
+
+# the real index of every ECLI of 12 December 2002, four of its 155 entries: the referring
+# decision of ECLI:EU:C:2005:255, published without a document; two other
+# decisions; one whose ECLI was replaced (``deleted="ecli"``)
+EVERY_ECLI_2002_12_12 = fixture_text("rs_index_2002_12_12_every_ecli.xml")
+# its content: the RDF only (court, date, case number), no inhoudsindicatie, no text
+NO_DOCUMENT = fixture_text("rs_ghams_2002_ar8277_no_document.xml")
+
+
+def test_a_referral_of_the_court_finds_a_decision_without_a_document() -> None:
+    """``*A9* Gerechtshof te Amsterdam, 3e meervoudige burgerlijke kamer, beschikking van
+    12/12/2002 (658/2002)`` (CELLAR): the Rechtspraak has it without a document, so only
+    the index of every ECLI lists it; its content is its metadata."""
+    rs = _Rs([], {"ECLI:NL:GHAMS:2002:AR8277": NO_DOCUMENT})
+    rs.every_ecli = parse_index(EVERY_ECLI_2002_12_12)[1]
+    referral = Referral(
+        case_numbers=("658/2002",), date="2002-12-12", tier="gerechtshof"
+    )
+    pipeline, store = _pipeline(rs)
+    pipeline.run(referrals=[referral])
+    assert rs.fetched == ["ECLI:NL:GHAMS:2002:AR8277"]
+    assert [r["payload_text"] for r in store.raw.values()] == [NO_DOCUMENT]
+
+
+@pytest.mark.parametrize(
+    "referral",
+    [
+        # of another tier than the court that decided it
+        Referral(case_numbers=("658/2002",), date="2002-12-12", tier="rechtbank"),
+        # withdrawn: its ECLI was replaced
+        Referral(case_numbers=("C-385/00",), date="2002-12-12"),
+    ],
+)
+def test_a_referral_fetches_no_decision_of_another_tier_or_withdrawn(
+    referral: Referral,
+) -> None:
+    rs = _Rs([])
+    rs.every_ecli = parse_index(EVERY_ECLI_2002_12_12)[1]
+    _pipeline(rs)[0].run(referrals=[referral])
+    assert rs.fetched == []
 
 
 def test_an_unknown_court_is_an_error_of_the_step() -> None:

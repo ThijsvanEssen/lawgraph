@@ -57,8 +57,7 @@ def by_case_number(
             for row in candidates
             if row["date"] == referral.date
             and row["ecli"].upper() != ruling
-            and not (referral.tier and row.get("tier") not in (None, referral.tier))
-            and referral.names(row["case_number"])
+            and referral.matches(row["case_number"], row.get("tier"))
         }
     )
 

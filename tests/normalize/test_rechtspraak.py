@@ -9,6 +9,7 @@ from lawgraph.core.models import PipelineResult
 from lawgraph.db.queries import raw as raw_queries
 from lawgraph.pipelines.normalize.rechtspraak import RechtspraakNormalizePipeline
 from tests.fakes import InMemoryStore
+from tests.paths import fixture_text
 
 
 def test_the_rechtspraak_normalizer_streams_its_raw_records(
@@ -51,3 +52,25 @@ def test_the_normalizer_keeps_no_nodes_after_writing_them() -> None:
     store = InMemoryStore()
     RechtspraakNormalizePipeline(store=store).write(rows, PipelineResult())
     assert len(store.nodes[COLLECTION_JUDGMENTS]) == 3
+
+
+def test_a_judgment_without_a_document_is_a_node_of_its_metadata() -> None:
+    """ECLI:NL:GHAMS:2002:AR8277, the referring decision of ECLI:EU:C:2005:255: the
+    Rechtspraak has it without a document, its content (real) is the RDF only.
+    ``semantic eurlex-cjeu`` finds it by its date, tier and case number."""
+    ecli = "ECLI:NL:GHAMS:2002:AR8277"
+    row = {
+        "external_id": ecli,
+        "kind": "rs-content",
+        "payload_text": fixture_text("rs_ghams_2002_ar8277_no_document.xml"),
+        "meta": {"ecli": ecli},
+    }
+    store = InMemoryStore()
+    RechtspraakNormalizePipeline(store=store).write(iter([row]), PipelineResult())
+    [props] = [node["props"] for node in store.nodes[COLLECTION_JUDGMENTS].values()]
+    assert {k: props.get(k) for k in ("date_eff", "case_number", "tier", "text")} == {
+        "date_eff": "2002-12-12",
+        "case_number": "658/2002",
+        "tier": "gerechtshof",
+        "text": None,
+    }

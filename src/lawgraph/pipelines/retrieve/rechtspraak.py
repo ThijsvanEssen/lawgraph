@@ -12,6 +12,7 @@ from lawgraph.clients.rechtspraak import RechtspraakClient
 from lawgraph.config.constants import RAW_KIND_RECHTSPRAAK_CONTENT, SOURCE_RECHTSPRAAK
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.courts import owms_terms
+from lawgraph.core.judgment_metadata import derive_court
 from lawgraph.core.logging import get_logger
 from lawgraph.core.models import PipelineResult
 from lawgraph.db import GraphStore
@@ -49,17 +50,26 @@ class RechtspraakRetrievePipeline(RetrievePipelineBase):
     def _referring_decisions(
         self, referrals: Sequence[Referral]
     ) -> dict[str, dt.datetime | None]:
-        """The decisions *referrals* name, from the index of each referral date (every
-        court: the text names the court in words), by case number; one request per date."""
+        """The decisions *referrals* name, from the index of every ECLI of each referral
+        date (every court: the text names the court in words), by case number and the tier
+        of its court (``Referral.matches``); one request per date. Every ECLI: a referring
+        decision the Rechtspraak published without a document is one all the same, and its
+        content is its metadata (court, date, case number). Not a withdrawn one."""
         found: dict[str, dt.datetime | None] = {}
         for date in sorted({r.date for r in referrals if r.date}):
             day = dt.date.fromisoformat(date)
-            entries = list(self.rs.iter_index(from_date=day, to_date=day))
+            entries = [
+                (entry, derive_court(entry.ecli)[1])
+                for entry in self.rs.iter_index(
+                    from_date=day, to_date=day, documents=False
+                )
+                if not entry.withdrawn
+            ]
             for referral in (r for r in referrals if r.date == date):
                 found.update(
                     (entry.ecli, entry.updated)
-                    for entry in entries
-                    if referral.names(entry.case_numbers)
+                    for entry, tier in entries
+                    if referral.matches(entry.case_numbers, tier)
                 )
         if referrals:
             logger.info(

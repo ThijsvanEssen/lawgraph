@@ -8,6 +8,7 @@ import pytest
 
 from lawgraph.core.case_numbers import Referral
 from lawgraph.core.models import PipelineResult
+from lawgraph.db.queries import gaps as gap_queries
 from lawgraph.pipelines import retrieve_commands
 from lawgraph.pipelines.retrieve import _gaps
 from lawgraph.sources.registry import find
@@ -61,6 +62,46 @@ def test_rechtspraak_fetches_the_cited_judgments_of_any_court(monkeypatch, ran) 
         "eclis": ["ECLI:NL:RBAMS:2020:1"],
         "referrals": [referral],
     }
+
+
+def test_the_referrals_are_those_of_the_hoge_raad_and_of_the_court(
+    monkeypatch,
+) -> None:
+    """Of the Court the ``*A9*`` lines with a date and case numbers (that of
+    ECLI:EU:C:2005:255 as measured on prod); not one by ECLI, not one twice."""
+    hoge_raad = [
+        {
+            "paragraphs": [
+                {
+                    "text": "prejudiciële vragen gesteld in de zaak "
+                    "8527084 VZ VERZ 20-9656 van 15 januari 2021"
+                }
+            ]
+        }
+    ]
+    court = [
+        {
+            "country": "NLD",
+            "national": "<p>*A9* Gerechtshof te Amsterdam, 3e meervoudige burgerlijke "
+            "kamer, beschikking van 12/12/2002 (658/2002)</p>"
+            "<p>*A9* Gerechtshof te Amsterdam, 3e meervoudige burgerlijke "
+            "kamer, beschikking van 12/12/2002 (658/2002)</p>",
+        },
+        {"country": "NLD", "national": "<p>*A9* Hoge Raad, ECLI:NL:HR:2024:922</p>"},
+    ]
+    monkeypatch.setattr(
+        gap_queries,
+        "unanswered_preliminary_rulings",
+        lambda store, paragraphs: hoge_raad,
+    )
+    monkeypatch.setattr(gap_queries, "unanswered_cjeu_rulings", lambda store: court)
+    assert [
+        (r.date, r.case_numbers, r.tier)
+        for r in _gaps.unanswered_referrals(cast(Any, None))
+    ] == [
+        ("2021-01-15", ("8527084 VZ VERZ 20-9656",), None),
+        ("2002-12-12", ("658/2002",), "gerechtshof"),
+    ]
 
 
 def test_eurlex_and_echr_fetch_what_is_named(monkeypatch, ran) -> None:
