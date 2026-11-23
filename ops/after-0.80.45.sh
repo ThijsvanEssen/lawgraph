@@ -1,46 +1,31 @@
 #!/bin/sh
-# At night, once after the deploy of 0.80.45 (B189, #1229: lg_amounts and /amounts), each unit under the lock on its
-# own, so the polls and the nightly run in between:
-# 1. `normalize bwb` over every toestand (renormalize-bwb-slice.sh, PASS=after-0.80.45-bwb): the space around an added
-#    redaction and `redactions` on every article; slices of 15000 toestanden, about 13 minutes each;
-# 2. `normalize bwb-history` in full (after-0.80.45-history.sh): `redactions` on every ArticleVersion. It has no
-#    slices: one step that holds the lock throughout, started only from NOT_BEFORE to HISTORY_BY (default 04)
-#    Europe/Amsterdam, so it ends before the day;
+# At night, once after the deploy of 0.80.45 (B189, #1229: lg_amounts and /amounts), in slices that each take the lock
+# and let it go, so the polls and the nightly run in between; over as many nights as it needs:
+# 1. `normalize bwb` over every toestand: the space around an added redaction and `redactions` on every article;
+#    slices of 15000 toestanden, about 13 minutes each;
+# 2. `normalize bwb-history` over every toestand: `redactions` on every ArticleVersion; slices of at least
+#    HISTORY_LIMIT (default 2000) toestanden, whole regulations;
+#    both through renormalize-bwb-slice.sh, which makes a slice that took more than 25 minutes smaller;
 # 3. `semantic bwb-amounts` over every regulation (after-0.80.45-amounts.sh): slices of AMOUNTS_SLICE (default 5000)
 #    regulations, minutes each.
-# Goes on where it stopped (out/after-0.80.45.phase); stops at the first failure and says so through the alert.
+# Goes on where it stopped (out/after-0.80.45-*.after); stops at the first failure and says so through the alert.
 . "$(dirname "$0")/_night.sh"
-PHASE="$D/out/after-0.80.45.phase"
 # no $(...) here: its subshell would show up with the command line of this script
 if pgrep -f '^sh (.*/)?after-0\.80\.45\.sh$' | grep -vqx "$$"; then
   echo "== a pass is running; nothing started"
   exit 1
 fi
-mkdir -p "$D/out"
-phase() { cat "$PHASE" 2>/dev/null || echo bwb; }
-night_by() {  # wait_night, but start no later than the hour $1
-  until=$to
-  to=$1
-  wait_night
-  to=$until
+normalize_pass() {  # normalize_pass <step> <toestanden per slice>
+  until [ "$(cat "$D/out/after-0.80.45-$1.after" 2>/dev/null)" = "done" ]; do
+    wait_night
+    PASS="after-0.80.45-$1" NORMALIZE="$1" LIMIT="$2" COUNTS="" sh "$D/renormalize-bwb-slice.sh" \
+      || fail renormalize-bwb-slice $?
+  done
 }
-if [ "$(phase)" = bwb ]; then
-  until [ "$(cat "$D/out/after-0.80.45-bwb.after" 2>/dev/null)" = "done" ]; do
-    wait_night
-    PASS=after-0.80.45-bwb COUNTS="" sh "$D/renormalize-bwb-slice.sh" || fail renormalize-bwb-slice $?
-  done
-  echo history > "$PHASE"
-fi
-if [ "$(phase)" = history ]; then
-  night_by "${HISTORY_BY:-04}"
-  sh "$D/after-0.80.45-history.sh" || fail after-0.80.45-history $?
-  echo amounts > "$PHASE"
-fi
-if [ "$(phase)" = amounts ]; then
-  until [ "$(cat "$D/out/after-0.80.45-amounts.after" 2>/dev/null)" = "done" ]; do
-    wait_night
-    sh "$D/after-0.80.45-amounts.sh" || fail after-0.80.45-amounts $?
-  done
-  echo done > "$PHASE"
-fi
+normalize_pass bwb 15000
+normalize_pass bwb-history "${HISTORY_LIMIT:-2000}"
+until [ "$(cat "$D/out/after-0.80.45-amounts.after" 2>/dev/null)" = "done" ]; do
+  wait_night
+  sh "$D/after-0.80.45-amounts.sh" || fail after-0.80.45-amounts $?
+done
 echo "== all done $(date -u +%T)"

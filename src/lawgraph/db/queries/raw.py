@@ -53,6 +53,14 @@ _CHRONOLOGICAL = (
 )
 
 
+# The regulation of a toestand (its meta, else ""), and a range of them.
+_REGULATION = "coalesce(lg_str(doc -> 'meta' -> 'bwb_id'), '')"
+_REGULATION_RANGE = (
+    f"(%(past)s::text IS NULL OR {_REGULATION} > %(past)s)"
+    f" AND (%(upto)s::text IS NULL OR {_REGULATION} <= %(upto)s)"
+)
+
+
 def _records(rows: Iterator[dict[str, Any]]) -> Iterator[dict[str, Any]]:
     return (raw_doc(row) for row in rows)
 
@@ -70,11 +78,15 @@ def iter_raw_records(
     chronological: bool = False,
     after: str | None = None,
     limit: int | None = None,
+    regulations: tuple[str | None, str | None] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """The records of *kinds*, those fetched at or after *since_iso* when it is given;
     *chronological*: the toestanden of each law in the order of their start. A slice (in
-    key order): past the record key *after*, *limit* of them."""
+    key order): past the record key *after*, *limit* of them. *regulations*: only the
+    toestanden whose BWB id is past the first and at most the second (None: no bound)."""
     past = "AND key > %(after)s" if after else ""
+    if regulations is not None:
+        past += f" AND {_REGULATION_RANGE}"
     rows = store.query(
         f"""
         SELECT key, doc FROM raw_sources
@@ -88,10 +100,38 @@ def iter_raw_records(
             "since": since_iso,
             "after": after,
             "limit": limit,
+            "past": (regulations or (None, None))[0],
+            "upto": (regulations or (None, None))[1],
         },
         batch_size=batch_size,
     )
     return _records(rows)
+
+
+def regulation_slice_end(
+    store: Store, *, kinds: list[str], past: str | None, toestanden: int
+) -> str | None:
+    """The BWB id of the *toestanden*-th toestand past the BWB id *past*, in the order of
+    the regulations: a slice through it holds every toestand of each regulation it reads.
+    None when fewer are left."""
+    return next(
+        store.query(
+            f"""
+            SELECT {_REGULATION} FROM raw_sources
+            WHERE source = %(source)s AND kind = ANY(%(kinds)s)
+              AND (%(past)s::text IS NULL OR {_REGULATION} > %(past)s)
+            ORDER BY {_REGULATION}
+            OFFSET %(offset)s LIMIT 1
+            """,
+            {
+                "source": SOURCE_BWB,
+                "kinds": kinds,
+                "past": past,
+                "offset": toestanden - 1,
+            },
+        ),
+        None,
+    )
 
 
 def fetched_since(

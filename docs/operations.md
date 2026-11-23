@@ -145,7 +145,8 @@ was is not read again.
 record key, `--limit N` stops after N (the log names the last one read; `ops/renormalize-judgments.sh` and
 `ops/renormalize-bwb.sh` run them at night, each under the lock on its own). A `normalize bwb` slice that stops at
 its limit leaves the WTI pass and the series to the slice that reaches the end (the log says "the end, nothing to
-go on").
+go on"). `normalize bwb-history` takes the same two, past a BWB id: a slice reads at least N toestanden and every
+toestand of each regulation it starts on, so it is the run over all for those regulations.
 
 ### semantic
 

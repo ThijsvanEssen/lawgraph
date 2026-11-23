@@ -891,6 +891,7 @@ NORMALIZE: list[Pipeline] = [
     _pipeline(
         BWBHistoryNormalizePipeline,
         "Article and instrument versions from the stored toestanden.",
+        options=slice_args("toestanden of whole regulations", "BWB id"),
         after=("bwb",),  # the articles and instruments
     ),
     _pipeline(
