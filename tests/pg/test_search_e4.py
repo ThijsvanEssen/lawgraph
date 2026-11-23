@@ -326,6 +326,10 @@ def test_a_term_opens_the_article_or_law_the_list_names_by_it(
         "opzegtermijn huur",
     }
     assert [h["id"] for h in answer["results"][collection]].count(named) == 1
+    # the source that ties the term to it: its ``why`` in the list
+    assert first["concept_why"]
+    others = [h for hits in answer["results"].values() for h in hits if h is not first]
+    assert not [h for h in others if h["concept_why"]]
 
 
 @pytest.mark.parametrize("mode", ["full", "live"])
@@ -339,6 +343,8 @@ def test_a_term_of_a_block_names_the_block_as_best(
         "key": "minimumloon",
         "name": "Minimumloon",
         "concept": "minimumloon",
+        "concept_why": "art. 7, 8 en 13 Wml: de aanspraak, het bedrag en geen inhouding op "
+        "het minimumloon",
     }
     assert answer["best"] is None
     assert not [h for hits in answer["results"].values() for h in hits if h["concept"]]

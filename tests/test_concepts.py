@@ -38,6 +38,10 @@ def test_a_term_names_its_article_however_it_is_written() -> None:
     assert (
         present(concept_named("Woo verzoek", ["woo", "verzoek"])).term == "woo-verzoek"
     )
+    # the source that ties the term to its article: its ``why``
+    assert present(concept_named("wanprestatie", ["wanprestatie"])).why == (
+        "art. 6:74 BW: elke tekortkoming in de nakoming verplicht tot schadevergoeding"
+    )
 
 
 def test_a_term_without_an_article_names_its_law() -> None:
@@ -55,6 +59,7 @@ def test_a_term_of_a_block_names_the_block() -> None:
         BLOCK,
         "bezwaar-en-beroep",
     )
+    assert named.why
     blocks = concept_articles.concepts()
     assert {c.key for c in concepts().values() if c.collection == BLOCK} <= set(blocks)
 
@@ -118,6 +123,8 @@ def test_an_eu_act_is_named_by_its_names() -> None:
             dsa,
             "Digitaledienstenverordening (DSA)",
         ), q
+        # no source ties a name of the act to it: it is its own name
+        assert named.why is None, q
     ai = make_node_key("32024R1689")
     for q in ("AI Act", "AI-verordening", "verordening artificiële intelligentie"):
         assert present(concept_named(q, q.split())).key == ai, q

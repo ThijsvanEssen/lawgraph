@@ -16335,6 +16335,18 @@
             "type": "string",
             "title": "Concept",
             "description": "The term of the curated list of concepts the query is: `bezwaar maken`."
+          },
+          "concept_why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept Why",
+            "description": "The source that ties the term to the block, the `why` of the list."
           }
         },
         "additionalProperties": false,
@@ -16342,7 +16354,8 @@
         "required": [
           "key",
           "name",
-          "concept"
+          "concept",
+          "concept_why"
         ],
         "title": "BestBlockDTO",
         "description": "The concept block (``/api/concepts/{key}``) the query is a term of."
@@ -42249,6 +42262,18 @@
             "title": "Concept",
             "description": "The term of the curated list of concepts the query is (`wanprestatie`, `GDPR`), when the hit is the article or law that term is about (art. 6:74 BW, the AVG): a hit found by the list, not by its own words. Null for every other hit."
           },
+          "concept_why": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept Why",
+            "description": "With `concept`: the source that ties the term to this hit, the `why` of the list (`art. 6:74 BW: elke tekortkoming in de nakoming verplicht tot schadevergoeding`). Null for a name of an act of `eu-core` (`DSA`), which is its own name, and for every other hit."
+          },
           "extra": {
             "additionalProperties": true,
             "type": "object",
@@ -42280,6 +42305,7 @@
           "score",
           "exact",
           "concept",
+          "concept_why",
           "extra",
           "path"
         ],

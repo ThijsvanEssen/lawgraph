@@ -560,15 +560,15 @@ def _concept_item(
     store: GraphStore, q: str, named: Concept, types: list[str]
 ) -> SearchResultItem | None:
     """The article or law of the concept *q* names (``core.concepts``) as a hit of score 1,
-    ``exact``, with ``concept`` its term; None when its type is not searched or the graph
-    does not have it."""
+    ``exact``, with ``concept`` its term and ``concept_why`` its source; None when its type
+    is not searched or the graph does not have it."""
     if named.collection not in types:
         return None
     hit = hit_by_key(store, named.collection, named.key)
     if hit is None:
         return None
     item = _item(q, {**hit, "score": SCORE_IDENTIFIER, "exact": True}, {})
-    return item.model_copy(update={"concept": named.term})
+    return item.model_copy(update={"concept": named.term, "concept_why": named.why})
 
 
 # A match of ``/api/resolve`` this sure is what the query names (``resolve.CONFIDENCE_NAME``:
@@ -619,7 +619,9 @@ def _best_block(
     block = concept_articles.concepts().get(named.key)
     if block is None:
         return None
-    return BestBlockDTO(key=block.key, name=block.name, concept=named.term)
+    return BestBlockDTO(
+        key=block.key, name=block.name, concept=named.term, concept_why=named.why
+    )
 
 
 def _signed_for(table: str, signed: Signed | None) -> list[SignedForDTO]:
