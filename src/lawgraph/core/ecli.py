@@ -124,6 +124,12 @@ def court_code(ecli: str) -> str | None:
     return parts[2] if len(parts) > 2 else None
 
 
+def ecli_year(ecli: str) -> str | None:
+    """The year of an ECLI: ``2019`` of ``ECLI:NL:HR:2019:1858``; None when it has none."""
+    parts = _parts(ecli)
+    return parts[3] if len(parts) > 3 else None
+
+
 def is_ecli(value: str) -> bool:
     """True for a value that has the shape of an ECLI, whole; whether it is valid is
     :func:`is_valid_ecli`."""

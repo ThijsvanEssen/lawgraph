@@ -34,7 +34,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from lawgraph.core.case_numbers import Referral
-from lawgraph.core.ecli import cited_eclis, country_code
+from lawgraph.core.court_sources import named_tier
+from lawgraph.core.ecli import (
+    cited_eclis,
+    country_code,
+    ecli_year,
+    is_valid_ecli,
+    short_ecli_mentions,
+)
 from lawgraph.core.eurlex_html import parse_html
 from lawgraph.core.judgment_kinds import KIND_CONCLUSIE, JudgmentKind
 from lawgraph.core.judgment_paragraphs import ParagraphIds, ParagraphKind
@@ -113,14 +120,15 @@ def parties(title: str | None) -> str | None:
 def referrals(national: str | None) -> list[Referral]:
     """The decisions that referred the questions (``*A9*``) in the national decisions CELLAR
     names of a case: by the ECLIs a line names, else by its date and the case numbers in
-    the brackets that end it ("Uitspraak van 20/03/2020 (ROT 19/1249)")."""
+    the brackets that end it ("Uitspraak van 20/03/2020 (ROT 19/1249)"), with the tier of
+    the court it names first."""
     found = []
     for line in re.findall(r"<p>(.*?)</p>", national or "", re.DOTALL):
         line = html.unescape(collapse_ws(line))
         if not line.startswith(_REFERRING):
             continue
-        eclis = tuple(cited_eclis(line))
         day = _NATIONAL_DATE.search(line)
+        eclis = tuple(cited_eclis(line)) or _abbreviated(line, day[3] if day else None)
         numbers = _last_brackets(line)
         if eclis:
             found.append(Referral(eclis=eclis))
@@ -130,9 +138,21 @@ def referrals(national: str | None) -> list[Referral]:
                 Referral(
                     case_numbers=tuple(part for part in parts if part),
                     date=f"{day[3]}-{day[2]}-{day[1]}",
+                    tier=named_tier(line.removeprefix(_REFERRING).split(",")[0]),
                 )
             )
     return found
+
+
+def _abbreviated(line: str, year: str | None) -> tuple[str, ...]:
+    """The Dutch ECLIs *line* names without ``ECLI:`` ("NL:RBDHA:2021:800",
+    "CRVB:2019:2782") of the *year* of its date: one of another year is of another decision
+    of the case."""
+    return tuple(
+        ecli
+        for ecli, _, _ in short_ecli_mentions(line)
+        if is_valid_ecli(ecli) and ecli_year(ecli) == year
+    )
 
 
 def dutch_referrals(facts: dict[str, Any]) -> list[Referral]:

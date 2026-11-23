@@ -348,7 +348,13 @@ def test_appeals_to_read(store: GraphStore) -> None:
 def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) -> None:
     _seed(
         store,
-        _rs(HR2, date_eff="2020-05-01", case_number="1", court_code="HR"),
+        _rs(
+            HR2,
+            date_eff="2020-05-01",
+            case_number="1",
+            court_code="HR",
+            tier="hoge_raad",
+        ),
         _rs(HR1, date_eff="2020-05-01", court_code="HR"),
         _rs(PHR, date_eff="2020-05-01", court_code="PHR"),
         _rs(
@@ -361,7 +367,12 @@ def test_judgments_on_dates_and_the_conclusions_among_them(store: GraphStore) ->
     rows = list(queries.judgments_on_dates(store, ["2020-05-01", "2019-01-01"]))
     # every judgment of the dates, from the columns and the light table
     assert {row["ecli"] for row in rows} == {HR1, HR2, PHR, GH, RB}
-    assert {"ecli": HR2, "date": "2020-05-01", "case_number": "1"} in rows
+    assert {
+        "ecli": HR2,
+        "date": "2020-05-01",
+        "case_number": "1",
+        "tier": "hoge_raad",
+    } in rows
     # the conclusions among them: by court and by document type
     assert queries.conclusions_among(store, [HR1, HR2, PHR, GH, RB]) == {
         PHR.upper(),

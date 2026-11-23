@@ -332,12 +332,12 @@ def judgments_by_case_keys(store: Store, keys: list[str]) -> Iterator[dict[str, 
 
 
 def judgments_on_dates(store: Store, dates: list[str]) -> Iterator[dict[str, Any]]:
-    """``{ecli, date, case_number}`` of the judgments of these *dates*, conclusions among
+    """``{ecli, date, case_number, tier}`` of the judgments of these *dates*, conclusions among
     them (``conclusions_among`` tells them apart). From the columns and ``lg_judgment_light``:
     the dates an appeal or a referral names cover nearly every court day, and the props of
     every judgment of them would be its text."""
     sql = """
-        SELECT j.ecli, j.date_eff AS date, l.props -> 'case_number' AS case_number
+        SELECT j.ecli, j.date_eff AS date, l.props -> 'case_number' AS case_number, j.tier
         FROM judgments j
         JOIN lg_judgment_light l ON l.id = j.id
         WHERE j.date_eff = ANY(%(dates)s::text[]) AND j.ecli IS NOT NULL
