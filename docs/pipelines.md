@@ -1240,7 +1240,7 @@ judgment its paragraphs name by ECLI as the Court writes it ("Schrems, C‑362/1
 EU:C:2015:650, punt 73"; with or without `ECLI:`), 0.95, with the places as `semantic
 rechtspraak-citations` keeps them (data model); one not loaded becomes a stub. `ANSWERS` from a
 judgment referred from the Netherlands (`NLD` in `meta.country`) to the decision that referred
-its questions, the `*A9*` line of `meta.national`: its Dutch ECLI (1.0; `ECLI:NL:HR:2024=922`
+its questions, the `*A9*` line of `meta.national`: its Dutch ECLI (1.0; also `ECLI:NL:HR:2024=922`
 read as `…:2024:922`), else the decision (not a
 conclusion) of its date with one of the case numbers between the brackets that end the line
 ("Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)", 0.9), as `rechtspraak-referrals`

@@ -54,8 +54,6 @@ _KIND_OF_DOCUMENT: dict[str, JudgmentKind] = {
 _REFERRING = "*A9*"
 # The date and the case numbers of a national decision: "van 20/03/2020 (ROT 19/1249)".
 _NATIONAL_DATE = re.compile(r"\b(\d{2})/(\d{2})/(\d{4})\b")
-# An ECLI with "=" before its number, as CELLAR sometimes writes it: "ECLI:NL:HR:2024=922".
-_ECLI_EQUALS = re.compile(r"(ECLI:[A-Z]{2}:[A-Z0-9.]+:\d{4})=", re.IGNORECASE)
 # The country a case was referred from whose courts the graph holds (``country``).
 NETHERLANDS = "NLD"
 
@@ -121,7 +119,7 @@ def referrals(national: str | None) -> list[Referral]:
         line = html.unescape(collapse_ws(line))
         if not line.startswith(_REFERRING):
             continue
-        eclis = tuple(cited_eclis(_ECLI_EQUALS.sub(r"\1:", line)))
+        eclis = tuple(cited_eclis(line))
         day = _NATIONAL_DATE.search(line)
         numbers = _last_brackets(line)
         if eclis:
