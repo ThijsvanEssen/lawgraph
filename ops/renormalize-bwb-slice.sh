@@ -1,14 +1,17 @@
 #!/bin/sh
-# One slice of renormalize-bwb.sh: `normalize bwb` over the next toestanden past the key out/renormalize-bwb.after
-# holds, under the lock. How many: out/renormalize-bwb.limit, else LIMIT (default 15000). A slice that took longer
-# than 25 minutes sets the next one's to what fits in 20. The first slice counts before, the slice that reaches the
-# end counts after and marks the pass done. A slice that ends on the key it started past (it goes nowhere) fails.
+# One slice of renormalize-bwb.sh: `normalize bwb` over the next toestanden past the key out/<PASS>.after holds
+# (PASS default renormalize-bwb), under the lock. How many: out/<PASS>.limit, else LIMIT (default 15000). A slice that
+# took longer than 25 minutes sets the next one's to what fits in 20. With COUNTS (default bwb-preamble-counts.sql,
+# empty for none) the first slice counts before and the slice that reaches the end after; that slice marks the pass
+# done. A slice that ends on the key it started past (it goes nowhere) fails.
 . "$(dirname "$0")/_steps.sh"
-STATE="$OPS/out/renormalize-bwb.after"
+PASS=${PASS:-renormalize-bwb}
+COUNTS=${COUNTS-bwb-preamble-counts.sql}
+STATE="$OPS/out/$PASS.after"
 after=$(cat "$STATE" 2>/dev/null)
 [ "$after" = "done" ] && { echo "== the pass is done; remove $STATE for a new one"; exit 0; }
-[ -n "$after" ] || counts preamble before bwb-preamble-counts.sql
-LIMITS="$OPS/out/renormalize-bwb.limit"
+[ -n "$after" ] || [ -z "$COUNTS" ] || counts preamble before "$COUNTS"
+LIMITS="$OPS/out/$PASS.limit"
 limit=$(cat "$LIMITS" 2>/dev/null)
 limit=${limit:-${LIMIT:-15000}}
 label="b-slice-$(date -u +%Y%m%dT%H%M%S)"
@@ -25,7 +28,7 @@ if [ "$took" -gt 1500 ]; then
 fi
 if grep -q 'the end, nothing to go on' "$OUT/$label.log"; then
   echo "done" > "$STATE"
-  counts preamble after bwb-preamble-counts.sql
+  [ -z "$COUNTS" ] || counts preamble after "$COUNTS"
   echo "== the pass is done"
   exit 0
 fi
