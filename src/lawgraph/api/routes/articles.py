@@ -10,12 +10,17 @@ from lawgraph.api.params import (
     ArticleAddress,
     ArticleRef,
     CitedBySort,
+    CourtCode,
     DateSort,
+    JudgmentYear,
     ListLimit,
     PageLimit,
-    Tier,
+    SubjectArea,
+    Tiers,
+    area_value,
     article_ref,
     parse_choices,
+    tier_values,
 )
 from lawgraph.api.schemas.article_cited_by import (
     ArticleCitedByItem,
@@ -52,7 +57,6 @@ from lawgraph.api.schemas.articles import (
 from lawgraph.api.schemas.common import (
     ArticleCitationSpan,
     DefinitionDTO,
-    FacetCountDTO,
     InstrumentSummaryDTO,
     TermSpanDTO,
     in_regulation_order,
@@ -358,24 +362,9 @@ def get_article_cited_by_passages(
     store: Annotated[GraphStore, Depends(get_store)],
     limit: PageLimit = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-    court: Annotated[
-        str | None, Query(description="ECLI court code, e.g. 'HR', 'RBAMS'")
-    ] = None,
-    tier: Annotated[
-        list[Tier] | None,
-        Query(
-            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
-            "repeated, the judgments of any of them."
-        ),
-    ] = None,
-    year: Annotated[
-        str | None,
-        Query(
-            pattern=r"^\d{4}$",
-            description="The judgments of this year (of their date) alone; "
-            "``facets.year`` still counts every year.",
-        ),
-    ] = None,
+    court: CourtCode = None,
+    tier: Tiers = None,
+    year: JudgmentYear = None,
     lid: Annotated[
         str | None,
         Query(
@@ -390,14 +379,7 @@ def get_article_cited_by_passages(
             "most cited judgment first (a standard judgment), then the newest."
         ),
     ] = "date_desc",
-    subject_area: Annotated[
-        str | None,
-        Query(
-            description="A main area of law of the judgment's source, as "
-            "`facets.subject_area` writes it: `Strafrecht`, `Civiel recht`, "
-            "`Bestuursrecht`; `facets.subject_area` still counts every area."
-        ),
-    ] = None,
+    subject_area: SubjectArea = None,
 ) -> ArticleCitedByResponse:
     citations = citation_count(store, article.key)
     if citations is None:
@@ -406,9 +388,9 @@ def get_article_cited_by_passages(
         store,
         article.id,
         court=court,
-        tiers=tuple(t.value for t in tier or ()),
+        tiers=tier_values(tier),
         year=year,
-        area=(subject_area or "").strip() or None,
+        area=area_value(subject_area),
         lid=lid,
         sort=sort,
         limit=limit,
@@ -424,12 +406,7 @@ def get_article_cited_by_passages(
         total=cited_by.total,
         judgment_total=cited_by.judgment_total,
         echr_judgment_total=cited_by.echr_judgment_total,
-        facets=CitedByFacets(
-            **{
-                name: [FacetCountDTO(**row) for row in rows]
-                for name, rows in cited_by.facets.items()
-            }
-        ),
+        facets=CitedByFacets.of(cited_by.facets),
     )
 
 

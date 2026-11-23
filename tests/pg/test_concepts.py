@@ -194,3 +194,58 @@ def test_the_judgments_sort_by_citation_count(store: GraphStore, api: Any) -> No
 def test_the_lists_of_an_unknown_concept_are_404(api: Any) -> None:
     assert_status(api.get("/api/concepts/onbekend/judgments"), 404)
     assert_status(api.get("/api/concepts/onbekend/documents"), 404)
+
+
+def test_the_judgments_filter_by_court_tier_and_year(
+    store: GraphStore, api: Any
+) -> None:
+    _seed(store)
+    store.bulk_insert_or_update_nodes(
+        "judgments",
+        [
+            _node("j2", "judgment", ecli="ECLI:NL:HR:2024:2", date_eff="2024-02-01",
+                  tier="hoge_raad", court_code="HR"),
+            _node("j3", "judgment", ecli="ECLI:NL:RBDHA:2024:3", date_eff="2024-03-01",
+                  tier="rechtbank", court_code="RBDHA"),
+        ],
+    )  # fmt: skip
+    version_cache.clear()
+    base = "/api/concepts/toetsing-van-wetten/judgments"
+
+    court = api.get(f"{base}?court=hr").json()
+    tier = api.get(f"{base}?tier=hoge_raad&tier=gerechtshof").json()
+    year = api.get(f"{base}?year=2024").json()
+    both = api.get(f"{base}?year=2024&court=RBDHA").json()
+
+    assert (court["total"], [i["judgment"]["key"] for i in court["items"]]) == (
+        1,
+        ["j2"],
+    )
+    assert tier["total"] == 1
+    assert [i["judgment"]["key"] for i in year["items"]] == ["j3", "j2"]
+    # each facet counts the judgments under the other filters, not its own
+    assert year["facets"]["year"] == [
+        {"value": "2024", "count": 2},
+        {"value": "2025", "count": 5},
+    ]
+    assert year["facets"]["tier"] == [
+        {"value": "hoge_raad", "count": 1},
+        {"value": "rechtbank", "count": 1},
+    ]
+    assert both["total"] == 1
+    assert both["facets"]["year"] == [
+        {"value": "2024", "count": 1},
+        {"value": "2025", "count": 5},
+    ]
+    assert_status(api.get(f"{base}?year=24"), 422)
+    assert_status(api.get(f"{base}?tier=geen"), 422)
+
+
+def test_the_papers_filter_by_year(store: GraphStore, api: Any) -> None:
+    _seed(store)
+    version_cache.clear()
+
+    papers = api.get("/api/concepts/toetsing-van-wetten/documents?year=2025").json()
+
+    assert papers["total"] == 1
+    assert [d["document"]["key"] for d in papers["items"]] == ["d2"]

@@ -13,6 +13,13 @@ from lawgraph.config.constants import (
     COLLECTION_JUDGMENTS,
 )
 from lawgraph.db import GraphStore
+from lawgraph.db.queries.cited_by_table import (
+    AREA_KEPT,
+    TIERS_KEPT,
+    YEAR_KEPT,
+    cited_by_facets,
+    court_kept,
+)
 from lawgraph.db.queries.judgment_sql import listed_judgment
 from lawgraph.db.schema import CITED_BY_TABLE
 from lawgraph.db.version_cache import cached
@@ -31,13 +38,18 @@ JUDGMENT_SORTS: dict[str, str] = {
     ),
 }
 
-# The judgments from the index of the citations (``lg_cited_by``); the papers from the edges
+# The judgments from the index of the citations (``lg_cited_by``), ``kept`` those under the
+# filters (``court``, ``tiers``, ``year``, ``area``; each null for all); the papers from the edges
 # between a paper and an article, either way (a memorandum that explains it, a paper that
 # names it), as the neighbours of an article are read.
 _CITES = f"""cites AS (
-    SELECT c.article_id, c.judgment_id, c.date_eff, c.cited
+    SELECT c.article_id, c.judgment_id, c.date_eff, c.cited, c.tier, c.areas,
+           substr(c.date_eff, 1, 4) AS year
     FROM {CITED_BY_TABLE} c
-    WHERE c.article_id = ANY(%(ids)s)
+    WHERE c.article_id = ANY(%(ids)s) AND {court_kept("c")}
+),
+kept AS (
+    SELECT h.* FROM cites h WHERE {TIERS_KEPT} AND {YEAR_KEPT} AND {AREA_KEPT}
 )"""
 _DOCUMENT_EDGES = f"""papers AS (
     SELECT e.from_id AS document_id, e.to_id AS article_id
@@ -51,35 +63,44 @@ _DOCUMENT_EDGES = f"""papers AS (
 
 
 def _latest(sort: str, limit: str = "limit") -> str:
-    """SQL: the CTE ``latest``, the page of the judgments that cite any article, in *sort*,
-    each with the articles it cites."""
+    """SQL: the CTE ``latest``, the page of the judgments of ``kept``, in *sort*, each with
+    the articles it cites."""
     return f"""latest AS (
     SELECT c.judgment_id, array_agg(DISTINCT c.article_id ORDER BY c.article_id) AS article_ids,
            row_number() OVER (ORDER BY {JUDGMENT_SORTS[sort]}) AS pos
-    FROM cites c
+    FROM kept c
     GROUP BY c.judgment_id
     ORDER BY pos NULLS LAST
     LIMIT %({limit})s OFFSET %(offset)s
 )"""
 
 
+# The papers of ``papers`` the documents hold, each once with the articles it is joined to,
+# of the year ``%(year)s`` (of its date; null: any).
+_DOCUMENTS_KEPT = f"""documents_kept AS (
+    SELECT h.* FROM (
+        SELECT d.id, d.key, d.kind, d.date, d.source, d.labels,
+               d.props -> 'title' AS title,
+               json_build_object(
+                   'dossier_number', d.props -> 'dossier_number',
+                   'dossier_suffix', d.props -> 'dossier_suffix',
+                   'sequence', d.props -> 'sequence') AS paper,
+               p.article_ids, substr(d.date, 1, 4) AS year
+        FROM (
+            SELECT document_id, array_agg(DISTINCT article_id ORDER BY article_id) AS article_ids
+            FROM papers GROUP BY document_id
+        ) p
+        JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.document_id
+    ) h
+    WHERE {YEAR_KEPT}
+)"""
+
+
 def _document_rows(limit: str = "limit") -> str:
-    """SQL: the CTE ``paper_rows``, the page of the papers joined to any article, newest
-    first, each with the articles it is joined to."""
+    """SQL: the CTE ``paper_rows``, the page of ``documents_kept``, newest first."""
     return f"""paper_rows AS (
-    SELECT d.id, d.key, d.kind, d.date, d.source, d.labels,
-           d.props -> 'title' AS title,
-           json_build_object(
-               'dossier_number', d.props -> 'dossier_number',
-               'dossier_suffix', d.props -> 'dossier_suffix',
-               'sequence', d.props -> 'sequence') AS paper,
-           p.article_ids
-    FROM (
-        SELECT document_id, array_agg(DISTINCT article_id ORDER BY article_id) AS article_ids
-        FROM papers GROUP BY document_id
-    ) p
-    JOIN {COLLECTION_DOCUMENTS} d ON d.id = p.document_id
-    ORDER BY d.date DESC NULLS LAST, d.id
+    SELECT * FROM documents_kept
+    ORDER BY date DESC NULLS LAST, id
     LIMIT %({limit})s OFFSET %(offset)s
 )"""
 
@@ -112,11 +133,12 @@ _DOCUMENT_ROWS = """(
         FROM paper_rows r
     )"""
 
-_TOTAL_JUDGMENTS = "(SELECT count(DISTINCT judgment_id)::int FROM cites)"
-_TOTAL_DOCUMENTS = "(SELECT count(DISTINCT document_id)::int FROM papers)"
+_TOTAL_JUDGMENTS = "(SELECT count(DISTINCT judgment_id)::int FROM kept)"
+_TOTAL_DOCUMENTS = "(SELECT count(*)::int FROM documents_kept)"
 
 _CONCEPT_SQL = f"""
-WITH {_CITES}, {_latest("date_desc", "judgments")}, {_DOCUMENT_EDGES}, {_document_rows("documents")}
+WITH {_CITES}, {_latest("date_desc", "judgments")}, {_DOCUMENT_EDGES}, {_DOCUMENTS_KEPT},
+     {_document_rows("documents")}
 SELECT
     (
         SELECT coalesce(json_agg(json_build_object(
@@ -140,13 +162,14 @@ SELECT
 _JUDGMENT_PAGE_SQL = {
     sort: f"""
 WITH {_CITES}, {_latest(sort)}
-SELECT {_TOTAL_JUDGMENTS} AS total, {_JUDGMENT_ROWS} AS items
+SELECT {_TOTAL_JUDGMENTS} AS total, {cited_by_facets("cites", "judgment_id")} AS facets,
+       {_JUDGMENT_ROWS} AS items
 """
     for sort in JUDGMENT_SORTS
 }
 
 _DOCUMENT_PAGE_SQL = f"""
-WITH {_DOCUMENT_EDGES}, {_document_rows()}
+WITH {_DOCUMENT_EDGES}, {_DOCUMENTS_KEPT}, {_document_rows()}
 SELECT {_TOTAL_DOCUMENTS} AS total, {_DOCUMENT_ROWS} AS items
 """
 
@@ -180,6 +203,10 @@ def concept_overview(store: GraphStore, article_ids: tuple[str, ...]) -> dict[st
     )
 
 
+# The filters of the lists, none: every judgment and paper.
+_NO_FILTERS: dict[str, Any] = {"court": None, "tiers": None, "year": None, "area": None}
+
+
 def concept_judgments(
     store: GraphStore,
     article_ids: tuple[str, ...],
@@ -187,12 +214,28 @@ def concept_judgments(
     limit: int,
     offset: int,
     sort: str,
+    court: str | None = None,
+    tiers: tuple[str, ...] = (),
+    year: str | None = None,
+    area: str | None = None,
 ) -> dict[str, Any]:
-    """A page of the judgments that cite any of *article_ids*, each once, in *sort*
-    (``JUDGMENT_SORTS``): ``total`` (``judgment_total`` of the overview) and ``items``,
+    """A page of the judgments that cite any of *article_ids*, each once, of the ECLI
+    *court* code, of any of the *tiers*, of the *year* (of its date) and of the main *area*
+    of law (the part of a subject of the source before its first ';'), each empty for all,
+    in *sort* (``JUDGMENT_SORTS``): ``total`` (``judgment_total`` of the overview without
+    filters), ``facets`` (per ``year``, ``tier`` and ``subject_area`` the judgments, each
+    under the other filters, as the passages of an article count them) and ``items``,
     ``{judgment, article_ids}`` as ``judgments`` of the overview."""
     return _row(
-        store, _JUDGMENT_PAGE_SQL[sort], article_ids, limit=limit, offset=offset
+        store,
+        _JUDGMENT_PAGE_SQL[sort],
+        article_ids,
+        limit=limit,
+        offset=offset,
+        court=court.upper() if court else None,
+        tiers=list(dict.fromkeys(tiers)) or None,
+        year=year,
+        area=area,
     )
 
 
@@ -202,14 +245,24 @@ def concept_documents(
     *,
     limit: int,
     offset: int,
+    year: str | None = None,
 ) -> dict[str, Any]:
-    """A page of the papers an edge joins to any of *article_ids*, each once, newest first:
-    ``total`` (``document_total`` of the overview) and ``items`` as ``documents`` of the
-    overview."""
-    return _row(store, _DOCUMENT_PAGE_SQL, article_ids, limit=limit, offset=offset)
+    """A page of the papers an edge joins to any of *article_ids*, each once, newest first,
+    of the *year* (of their date) alone when given: ``total`` (``document_total`` of the
+    overview without it) and ``items`` as ``documents`` of the overview."""
+    return _row(
+        store,
+        _DOCUMENT_PAGE_SQL,
+        article_ids,
+        limit=limit,
+        offset=offset,
+        year=year,
+    )
 
 
 def _row(
-    store: GraphStore, sql: str, article_ids: tuple[str, ...], **params: int
+    store: GraphStore, sql: str, article_ids: tuple[str, ...], **params: object
 ) -> dict[str, Any]:
-    return dict(next(iter(store.query(sql, {"ids": list(article_ids), **params}))))
+    """The one row of *sql* for *article_ids*, a filter not in *params* null."""
+    bind = {**_NO_FILTERS, **params, "ids": list(article_ids)}
+    return dict(next(iter(store.query(sql, bind))))

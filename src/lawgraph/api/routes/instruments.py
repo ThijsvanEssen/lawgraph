@@ -13,13 +13,17 @@ from lawgraph.api.middleware import no_store_if
 from lawgraph.api.params import (
     After,
     DateSort,
+    JudgmentYear,
     ListLimit,
     LongListLimit,
     MinistryKey,
     OpenedSort,
     PageLimit,
-    Tier,
+    SubjectArea,
+    Tiers,
+    area_value,
     not_both,
+    tier_values,
 )
 from lawgraph.api.schemas.common import (
     DefinitionDTO,
@@ -474,30 +478,9 @@ def get_instrument_judgments_route(
     limit: LongListLimit = 500,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: Annotated[JudgmentSort, Query()] = "date",
-    year: Annotated[
-        str | None,
-        Query(
-            pattern=r"^\d{4}$",
-            description="The judgments of this year (of their date) alone; "
-            "``facets.year`` still counts every year.",
-        ),
-    ] = None,
-    tier: Annotated[
-        list[Tier] | None,
-        Query(
-            description="The tier: `hoge_raad`, `gerechtshof`, `andere_instantie`, …; "
-            "repeated, the judgments of any of them; ``facets.tier`` still counts every "
-            "tier."
-        ),
-    ] = None,
-    subject_area: Annotated[
-        str | None,
-        Query(
-            description="A main area of law of the judgment's source, as "
-            "``facets.subject_area`` writes it: `Strafrecht`, `Civiel recht`, "
-            "`Bestuursrecht`; ``facets.subject_area`` still counts every area."
-        ),
-    ] = None,
+    year: JudgmentYear = None,
+    tier: Tiers = None,
+    subject_area: SubjectArea = None,
 ) -> InstrumentJudgmentsResponse:
     found = get_citing_judgments(
         store,
@@ -506,8 +489,8 @@ def get_instrument_judgments_route(
         limit=limit,
         offset=offset,
         year=year,
-        tiers=tuple(t.value for t in tier or ()),
-        area=(subject_area or "").strip() or None,
+        tiers=tier_values(tier),
+        area=area_value(subject_area),
     )
     return InstrumentJudgmentsResponse(
         bwb_id=bwb_id,

@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import Field
 
-from lawgraph.api.schemas.article_cited_by import CitedByJudgment
+from lawgraph.api.schemas.article_cited_by import CitedByFacets, CitedByJudgment
 from lawgraph.api.schemas.articles import ExplainingDocumentDTO, passage_excerpt
 from lawgraph.api.schemas.common import PathSource, StrictModel, WithPath
 from lawgraph.api.schemas.documents import origin_fields
@@ -97,9 +97,11 @@ class ConceptJudgmentsResponse(StrictModel):
 
     key: str
     total: int = Field(
-        description="The judgments that cite any article of the concept, each once: "
-        "`judgment_total` of `/api/concepts/{key}`, whatever the page."
+        description="The judgments that cite any article of the concept and match the "
+        "filters, each once, whatever the page; without filters `judgment_total` of "
+        "`/api/concepts/{key}`."
     )
+    facets: CitedByFacets
     items: list[ConceptJudgmentDTO]
 
 
@@ -108,8 +110,9 @@ class ConceptDocumentsResponse(StrictModel):
 
     key: str
     total: int = Field(
-        description="The papers joined to any article of the concept, each once: "
-        "`document_total` of `/api/concepts/{key}`, whatever the page."
+        description="The papers joined to any article of the concept and of the `year`, "
+        "each once, whatever the page; without `year` `document_total` of "
+        "`/api/concepts/{key}`."
     )
     items: list[ConceptDocumentDTO]
 

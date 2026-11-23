@@ -563,10 +563,13 @@ with their heading or the start of their text, the judgments and papers that cit
 each counted once, the newest of them, and a link to an official page that explains it (a
 government domain; none where none is kept). The block adds no text of its own.
 `/api/concepts/{key}/judgments` and `/documents` page through all of them, the destination of
-"N of M": `total` is the `judgment_total` or `document_total` of the block, `items` the rows
-of the block (`judgment` or `document`, and `article_ids`, the articles of the concept it cites
-or is joined to), `limit` and `offset`. Judgments sort as the passages of an article do
-(`sort` `date_desc`, the default, or `citation_count`); papers newest first.
+"N of M": `items` the rows of the block (`judgment` or `document`, and `article_ids`, the
+articles of the concept it cites or is joined to), `limit` and `offset`. Judgments filter, sort
+and count as the passages of an article do: `court`, `tier` (repeated), `year`, `subject_area`;
+`sort` `date_desc` (the default) or `citation_count`; `facets` per `year`, `tier` and
+`subject_area`, each without its own filter. Papers are newest first and filter by `year`.
+`total` counts what matches; without filters it is the `judgment_total` or `document_total`
+of the block.
 `lawgraph curated check concept-articles --db` notes an article the graph does not have; the
 route names it under `missing`.
 
