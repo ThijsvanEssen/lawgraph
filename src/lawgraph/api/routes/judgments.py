@@ -17,6 +17,7 @@ from lawgraph.api.schemas.common import (
 )
 from lawgraph.api.schemas.completeness import completeness_dto
 from lawgraph.api.schemas.judgment_course import JudgmentCourseResponse
+from lawgraph.api.schemas.judgment_facets import JudgmentFacets
 from lawgraph.api.schemas.judgment_routes import JudgmentRoutesResponse
 from lawgraph.api.schemas.judgments import (
     JudgmentCitedArticle,
@@ -24,7 +25,6 @@ from lawgraph.api.schemas.judgments import (
     JudgmentConclusionDTO,
     JudgmentDetailResponse,
     JudgmentDTO,
-    JudgmentFacets,
     JudgmentListItemDTO,
     JudgmentListResponse,
     RelatedJudgmentDTO,
@@ -107,7 +107,12 @@ router = APIRouter()
         "its first `;`, `count`; the whole tree without the `subject_area` and "
         "`subject` filters) and `procedure` (per Rechtspraak `psi:procedure` as "
         "written, `Hoger beroep`, `Cassatie`, null for none, most first; without the "
-        "`procedure` filter, which filters on that value); the counts of `tier`, "
+        "`procedure` filter, which filters on that value); `referred_by` (a country, `NL`) "
+        "keeps the judgments that answer the questions of a decision with an ECLI of that "
+        "country (`ANSWERS`; with `tier=hvj_eu` the preliminary rulings on questions of a "
+        "Dutch court whose decision CELLAR names, from `semantic eurlex-cjeu`; a ruling "
+        "whose referring decision is not known is not among them), and each item has "
+        "`referring_decision` (`ecli`, `court_code`, `date`, or null); the counts of `tier`, "
         "`court_kind`, `source` and `year` read an index, not the judgments; the "
         "facets and `total` are kept an hour whatever the data does "
         "(`db/version_cache.py`), the page itself is read fresh; `facets=false` gives "
@@ -190,6 +195,15 @@ def list_judgments(
     sort: Annotated[
         Literal["date_desc", "date_asc", "citation_count"], Query()
     ] = "date_desc",
+    referred_by: Annotated[
+        str | None,
+        Query(
+            pattern="^[A-Z]{2}$",
+            description="The country of the decision whose questions it answers "
+            "(`ANSWERS`, the ECLI's country): with `tier=hvj_eu` and `NL` the "
+            "preliminary rulings on questions of a Dutch court.",
+        ),
+    ] = None,
 ) -> JudgmentListResponse:
     filters = JudgmentFilters(
         q=q,
@@ -200,6 +214,7 @@ def list_judgments(
         subject=(subject or "").strip() or None,
         subject_area=(subject_area or "").strip() or None,
         procedure=(procedure or "").strip() or None,
+        referred_by=referred_by,
         from_date=iso_day(date_from),
         to_date=iso_day(date_to),
         cited_by_min=cited_by_min,

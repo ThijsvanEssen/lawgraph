@@ -518,6 +518,40 @@ def test_the_detail_says_what_a_criminal_judgment_decided() -> None:
     assert JudgmentDTO.from_document(_JUDGMENT_DOC).criminal_decision is None
 
 
+def test_the_list_of_rulings_referred_from_a_country_names_the_decision(monkeypatch):
+    """B184: ``referred_by`` is passed on as written; ``referring_decision`` is null for a
+    row without one, and of a decision not in the graph its court is read from its ECLI."""
+    asked: list[JudgmentFilters] = []
+    rows = [
+        {
+            **_LIST_ROW,
+            "referring_decision": {
+                "ecli": "ECLI:NL:RBROT:2020:1",
+                "court_code": None,
+                "date": None,
+            },
+        },
+        _LIST_ROW,
+    ]
+
+    def fake(store, filters, **_):
+        asked.append(filters)
+        return {"total": 2, "items": rows}
+
+    stub_route(monkeypatch, "judgments", get_judgments_list=fake)
+    first, second = client.get(
+        "/api/judgments", params={"tier": "hvj_eu", "referred_by": "NL"}
+    ).json()["items"]
+    assert asked[0] == JudgmentFilters(tiers=("hvj_eu",), referred_by="NL")
+    assert first["referring_decision"] == {
+        "ecli": "ECLI:NL:RBROT:2020:1",
+        "court_code": "RBROT",
+        "date": None,
+    }
+    assert second["referring_decision"] is None
+    assert_status(client.get("/api/judgments", params={"referred_by": "nl"}), 422)
+
+
 def _detail_props(monkeypatch: Any, **props: Any) -> dict[str, Any]:
     judgment = {**_JUDGMENT_DOC, "props": {**_JUDGMENT_DOC["props"], **props}}
     stub_route(
