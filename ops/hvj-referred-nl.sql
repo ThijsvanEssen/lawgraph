@@ -1,5 +1,6 @@
 -- B184a: prejudiciele zaken uit NL op prod (alleen lezen). Voor review door de orchestrator.
 -- 1. Wat GET /api/judgments?tier=hvj_eu&referred_by=NL telt (zonder stubs en vervangen publicaties).
+SET default_transaction_read_only = on;
 SELECT count(*) AS referred_by_nl
 FROM judgments j
 WHERE j.tier = 'hvj_eu' AND j.stub IS NOT TRUE AND j.same_as IS NULL
