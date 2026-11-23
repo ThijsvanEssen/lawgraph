@@ -446,16 +446,16 @@ def _warm_part(store: GraphStore, part: Part) -> None:
     (one kept per data version), or none at all, runs on every warm-up."""
     key = (store.name, part.name)
     kept = _warmed_parts.get(key)
+    versions = store.table_versions()
     if kept is not None:
         tables, stamp = kept
-        if stamp == _stamp(store.table_versions(), tables):
+        if stamp == _stamp(versions, tables):
             logger.info(
                 "Warm-up of %s left: %s did not change.",
                 part.name,
                 ", ".join(sorted(tables)) or "its tables",
             )
             return
-    versions = store.table_versions()
     with table_reads.reading() as reads:
         done = _run(part.name, partial(part.run, store))
     if done and reads and table_reads.ANY not in reads:
