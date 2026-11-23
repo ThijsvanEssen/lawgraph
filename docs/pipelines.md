@@ -1083,7 +1083,10 @@ zaak <numbers> van <date>`, `van <date> met zaaknummer <number>`, `van <date>, i
 vonnis`. Two case numbers are the same when they share a number of five digits or more,
 else a roll number (`22/2463T`), else all their letters and digits
 (`core/case_numbers.same_case_number`): `C/09/610280/ KG ZA 21/346` is `C-09-610280-KG ZA
-21-346`, `200.273.775/01` is `200.273.775`. A ruling that names no case number (the Gerecht
+21-346`, `200.273.775/01` is `200.273.775`; or when the digits of one are those of groups
+that follow each other in the other, without leading zeros (`same_digits`: `AWB 21/4536` is
+`awb-21_4536`, `10/2941` is `10/02941`, `13.751.400-16` is `13/751400-16`; one group of fewer
+than five digits is too little). A ruling that names no case number (the Gerecht
 in eerste aanleg of Aruba) or a decision that is not published stays unlinked. The referring
 decision is found only when it is loaded; `retrieve rechtspraak --mode gaps` fetches it. The edges of
 a ruling are derived in full each run; with `--since` only those of the rulings fetched since
@@ -1241,10 +1244,13 @@ EU:C:2015:650, punt 73"; with or without `ECLI:`), 0.95, with the places as `sem
 rechtspraak-citations` keeps them (data model); one not loaded becomes a stub. `ANSWERS` from a
 judgment referred from the Netherlands (`NLD` in `meta.country`) to the decision that referred
 its questions, the `*A9*` line of `meta.national`: its Dutch ECLI (1.0; also `ECLI:NL:HR:2024=922`
-read as `…:2024:922`), else the decision (not a
-conclusion) of its date with one of the case numbers between the brackets that end the line
-("Rechtbank Rotterdam, Uitspraak van 20/03/2020 (ROT 19/1249)", 0.9), as `rechtspraak-referrals`
-compares them; `meta.basis` `national_decision`. A referring decision without an ECLI that is
+read as `…:2024:922`, and without `ECLI:` (`NL:RBDHA:2021:800`, `CRVB:2019:2782`) when of the
+year of its date), else the decision (not a conclusion) of its date with one of the case
+numbers between the brackets that end the line ("Rechtbank Rotterdam, Uitspraak van 20/03/2020
+(ROT 19/1249)", 0.9), as `rechtspraak-referrals` compares them, of the tier of the court the
+line names first when both are known (`court_sources.named_tier`: the one judgment tier each
+of whose words stands in a word of the name, `Arrondissementsrechtbank te Amsterdam` is
+`rechtbank`); `meta.basis` `national_decision`. A referring decision without an ECLI that is
 not in the graph (rechtspraak.nl has it without a document, or not at all, as most from before
 2000) stays unanswered. The articles a judgment cites are linked by
 `semantic rechtspraak`. Derived in full on every run.

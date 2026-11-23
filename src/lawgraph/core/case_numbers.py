@@ -86,10 +86,17 @@ class Referral:
     eclis: tuple[str, ...] = ()
     case_numbers: tuple[str, ...] = ()  # as the text writes them
     date: str | None = None  # of the referring decision, ISO
+    tier: str | None = (
+        None  # of the court the text names (``court_sources.named_tier``)
+    )
 
     def names(self, case_number: str | None) -> bool:
-        """Whether *case_number* (of a judgment, one or more) is one this referral names."""
-        return any(same_case_number(own, case_number) for own in self.case_numbers)
+        """Whether *case_number* (of a judgment, one or more) is one this referral names:
+        ``same_case_number``, or the same digits (``same_digits``)."""
+        return any(
+            same_case_number(own, case_number) or same_digits(own, case_number)
+            for own in self.case_numbers
+        )
 
 
 def _cases_and_date(text: str) -> tuple[re.Match[str] | None, tuple[str, ...]]:
@@ -156,6 +163,33 @@ _DIGITS = re.compile(r"\d+")
 _DOTTED_NUMBER = re.compile(r"\d+(?:\.\d+)+")
 _ROLL_NUMBER = re.compile(r"(?<![0-9a-z])(\d{2})\s*[/-]\s*(\d{4,6}[a-z]?)(?![0-9a-z])")
 _NOT_ALNUM = re.compile(r"[^0-9a-z]")
+
+
+# Fewer digits than this in one group name too little to tell a case by.
+_FEWEST_DIGITS = 5
+
+
+def _digit_groups(case_number: str) -> list[str]:
+    """The groups of digits of *case_number* without their leading zeros."""
+    return [str(int(group)) for group in _DIGITS.findall(case_number)]
+
+
+def same_digits(named: str, other: str | None) -> bool:
+    """Whether the digits of *named* are those of groups that follow each other in *other*,
+    however each writes its letters, separators, dots and leading zeros: ``AWB 21/4536`` in
+    ``awb-21_4536``, ``10/2941`` in ``10/02941``, ``13.751.400-16`` in ``13/751400-16``,
+    ``HA ZA 13-999`` in ``C/09/450182/HAZA13-999``. One group of fewer than five digits
+    names too little."""
+    own = _digit_groups(named)
+    digits = "".join(own)
+    if not other or (len(own) < 2 and len(digits) < _FEWEST_DIGITS):
+        return False
+    theirs = _digit_groups(other)
+    return any(
+        "".join(theirs[start:end]) == digits
+        for start in range(len(theirs))
+        for end in range(start + 1, len(theirs) + 1)
+    )
 
 
 def _case_number_tokens(case_number: str) -> tuple[set[str], set[str]]:
