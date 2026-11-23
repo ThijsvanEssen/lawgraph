@@ -7,11 +7,12 @@ places that name it as ``semantic rechtspraak-citations`` keeps them (``meta.men
 judgment that is not loaded becomes a stub. ``ANSWERS`` from a preliminary ruling on a
 question of a Dutch court to the decision that referred it: the ``*A9*`` decision of the
 national decisions CELLAR names (``meta.national``, ``core.cjeu.dutch_referrals``), by its
-ECLI, else the decision of the graph of that date with that case number. A referring
-decision without an ECLI that is not in the graph (not published with a document, or from
-before rechtspraak.nl) stays unanswered. The articles a judgment cites are read with
-those of the Rechtspraak (``semantic rechtspraak``). Derived in full on every run: an edge
-no judgment supports any more goes.
+ECLI, else the decision of the graph of that date with that case number. One that is not in
+the graph ``retrieve rechtspraak --mode gaps`` looks up in the index of its date, one the
+Rechtspraak published without a document too (its metadata only); one that is not there
+(from before rechtspraak.nl, or not published) stays unanswered. The articles a judgment
+cites are read with those of the Rechtspraak (``semantic rechtspraak``). Derived in full on
+every run: an edge no judgment supports any more goes.
 """
 
 from __future__ import annotations

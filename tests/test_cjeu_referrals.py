@@ -82,10 +82,12 @@ def test_the_court_a9_names_has_a_tier(court: str, tier: str | None) -> None:
     assert named_tier(court) == tier
 
 
-def _row(ecli: str, case_number: str, tier: str | None) -> dict[str, str | None]:
+def _row(
+    ecli: str, case_number: str, tier: str | None, date: str = "2013-04-26"
+) -> dict[str, str | None]:
     return {
         "ecli": ecli,
-        "date": "2013-04-26",
+        "date": date,
         "case_number": case_number,
         "tier": tier,
     }
@@ -123,3 +125,18 @@ def test_an_abbreviated_ecli_of_another_year_is_not_the_referring_decision() -> 
     # C-610/18: the Centrale Raad referred in 2018; the ECLI is of the Rechtbank in 2016
     line = "<p>*A9* Centrale Raad van Beroep, 20/09/2018 (NL:RBAMS:2016:1638)</p>"
     assert [r.eclis for r in cjeu.referrals(line)] == [()]
+
+
+def test_a_decision_without_a_document_answers_by_its_metadata() -> None:
+    """ECLI:EU:C:2005:255: the Rechtspraak has the referring decision without a
+    document; ``retrieve rechtspraak --mode gaps`` fetches its metadata, and its date, tier
+    and case number are those of the line."""
+    (referral,) = cjeu.referrals(
+        "<p>*A9* Gerechtshof te Amsterdam, 3e meervoudige burgerlijke kamer, beschikking "
+        "van 12/12/2002 (658/2002)</p>"
+    )
+    candidates = [
+        _row("ECLI:NL:GHAMS:2002:AR8277", "658/2002", "gerechtshof", "2002-12-12"),
+        _row("ECLI:NL:GHAMS:2002:AG8235", "938/2002 OK", "gerechtshof", "2002-12-12"),
+    ]
+    assert by_case_number(RULING, referral, candidates) == ["ECLI:NL:GHAMS:2002:AR8277"]

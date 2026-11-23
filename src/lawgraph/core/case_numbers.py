@@ -98,6 +98,14 @@ class Referral:
             for own in self.case_numbers
         )
 
+    def matches(self, case_number: str | None, tier: str | None) -> bool:
+        """Whether a judgment with *case_number* and *tier* is the decision this referral
+        names: one of its case numbers (``names``), of the tier of the court it names when
+        both are known."""
+        return not (self.tier and tier not in (None, self.tier)) and self.names(
+            case_number
+        )
+
 
 def _cases_and_date(text: str) -> tuple[re.Match[str] | None, tuple[str, ...]]:
     """The first referral form *text* has, and the case numbers it names."""
