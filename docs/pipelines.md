@@ -1445,6 +1445,21 @@ its `path`), and kept under its official id (`stb-2026-56`); the law keeps how m
 (`definitions_found`). A run that reaches the end of the toestanden (the daily run, the last
 slice) reads them: their ids sort after every BWB id.
 
+**Semantic `bwb-amounts`.** The numbers in the text of every version of every article
+(`core/bwb_amounts.py`), a row each in `lg_amounts` ([data model](data-model.md)): of each
+regulation its ArticleVersions are read (text, `parts`, `tables`, `redactions`; no XML), so a
+new toestand that changes an amount is a new version with a row of its own, and the old one
+holds until it begins. An amount (`€ 3.115`, `€ 1.000,–`, `€ 22,5 miljoen`, `€ 3 350`, `227
+euro`), a percentage (`6,398%`, `vijf procent`), a time limit only after a word that makes it
+one (`binnen zes weken`, `ten minste een maand`, `termijn van twee maanden`, "De termijn …
+bedraagt zes weken"), not after a penalty or an age or before `per`, and a date only after
+`vóór`, `per` or `met ingang van` (a date in the title of an act it cites is none). A
+redaction that opens with its day ("per 1 juli 2026: € 14,99") gives its values that day as
+`valid_from`. An amount in words, a fraction and a number without such a word are left out.
+Only a row that changed is written. `--since`: the regulations whose toestand was fetched
+since then (the daily run); without it every one, also in slices (`--after BWB-ID`, `--limit
+N`; `weekly.sh` in slices of `AMOUNTS_SLICE`).
+
 **Semantic `bwb-captions`.** What each article is about, for its title (`Art. 6:162 BW,
 Onrechtmatige daad`): of each regulation the breadcrumbs of its articles are read (no XML, no
 text), and every article keeps `caption`, the deepest title of the divisions it stands in that

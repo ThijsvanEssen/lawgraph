@@ -28,6 +28,7 @@ ROUTES = [
     ("GET", "/api/articles/{bwb_id}/{article_number}/explained-by"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/explanations"),
     ("GET", "/api/articles/{bwb_id}/{article_number}/delegated"),
+    ("GET", "/api/articles/{bwb_id}/{article_number}/amounts"),
     ("GET", "/api/judgments"),
     ("GET", "/api/judgments/routes"),
     ("GET", "/api/judgments/{ecli}"),

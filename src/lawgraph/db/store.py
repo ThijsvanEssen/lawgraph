@@ -73,6 +73,7 @@ from lawgraph.db.request_context import (
 from lawgraph.db.request_context import read_budget as read_budget
 from lawgraph.db.request_context import read_time_left as read_time_left
 from lawgraph.db.schema import (
+    AMOUNTS_TABLE,
     DEFINITIONS_TABLE,
     NODE_COLLECTIONS,
     UNLINKED_TABLE,
@@ -90,7 +91,13 @@ Statement = str | sql.SQL | sql.Composed
 _META_KEYS = Json({relation: sorted(keys) for relation, keys in META_KEYS.items()})
 
 # What the API serves: a write to raw_sources or pipeline_state leaves ``data_version``.
-_SERVED = (*NODE_COLLECTIONS, COLLECTION_EDGES, DEFINITIONS_TABLE, UNLINKED_TABLE)
+_SERVED = (
+    *NODE_COLLECTIONS,
+    COLLECTION_EDGES,
+    DEFINITIONS_TABLE,
+    AMOUNTS_TABLE,
+    UNLINKED_TABLE,
+)
 
 # Payloads read or written at once (a thread and a connection each).
 PAYLOAD_THREADS = 16

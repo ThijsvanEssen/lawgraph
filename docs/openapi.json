@@ -775,6 +775,88 @@
         }
       }
     },
+    "/api/articles/{bwb_id}/{article_number}/amounts": {
+      "get": {
+        "tags": [
+          "articles",
+          "articles"
+        ],
+        "summary": "The numbers in the text of an article",
+        "description": "The amounts, percentages, time limits and dates in the text of the version in force on `date` (the current one without it), each with the part that holds it, from when to when it holds, and its value in every version around it (`history`): a calculation on a day takes the value of that day. Read from the text of each version (`semantic bwb-amounts`), never set by hand; what is in doubt is left out. An empty list when the text holds none; 404 when the article is unknown.",
+        "operationId": "get_article_amounts_api_articles__bwb_id___article_number__amounts_get",
+        "parameters": [
+          {
+            "name": "bwb_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bwb Id"
+            }
+          },
+          {
+            "name": "article_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Article Number"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The day, YYYY-MM-DD; the current version when left out.",
+              "title": "Date"
+            },
+            "description": "The day, YYYY-MM-DD; the current version when left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAmountsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found: `{\"detail\": \"<What> '<key>' not found.\"}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDTO"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/judgments": {
       "get": {
         "tags": [
@@ -12373,6 +12455,164 @@
         "title": "AmendmentDocumentDTO",
         "description": "A document of a chain: the amendment as submitted, or as a newer document changed it."
       },
+      "AmountDTO": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "`bedrag`, `percentage`, `termijn` or `datum`."
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "description": "`EUR`, `%`, `dag`, `werkdag`, `week`, `maand`, `jaar`, `uur` or `datum`."
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "The number as the text prints it: `€ 3.115`."
+          },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part",
+            "description": "The id of the part that holds it (`lid-2-onder-a`, as the `anchor` of a block of `/text`); null in an article without parts."
+          },
+          "start": {
+            "type": "integer",
+            "title": "Start",
+            "description": "Offset into the text of the version."
+          },
+          "end": {
+            "type": "integer",
+            "title": "End",
+            "description": "Offset into the text of the version."
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "`text`: as the law prints it; `redaction`: in what the editors of the BWB add after it ('per 1 juli 2026: € 14,99'), the value in force from `valid_from`."
+          },
+          "cell": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell",
+            "description": "In a table: its row and its cell in that row, from 0; else null."
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/AmountStepDTO"
+            },
+            "type": "array",
+            "title": "History",
+            "description": "The same number in each version around the one read, oldest first, as long as its part holds as many numbers of its kind; the step of the version read is `selected`."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "unit",
+          "text",
+          "part",
+          "start",
+          "end",
+          "source",
+          "cell",
+          "history"
+        ],
+        "title": "AmountDTO",
+        "description": "A number in the text of the version read, with its value in each version."
+      },
+      "AmountStepDTO": {
+        "properties": {
+          "version_key": {
+            "type": "string",
+            "title": "Version Key",
+            "description": "The `key` of the version (`history`)."
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From",
+            "description": "The day it holds from: of its redaction, else its version's start."
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until",
+            "description": "The day its version ends (exclusive); null while in force."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "The value; null for a date."
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "A date as `yyyy-mm-dd`, a day of every year as `--mm-dd`."
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected",
+            "description": "True for the step of the version read."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version_key",
+          "valid_from",
+          "valid_until",
+          "value",
+          "date",
+          "selected"
+        ],
+        "title": "AmountStepDTO",
+        "description": "A number in one version of the article."
+      },
       "AnnexDTO": {
         "properties": {
           "id": {
@@ -12739,6 +12979,74 @@
           "gaps"
         ],
         "title": "AreaRoute"
+      },
+      "ArticleAmountsResponse": {
+        "properties": {
+          "bwb_id": {
+            "type": "string",
+            "title": "Bwb Id"
+          },
+          "article_number": {
+            "type": "string",
+            "title": "Article Number"
+          },
+          "version_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Key",
+            "description": "The version read: in force on `date`, else the current one; null when none holds."
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From",
+            "description": "The start of that version."
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until",
+            "description": "The end of that version (exclusive); null while in force."
+          },
+          "amounts": {
+            "items": {
+              "$ref": "#/components/schemas/AmountDTO"
+            },
+            "type": "array",
+            "title": "Amounts",
+            "description": "Its numbers in text order."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "bwb_id",
+          "article_number",
+          "version_key",
+          "valid_from",
+          "valid_until",
+          "amounts"
+        ],
+        "title": "ArticleAmountsResponse",
+        "description": "Response for GET /api/articles/{bwb_id}/{article_number}/amounts."
       },
       "ArticleCellSpanDTO": {
         "properties": {
