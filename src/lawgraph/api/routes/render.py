@@ -27,7 +27,8 @@ and no ``/api`` (Caddy rewrites it here):
   not found only after asking again.
 
 Light reads only, within ``RENDER_BUDGET``; a page whose reads take longer is the shell
-with its title alone. Cacheable: an ETag of the API, the shell and the data version.
+with its title alone, and is computed whole in the background for the next request
+(``api/response_cache``). Cacheable: an ETag of the API, the shell and the data version.
 """
 
 from __future__ import annotations
@@ -298,7 +299,8 @@ def render_page(
 
 
 # The seconds a crawler is asked to wait before it asks a page that was not ready again: the
-# reads go on in the background and are kept for the next request.
+# page is computed whole in the background and kept for the next request
+# (``api/response_cache``).
 LATE_RETRY_AFTER = "5"
 # The header Caddy passes such an answer by (``deploy/server/caddy/concordans.caddy``).
 LATE_HEADER = "X-Render-Late"

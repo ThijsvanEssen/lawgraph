@@ -38,6 +38,8 @@ API_ROUTES = frozenset(
 OTHER = "overig"
 # A line of ``log_requests``: its date and, past the id and the network (not read), the rest.
 _REQUEST = re.compile(r"\[[0-9a-f]{8}\] \S+ ([A-Z]+) (/.*?) → (\d)\d\d\b")
+# A line of a page the API computes in the background (``api/response_cache.py``).
+_FILL = "[fill:"
 _DATE = re.compile(r"^(\d{4}-\d{2}-\d{2}) ")
 _DAY_FILE = re.compile(r"^search-(\d{4}-\d{2}-\d{2})\.json$")
 _MONTH_FILE = re.compile(r"^search-(\d{4}-\d{2})\.json$")
@@ -77,6 +79,8 @@ def count_requests(lines: Iterable[str]) -> tuple[Counter[Any], Counter[Any], in
     days: Counter[Any] = Counter()
     unread = 0
     for line in lines:
+        if _FILL in line:
+            continue  # computed by the API itself for the next visitor
         found = _REQUEST.search(line)
         date = _DATE.match(line)
         if found is None or date is None:

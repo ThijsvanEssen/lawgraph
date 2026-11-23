@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
@@ -20,7 +20,9 @@ from lawgraph.api.middleware import (
     RateLimitMiddleware,
     ReadDeadlineMiddleware,
     log_requests,
+    no_store_if,
 )
+from lawgraph.api.response_cache import ResponseCacheMiddleware
 from lawgraph.api.routes import (
     activities,
     aliases,
@@ -230,7 +232,6 @@ app.include_router(render.router)
 app.middleware("http")(log_requests)
 app.add_middleware(ReadDeadlineMiddleware)
 app.add_middleware(CancelOnDisconnectMiddleware)
-app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CacheControlMiddleware,
     store=_store,
@@ -239,6 +240,9 @@ app.add_middleware(
 # A page of the feed is 87 KB as JSON and some 10 KB compressed; a response under 1 KB is
 # sent as it is. A 304 has no body, and the ETag stays weak, so compression leaves both.
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+# whole answers kept as the gzip they leave as (``response_cache``); within the rate limit
+app.add_middleware(ResponseCacheMiddleware, store=_store, api_version=app.version)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -259,6 +263,7 @@ async def root() -> dict[str, str]:
 @app.get("/api/health", tags=["root"], response_model=HealthDTO)
 def health(
     store: Annotated[GraphStore, Depends(get_store)],
+    response: Response,
 ) -> HealthDTO:
     """Health check — verifies database connectivity; ``version`` the version of the API
     (what a deploy checks against its tag). ``warm``: the answers every visitor
@@ -278,6 +283,7 @@ def health(
     the cache by its kind alone (``cache: <kind>``, never what was asked) and a part of
     the warm-up as ``warm-up: <part>``, longest first. ``pools`` and ``busy`` are read
     from memory."""
+    no_store_if(response, True)  # how the API is now: kept by no cache
     store.ping()
     answer: dict[str, Any] = {
         "status": "ok",

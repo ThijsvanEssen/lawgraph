@@ -63,6 +63,7 @@ def test_the_requests_are_counted_and_only_counts_leave(
         _line("2026-11-05", "HEAD", "/render/leden/geheime-naam", 200),
         _line("2026-11-05", "GET", "/render/wp-geheim", 404),
         _line("2026-11-05", "GET", "/api/search", 200),
+        _line("2026-11-05", "GET", "/render/x", 200).replace("[abcd", "[fill:abcd"),
         "2026-11-05 09:22:00,316 [INFO] api.warm: Warm-up done\n",
         "something → else\n",
     ]

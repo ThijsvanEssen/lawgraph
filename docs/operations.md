@@ -75,6 +75,7 @@ The hosts of the sources are constants (`config/sources.py`); no key is required
 | `LAWGRAPH_RATE_LIMIT_EXEMPT` | empty | comma-separated addresses or networks (`203.0.113.7`, `2001:db8::/48`) the rate limit does not count: our own measurements |
 | `LAWGRAPH_TRUSTED_PROXIES` | loopback | proxies whose `X-Forwarded-For` is honoured: the rate limit counts the right-most address in it that is no trusted proxy, the one the proxy itself appended (what a client writes into the header at the left does not count) |
 | `LAWGRAPH_SEARCH_STATS_DIR` | `~/.local/share/lawgraph/search-stats` | where the API keeps the counts of the terms searched on `/api/search`: per day, term → n, without who asked or when in the day (`core/search_stats.py`); the server: `/srv/lawgraph/stats`. The request log holds the network of a visitor (IPv4 /24, IPv6 /48) and the path without its query string; the full address (of IPv6 its /64) is only in the memory of the rate limiter |
+| `LAWGRAPH_RESPONSE_CACHE_MB` | `256` | megabytes of whole answers of `/render` and `/api` the API keeps (gzip; the one used longest ago goes first; `0`: none). On web-1 (7.9 GB, Postgres 1 GB `shared_buffers`, the rest page cache) 256 MB is some 8,000 pages of 30 KB and 5 % of the page cache; the API stays under 1 GB. Lower it when `MemoryCurrent` of the API climbs past that. See *Whole answers* |
 | `LAWGRAPH_SITE_URL` | `http://localhost:5173` | Concordans, the front end the Atom feed links its pages and events to, and the base of the canonical address of a page (`/render`): `https://concordans.nl` on the server |
 | `LAWGRAPH_SITEMAP_DIR` | `~/.local/share/lawgraph/sitemaps` | where `lawgraph sitemaps` writes `sitemap.xml` and its parts, which Caddy serves at `/sitemap*`; the server: `/srv/lawgraph/concordans/sitemaps` |
 | `LAWGRAPH_SPA_INDEX` | `/srv/lawgraph/concordans/current/index.html` | the built shell of the front end that `/render` makes the HTML of a page from (read again when it changes); `spa-routes.json` beside it lists the pages of the app, `start.json` holds the text of the start page (one that is missing or does not read is logged as an error with its path), `moved.json` the addresses that moved (a 301; none without it), `spa-texts.json` the HTML of the prose pages (`/over`, `/bronnen`, `/privacy`, `/voorwaarden`, `/docs/methode`, `/docs/sneltoetsen`) that goes in their `<main id="seo">` (none without it, and no error), `first-paint-<kind>.js` the script that paints the page of a law, an article, a judgment or a Kamerstuk before the app has come, `first-paint.js` the one for every kind (no first paint without either) |
@@ -696,6 +697,30 @@ and `next_cursor`; a read that outlasts its request (`LAWGRAPH_API_REQUEST_TIMEO
 batches and the request answers 503 with `Retry-After`. `/changed-articles` holds at most 5000 changes
 (`truncated`).
 
+## Whole answers
+
+The API keeps whole answers of `/render` and `/api` (GET and HEAD) as the gzip they leave as,
+per path, query (parameters in order of name), API version, shell of the front end and day, for
+the data version they were computed for (`api/response_cache.py`, `db/whole_answers.py`):
+
+- the answer of the data version now: given at once, 304 on its `ETag`;
+- after a write: the old answer while the new one computes in the background (a request waits
+  0.2 s for it), until it is 6 hours old, so never longer than that after the newer version
+  came; while the pipelines write nothing is computed;
+- equal requests at the same moment: one computation, which goes on when its client leaves;
+- an answer that ran past a budget (a page late, 503 `X-Render-Late`, or one without its first
+  paint): not kept, but computed again in the background without those budgets, on the
+  background connections, two at a time, and kept for the next request;
+- never kept: a search (it goes past the cache, so that a search the client leaves stops
+  reading), a status other than 200, 301, 404 and 410, `no-store` (a partial answer,
+  `/api/health`), a query over 1 KB, a request with `Authorization` or `Range`. No route
+  answers per visitor; a client's `Cache-Control` is not followed.
+
+The request log has a line for each: `cache=hit` (kept), `stale` (of the version before),
+`shared` (computed for an equal request), `late` (the short answer while the whole one
+computes); `Server-Timing` says the same (`cache;desc=hit`). A computation in the background
+logs as `[fill:<id>]` and is not counted by `ops/usage-counts.py`.
+
 ## Observability
 
 - Logging: `lawgraph.core.logging`; format `time [LEVEL] [step] logger: message`, JSON (with a
@@ -745,7 +770,8 @@ batches and the request answers 503 with `Retry-After`. `/changed-articles` hold
 - A request whose client goes away (a browser that aborts a search at the next keystroke)
   stops reading: its running reads are cancelled at once and it starts no other; the log
   says `the client went away` (info, not a warning). A computation of the cache it started
-  goes on, for the next request.
+  goes on, for the next request, and so does a request whose whole answer is kept (*Whole
+  answers*).
 - A request that hangs: `systemctl kill -s USR1 lawgraph-api` writes the stack of every
   thread of the API to its stderr, the journal (`journalctl -u lawgraph-api`). Nothing is
   written without the signal.
