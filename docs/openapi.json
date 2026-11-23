@@ -12457,59 +12457,6 @@
       },
       "AmountDTO": {
         "properties": {
-          "version_key": {
-            "type": "string",
-            "title": "Version Key",
-            "description": "The `key` of the version (`history`)."
-          },
-          "valid_from": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid From",
-            "description": "The day it holds from: of its redaction, else its version's start."
-          },
-          "valid_until": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Valid Until",
-            "description": "The day its version ends (exclusive); null while in force."
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value",
-            "description": "The value; null for a date."
-          },
-          "date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date",
-            "description": "A date as `yyyy-mm-dd`, a day of every year as `--mm-dd`."
-          },
           "kind": {
             "type": "string",
             "title": "Kind",
@@ -12573,17 +12520,12 @@
             },
             "type": "array",
             "title": "History",
-            "description": "The same number in each version around this one, oldest first, as long as its part holds as many numbers of its kind; this version among them."
+            "description": "The same number in each version around the one read, oldest first, as long as its part holds as many numbers of its kind; the step of the version read is `selected`."
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "version_key",
-          "valid_from",
-          "valid_until",
-          "value",
-          "date",
           "kind",
           "unit",
           "text",
@@ -12595,7 +12537,7 @@
           "history"
         ],
         "title": "AmountDTO",
-        "description": "A number in the text of the version asked for, with its series."
+        "description": "A number in the text of the version read, with its value in each version."
       },
       "AmountStepDTO": {
         "properties": {
@@ -12651,6 +12593,11 @@
             ],
             "title": "Date",
             "description": "A date as `yyyy-mm-dd`, a day of every year as `--mm-dd`."
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected",
+            "description": "True for the step of the version read."
           }
         },
         "additionalProperties": false,
@@ -12660,7 +12607,8 @@
           "valid_from",
           "valid_until",
           "value",
-          "date"
+          "date",
+          "selected"
         ],
         "title": "AmountStepDTO",
         "description": "A number in one version of the article."

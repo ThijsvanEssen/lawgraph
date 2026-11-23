@@ -7,6 +7,8 @@ import json
 from collections.abc import Iterator
 from typing import Any
 
+import psycopg
+
 from lawgraph.config.constants import COLLECTION_ARTICLE_VERSIONS
 from lawgraph.db.counting import Store
 from lawgraph.db.queries.articles import version_identity
@@ -37,38 +39,39 @@ def version_texts(store: Store, bwb_ids: list[str]) -> Iterator[dict[str, Any]]:
     )
 
 
-def keep_amounts(store: Store, bwb_ids: list[str], rows: list[dict[str, Any]]) -> None:
+def keep_amounts(store: Store, bwb_ids: list[str], rows: list[dict[str, Any]]) -> int:
     """The numbers of the versions of these regulations are *rows* (the columns of
     ``lg_amounts``), in one transaction: a row that holds them already is left, so a run
     that changes nothing leaves the data version; a row of these regulations not among
-    them goes."""
+    them goes. Returns how many rows went, came or changed."""
     if not bwb_ids:
-        return
+        return 0
     data = json.dumps(rows)
-    store.execute_together(
-        [
-            (
-                f"""
-                DELETE FROM {AMOUNTS_TABLE} a
-                WHERE a.bwb_id = ANY(%(ids)s::text[])
-                  AND NOT EXISTS (
-                      SELECT 1 FROM json_to_recordset(%(rows)s::json)
-                           AS r(version_id text, span_start integer)
-                      WHERE r.version_id = a.version_id AND r.span_start = a.span_start)
-                """,
-                {"ids": bwb_ids, "rows": data},
-            ),
-            (
-                f"""
-                INSERT INTO {AMOUNTS_TABLE} ({_NAMES})
-                SELECT {_NAMES} FROM json_to_recordset(%(rows)s::json) AS r({_COLUMNS})
-                ON CONFLICT (version_id, span_start) DO UPDATE SET ({_NAMES}) = ROW({_EXCLUDED})
-                WHERE ({_KEPT}) IS DISTINCT FROM ({_EXCLUDED})
-                """,
-                {"rows": data},
-            ),
-        ]
-    )
+
+    def write(conn: psycopg.Connection[Any]) -> int:
+        gone = conn.execute(
+            f"""
+            DELETE FROM {AMOUNTS_TABLE} a
+            WHERE a.bwb_id = ANY(%(ids)s::text[])
+              AND NOT EXISTS (
+                  SELECT 1 FROM json_to_recordset(%(rows)s::json)
+                       AS r(version_id text, span_start integer)
+                  WHERE r.version_id = a.version_id AND r.span_start = a.span_start)
+            """,
+            {"ids": bwb_ids, "rows": data},
+        ).rowcount
+        kept = conn.execute(
+            f"""
+            INSERT INTO {AMOUNTS_TABLE} ({_NAMES})
+            SELECT {_NAMES} FROM json_to_recordset(%(rows)s::json) AS r({_COLUMNS})
+            ON CONFLICT (version_id, span_start) DO UPDATE SET ({_NAMES}) = ROW({_EXCLUDED})
+            WHERE ({_KEPT}) IS DISTINCT FROM ({_EXCLUDED})
+            """,
+            {"rows": data},
+        ).rowcount
+        return gone + kept
+
+    return store.in_transaction("amounts", write)
 
 
 def article_amounts(

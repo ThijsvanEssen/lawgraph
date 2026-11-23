@@ -8,7 +8,7 @@ from typing import Any
 from pydantic import Field
 
 from lawgraph.api.schemas.common import StrictModel
-from lawgraph.core.amount_series import Version, series, step
+from lawgraph.core.amount_series import Version, series
 
 
 class AmountStepDTO(StrictModel):
@@ -25,10 +25,11 @@ class AmountStepDTO(StrictModel):
     date: str | None = Field(
         description="A date as `yyyy-mm-dd`, a day of every year as `--mm-dd`."
     )
+    selected: bool = Field(description="True for the step of the version read.")
 
 
-class AmountDTO(AmountStepDTO):
-    """A number in the text of the version asked for, with its series."""
+class AmountDTO(StrictModel):
+    """A number in the text of the version read, with its value in each version."""
 
     kind: str = Field(description="`bedrag`, `percentage`, `termijn` or `datum`.")
     unit: str = Field(
@@ -51,8 +52,9 @@ class AmountDTO(AmountStepDTO):
         description="In a table: its row and its cell in that row, from 0; else null."
     )
     history: list[AmountStepDTO] = Field(
-        description="The same number in each version around this one, oldest first, as "
-        "long as its part holds as many numbers of its kind; this version among them."
+        description="The same number in each version around the one read, oldest first, "
+        "as long as its part holds as many numbers of its kind; the step of the version "
+        "read is `selected`."
     )
 
 
@@ -72,12 +74,9 @@ class ArticleAmountsResponse(StrictModel):
     amounts: list[AmountDTO] = Field(description="Its numbers in text order.")
 
 
-def amount_dto(
-    row: Mapping[str, Any], steps: list[dict[str, Any]], version: Version
-) -> AmountDTO:
-    """A number of *version* with its series."""
+def amount_dto(row: Mapping[str, Any], steps: list[dict[str, Any]]) -> AmountDTO:
+    """A number with its series."""
     return AmountDTO(
-        **step(version, row),
         kind=row["kind"],
         unit=row["unit"],
         text=row["text"],
@@ -110,5 +109,5 @@ def amounts_response(
         version_key=version.key,
         valid_from=version.valid_from,
         valid_until=version.valid_until,
-        amounts=[amount_dto(row, steps, version) for row, steps in series(found, at)],
+        amounts=[amount_dto(row, steps) for row, steps in series(found, at)],
     )

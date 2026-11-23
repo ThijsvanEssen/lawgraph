@@ -52,24 +52,20 @@ class BWBAmountsSemanticPipeline(SemanticPipelineBase):
         starts = range(0, len(regulations), _BATCH)
         for start in self._track(starts, "batches of regulations", total=len(starts)):
             batch = regulations[start : start + _BATCH]
-            rows = [
-                {"version_id": version["id"], "bwb_id": version["bwb_id"], **row}
-                for version in amount_queries.version_texts(self.store, batch)
-                for row in (
-                    found.to_row()
-                    for found in amounts(
-                        version["text"],
-                        version.get("parts") or (),
-                        version.get("tables") or (),
-                        version.get("redactions") or (),
-                    )
+            rows = []
+            for version in amount_queries.version_texts(self.store, batch):
+                found = amounts(
+                    version["text"],
+                    version.get("parts") or (),
+                    version.get("tables") or (),
+                    version.get("redactions") or (),
                 )
-            ]
-            amount_queries.keep_amounts(self.store, batch, rows)
-            result.updated += len(rows)
+                ids = {"version_id": version["id"], "bwb_id": version["bwb_id"]}
+                rows += [ids | amount.to_row() for amount in found]
+            result.updated += amount_queries.keep_amounts(self.store, batch, rows)
         last = regulations[-1] if regulations else None
         logger.info(
-            "Amounts: %d regulations read, %d numbers; the last read was %s (go on with "
+            "Amounts: %d regulations read, %d rows changed; the last read was %s (go on with "
             "--after %s).",
             len(regulations),
             result.updated,

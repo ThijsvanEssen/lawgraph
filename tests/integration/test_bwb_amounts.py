@@ -129,6 +129,12 @@ def test_a_new_toestand_with_another_amount_is_a_row_of_its_own(
     ]
 
 
+def _held(amount: dict[str, Any]) -> dict[str, Any]:
+    """The step of the version read."""
+    (step,) = [s for s in amount["history"] if s["selected"]]
+    return step
+
+
 def test_the_route_gives_each_value_with_its_days(api: Api) -> None:
     body = api.get_json(f"/api/articles/{LAW}/7/amounts")
     assert (
@@ -141,7 +147,12 @@ def test_the_route_gives_each_value_with_its_days(api: Api) -> None:
         None,
     )
     amount, redacted, term = body["amounts"]
-    assert (amount["text"], amount["value"], amount["part"], amount["source"]) == (
+    assert (
+        amount["text"],
+        _held(amount)["value"],
+        amount["part"],
+        amount["source"],
+    ) == (
         "€ 3.115",
         3115.0,
         "lid-1",
@@ -153,13 +164,17 @@ def test_the_route_gives_each_value_with_its_days(api: Api) -> None:
         ("2018-12-21", "2025-01-01", 3068.0),
         ("2025-01-01", None, 3115.0),
     ]
-    assert (redacted["value"], redacted["source"], redacted["valid_from"]) == (
+    assert (
+        _held(redacted)["value"],
+        redacted["source"],
+        _held(redacted)["valid_from"],
+    ) == (
         3200.0,
         "redaction",
         "2025-07-01",
     )
     assert len(redacted["history"]) == 1  # the old version had no redaction
-    assert (term["kind"], term["value"], term["unit"], len(term["history"])) == (
+    assert (term["kind"], _held(term)["value"], term["unit"], len(term["history"])) == (
         "termijn",
         6.0,
         "week",
@@ -170,7 +185,7 @@ def test_the_route_gives_each_value_with_its_days(api: Api) -> None:
 def test_a_day_picks_the_version_in_force_on_it(api: Api) -> None:
     body = api.get_json(f"/api/articles/{LAW}/7/amounts", date="2020-06-01")
     assert (body["valid_from"], body["valid_until"]) == ("2018-12-21", "2025-01-01")
-    assert [(a["text"], a["valid_until"]) for a in body["amounts"]] == [
+    assert [(a["text"], _held(a)["valid_until"]) for a in body["amounts"]] == [
         ("€ 3.068", "2025-01-01"),
         ("zes weken", "2025-01-01"),
     ]

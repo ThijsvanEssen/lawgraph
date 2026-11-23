@@ -53,18 +53,24 @@ def test_a_series_runs_while_the_part_holds_as_many_numbers() -> None:
     pairs = series(found, 2)
     assert [
         [
-            (s["version_key"], s["valid_from"], s["valid_until"], s["value"])
+            (
+                s["version_key"],
+                s["valid_from"],
+                s["valid_until"],
+                s["value"],
+                s["selected"],
+            )
             for s in steps
         ]
         for _, steps in pairs
     ] == [
         [
-            ("v2", "2024-01-01", "2025-01-01", 3362.0),
-            ("v3", "2025-01-01", None, 3068.0),
+            ("v2", "2024-01-01", "2025-01-01", 3362.0, False),
+            ("v3", "2025-01-01", None, 3068.0, True),
         ],
         [
-            ("v2", "2024-01-01", "2025-01-01", 24812.0),
-            ("v3", "2025-01-01", None, 28406.0),
+            ("v2", "2024-01-01", "2025-01-01", 24812.0, False),
+            ("v3", "2025-01-01", None, 28406.0, True),
         ],
     ]
     # v1 held one amount in lid-2, not two: which of them it is, is not guessed

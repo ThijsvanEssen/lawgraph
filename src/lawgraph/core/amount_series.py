@@ -76,15 +76,14 @@ def _reach(groups: list[dict[_Key, list[Any]]], at: int, key: _Key) -> range:
     return range(first, last + 1)
 
 
-def step(version: Version, row: Mapping[str, Any]) -> dict[str, Any]:
-    """A number in one version: its value and from when to when it holds (the day of its
-    redaction, else its version's start)."""
+def _step(version: Version, row: Mapping[str, Any], selected: bool) -> dict[str, Any]:
     return {
         "version_key": version.key,
         "valid_from": row["valid_from"] or version.valid_from,
         "valid_until": version.valid_until,
         "value": row["value"],
         "date": row["date"],
+        "selected": selected,
     }
 
 
@@ -92,11 +91,15 @@ def series(
     found: Sequence[Version], at: int
 ) -> list[tuple[Mapping[str, Any], list[dict[str, Any]]]]:
     """Each number of the version at *at*, by its place, with its series: a step per
-    version it stands in, oldest first."""
+    version it stands in, oldest first, with its value and from when to when it holds (the
+    day of its redaction, else its version's start, to its version's end); the step of *at*
+    is ``selected``."""
     groups = [_groups(v) for v in found]
     out = []
     for key, rows in groups[at].items():
         reach = _reach(groups, at, key)
         for n, row in enumerate(rows):
-            out.append((row, [step(found[i], groups[i][key][n]) for i in reach]))
+            out.append(
+                (row, [_step(found[i], groups[i][key][n], i == at) for i in reach])
+            )
     return sorted(out, key=lambda pair: pair[0]["span_start"])
