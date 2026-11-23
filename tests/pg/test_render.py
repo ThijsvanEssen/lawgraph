@@ -25,7 +25,7 @@ from lawgraph.api.seo.pages import home
 from lawgraph.config import settings
 from lawgraph.core.bwb_xml import article_key, article_props, parse_toestand
 from lawgraph.db import GraphStore, version_cache
-from lawgraph.db.queries import seo
+from lawgraph.db.queries import lookup, seo
 from tests.asserts import assert_status
 from tests.fakes import PATIENCE, until
 from tests.paths import fixture_text
@@ -676,7 +676,7 @@ def test_a_name_not_known_in_time_is_a_late_page(
         raise ReadTimedOut("no connection of the pool came free")
 
     monkeypatch.setattr(render, "RENDER_BUDGET", 1.0)
-    monkeypatch.setattr(render.lookup, "law_named", slow)
+    monkeypatch.setattr(lookup, "law_named", slow)
     response = _get(client, path)
     assert waits and all(w is not None and w <= 1.0 for w in waits), waits
     assert_status(response, 503)
