@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import psycopg
 import pytest
 
 from lawgraph.db import GraphStore
@@ -158,17 +159,58 @@ def test_the_walk_goes_through_the_types_and_relations_asked_for(
     assert [e["key"] for e in hood["edges"]] == ["e4"]
 
 
-@pytest.mark.parametrize("cap", [2, 3, 4, 200])
-def test_the_neighbors_looked_up_a_few_at_a_time(
-    graph: GraphStore, monkeypatch: pytest.MonkeyPatch, cap: int
-) -> None:
-    whole = node_queries.get_node_neighborhood(graph, "dossiers", "1", depth=2, cap=cap)
-    # a chunk of two: dossiers/9 (gone) and the cap fall in different chunks
-    monkeypatch.setattr(node_queries, "_NEIGHBOR_CHUNK", 2)
-    chunked = node_queries.get_node_neighborhood(
-        graph, "dossiers", "1", depth=2, cap=cap
+@pytest.fixture()
+def hub(store: GraphStore) -> GraphStore:
+    """An article cited by 2,000 papers (``d0000``..``d1999``, edges ``r…`` in that order),
+    the first 100 of which amend it too (edges ``a…``); the first 40 papers are gone."""
+    papers = [f"d{n:04}" for n in range(2000)]
+    store.bulk_insert_or_update_nodes("articles", [_node("articles", "hub")[1]])
+    store.bulk_insert_or_update_nodes(
+        "documents", [_node("documents", key)[1] for key in papers[40:]]
     )
-    assert chunked == whole
+    store.bulk_insert_or_update_edges(
+        [
+            *(
+                _edge(f"r{key}", f"documents/{key}", "articles/hub", "REFERS_TO")
+                for key in papers
+            ),
+            *(
+                _edge(f"a{key}", f"documents/{key}", "articles/hub", "AMENDS")
+                for key in papers[:100]
+            ),
+        ]
+    )
+    return store
+
+
+def test_a_hub_is_kept_in_the_key_order_of_its_edges(hub: GraphStore) -> None:
+    """A paper along two relations takes one place, a paper that is gone none: the cap is
+    still filled, with the first papers by the keys of their edges."""
+    hood = node_queries.get_node_neighborhood(hub, "articles", "hub", depth=1, cap=50)
+    assert _kept(hood) == {"documents": [f"d{n:04}" for n in range(40, 90)]}
+
+
+@pytest.mark.parametrize("depth", [1, 3])
+def test_a_walk_reads_a_page_of_a_hub_not_all_of_it(
+    hub: GraphStore, conn: psycopg.Connection, depth: int
+) -> None:
+    """Of each bucket of a node the walk reads no more than the room left, past what is gone
+    or seen: not the 2,100 edges of the hub."""
+    params = node_queries._walk_params(
+        "articles/hub", depth, 50, node_queries.NO_FILTER
+    )
+    with conn.transaction():
+        conn.execute(
+            "SELECT lg_neighborhood(%(focal)s, %(depth)s, %(cap)s, %(relations)s,"
+            " %(status)s, %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,"
+            " %(stop)s, %(seats)s)",
+            params,
+        )
+        row = conn.execute(
+            "SELECT pg_stat_get_xact_tuples_returned('edges_to_cover'::regclass)"
+            " + pg_stat_get_xact_tuples_returned('edges_from_cover'::regclass)"
+        ).fetchone()
+    assert row is not None and 0 < row[0] < 1000
 
 
 def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
@@ -955,10 +997,10 @@ def _kept(hood: dict[str, Any]) -> dict[str, list[str]]:
 def test_a_capped_neighborhood_shares_the_cap_among_its_collections(
     minister: GraphStore,
 ) -> None:
-    """A level is not kept in id order until the cap (every case before any paper: a
+    """A level is not kept in one order until the cap (every case before any paper: a
     minister's 148 cases and none of his 1,483 papers): a collection with fewer neighbours
     than its share is kept whole, the rest of the cap goes in equal shares to the others,
-    each in id order; what a collection cannot fill goes to the others."""
+    each in the key order of its edges; what a collection cannot fill goes to the others."""
     hood = node_queries.get_node_neighborhood(minister, "members", "m", depth=1, cap=7)
     assert _kept(hood) == {
         "cabinets": ["c1"],
@@ -1039,11 +1081,12 @@ def test_the_cap_is_shared_per_relation_direction_and_collection(
     law: GraphStore,
 ) -> None:
     """Papers citing the law do not push out the articles, the amendments or the law it
-    refers to; a paper that both amends and cites has one place."""
+    refers to; a paper that both amends and cites has one place. Within each the first by
+    the keys of their edges (``p1``, ``p10``, ``p11``, ``p12``, ``p2``)."""
     hood = node_queries.get_node_neighborhood(law, "instruments", "wet", depth=1, cap=9)
     assert _kept(hood) == {
-        "articles": ["w01", "w02", "w03", "w04"],
-        "documents": ["a01", "a02", "a03", "m1"],
+        "articles": ["w01", "w10", "w11", "w12"],
+        "documents": ["a01", "a10", "a11", "m1"],
         "instruments": ["ander"],
     }
     assert {b["collection"]: b["kept"] for b in hood["buckets"]} == {

@@ -161,7 +161,7 @@ def _not_an_outcome(direction: Direction, edge: str) -> str:
     """Of the edges that reach a node (``inbound``), the condition that leaves out those
     that tell what became of an old article no new article takes the place of
     (``lg_transposition_outcome``, db/schema.py): read from the old article, never a
-    neighbour of the new law, as ``lg_walk`` never walks them back."""
+    neighbour of the new law, as ``lg_neighborhood`` never walks them back."""
     if direction != "inbound":
         return ""
     return f"AND NOT lg_transposition_outcome({edge}.relation, {edge}.to_id)"
@@ -747,10 +747,6 @@ def _read_pages(
     return pages
 
 
-# How many neighbours ``lg_walk`` looks up at a time: a capped walk stops looking them up
-# once the cap is reached.
-_NEIGHBOR_CHUNK = 500
-
 # The steps a walk still takes out of a node it stops at (``stop_at``): a member to the
 # faction and the cabinet it sits in, as relation and collection of the other end.
 WALK_SEATS = (
@@ -766,7 +762,7 @@ def _walk_params(
     filters: NeighborFilter,
     stop_at: Collection[str] | None = None,
 ) -> dict[str, Any]:
-    """The arguments of ``lg_walk`` (``db/schema.py``) for a walk from *focal_id*."""
+    """The arguments of ``lg_neighborhood`` (``db/schema.py``) for a walk from *focal_id*."""
     return {
         "stop": sorted(stop_at) if stop_at is not None else None,
         "seats": list(WALK_SEATS),
@@ -779,7 +775,6 @@ def _walk_params(
         "inbound": "inbound" in filters.directions,
         "collections": filters.collections,
         "tables": sorted(_ALLOWED_NODE_COLLECTIONS),
-        "chunk": _NEIGHBOR_CHUNK,
         **filters.edge_params(),
     }
 
@@ -803,7 +798,7 @@ def get_node_neighborhood(
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
     ``cap`` bounds the number of nodes, shared out over the levels and relations
-    (``lg_walk``). ``filters`` shape the walk itself: it follows only edges of the given relations and status, in the
+    (``lg_neighborhood``). ``filters`` shape the walk itself: it follows only edges of the given relations and status, in the
     given direction, and goes through nodes of the given types (the focal node is always
     kept). A node of a collection in *stop_at* but the focal one is kept but not walked
     through, but for the step to the faction or cabinet it sits in (``WALK_SEATS``), so the
@@ -824,9 +819,10 @@ def get_node_neighborhood(
             store.query(
                 f"""
                 WITH walked AS (
-                    SELECT lg_walk(%(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
-                                   %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
-                                   %(stop)s, %(seats)s, %(chunk)s) AS ids
+                    SELECT lg_neighborhood(
+                        %(focal)s, %(depth)s, %(cap)s, %(relations)s, %(status)s,
+                        %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,
+                        %(stop)s, %(seats)s) AS ids
                 )
                 SELECT
                     (SELECT coalesce(json_agg(json_build_array(
@@ -866,7 +862,7 @@ def get_node_neighborhood(
 
 def _buckets_sql(filters: NeighborFilter) -> str:
     """Per collection, the neighbours of a node along the edges a walk follows
-    (``lg_walk``'s first level), and of those the ids in ``kept`` (by a hash of them, not a
+    (``lg_neighborhood``'s first level), and of those the ids in ``kept`` (by a hash of them, not a
     scan of the array per neighbour): from the edges alone, through their covering indexes
     (a neighbour that is gone counts too)."""
     return f"""
