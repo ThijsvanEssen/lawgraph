@@ -225,6 +225,31 @@ def test_the_days_since_are_written_again_in_place(seeded: GraphStore) -> None:
     )
 
 
+def test_an_event_moved_into_the_days_since_is_written_once(
+    seeded: GraphStore,
+) -> None:
+    # the source moves a paper of 8 September to 3 October: its row keeps the old day
+    # until the days since are written again, and then holds the new one
+    with NodeWriter(seeded) as writer:
+        writer.add(
+            feed_document(
+                "motion_101", "Motie", "2026-10-03", "37000",
+                subject="Motie over toezicht op de AI-verordening",
+            )
+        )  # fmt: skip
+    write_since(seeded, "2026-10-01")
+    rows = list(
+        seeded.query(
+            "SELECT date FROM lg_feed_events WHERE id = %(id)s",
+            {"id": "documents/motion_101"},
+        )
+    )
+    assert rows == ["2026-10-03"], show_items(rows)
+    assert _period_kinds(seeded, FeedFilters(), "month") == _feed_kinds(
+        seeded, FeedFilters()
+    )
+
+
 @pytest.mark.parametrize("counted", ["periods", "counts"])
 def test_the_words_are_found_by_index(seeded: GraphStore, counted: str) -> None:
     """A word with a letter or digit is looked up in ``words`` (GIN), not tested on
