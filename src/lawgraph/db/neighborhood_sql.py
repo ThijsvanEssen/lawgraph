@@ -18,11 +18,16 @@ from lawgraph.db.schema import node_exists
 # focal one is kept but not walked through, but for its seats: an edge out of it whose
 # relation and other collection are one of w_seats ('MEMBER_OF factions'). A law is not walked
 # back to the old articles whose outcome it holds (lg_transposition_outcome).
-# A level is not read whole: of each bucket of a node (a step through edges_from_cover or
-# edges_to_cover) at most one more than the room left (w_cap less what is kept), in key order,
-# of the nodes there and not seen; some 100 of a hub article's 30,000 citing rulings. That keeps
-# what a whole read would: a node of a cut bucket is passed over only when it is kept (before,
-# or as itself), and no more than that room is kept after the read.
+# A level is not read whole. Its turns need of each share (a relation, direction and
+# collection) its first nodes in key order, at most one more than the room left (w_cap less
+# what is kept). Of each bucket of a node (a step through edges_from_cover or edges_to_cover)
+# the walk reads the first edges to nodes there and not seen, in key order: first twice that
+# room over the buckets of its share, four times as many each round after, one more than the
+# room at most. Of a share read short, its nodes up to the lowest last key of a cut bucket are
+# all it has up to there; the round is enough when those, as far as the turns go, make more
+# than the room. So 60 articles cited by 300 papers each give 5 edges of each, not 141, and
+# the walk keeps what a whole read would: a node of a cut bucket is passed over only when it
+# is kept (before, or as itself), and no more than the room is kept after the read.
 NEIGHBORHOOD = f"""
 CREATE OR REPLACE FUNCTION lg_neighborhood(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
@@ -38,6 +43,14 @@ DECLARE
     free text[];
     stopped text[];
     reached text[];
+    -- of the buckets of the frontier: the node, whether out of it, the relation, the other
+    -- collection; how much of each is read, and whether that read holds enough
+    b_node text[];
+    b_outward boolean[];
+    b_relation text[];
+    b_other text[];
+    reach int;
+    whole boolean;
     -- what was reached, per read a run of it: its level, and what of it is not looked at yet
     queue text[];
     r_step int[];
@@ -68,8 +81,11 @@ BEGIN
                 stopped := ARRAY(SELECT x FROM unnest(frontier) x
                                  WHERE step > 1 AND split_part(x, '/', 1) = ANY(w_stop));
                 room := w_cap - cardinality(kept);
-                reached := ARRAY(
-                    -- the buckets of each node, one after the other in index order
+                -- the buckets of each node, one after the other in index order
+                SELECT array_agg(b.node), array_agg(b.outward), array_agg(b.relation),
+                       array_agg(b.other)
+                INTO b_node, b_outward, b_relation, b_other
+                FROM (
                     WITH RECURSIVE b(node, outward, relation, other) AS (
                         SELECT x, true, ''::text, ''::text FROM unnest(
                             CASE WHEN w_outbound THEN free END || stopped) x
@@ -88,36 +104,75 @@ BEGIN
                              ORDER BY 1, 2 LIMIT 1)
                         ) s(relation, other)
                     )
-                    SELECT t.id FROM (
-                        SELECT p.id, p.r, b.other, min(p.k) AS key, row_number() OVER (
-                            PARTITION BY p.r, b.other ORDER BY min(p.k) NULLS LAST) AS rank
-                        FROM b CROSS JOIN LATERAL (
-                            (SELECT e.to_id AS id, 'out ' || e.relation AS r, e.key AS k
-                             FROM public.edges e
-                             WHERE b.outward AND e.from_id = b.node AND e.relation = b.relation
-                               AND e.to_collection = b.other AND e.to_id <> ALL(seen)
-                               AND (w_status IS NULL OR e.status = w_status)
-                               AND {node_exists("e.to_id", "b.other")}
-                             ORDER BY e.key LIMIT room + 1)
-                            UNION ALL
-                            (SELECT e.from_id, 'in ' || e.relation, e.key FROM public.edges e
-                             WHERE NOT b.outward AND e.to_id = b.node AND e.relation = b.relation
-                               AND e.from_collection = b.other AND e.from_id <> ALL(seen)
-                               AND (w_status IS NULL OR e.status = w_status)
-                               AND {node_exists("e.from_id", "b.other")}
-                             ORDER BY e.key LIMIT room + 1)
-                        ) p
-                        WHERE b.relation <> '' AND b.other = ANY(w_tables)
-                          AND (w_collections IS NULL OR b.other = ANY(w_collections))
-                          AND (w_relations IS NULL OR b.relation = ANY(w_relations))
-                          AND (b.node <> ALL(stopped)
-                               OR b.relation || ' ' || b.other = ANY(w_seats))
-                          AND (b.outward OR NOT public.lg_transposition_outcome(b.relation, b.node))
-                        GROUP BY p.id, p.r, b.other
-                    ) t
-                    WHERE t.rank <= room + 1
-                    ORDER BY t.rank, t.r NULLS LAST, t.other NULLS LAST, t.key
-                );
+                    SELECT * FROM b
+                    WHERE b.relation <> '' AND b.other = ANY(w_tables)
+                      AND (w_collections IS NULL OR b.other = ANY(w_collections))
+                      AND (w_relations IS NULL OR b.relation = ANY(w_relations))
+                      AND (b.node <> ALL(stopped) OR b.relation || ' ' || b.other = ANY(w_seats))
+                      AND (b.outward OR NOT public.lg_transposition_outcome(b.relation, b.node))
+                ) b;
+                reach := 2;
+                LOOP
+                    SELECT r.ids, r.whole INTO reached, whole FROM (
+                        WITH k AS (
+                            SELECT u.*, least(room + 1, ceil(reach * (room + 1.0) / count(*) OVER (
+                                PARTITION BY u.outward, u.relation, u.other)))::int AS k
+                            FROM unnest(b_node, b_outward, b_relation, b_other)
+                                WITH ORDINALITY AS u(node, outward, relation, other, i)
+                        ), got AS (
+                            SELECT k.i, k.k, k.outward, k.relation, k.other, p.id, p.key
+                            FROM k CROSS JOIN LATERAL (
+                                (SELECT e.to_id AS id, e.key FROM public.edges e
+                                 WHERE k.outward AND e.from_id = k.node AND e.relation = k.relation
+                                   AND e.to_collection = k.other AND e.to_id <> ALL(seen)
+                                   AND (w_status IS NULL OR e.status = w_status)
+                                   AND {node_exists("e.to_id", "k.other")}
+                                 ORDER BY e.key LIMIT k.k)
+                                UNION ALL
+                                (SELECT e.from_id, e.key FROM public.edges e
+                                 WHERE NOT k.outward AND e.to_id = k.node
+                                   AND e.relation = k.relation AND e.from_collection = k.other
+                                   AND e.from_id <> ALL(seen)
+                                   AND (w_status IS NULL OR e.status = w_status)
+                                   AND {node_exists("e.from_id", "k.other")}
+                                 ORDER BY e.key LIMIT k.k)
+                            ) p
+                        ), edge AS (
+                            -- the key up to which each bucket of a share read short was read whole
+                            SELECT c.outward, c.relation, c.other, min(c.top) AS top FROM (
+                                SELECT g.outward, g.relation, g.other, max(g.key) AS top
+                                FROM got g WHERE g.k <= room
+                                GROUP BY g.i, g.k, g.outward, g.relation, g.other
+                                HAVING count(*) = g.k
+                            ) c GROUP BY 1, 2, 3
+                        ), ranked AS (
+                            SELECT t.*, row_number() OVER (
+                                PARTITION BY t.outward, t.relation, t.other ORDER BY t.key) AS rank
+                            FROM (
+                                SELECT g.id, g.outward, g.relation, g.other, min(g.key) AS key,
+                                       d.top IS NOT NULL AS cut
+                                FROM got g LEFT JOIN edge d USING (outward, relation, other)
+                                WHERE d.top IS NULL OR g.key <= d.top
+                                GROUP BY 1, 2, 3, 4, 6
+                            ) t
+                        ), shares AS (
+                            SELECT count(*) AS size, bool_or(ranked.cut) AS cut FROM ranked
+                            GROUP BY outward, relation, other
+                        ), upto AS (
+                            SELECT least(room + 1, min(shares.size) FILTER (WHERE shares.cut)) AS t,
+                                   NOT coalesce(bool_or(shares.cut), false) AS whole FROM shares
+                        )
+                        SELECT ARRAY(
+                            SELECT x.id FROM ranked x WHERE x.rank <= u.t
+                            ORDER BY x.rank, CASE WHEN x.outward THEN 'out ' ELSE 'in ' END
+                                || x.relation NULLS LAST, x.other NULLS LAST, x.key
+                        ) AS ids,
+                        u.whole OR (SELECT sum(least(s.size, u.t)) FROM shares s) > room AS whole
+                        FROM upto u
+                    ) r;
+                    EXIT WHEN whole;
+                    reach := reach * 4;
+                END LOOP;
                 -- does not fit: walk again and share the cap out
                 CONTINUE walks WHEN NOT fair
                     AND (SELECT count(DISTINCT x) FROM unnest(reached) x) > room;
