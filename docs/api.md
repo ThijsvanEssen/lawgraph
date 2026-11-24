@@ -217,7 +217,7 @@ EUR-Lex link `COM:2025:80:FIN`), `celex` that document's CELEX (`52025PC0080` a 
 `52025DC0080` another document) when the graph holds it, else null; `implements`, `{celex,
 bases}` per EU act it implements, `bases` `title` (its title says so: "ter implementatie van
 Richtlijn (EU) 2024/2811") and the `IMPLEMENTS` of a law it legislated
-(`national_implementing_measure`, `considerans`, as in `/api/instruments/{identifier}/eu-links`).
+(`national_implementing_measure`, `considerans`, as in `/api/instruments/{identifier}/eu-links`). `legal_effect.implements[].basis` of the detail (below) uses the same words for the edges.
 Both empty for none: an open bill whose title names no act by number is a gap. The list filters
 on them: `eu=proposal` (a non-empty `eu_ref`), `eu=implementation` (a non-empty `implements`),
 `celex=32024L2811` (in either).

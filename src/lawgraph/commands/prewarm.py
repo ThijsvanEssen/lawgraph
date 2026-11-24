@@ -3,8 +3,8 @@
     lawgraph prewarm [--heaps TABLE ...] [--budget-mb 2560]
 
 The search indexes, then the heap and TOAST of ``--heaps`` (none by default), into the
-cache of the operating system. ``scripts/daily.sh`` runs it last, after it gave the lock
-up: it only reads.
+cache of the operating system. ``scripts/daily.sh`` and ``scripts/poll.sh`` run it last,
+under the lock: it only reads.
 """
 
 from __future__ import annotations

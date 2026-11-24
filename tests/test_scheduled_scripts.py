@@ -228,6 +228,7 @@ def test_a_poll_reaches_back_past_the_poll_before_it(
         f"poll {chain} --since {window}",
         "feed-events --days 14",
         "search-candidates",
+        "prewarm",  # what the day pushed out of memory, read in again
     ]
     assert "poll.sh: ok" in (checkout / "logs" / "runs.log").read_text()
 
@@ -238,6 +239,7 @@ def test_a_poll_takes_another_window_and_refuses_another_chain(checkout: Path) -
         "poll tk --since 90m",
         "feed-events --days 14",
         "search-candidates",
+        "prewarm",  # what the day pushed out of memory, read in again
     ]
     refused = _run(checkout, "poll.sh", args=["bwb"])
     assert refused.returncode == 2 and "usage" in refused.stderr
