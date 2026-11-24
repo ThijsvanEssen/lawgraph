@@ -25,4 +25,6 @@ step poll "$chain" --since "$window"
 step feed-events --days 14
 # the hits of the words searched most, of the tables the poll changed
 step search-candidates
+# what the day pushed out of memory since the nightly run, read in again (seconds when it is still there)
+step prewarm
 finish
