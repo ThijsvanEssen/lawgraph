@@ -65,6 +65,7 @@ from lawgraph.db._sql import (
     member_name_sql,
     sql_text_list,
 )
+from lawgraph.db.schema_skip import ADDED, index_options, needed, present_columns
 
 logger = get_logger(__name__)
 
@@ -2656,12 +2657,6 @@ def expected_columns() -> dict[str, set[str]]:
     return _columns(generated=False)
 
 
-# A column the schema adds to a table that may be older than it (a step 0 of a deploy).
-_ADDED = re.compile(
-    r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)([^;]*)", re.IGNORECASE
-)
-
-
 def added_columns() -> dict[str, set[str]]:
     """table -> the columns the schema adds itself (``ALTER TABLE … ADD COLUMN IF NOT
     EXISTS``) to a table built before them, but a generated one: PostgreSQL adds a column
@@ -2669,7 +2664,7 @@ def added_columns() -> dict[str, set[str]]:
     it at once; a stored generated column would rewrite a large table at the start."""
     found: dict[str, set[str]] = {}
     for statement in statements():
-        for table, column, rest in _ADDED.findall(_COMMENT.sub("", statement)):
+        for table, column, rest in ADDED.findall(_COMMENT.sub("", statement)):
             if "GENERATED" not in rest.upper():
                 found.setdefault(table, set()).add(column)
     return found
@@ -2698,13 +2693,7 @@ def schema_drift(conn: psycopg.Connection) -> list[str]:
     actual: dict[str, set[str]] = {}
     actual_generated: dict[str, set[str]] = {}
     required: dict[str, set[str]] = {}  # NOT NULL without a default
-    for table, column, is_generated, is_required in conn.execute(
-        "SELECT table_name, column_name, is_generated = 'ALWAYS',"
-        " is_nullable = 'NO' AND column_default IS NULL AND is_generated <> 'ALWAYS'"
-        " FROM information_schema.columns"
-        " WHERE table_schema = current_schema() AND table_name = ANY(%s)",
-        (list(expected),),
-    ):
+    for table, column, is_generated, is_required in present_columns(conn):
         actual.setdefault(table, set()).add(column)
         if is_generated:
             actual_generated.setdefault(table, set()).add(column)
@@ -2781,7 +2770,7 @@ def ensure_schema(conn: psycopg.Connection, *, allowed_collation: str = "") -> N
     API behind theirs nor deadlock with a running command; the store tries again.
 
     What the database has already costs no lock a read waits for: a column or an index
-    option it has is not added or set again (``_NO_OPS``), so a release without a new column
+    option it has is not added or set again (``schema_skip``), so a release without a new column
     starts beside a long read. A table that exists keeps its columns: ``CREATE TABLE IF NOT
     EXISTS`` adds none. When
     this version cannot run on them (a column of its schema the table lacks and the schema
@@ -2817,10 +2806,11 @@ def _apply_schema(conn: psycopg.Connection, digest: str) -> None:
         raise SchemaOutdated(
             "schema outdated, build the database again (" + "; ".join(differences) + ")"
         )
-    present = _present(conn)
+    columns = {(table, column) for table, column, *_ in present_columns(conn)}
+    options = index_options(conn)
     for statement in statements():
-        if needed := _needed(statement, present).strip():
-            conn.execute(needed.encode())
+        if kept := needed(statement, columns, options).strip():
+            conn.execute(kept.encode())
     # a table created now is derived by this version; one there already keeps the
     # digest its rows were derived by
     for collection in derived_collections():
@@ -2834,40 +2824,6 @@ def _apply_schema(conn: psycopg.Connection, digest: str) -> None:
         " ON CONFLICT (key) DO UPDATE SET doc = EXCLUDED.doc",
         (SCHEMA_STATE, Json({"digest": digest})),
     )
-
-
-# What takes a lock every read waits for (ACCESS EXCLUSIVE) also when it changes nothing: a
-# column added to a table that has it, an option set on an index that has it. Beside a long
-# read the schema waited for it, and deadlocked with it (23 Nov: the sitemaps).
-_NO_OPS = re.compile(
-    r"ALTER TABLE (\w+) ADD COLUMN IF NOT EXISTS (\w+)[^;]*;?"
-    r"|ALTER INDEX (\w+) SET \((\w+) = (\w+)\);?"
-)
-
-
-def _present(conn: psycopg.Connection) -> set[str]:
-    """The columns of the tables (``table.column``) and the options of the indexes
-    (``index:option=value``) the database has."""
-    rows = conn.execute(
-        """SELECT c.relname || '.' || a.attname FROM pg_attribute a
-        JOIN pg_class c ON c.oid = a.attrelid AND c.relkind = 'r'
-        WHERE c.relnamespace = 'public'::regnamespace AND a.attnum > 0 AND NOT a.attisdropped
-        UNION ALL
-        SELECT c.relname || ':' || o FROM pg_class c CROSS JOIN unnest(c.reloptions) o
-        WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'i'"""
-    ).fetchall()
-    return {row[0] for row in rows}
-
-
-def _needed(statement: str, present: set[str]) -> str:
-    """*statement* without what it would change of nothing in *present* (``_NO_OPS``)."""
-
-    def kept(match: re.Match[str]) -> str:
-        table, column, index, option, value = match.groups()
-        key = f"{table}.{column}" if table else f"{index}:{option}={value}"
-        return "" if key in present else match[0]
-
-    return _NO_OPS.sub(kept, statement)
 
 
 def create_database_sql(name: str) -> str:
