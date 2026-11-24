@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from functools import partial
+from itertools import chain
 from typing import Any
 
 import requests
@@ -124,29 +125,24 @@ class EUClient(BaseClient):
         country_code: str = "NLD",
     ) -> list[str]:
         """The CELEX numbers of CJEU judgments, each once: those that cite one of
-        *celex_ids* (asked ``CELEX_BATCH`` at a time), or without them those referred from a
-        court of *country_code*."""
-        if celex_ids:
-            found = dict.fromkeys(
-                celex
-                for start, batch in _batches(celex_ids)
-                for celex in self._paged(
-                    partial(_judgments_citing_sparql, batch),
-                    "judgment_celex",
-                    f"batch={start}",
-                )
+        *celex_ids* (asked ``CELEX_BATCH`` at a time), then those referred from a court of
+        *country_code*: a judgment that cites no act of the graph (joined cases referred
+        from NLD and another country among them) is named only by that list."""
+        citing = (
+            celex
+            for start, batch in _batches(celex_ids or [])
+            for celex in self._paged(
+                partial(_judgments_citing_sparql, batch),
+                "judgment_celex",
+                f"batch={start}",
             )
-        else:
-            logger.info(
-                "Enumerating CJEU judgment CELEX IDs for country=%s", country_code
-            )
-            found = dict.fromkeys(
-                self._paged(
-                    partial(_country_judgments_sparql, country_code),
-                    "celex",
-                    f"country={country_code}",
-                )
-            )
+        )
+        of_country = self._paged(
+            partial(_country_judgments_sparql, country_code),
+            "celex",
+            f"country={country_code}",
+        )
+        found = dict.fromkeys(chain(citing, of_country))
         logger.info("CJEU enumeration complete: %d unique judgment IDs.", len(found))
         return list(found)
 
