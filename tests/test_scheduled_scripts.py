@@ -28,8 +28,6 @@ held=free
 echo "$held $*" >> "$TMPDIR/locks"
 # the clock moves on while this step runs
 case "$*" in "$CLOCK_ON"*) echo "$CLOCK_TO" > "$TMPDIR/clock";; esac
-# a poll that takes the lock while this step runs
-case "$*" in "$TAKEN_ON"*) mkdir "$TMPDIR/lawgraph-scheduled.lock";; esac
 # the steps of `semantic all`, and a slice that names where to go on, then that it is done
 case "$*" in
   "semantic all --list")
@@ -71,7 +69,6 @@ def _run(
         **inherited,
         "UNAVAILABLE_ON": "-",
         "HOLD_ON": "-",
-        "TAKEN_ON": "-",
         "CLOCK_ON": "-",
         # the time of the weekly run is the test's own, never the hour the suite runs at
         "LAWGRAPH_WEEKLY_UNTIL": "2400",
@@ -108,7 +105,7 @@ def test_the_daily_run_is_the_three_phases_since_their_last_complete_run_and_aft
         "check --skip-edges",
         "search-stats prune",  # the counts of the terms searched, older than a week
         "search-candidates",  # the hits of the words searched most
-        "sitemaps",  # without the lock
+        "sitemaps",
         "prewarm",  # last: what the search reads, into memory
     ]
     assert (checkout / "logs" / "runs.log").read_text().count("daily.sh: ok") == 1
@@ -200,15 +197,14 @@ def test_a_failing_command_fails_the_run_and_the_rest_still_runs(
     assert "lawgraph normalize all --since last failed" in runs and "FAILED" in runs
 
 
-def test_the_sitemaps_run_after_the_daily_run_gave_the_lock_up(checkout: Path) -> None:
-    """They write files, not the graph, and the prewarm only reads: a poll may start beside
-    them, and its lock stays."""
-    done = _run(checkout, "daily.sh", TAKEN_ON="sitemaps")
+def test_the_sitemaps_and_the_prewarm_run_under_the_lock(checkout: Path) -> None:
+    """A deploy waits for their long reads: the start of the API it restarts applies the
+    schema, which would wait for them, or deadlock with them (23 Nov)."""
+    done = _run(checkout, "daily.sh")
     assert done.returncode == 0, done.stderr
     locks = (checkout / "locks").read_text().splitlines()
-    assert locks[-2:] == ["free sitemaps", "locked prewarm"]  # the poll's lock
-    assert all(line.startswith("locked ") for line in locks[:-2]), locks
-    assert (checkout / "lawgraph-scheduled.lock").is_dir()  # the poll's
+    assert locks[-2:] == ["locked sitemaps", "locked prewarm"]
+    assert all(line.startswith("locked ") for line in locks), locks
 
 
 def test_two_scheduled_runs_never_write_side_by_side(checkout: Path) -> None:
