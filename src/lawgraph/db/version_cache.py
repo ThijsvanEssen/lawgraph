@@ -10,7 +10,7 @@ request waits for it no longer than its own deadline, then answers 503, and the
 computation goes on for the next. Once the data changed a request waits ``STALE_WAIT`` for
 the new answer at most, then takes the last one (of the version before): a facet count or
 the statistics of the search minutes old is good, a search that hangs on every write of the
-pipelines is not. During a run of the pipelines (``_in_run``: the data keeps moving) a request
+pipelines is not. During a run of the pipelines (``in_run``: the data keeps moving) a request
 that has an earlier answer takes it at once, and nothing is computed for it until it is
 ``MAX_AGE`` old: what is computed now is out of date before it is done. ``on_new_version``
 functions (the API's warm-up) run in the background when a store shows a version it did not
@@ -40,6 +40,7 @@ from lawgraph.db.request_context import (
     set_read_deadline,
 )
 from lawgraph.db.store import statement_text, version_stamp
+from lawgraph.db.table_reads import note
 
 logger = get_logger(__name__)
 
@@ -202,15 +203,13 @@ RUN_QUIET = 300.0
 # database -> (the data version last seen, when it began to move, when it last moved)
 _moves: dict[str, tuple[str, float, float]] = {}
 _warmers: list[Callable[[Any], None]] = []
-_wanted: dict[
-    str, tuple[Any, float, str | None]
-] = {}  # database -> (store, due, version)
+# database -> (store, due, version)
+_wanted: dict[str, tuple[Any, float, str | None]] = {}
 _warm_wake = threading.Condition(_lock)
 _warm_worker: threading.Thread | None = None
 _warming: set[str] = set()  # the databases a warm-up runs for now
-_polled: dict[
-    str, Any
-] = {}  # database -> the store its version is read with while idle
+# database -> the store its version is read with while idle
+_polled: dict[str, Any] = {}
 
 
 def _seen(name: str, version: str) -> None:
@@ -224,7 +223,7 @@ def _seen(name: str, version: str) -> None:
         _moves[name] = (version, began, moved)
 
 
-def _in_run(name: str) -> bool:
+def in_run(name: str) -> bool:
     """Whether the pipelines are writing database *name* now, as far as its versions tell
     (``RUN_AFTER``, ``RUN_QUIET``); one change alone, as of a short poll, is no run."""
     _, began, moved = _moves.get(name, ("", 0.0, -RUN_QUIET))
@@ -467,6 +466,7 @@ def cached[T](
     and kept: for a cheap one a request needs (a search's frequencies of its words), which
     must not wait behind the slow computations of the pool (a warm-up, the counts of the
     feed)."""
+    note(tables)
     version = _version(store, tables)
     if version is None:
         return compute()
@@ -480,10 +480,10 @@ def cached[T](
             request_timing.hit()
             return _values[entry_key]  # type: ignore[no-any-return]
         last, last_at = _latest.get((version[0], key), (_NONE, 0.0))
-        in_run = (
-            last is not _NONE and read_time_left() is not None and _in_run(version[0])
+        moving = (
+            last is not _NONE and read_time_left() is not None and in_run(version[0])
         )
-        if in_run and time.monotonic() - last_at <= MAX_AGE:
+        if moving and time.monotonic() - last_at <= MAX_AGE:
             request_timing.hit()
             return last  # type: ignore[no-any-return]
     started = time.perf_counter()
@@ -524,13 +524,15 @@ def lasting[T](
     compute: Callable[[], T],
     max_age: float,
     *,
+    tables: tuple[str, ...] | None = None,
     inline: bool = False,
 ) -> T:
     """The answer for *key* of *store*, kept *max_age* seconds whatever the data does: for
     statistics that a change of the data hardly moves and that take long to compute.
     From ``REFRESH_AHEAD`` of its age on a request takes the kept one at once while the new one
     computes, also once it is older, and the warm-up (no deadline) waits for the new one;
-    *inline* as ``cached``."""
+    *tables* (for the warm-up alone, ``table_reads``) and *inline* as ``cached``."""
+    note(tables)
     if not isinstance(store, VersionedStore):
         return compute()
     entry_key = ((_database(store), "lasting"), key)
@@ -576,9 +578,9 @@ def _compute_or_wait[T](
     the last on the pool, is how a first answer ran past its deadline."""
     with _lock:
         nested = _in_cache_worker()
-        in_run = _in_run(entry_key[0][0])
+        moving = in_run(entry_key[0][0])
         future = _running.get(entry_key)
-        if future is None and in_run:
+        if future is None and moving:
             future = next(
                 (
                     f
@@ -594,7 +596,7 @@ def _compute_or_wait[T](
         _nested(key)
         return run()
     assert future is not None
-    return _answer(future, last, key, in_run)  # type: ignore[no-any-return]
+    return _answer(future, last, key, moving)  # type: ignore[no-any-return]
 
 
 def _in_cache_worker() -> bool:
@@ -774,16 +776,18 @@ def lasting_rows(
     params: dict[str, Any] | None = None,
     *,
     max_age: float,
+    tables: tuple[str, ...] | None = None,
     **options: Any,
 ) -> list[Any]:
     """The rows of *statement* with *params*, kept *max_age* seconds whatever the data does
-    (``lasting``): for a count every visitor of a filter asks, that a run of the pipelines
-    hardly moves and that reads many rows."""
+    (``lasting``, *tables* too): for a count every visitor of a filter asks, that a run of
+    the pipelines hardly moves and that reads many rows."""
     return lasting(
         store,
         _rows_key(statement, params, options),
         lambda: list(store.query(statement, params, **options)),
         max_age,
+        tables=tables,
     )
 
 

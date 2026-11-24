@@ -54,7 +54,10 @@ def test_cited_by_of_an_article_that_is_not_there_is_a_404(client: TestClient) -
 
 def test_the_health_check_asks_the_database(client: TestClient) -> None:
     # ``warm`` null: the suite runs the API without its warm-up
-    health = client.get("/api/health").json()
+    answer = client.get("/api/health")
+    # how the API is now, kept by no cache (``response_cache``)
+    assert answer.headers["cache-control"] == "no-store"
+    health = answer.json()
     assert {k: health[k] for k in ("status", "database", "warm")} == {
         "status": "ok",
         "database": "connected",

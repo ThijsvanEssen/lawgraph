@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from lawgraph.config.constants import (
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITMENTS,
     COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_MEMBERS,
     LABEL_RIJKSOVERHEID,
     RELATION_SERVED_IN,
 )
@@ -107,6 +111,14 @@ LEFT JOIN {COLLECTION_DOSSIERS} d ON d.id = signed.dossier_id
 # poll of other sources (an hour of judgments) changes none of them; a newly signed document
 # counts within the hour.
 CABINET_MAX_AGE = 3600.0
+# The tables the page of a cabinet reads.
+CABINET_TABLES = (
+    COLLECTION_CABINETS,
+    COLLECTION_COMMITMENTS,
+    COLLECTION_DOSSIERS,
+    COLLECTION_EDGES,
+    COLLECTION_MEMBERS,
+)
 
 
 def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
@@ -122,6 +134,7 @@ def get_cabinet(store: GraphStore, key: str) -> dict[str, Any] | None:
         ("cabinet", key, today),
         lambda: _cabinet(store, key, today),
         CABINET_MAX_AGE,
+        tables=CABINET_TABLES,
     )
 
 
