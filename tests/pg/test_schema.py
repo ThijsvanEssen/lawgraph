@@ -552,10 +552,33 @@ def test_two_starts_at_once_on_a_fresh_database(database_url: str) -> None:
 def test_a_table_held_by_another_session_stops_the_schema_after_the_lock_timeout(
     conn: psycopg.Connection, database_url: str
 ) -> None:
-    """A command reading a table in a long transaction: the start does not queue the
-    reads behind its lock (or deadlock with it), it gives up after ``lock_timeout``."""
+    """A command reading a table in a long transaction, and a column to add to it: the
+    start does not queue the reads behind its lock (or deadlock with it), it gives up after
+    ``lock_timeout``."""
+    conn.execute("DROP INDEX articles_official_id_article_number")
+    conn.execute("ALTER TABLE articles DROP COLUMN official_id")
     _forget_schema(conn)
     with psycopg.connect(database_url) as other:
         other.execute("SELECT count(*) FROM articles")  # its transaction stays open
         with pytest.raises(psycopg.errors.LockNotAvailable):
             ensure_schema(conn)
+
+
+def test_a_start_on_the_tables_it_wants_takes_none_from_a_reader(
+    conn: psycopg.Connection, database_url: str
+) -> None:
+    """A release applying its schema to tables that have its columns and indexes (a deploy
+    without a new column): it takes no lock a read waits for, so a command reading every
+    table (and so every index) in a long transaction neither stops it nor deadlocks with it
+    (23 Nov: the sitemaps beside the start of 0.80.44)."""
+    tables = [
+        row[0]
+        for row in conn.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        ).fetchall()
+    ]
+    _forget_schema(conn)
+    with psycopg.connect(database_url) as other:
+        for table in tables:  # its transaction stays open
+            other.execute(f"SELECT 1 FROM {table} LIMIT 1".encode())
+        ensure_schema(conn)

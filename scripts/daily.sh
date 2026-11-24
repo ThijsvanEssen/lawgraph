@@ -12,8 +12,8 @@ step feed-events
 step check --skip-edges
 step search-stats prune
 step search-candidates
-# The sitemaps read the graph and write files: outside the lock, so the polls need not wait.
-unlock
+# The sitemaps read the graph for minutes: under the lock, so a deploy waits for them (the
+# start of the API applies the schema, which would wait for their reads).
 step sitemaps
 # Last, so what the nightly run read does not push it out: what the search reads, into memory.
 step prewarm
