@@ -213,6 +213,88 @@ def test_a_walk_reads_a_page_of_a_hub_not_all_of_it(
     assert row is not None and 0 < row[0] < 1000
 
 
+@pytest.fixture()
+def cited_law(store: GraphStore) -> GraphStore:
+    """A law of 60 articles (``a00``..``a59``), each cited by 300 papers of its own
+    (``d<n>_<article>``, edges ``r…`` in that order)."""
+    articles = [f"a{a:02}" for a in range(60)]
+    store.bulk_insert_or_update_nodes("instruments", [_node("instruments", "law")[1]])
+    store.bulk_insert_or_update_nodes(
+        "articles", [_node("articles", key)[1] for key in articles]
+    )
+    store.bulk_insert_or_update_nodes(
+        "documents", [_node("documents", key)[1] for key in CITING_PAPERS]
+    )
+    store.bulk_insert_or_update_edges(
+        [
+            *(
+                _edge(f"p{key}", f"articles/{key}", "instruments/law", "PART_OF")
+                for key in articles
+            ),
+            *(
+                _edge(
+                    f"r{key}", f"documents/{key}", f"articles/a{key[-2:]}", "REFERS_TO"
+                )
+                for key in CITING_PAPERS
+            ),
+        ]
+    )
+    return store
+
+
+CITING_PAPERS = [f"d{n:03}_{a:02}" for n in range(300) for a in range(60)]
+
+
+def test_a_level_of_many_hubs_is_not_read_a_page_of_each(
+    cited_law: GraphStore, conn: psycopg.Connection
+) -> None:
+    """The papers citing the 60 articles share the 140 places left in one turn: the walk
+    keeps the first 140 by the keys of their edges over all articles (two or three of
+    each), and reads of each
+    article a few beyond its share, not a page of 141 (8,460 edges)."""
+    params = node_queries._walk_params(
+        "instruments/law", 2, 200, node_queries.NO_FILTER
+    )
+    with conn.transaction():
+        found = conn.execute(
+            "SELECT lg_neighborhood(%(focal)s, %(depth)s, %(cap)s, %(relations)s,"
+            " %(status)s, %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,"
+            " %(stop)s, %(seats)s)",
+            params,
+        ).fetchone()
+        read = conn.execute(
+            "SELECT pg_stat_get_xact_tuples_returned('edges_to_cover'::regclass)"
+            " + pg_stat_get_xact_tuples_returned('edges_from_cover'::regclass)"
+        ).fetchone()
+    assert found is not None and read is not None
+    papers = sorted(x for x in found[0] if x.startswith("documents/"))
+    assert papers == [f"documents/{key}" for key in CITING_PAPERS[:140]]
+    assert read[0] < 2000
+
+
+def test_the_edges_between_the_nodes_kept_are_read_from_their_own_edges_out(
+    cited_law: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The edges between the nodes a walk keeps: the keys of the edges out of each, to
+    another one kept, from the covering index alone, and only those edges themselves; not
+    the 18,000 edges into the articles, nor every edge out of a node read whole."""
+    cited_law.vacuum_analyze()
+    calls = recorded(cited_law, monkeypatch)
+    hood = node_queries.get_node_neighborhood(cited_law, "instruments", "law", depth=2)
+    assert len(hood["nodes"]) == 200 and len(hood["edges"]) == 200
+    ((statement, params, *_),) = [c for c in calls if "lg_neighborhood(" in c.text]
+    plan = explain(cited_law, statement, params, analyze=True)
+    edges = [
+        (n["Node Type"], n.get("Index Name"), n["Actual Rows"] * n["Actual Loops"])
+        for n in plan_nodes(plan)
+        if n.get("Relation Name") == "edges"
+    ]
+    assert edges == [
+        ("Index Only Scan", "edges_from_cover", 201),
+        ("Index Scan", "edges_pkey", 200),
+    ], edges
+
+
 def test_no_relation_asked_for_walks_nowhere(graph: GraphStore) -> None:
     nothing = node_queries.NeighborFilter(relations=())
     hood = node_queries.get_node_neighborhood(graph, "dossiers", "1", filters=nothing)

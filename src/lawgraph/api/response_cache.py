@@ -361,7 +361,7 @@ async def _send(
             (b"server-timing", timing.encode()),
         ]
         line = request_line(request_id, scope)
-        log_answer(line, status, str(len(body)), duration_ms, how, 0.0)
+        log_answer(line, status, str(len(body)), duration_ms, f"cache={how}", 0.0)
     await send({"type": "http.response.start", "status": status, "headers": headers})
     await send(
         {
