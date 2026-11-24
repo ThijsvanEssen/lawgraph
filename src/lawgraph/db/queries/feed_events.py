@@ -281,10 +281,19 @@ def write_all(store: GraphStore) -> int:
     return store.in_transaction("the feed events", swap)
 
 
+# A row written again takes the place of the one of its event, whatever day that one has:
+# the source may move an event into the days written again (an older row of it is not
+# deleted with those days). An event read twice in one write still fails.
+_REPLACE = "ON CONFLICT (kind, id) DO UPDATE SET " + ", ".join(
+    f"{name} = excluded.{name}" for name in COLUMNS[2:]
+)
+
+
 def write_since(store: GraphStore, since: str) -> int:
     """Write the events dated from *since* again, in place: those of the days a poll
     changes, between two writes of all of them. Every event (``write_all``) when the table
-    is of another shape or never written: the first poll after a release writes it whole."""
+    is of another shape or never written: the first poll after a release writes it whole.
+    An event the source moved out of those days is written again by ``write_all``."""
     if written_at(store) is None:
         return write_all(store)
 
@@ -292,7 +301,9 @@ def write_since(store: GraphStore, since: str) -> int:
         conn.execute(
             f"DELETE FROM {FEED_EVENTS_TABLE} WHERE date >= %(since)s", {"since": since}
         )
-        written = _execute(conn, insert_query(FEED_EVENTS_TABLE), {"since": since})
+        written = _execute(
+            conn, f"{insert_query(FEED_EVENTS_TABLE)}\n{_REPLACE}", {"since": since}
+        )
         _write_chains(conn)
         conn.execute(_STATE, {"since": since})
         return written
