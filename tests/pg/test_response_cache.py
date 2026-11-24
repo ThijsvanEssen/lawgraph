@@ -1,7 +1,9 @@
 """Whole answers of the API kept per data version on a real PostgreSQL
 (``api/response_cache``): a page asked again is given at once, equal requests at the same
 moment are computed once, a write gives the new page, and a page past its budget is
-computed whole in the background for the next request."""
+computed whole in the background for the next request. A slow runner can run past any
+budget: a test waits for the computation in the background (``_settled``) and counts the
+renders of the requests alone (``_counted``)."""
 
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from lawgraph.api.routes import render
 from lawgraph.api.seo import shell
 from lawgraph.config import settings
 from lawgraph.db import GraphStore, whole_answers
+from lawgraph.db.request_context import reads_in_background
 from tests.asserts import assert_status
 from tests.fakes import PATIENCE
 
@@ -53,6 +56,7 @@ def served(
     index = tmp_path / "index.html"
     index.write_text(SHELL)
     (tmp_path / "spa-routes.json").write_text(json.dumps([]))
+    (tmp_path / "start.json").write_text(json.dumps({}))
     monkeypatch.setattr(settings, "SPA_INDEX", str(index))
     monkeypatch.setattr(whole_answers, "RESPONSE_BYTES", 16 * 2**20)
     # a write is followed by its new page, however slow the runner
@@ -105,13 +109,23 @@ def _timing(response: httpx.Response) -> dict[str, str]:
     return found
 
 
+async def _settled() -> None:
+    """Wait until no answer is computed any more: a short one (a budget ran out) is
+    computed again in the background before it is kept."""
+    while whole_answers._computing:
+        computing = next(iter(whole_answers._computing.values()))
+        await asyncio.wait_for(asyncio.wrap_future(computing.future), PATIENCE)
+
+
 def _counted(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The pages rendered from now on (one ``_source_page`` each)."""
+    """The pages rendered for a request from now on (one ``_source_page`` each), not
+    the ones computed again in the background."""
     rendered: list[str] = []
     source_page = render._source_page
 
     def counted(store: GraphStore, pad: Any, node_id: str) -> Any:
-        rendered.append(node_id)
+        if not reads_in_background():
+            rendered.append(node_id)
         return source_page(store, pad, node_id)
 
     monkeypatch.setattr(render, "_source_page", counted)
@@ -126,13 +140,15 @@ def test_a_page_asked_again_is_given_at_once(
     async def test(client: httpx.AsyncClient) -> None:
         first = await client.get(PAGE)
         assert_status(first, 200)
+        await _settled()
         again = await client.get(PAGE)
         assert_status(again, 200)
-        assert again.text == first.text
+        assert "Hij die jegens een ander" in again.text
         assert _timing(again)["cache"] == "hit"
         assert float(_timing(again)["total"]) < 10
         node = "/api/nodes/articles/bwbr0005289_162"
         await client.get(node)
+        await _settled()
         assert _timing(await client.get(node))["cache"] == "hit"
 
     _run(test)
@@ -173,10 +189,7 @@ def test_a_page_past_its_budget_is_rendered_whole_for_the_next_request(
         late = await client.get(PAGE)
         assert_status(late, 503)
         assert late.headers[render.LATE_HEADER] == "1"
-        for _ in range(int(PATIENCE / 0.01)):
-            if whole_answers._kept:
-                break
-            await asyncio.sleep(0.01)
+        await _settled()
         whole = await client.get(PAGE)
         assert_status(whole, 200)
         assert "Hij die jegens een ander" in whole.text
