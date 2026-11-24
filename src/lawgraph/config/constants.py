@@ -262,6 +262,9 @@ ImplementsBasis = Literal["national_implementing_measure", "considerans"]
 IMPLEMENTS_BASIS_NIM: Final[ImplementsBasis] = "national_implementing_measure"
 IMPLEMENTS_BASIS_CONSIDERANS: Final[ImplementsBasis] = "considerans"
 IMPLEMENTS_BASES: tuple[ImplementsBasis, ...] = get_args(ImplementsBasis)
+# The one basis no edge has: a dossier's own title names the EU act it implements
+# (`props.implements[].bases` of a dossier, next to those of the edges).
+IMPLEMENTS_BASIS_TITLE: Final = "title"
 
 # International instruments the graph has a name for: BWB treaties carry a BWBV id. The
 # Convention of the ECHR is one of them: the treaty whose articles ECHR judgments apply.

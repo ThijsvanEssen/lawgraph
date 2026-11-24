@@ -125,12 +125,14 @@ def test_the_dossier_says_what_its_law_changes_and_implements(
                 "instruments/32023l2864",
                 RELATION_IMPLEMENTS,
                 source="t",
+                meta={"bases": ["national_implementing_measure"]},
             ),
             make_edge_doc(
                 "instruments/bwbr0052854",
                 "instruments/32023r2869",
                 RELATION_IMPLEMENTS,
                 source="t",
+                meta={"bases": ["considerans", "national_implementing_measure"]},
             ),
         ]
     )
@@ -148,7 +150,7 @@ def test_the_dossier_says_what_its_law_changes_and_implements(
     ]
     assert effect["amends"][0]["name"] == "Wet op het financieel toezicht"
     assert [(i["celex"], i["basis"]) for i in effect["implements"]] == [
-        ("32023L2864", ["staatsblad"]),
-        ("32023R2869", ["wet"]),
+        ("32023L2864", ["national_implementing_measure"]),
+        ("32023R2869", ["considerans", "national_implementing_measure"]),
     ]
     assert effect["implements"][0]["short"] is None

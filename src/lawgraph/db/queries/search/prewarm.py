@@ -1,12 +1,13 @@
-"""What the search reads, read into memory after the nightly run (``pg_prewarm``).
+"""What the search reads, read into memory after the nightly run and each poll (``pg_prewarm``).
 
-The first searches after the nightly run read their pages from disk: an article search
-of two words 2.7 s cold against 0.3 s warm (prod, 29 Oct). Here the search indexes of
-``TABLES``, then the heap and TOAST of the tables asked for, are read into the cache of the
-operating system (``pg_prewarm`` ``read``), within ``BUDGET_MB``: a page there costs
-PostgreSQL no disk read, and ``shared_buffers`` (1 GB, which the search indexes alone
-outgrow: 1.9 GB on prod) keeps what the rest of the API reads. A relation that does not
-fit in what is left is skipped, the next one is still read.
+A cold search reads its pages from disk: an article search of two words 2.7 s cold against
+0.3 s warm (prod, 29 Oct), and nine hours after the nightly run what it read was gone again
+(a judgment search 1.9 s, 0.07 s warm; 24 Nov), hence again after each poll. Here the
+search indexes of ``TABLES``, then the heap and TOAST of the tables asked for, are read into
+the cache of the operating system (``pg_prewarm`` ``read``), within ``BUDGET_MB``: a page
+there costs PostgreSQL no disk read, and ``shared_buffers`` (1 GB, which the search indexes
+alone outgrow: 1.9 GB on prod) keeps what the rest of the API reads. A relation that does
+not fit in what is left is skipped, the next one is still read.
 """
 
 from __future__ import annotations

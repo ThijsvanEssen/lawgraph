@@ -12,12 +12,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from typing import Any, Final
+from typing import Any
 
+from lawgraph.config.constants import IMPLEMENTS_BASIS_TITLE
 from lawgraph.core.eu_citations import implemented_acts
-
-# The basis of an EU act a dossier implements by its title alone.
-IMPLEMENTS_BASIS_TITLE: Final = "title"
 
 # "COM (2025) 80", "COM(2026)710", "COM(2025) 0080": the year and number of a document of the
 # Commission.

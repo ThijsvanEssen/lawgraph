@@ -448,15 +448,17 @@ def request_line(request_id: str, scope: Scope) -> str:
 
 
 def log_answer(
-    line: str, status: int, size: str, duration_ms: float, cache: str, db_ms: float
+    line: str, status: int, size: str, duration_ms: float, cached: str, db_ms: float
 ) -> None:
+    """The line of an answer; *cached* names the cache it says something of
+    (``cache=stale``, ``versioned=hit``)."""
     logger.info(
-        "%s %d %sb (%.1fms) cache=%s db=%.1fms worker=%d",
+        "%s %d %sb (%.1fms) %s db=%.1fms worker=%d",
         line,
         status,
         size,
         duration_ms,
-        cache,
+        cached,
         db_ms,
         os.getpid(),
     )
@@ -466,10 +468,12 @@ async def log_requests(
     request: Request, call_next: RequestResponseEndpoint
 ) -> StarletteResponse:
     """One line per request (``request_line``): the status, the size, how long it took,
-    whether the cache held its answers (``cache=hit|miss|none``), the time in its own
-    statements and the process that answered. The same, as ``Server-Timing``, goes to the
-    client. Every answer carries the id as ``X-Request-ID``; an error no handler answers is
-    a 500 with that id (``errors.internal_error``), and its line holds the traceback."""
+    whether ``version_cache`` held the answers the request asked of it
+    (``versioned=hit|miss|none``), the time in its own statements and the process that
+    answered. The same, as ``Server-Timing``, goes to the client; ``cache`` there names the
+    cache of whole answers alone (``response_cache``). Every answer carries the id as
+    ``X-Request-ID``; an error no handler answers is a 500 with that id
+    (``errors.internal_error``), and its line holds the traceback."""
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
     start = time.perf_counter()
@@ -488,15 +492,21 @@ async def log_requests(
     response.headers["Server-Timing"] = server_timing(timing, duration_ms)
     size = response.headers.get("content-length", "-")
     log_answer(
-        line, response.status_code, size, duration_ms, timing.cache, timing.db * 1000
+        line,
+        response.status_code,
+        size,
+        duration_ms,
+        f"versioned={timing.cache}",
+        timing.db * 1000,
     )
     return response
 
 
 def server_timing(timing: request_timing.RequestTiming, total_ms: float) -> str:
     """The ``Server-Timing`` of a request: ``total``, the time in its own statements
-    (``db``), and the cache (``desc`` ``hit`` or ``miss``, with what a miss waited for)."""
+    (``db``), and ``versioned``, the answers of ``version_cache`` it asked for (``desc``
+    ``hit`` or ``miss``, with what a miss waited for)."""
     metrics = [f"total;dur={total_ms:.1f}", f"db;dur={timing.db * 1000:.1f}"]
     if timing.cache != "none":
-        metrics.append(f"cache;desc={timing.cache};dur={timing.waited * 1000:.1f}")
+        metrics.append(f"versioned;desc={timing.cache};dur={timing.waited * 1000:.1f}")
     return ", ".join(metrics)

@@ -798,16 +798,15 @@ def get_node_neighborhood(
     """Every node and edge within ``depth`` hops of a node, breadth first.
 
     ``cap`` bounds the number of nodes, shared out over the levels and relations
-    (``lg_neighborhood``). ``filters`` shape the walk itself: it follows only edges of the given relations and status, in the
-    given direction, and goes through nodes of the given types (the focal node is always
-    kept). A node of a collection in *stop_at* but the focal one is kept but not walked
-    through, but for the step to the faction or cabinet it sits in (``WALK_SEATS``), so the
-    cap goes to what the node itself touches. The result also carries every other edge of those relations and that status
-    between two of the nodes kept, so the frontend can render the full subgraph. With
-    *canvas* a node carries only the props the canvas of the explorer draws
-    (``_rows.CANVAS_PROPS``) and an edge only the keys of its ``meta`` the canvas reads, as a
-    neighbour of ``props=canvas`` does; with *passages* an edge's ``meta`` has its
-    ``passages``.
+    (``lg_neighborhood``). ``filters`` shape the walk: it follows only edges of the given
+    relations and status, in the given direction, through nodes of the given types (the
+    focal node is always kept). A node of a collection in *stop_at* but the focal one is
+    kept but not walked through, but for the step to the faction or cabinet it sits in
+    (``WALK_SEATS``). The result also carries every other edge of those relations and that
+    status between two of the nodes kept (those out of each, from its covering index). With
+    *canvas* a node carries only the props the canvas draws (``_rows.CANVAS_PROPS``) and an
+    edge only the keys of its ``meta`` it reads, as a neighbour of ``props=canvas`` does;
+    with *passages* an edge's ``meta`` has its ``passages``.
     """
     focal = _load_node(store, collection, key)
     props = canvas_props("n") if canvas else light_props("n")
@@ -832,10 +831,11 @@ def get_node_neighborhood(
                     ) AS nodes,
                     (SELECT coalesce(json_agg(json_build_array(
                          e.key, e.from_id, e.to_id, e.doc) ORDER BY e.key), '[]')
-                     FROM walked w, edges e
-                     WHERE e.from_id = ANY(w.ids || %(focal)s::text)
-                       AND e.to_id = ANY(w.ids || %(focal)s::text) {filters.edge_sql("e")})
-                        AS edges,
+                     FROM walked w, unnest(w.ids || %(focal)s::text) f(id), LATERAL (
+                         SELECT c.key FROM edges c
+                         WHERE c.from_id = f.id AND c.to_id = ANY(w.ids || %(focal)s::text)
+                         ORDER BY c.relation NULLS LAST, c.to_collection NULLS LAST, c.key
+                     ) c JOIN edges e ON e.key = c.key WHERE true {filters.edge_sql("e")}) AS edges,
                     (SELECT {node_date("n")} FROM nodes n
                      WHERE n.id = %(focal)s
                        AND n.collection = ANY({sql_text_array(DATED_COLLECTIONS)})) AS day
