@@ -102,10 +102,22 @@ def test_the_celex_numbers_of_a_query_are_asked_in_batches_typed_and_escaped() -
     """Typed as CELLAR stores them: a plain ``"32010R0000"`` matches nothing there."""
     queries: list[str] = []
     celex = [f"32010R{n:04d}" for n in range(51)] + ['bad"\\id']
-    _client([[], []], queries).enumerate_cjeu_ids(celex_ids=celex)
-    assert len(queries) == 2  # 50 and 2
+    _client([[], [], []], queries).enumerate_cjeu_ids(celex_ids=celex)
+    assert len(queries) == 3  # 50 and 2, then the country
     assert f'"32010R0000"{XSD_STRING}, "32010R0001"{XSD_STRING}' in queries[0]
     assert f'"32010R0050"{XSD_STRING}, "bad\\"\\\\id"{XSD_STRING}' in queries[1]
+
+
+def test_the_judgments_of_the_country_come_with_those_citing_the_acts() -> None:
+    """A joined case referred from NLD and BEL cites no act of the graph: only the list
+    of the country names it. Each judgment comes back once."""
+    queries: list[str] = []
+    ids = _client(
+        [["62019CJ0001", "62019CJ0002"], ["62019CJ0002", "62020CJ0003"]], queries
+    ).enumerate_cjeu_ids(celex_ids=["32016R0679"], country_code="NLD")
+    assert ids == ["62019CJ0001", "62019CJ0002", "62020CJ0003"]
+    assert "cdm:work_cites_work" in queries[0]
+    assert "country/NLD" in queries[1]
 
 
 @pytest.mark.parametrize(

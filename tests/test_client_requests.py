@@ -133,7 +133,7 @@ CASES: dict[str, tuple[Callable[..., Any], Callable[[Any], Any], list[Any]]] = {
     "eu-cjeu-citing": (
         EUClient,
         lambda c: c.enumerate_cjeu_ids(celex_ids=["32016R0679", "31995L0046"]),
-        [SPARQL_EMPTY],
+        [SPARQL_EMPTY, SPARQL_EMPTY],
     ),
     "eu-com": (
         EUClient,
@@ -417,6 +417,12 @@ EXPECTED: dict[str, list[tuple[str, dict[str, str], Any, bool]]] = {
     "eu-cjeu-citing": [
         (
             "https://publications.europa.eu/webapi/rdf/sparql?query=PREFIX+cdm%3A+%3Chttp%3A%2F%2Fpublications.europa.eu%2Fontology%2Fcdm%23%3E+SELECT+DISTINCT+%3Fjudgment_celex+WHERE+%7B+%3Fj+a+cdm%3Ajudgement+%3B+cdm%3Aresource_legal_id_celex+%3Fjudgment_celex+%3B+cdm%3Awork_cites_work+%3Fcited+.+%3Fcited+cdm%3Aresource_legal_id_celex+%3Fcited_celex+.+FILTER%28%3Fcited_celex+IN+%28%2232016R0679%22%5E%5E%3Chttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23string%3E%2C+%2231995L0046%22%5E%5E%3Chttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23string%3E%29%29+%7D+ORDER+BY+%3Fjudgment_celex+LIMIT+500+OFFSET+0&format=application%2Fsparql-results%2Bjson",
+            {"Accept": "*/*"},
+            120,
+            False,
+        ),
+        (
+            "https://publications.europa.eu/webapi/rdf/sparql?query=PREFIX+cdm%3A+%3Chttp%3A%2F%2Fpublications.europa.eu%2Fontology%2Fcdm%23%3E+SELECT+DISTINCT+%3Fcelex+WHERE+%7B+%3Fj+a+cdm%3Ajudgement+%3B+cdm%3Aresource_legal_id_celex+%3Fcelex+%3B+cdm%3Acase-law_originates_in_country+%3Chttp%3A%2F%2Fpublications.europa.eu%2Fresource%2Fauthority%2Fcountry%2FNLD%3E+.+%7D+ORDER+BY+%3Fcelex+LIMIT+500+OFFSET+0&format=application%2Fsparql-results%2Bjson",
             {"Accept": "*/*"},
             120,
             False,
