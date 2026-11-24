@@ -37,6 +37,7 @@ from lawgraph.api.schemas.dossier_eu import WithEu
 from lawgraph.api.schemas.ministries import WithMinistry
 from lawgraph.config.constants import (
     COLLECTION_COMMITTEES,
+    IMPLEMENTS_BASES,
     Chamber,
     Collection,
     EdgeStatus,
@@ -737,9 +738,9 @@ class LegalEffectItemDTO(StrictModel):
     celex: str | None = None
     basis: list[str] = Field(
         default_factory=list,
-        description="Where it shows: `voorstel` (a bill of the dossier proposes the change), "
-        "`staatsblad` (an amending publication of the dossier enacted it), `wet` (the act of "
-        "the dossier implements it).",
+        description="`amends`: `voorstel` (a bill proposes the change) or `staatsblad` (a "
+        "publication enacted it). `implements`: what it rests on, as `bases` of a dossier's "
+        "`implements`: `national_implementing_measure`, `considerans`.",
     )
 
 
@@ -763,8 +764,8 @@ def legal_effect(
 ) -> LegalEffectDTO:
     """The legal effect of a dossier from its hub rows (``get_dossier_hub``: a change a bill
     proposes or a publication enacted, to the parent instrument), the acts it implements
-    (``get_dossier_implements``) and the names of those instruments; each in the order the
-    title names it, then by name."""
+    (``get_dossier_implements``: ``{id, bases}`` per edge) and the names of those
+    instruments; each in the order the title names it, then by name."""
     own = {row["id"] for row in hub_rows if row.get("relation") == "legislated_in"}
     amends: dict[str, list[str]] = {}
     for row in hub_rows:
@@ -777,7 +778,9 @@ def legal_effect(
             _add(amends, row["id"], basis)
     implemented: dict[str, list[str]] = {}
     for row in implements:
-        _add(implemented, row["id"], row.get("basis"))
+        _add(implemented, row["id"], None)
+        for basis in filter(IMPLEMENTS_BASES.__contains__, row.get("bases") or []):
+            _add(implemented, row["id"], basis)
     return LegalEffectDTO(
         amends=_items(amends, names, title),
         implements=_items(implemented, names, title),

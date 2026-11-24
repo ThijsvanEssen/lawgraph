@@ -815,16 +815,14 @@ def get_dossier_hub(
 
 
 def get_dossier_implements(store: GraphStore, dossier_id: str) -> list[dict[str, Any]]:
-    """``{id, basis}`` of the EU acts a dossier's acts implement: ``IMPLEMENTS`` from an
-    instrument ``LEGISLATED_IN`` the dossier, ``basis`` ``staatsblad`` from an amending
-    publication, ``wet`` from the act itself; each act and basis once, by id."""
+    """``{id, bases}`` per ``IMPLEMENTS`` edge from an instrument ``LEGISLATED_IN`` the dossier
+    to an EU act: ``bases`` those of the edge (``national_implementing_measure``,
+    ``considerans``), the words the dossier's ``implements`` uses; null for none."""
     rows = store.query(
         f"""
-        SELECT DISTINCT eu.id AS id,
-               CASE WHEN {is_present("s.props -> 'publication_kind'")} THEN 'staatsblad'
-                    ELSE 'wet' END AS basis
+        SELECT eu.id AS id, m.doc -> 'meta' -> 'bases' AS bases
         {legislated_implements("%(dossier_id)s")}
-        ORDER BY 1 ASC NULLS FIRST, 2 ASC NULLS FIRST
+        ORDER BY 1 ASC NULLS FIRST, m.key ASC
         """,
         {
             "dossier_id": dossier_id,
