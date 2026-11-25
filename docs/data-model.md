@@ -2033,7 +2033,8 @@ index alone, `(tier, published_on)` for the judgments of the feed, a page per ti
 publications), the documents newest first, and the member lists in name order. A member by their slug (`members_slug`), a committee by its slug or its key (`committees_slug`, `committees_lower_key`) a zaak by its number (`cases_number`) and an activity by its number (`activities_number`). For a period on the instruments list: the day it came into force (`instruments_date_in_force`, on `lg_str(props -> 'date_in_force')`) and the day it was published (`instruments_list_date_published`), both without the publications. For the words of the feed (`q`): a trigram index on the title the feed shows of a paper, its subject or else its title, folded (`documents_feed_title_g`), and a GIN index on the dossier numbers of an instrument (`instruments_dossier_numbers`, the publications of a dossier). The artikel 100-brieven newest first (`documents_article_100`, partial: the letters of the government whose subject names them, `letter_kind=article_100`). `edges`:
 `(from_id, relation, to_collection, key)` and `(to_id, relation, from_collection, key)`, each
 with the other end and collection included (`edges_from_cover`, `edges_to_cover`: a level of
-`/api/paths` reads a node's edges from the index alone, and a page of a node's neighbours
+`/api/paths` and a neighbourhood without `status` (`lg_neighborhood`) read a node's edges from
+the index alone, and a page of a node's neighbours
 reads its keys from it in key order, stopping after its limit, and only those edges whole;
 the only indexes by end, so that the planner cannot take a smaller one without `key` and
 read the table for every edge of a hub), `relation`,
