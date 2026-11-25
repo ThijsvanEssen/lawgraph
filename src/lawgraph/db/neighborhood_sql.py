@@ -28,6 +28,70 @@ from lawgraph.db.schema import node_exists
 # than the room. So 60 articles cited by 300 papers each give 5 edges of each, not 141, and
 # the walk keeps what a whole read would: a node of a cut bucket is passed over only when it
 # is kept (before, or as itself), and no more than the room is kept after the read.
+
+
+def _read(status: str) -> str:
+    """The read of a level in ``lg_neighborhood`` (see above), with *status* as a further
+    condition on each edge read."""
+    return f"""
+SELECT r.ids, r.whole INTO reached, whole FROM (
+    WITH k AS (
+        SELECT u.*, least(room + 1, ceil(reach * (room + 1.0) / count(*) OVER (
+            PARTITION BY u.outward, u.relation, u.other)))::int AS k
+        FROM unnest(b_node, b_outward, b_relation, b_other)
+            WITH ORDINALITY AS u(node, outward, relation, other, i)
+    ), got AS (
+        SELECT k.i, k.k, k.outward, k.relation, k.other, p.id, p.key
+        FROM k CROSS JOIN LATERAL (
+            (SELECT e.to_id AS id, e.key FROM public.edges e
+             WHERE k.outward AND e.from_id = k.node AND e.relation = k.relation
+               AND e.to_collection = k.other AND e.to_id <> ALL(seen){status}
+               AND {node_exists("e.to_id", "k.other")}
+             ORDER BY e.key LIMIT k.k)
+            UNION ALL
+            (SELECT e.from_id, e.key FROM public.edges e
+             WHERE NOT k.outward AND e.to_id = k.node
+               AND e.relation = k.relation AND e.from_collection = k.other
+               AND e.from_id <> ALL(seen){status}
+               AND {node_exists("e.from_id", "k.other")}
+             ORDER BY e.key LIMIT k.k)
+        ) p
+    ), edge AS (
+        -- the key up to which each bucket of a share read short was read whole
+        SELECT c.outward, c.relation, c.other, min(c.top) AS top FROM (
+            SELECT g.outward, g.relation, g.other, max(g.key) AS top
+            FROM got g WHERE g.k <= room
+            GROUP BY g.i, g.k, g.outward, g.relation, g.other
+            HAVING count(*) = g.k
+        ) c GROUP BY 1, 2, 3
+    ), ranked AS (
+        SELECT t.*, row_number() OVER (
+            PARTITION BY t.outward, t.relation, t.other ORDER BY t.key) AS rank
+        FROM (
+            SELECT g.id, g.outward, g.relation, g.other, min(g.key) AS key,
+                   d.top IS NOT NULL AS cut
+            FROM got g LEFT JOIN edge d USING (outward, relation, other)
+            WHERE d.top IS NULL OR g.key <= d.top
+            GROUP BY 1, 2, 3, 4, 6
+        ) t
+    ), shares AS (
+        SELECT count(*) AS size, bool_or(ranked.cut) AS cut FROM ranked
+        GROUP BY outward, relation, other
+    ), upto AS (
+        SELECT least(room + 1, min(shares.size) FILTER (WHERE shares.cut)) AS t,
+               NOT coalesce(bool_or(shares.cut), false) AS whole FROM shares
+    )
+    SELECT ARRAY(
+        SELECT x.id FROM ranked x WHERE x.rank <= u.t
+        ORDER BY x.rank, CASE WHEN x.outward THEN 'out ' ELSE 'in ' END
+            || x.relation NULLS LAST, x.other NULLS LAST, x.key
+    ) AS ids,
+    u.whole OR (SELECT sum(least(s.size, u.t)) FROM shares s) > room AS whole
+    FROM upto u
+) r;
+"""
+
+
 NEIGHBORHOOD = f"""
 CREATE OR REPLACE FUNCTION lg_neighborhood(
     w_focal text, w_depth int, w_cap int, w_relations text[], w_status text,
@@ -113,63 +177,13 @@ BEGIN
                 ) b;
                 reach := 2;
                 LOOP
-                    SELECT r.ids, r.whole INTO reached, whole FROM (
-                        WITH k AS (
-                            SELECT u.*, least(room + 1, ceil(reach * (room + 1.0) / count(*) OVER (
-                                PARTITION BY u.outward, u.relation, u.other)))::int AS k
-                            FROM unnest(b_node, b_outward, b_relation, b_other)
-                                WITH ORDINALITY AS u(node, outward, relation, other, i)
-                        ), got AS (
-                            SELECT k.i, k.k, k.outward, k.relation, k.other, p.id, p.key
-                            FROM k CROSS JOIN LATERAL (
-                                (SELECT e.to_id AS id, e.key FROM public.edges e
-                                 WHERE k.outward AND e.from_id = k.node AND e.relation = k.relation
-                                   AND e.to_collection = k.other AND e.to_id <> ALL(seen)
-                                   AND (w_status IS NULL OR e.status = w_status)
-                                   AND {node_exists("e.to_id", "k.other")}
-                                 ORDER BY e.key LIMIT k.k)
-                                UNION ALL
-                                (SELECT e.from_id, e.key FROM public.edges e
-                                 WHERE NOT k.outward AND e.to_id = k.node
-                                   AND e.relation = k.relation AND e.from_collection = k.other
-                                   AND e.from_id <> ALL(seen)
-                                   AND (w_status IS NULL OR e.status = w_status)
-                                   AND {node_exists("e.from_id", "k.other")}
-                                 ORDER BY e.key LIMIT k.k)
-                            ) p
-                        ), edge AS (
-                            -- the key up to which each bucket of a share read short was read whole
-                            SELECT c.outward, c.relation, c.other, min(c.top) AS top FROM (
-                                SELECT g.outward, g.relation, g.other, max(g.key) AS top
-                                FROM got g WHERE g.k <= room
-                                GROUP BY g.i, g.k, g.outward, g.relation, g.other
-                                HAVING count(*) = g.k
-                            ) c GROUP BY 1, 2, 3
-                        ), ranked AS (
-                            SELECT t.*, row_number() OVER (
-                                PARTITION BY t.outward, t.relation, t.other ORDER BY t.key) AS rank
-                            FROM (
-                                SELECT g.id, g.outward, g.relation, g.other, min(g.key) AS key,
-                                       d.top IS NOT NULL AS cut
-                                FROM got g LEFT JOIN edge d USING (outward, relation, other)
-                                WHERE d.top IS NULL OR g.key <= d.top
-                                GROUP BY 1, 2, 3, 4, 6
-                            ) t
-                        ), shares AS (
-                            SELECT count(*) AS size, bool_or(ranked.cut) AS cut FROM ranked
-                            GROUP BY outward, relation, other
-                        ), upto AS (
-                            SELECT least(room + 1, min(shares.size) FILTER (WHERE shares.cut)) AS t,
-                                   NOT coalesce(bool_or(shares.cut), false) AS whole FROM shares
-                        )
-                        SELECT ARRAY(
-                            SELECT x.id FROM ranked x WHERE x.rank <= u.t
-                            ORDER BY x.rank, CASE WHEN x.outward THEN 'out ' ELSE 'in ' END
-                                || x.relation NULLS LAST, x.other NULLS LAST, x.key
-                        ) AS ids,
-                        u.whole OR (SELECT sum(least(s.size, u.t)) FROM shares s) > room AS whole
-                        FROM upto u
-                    ) r;
+                    -- without a status the edges are read from the covering indexes alone (they
+                    -- hold no status), in the generic plan of the function too
+                    IF w_status IS NULL THEN
+                        {_read("")}
+                    ELSE
+                        {_read(" AND e.status = w_status")}
+                    END IF;
                     EXIT WHEN whole;
                     reach := reach * 4;
                 END LOOP;
