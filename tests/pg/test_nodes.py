@@ -277,13 +277,13 @@ def _walk_plans(conn: psycopg.Connection, params: dict[str, Any]) -> list[Any]:
     """The plans of the statements ``lg_neighborhood`` runs for *params*, as run (from
     ``auto_explain``), with the generic plans a function keeps after a few calls."""
     plans: list[Any] = []
-    conn.add_notice_handler(
-        lambda d: (
-            plans.append(json.loads(d.message_primary.split("plan:\n", 1)[1]))
-            if "plan:\n" in (d.message_primary or "")
-            else None
-        )
-    )
+
+    def logged(notice: psycopg.errors.Diagnostic) -> None:
+        _, plan, found = (notice.message_primary or "").partition("plan:\n")
+        if plan:
+            plans.append(json.loads(found))
+
+    conn.add_notice_handler(logged)
     conn.execute("LOAD 'auto_explain'")
     for setting, value in (
         ("auto_explain.log_min_duration", "0"),
