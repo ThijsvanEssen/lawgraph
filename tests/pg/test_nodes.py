@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -270,6 +271,56 @@ def test_a_level_of_many_hubs_is_not_read_a_page_of_each(
     papers = sorted(x for x in found[0] if x.startswith("documents/"))
     assert papers == [f"documents/{key}" for key in CITING_PAPERS[:140]]
     assert read[0] < 2000
+
+
+def _walk_plans(conn: psycopg.Connection, params: dict[str, Any]) -> list[Any]:
+    """The plans of the statements ``lg_neighborhood`` runs for *params*, as run (from
+    ``auto_explain``), with the generic plans a function keeps after a few calls."""
+    plans: list[Any] = []
+
+    def logged(notice: psycopg.errors.Diagnostic) -> None:
+        _, plan, found = (notice.message_primary or "").partition("plan:\n")
+        if plan:
+            plans.append(json.loads(found))
+
+    conn.add_notice_handler(logged)
+    conn.execute("LOAD 'auto_explain'")
+    for setting, value in (
+        ("auto_explain.log_min_duration", "0"),
+        ("auto_explain.log_nested_statements", "on"),
+        ("auto_explain.log_analyze", "on"),
+        ("auto_explain.log_buffers", "on"),
+        ("auto_explain.log_format", "json"),
+        ("auto_explain.log_level", "notice"),
+        ("plan_cache_mode", "force_generic_plan"),
+    ):
+        conn.execute(f"SET {setting} = '{value}'")
+    conn.execute(
+        "SELECT lg_neighborhood(%(focal)s, %(depth)s, %(cap)s, %(relations)s,"
+        " %(status)s, %(outbound)s, %(inbound)s, %(collections)s, %(tables)s,"
+        " %(stop)s, %(seats)s)",
+        params,
+    )
+    return plans
+
+
+def test_a_walk_reads_its_edges_from_the_covering_indexes_alone(
+    cited_law: GraphStore, conn: psycopg.Connection
+) -> None:
+    """Every read of the edges in a walk without a status, in its generic plans too, is
+    one of the covering indexes alone: once the edges are vacuumed, no row of the table."""
+    cited_law.vacuum_analyze()
+    params = node_queries._walk_params(
+        "instruments/law", 2, 200, node_queries.NO_FILTER
+    )
+    scans = [
+        (n["Node Type"], n.get("Index Name"), n.get("Heap Fetches", 0))
+        for plan in _walk_plans(conn, params)
+        for n in plan_nodes(plan["Plan"])
+        if n.get("Relation Name") == "edges" and n["Actual Loops"] > 0
+    ]
+    assert {s[1] for s in scans} == {"edges_from_cover", "edges_to_cover"}, scans
+    assert {(s[0], s[2]) for s in scans} == {("Index Only Scan", 0)}, scans
 
 
 def test_the_edges_between_the_nodes_kept_are_read_from_their_own_edges_out(
