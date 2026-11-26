@@ -799,6 +799,7 @@ def test_the_networks_of_the_laws_cited_most_are_read_as_the_explorer_asks(
     from lawgraph.api.app import app
     from lawgraph.api.dependencies import get_store
     from lawgraph.api.routes import nodes as node_routes
+    from lawgraph.db.queries.nodes import get_node_with_neighbors
 
     store.bulk_insert_or_update_nodes(
         "instruments",
@@ -807,7 +808,7 @@ def test_the_networks_of_the_laws_cited_most_are_read_as_the_explorer_asks(
          for key, n in {"bwbr0000001": 3, "bwbr0000002": 9}.items()],
     )  # fmt: skip
     read: list[tuple[tuple, dict]] = []
-    real = node_routes.get_node_with_neighbors
+    real = get_node_with_neighbors
 
     def reading(*args, **kwargs):
         read.append((args[1:], kwargs))
