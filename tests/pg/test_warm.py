@@ -664,6 +664,11 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
     monkeypatch.setattr(warm, "most_cited_laws", lambda s, n: ["BWBR0001"])
     monkeypatch.setattr(warm_nodes, "get_node_with_neighbors", lambda *args: None)
     monkeypatch.setattr(warm, "get_node_neighborhood", lambda *a, **k: None)
+    monkeypatch.setattr(
+        warm,
+        "get_node_graph",
+        lambda *a, **k: asked.append(("get_node_graph", k["props"], k["limit"])),
+    )
     monkeypatch.setattr(warm, "_warm_search_terms", lambda store_: None)
     warm.warm_up(store)
 
@@ -686,6 +691,8 @@ def test_the_warm_up_asks_the_first_pages_of_the_explorer(
             ("get_feed_summary", None, first["home_summary"]["limit"]),
             ("get_feed", None, first["home_ek_votes"]),
             ("get_feed_summary", None, first["actueel_summary"]["limit"]),
+            *(("get_node_graph", first["law_network"]["props"], limit)
+              for limit in first["law_network"]["limits"]),
         },
         key=str,
     )  # fmt: skip
@@ -778,3 +785,68 @@ def test_the_neighborhoods_are_warmed_after_the_articles_once_an_hour(
     warm.warm_up(store)
     warm.warm_up(store)
     assert ran == ["articles", "neighborhoods"]
+
+
+def test_the_networks_of_the_laws_cited_most_are_read_as_the_explorer_asks(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The network of each law cited most, the most cited first, read with what the
+    explorer asks when it opens Netwerk of a law (``law_network`` of
+    ``first-pages.json``: ``/api/nodes/instruments/{key}?limit=…&props=canvas``): the
+    query below the route gets the same arguments from the warm-up as from that request."""
+    from fastapi.testclient import TestClient
+
+    from lawgraph.api.app import app
+    from lawgraph.api.dependencies import get_store
+    from lawgraph.api.routes import nodes as node_routes
+    from lawgraph.db.queries.nodes import get_node_with_neighbors
+
+    store.bulk_insert_or_update_nodes(
+        "instruments",
+        [{"key": key, "type": "instrument", "labels": [],
+          "props": {"bwb_id": key.upper(), "inbound_citation_count": n}}
+         for key, n in {"bwbr0000001": 3, "bwbr0000002": 9}.items()],
+    )  # fmt: skip
+    read: list[tuple[tuple, dict]] = []
+    real = get_node_with_neighbors
+
+    def reading(*args, **kwargs):
+        read.append((args[1:], kwargs))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(node_routes, "get_node_with_neighbors", reading)
+    warm._warm_law_networks(store)
+    page = warm_nodes.FIRST_PAGES["law_network"]
+    assert [args for args, _ in read] == [
+        ("instruments", key) for key in ("bwbr0000002", "bwbr0000001")
+        for _ in page["limits"]
+    ]  # fmt: skip
+    warmed = read[: len(page["limits"])]
+
+    read.clear()
+    app.dependency_overrides[get_store] = lambda: store
+    try:
+        client = TestClient(app)
+        for limit in page["limits"]:
+            answer = client.get(
+                "/api/nodes/instruments/bwbr0000002",
+                params={"limit": limit, "props": page["props"]},
+            )
+            assert answer.status_code == 200, answer.text
+    finally:
+        app.dependency_overrides.pop(get_store, None)
+    assert read == warmed
+
+
+def test_the_networks_of_laws_are_read_after_warm_once_an_hour(
+    store: GraphStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before the most cited articles, at most once per ``ARTICLES_EVERY``."""
+    ran: list[str] = []
+    monkeypatch.setattr(warm, "_warm_law_networks", lambda s: ran.append("laws"))
+    monkeypatch.setattr(warm, "_warm_articles", lambda *a: ran.append("articles"))
+    monkeypatch.setattr(warm, "_warm_neighborhoods", lambda s: None)
+    monkeypatch.setattr(warm, "_warm_search_terms", lambda s: None)
+    warm.warm_up(store)
+    warm.warm_up(store)
+    assert ran == ["laws", "articles"]
