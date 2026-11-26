@@ -4,14 +4,15 @@ The facets and totals of the unfiltered lists, the statistics and coverage, the
 statistics of the search, the lower courts of Actueel, the pages of the newest cabinets,
 the dossiers of the active factions, the pages of the most cited laws (judgments, related
 laws, EU links), the dossiers of the homepage and the bills of its network; after those the
-lists under the filters visitors choose most (``_common_filter_parts``). Off with
+lists under the filters visitors choose most (``_common_filter_parts``), and once an hour
+the most cited articles and laws as the canvas draws them. Off with
 ``LAWGRAPH_API_WARM_UP=false``."""
 
 from __future__ import annotations
 
 import datetime as dt
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any
@@ -23,6 +24,7 @@ from lawgraph.api.routes.instruments import (
     get_instrument_eu_links,
     get_instrument_related_route,
 )
+from lawgraph.api.routes.nodes import get_node_graph
 from lawgraph.api.routes.stats import coverage_data, stats_data
 from lawgraph.api.schemas.feed import FeedItemDTO
 from lawgraph.config.constants import (
@@ -30,6 +32,7 @@ from lawgraph.config.constants import (
     CHAMBER_TK,
     CHAMBERS,
     COLLECTION_ARTICLES,
+    COLLECTION_INSTRUMENTS,
     COLLECTION_JUDGMENTS,
     KIND_TREATY,
 )
@@ -66,6 +69,7 @@ from lawgraph.db.queries.judgments import JudgmentFilters, get_judgments_list
 from lawgraph.db.queries.law_names import load_law_names
 from lawgraph.db.queries.members import load_member_slugs
 from lawgraph.db.queries.nodes import (
+    NO_FILTER,
     NeighborFilter,
     get_node_neighborhood,
 )
@@ -143,12 +147,20 @@ EU_LINKS_SHOWN = 50
 LAW_LINKS_FOR = 300.0
 
 
-def _warm_law_links(store: GraphStore) -> None:
-    ends = time.monotonic() + LAW_LINKS_FOR
-    for bwb_id in most_cited_laws(store, WARM_LAWS):
+def _for_a_while[T](items: Iterable[T], seconds: float, what: str) -> Iterator[T]:
+    """*items* in their order until *seconds* have passed: the most asked first, and what
+    is left out is logged as the warm-up of *what*."""
+    ends = time.monotonic() + seconds
+    for item in items:
         if time.monotonic() >= ends:
-            logger.info("Warm-up of the links of laws stopped at %s: its time.", bwb_id)
+            logger.info("Warm-up of %s stopped at %s: its time.", what, item)
             return
+        yield item
+
+
+def _warm_law_links(store: GraphStore) -> None:
+    laws = most_cited_laws(store, WARM_LAWS)
+    for bwb_id in _for_a_while(laws, LAW_LINKS_FOR, "the links of laws"):
         get_instrument_related_route(bwb_id, store, RELATED_SHOWN)
         get_instrument_eu_links(bwb_id, store, EU_LINKS_SHOWN, "importance")
 
@@ -194,23 +206,48 @@ NEIGHBORHOODS_FOR = 300.0
 def _warm_neighborhoods(store: GraphStore) -> None:
     page = ARTICLE_NEIGHBORHOOD
     filters = NeighborFilter(node_types=tuple(page["node_types"]))
-    ends = time.monotonic() + NEIGHBORHOODS_FOR
-    for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS):
-        if time.monotonic() >= ends:
-            logger.info(
-                "Warm-up of neighbourhoods stopped at %s: its time.", article["key"]
-            )
-            return
+    keys = [
+        article["key"] for article in most_cited_articles(store, WARM_ARTICLE_CITATIONS)
+    ]
+    for key in _for_a_while(keys, NEIGHBORHOODS_FOR, "neighbourhoods"):
         get_node_neighborhood(
             store,
             COLLECTION_ARTICLES,
-            article["key"],
+            key,
             depth=page["depth"],
             cap=page["cap"],
             filters=filters,
             canvas=page["props"] == "canvas",
             stop_at=tuple(page["stop_at"]),
         )
+
+
+# The network of a law as the explorer opens it (Netwerk of a law, one step): its node with
+# every bucket, a page of each as the canvas asks it (``law_network`` of first-pages.json:
+# ``CANVAS_BUCKET`` and then ``NODE_BUCKET`` neighbours, ``props=canvas``). Not kept, but
+# its first reading is all disk: 2.1 to 2.5 s cold on prod, 0.1 s warm (26 Nov).
+LAW_NETWORK: dict[str, Any] = FIRST_PAGES["law_network"]
+# The laws with the most citations whose network is read, the most cited first, for at most
+# ``LAW_NETWORKS_FOR`` seconds: 50 laws take about 2 to 3 minutes cold.
+WARM_LAW_NETWORKS = 50
+LAW_NETWORKS_FOR = 300.0
+
+
+def _warm_law_networks(store: GraphStore) -> None:
+    laws = most_cited_laws(store, WARM_LAW_NETWORKS)
+    for bwb_id in _for_a_while(laws, LAW_NETWORKS_FOR, "the networks of laws"):
+        for limit in LAW_NETWORK["limits"]:
+            get_node_graph(
+                COLLECTION_INSTRUMENTS,
+                bwb_id.lower(),
+                store,
+                NO_FILTER,
+                limit=limit,
+                offset=0,
+                sort="key",
+                props=LAW_NETWORK["props"],
+                edge_meta="light",
+            )
 
 
 def _warm_chains(store: GraphStore) -> None:
@@ -497,6 +534,7 @@ def warm_up(store: GraphStore) -> None:
         _run("common filters", lambda: _warm_common_filters(store, version))
     if not stopped() and _due("most cited articles", store.name, ARTICLES_EVERY):
         for name, part in (
+            ("networks of the most cited laws", lambda: _warm_law_networks(store)),
             ("most cited articles", lambda: _warm_articles(store, version)),
             ("most cited neighbourhoods", lambda: _warm_neighborhoods(store)),
             ("chains between the most cited", lambda: _warm_chains(store)),
