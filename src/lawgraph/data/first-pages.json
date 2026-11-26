@@ -12,6 +12,7 @@
     "props": "canvas",
     "stop_at": ["members", "factions", "committees", "cabinets", "ministries"]
   },
+  "law_network": {"limits": [30, 200], "props": "canvas"},
   "law_judgments": 100,
   "instrument_names": {"sort": "article_count", "limit": 200},
   "lists": {
