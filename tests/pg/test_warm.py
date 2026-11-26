@@ -841,12 +841,16 @@ def test_the_networks_of_the_laws_cited_most_are_read_as_the_explorer_asks(
 def test_the_networks_of_laws_are_read_after_warm_once_an_hour(
     store: GraphStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Before the most cited articles, at most once per ``ARTICLES_EVERY``."""
+    """Last of the hourly part, after the articles, neighbourhoods and chains (whose reads
+    would push them out again), at most once per ``ARTICLES_EVERY``."""
     ran: list[str] = []
     monkeypatch.setattr(warm, "_warm_law_networks", lambda s: ran.append("laws"))
     monkeypatch.setattr(warm, "_warm_articles", lambda *a: ran.append("articles"))
-    monkeypatch.setattr(warm, "_warm_neighborhoods", lambda s: None)
+    monkeypatch.setattr(
+        warm, "_warm_neighborhoods", lambda s: ran.append("neighbourhoods")
+    )
+    monkeypatch.setattr(warm, "_warm_chains", lambda s: ran.append("chains"))
     monkeypatch.setattr(warm, "_warm_search_terms", lambda s: None)
     warm.warm_up(store)
     warm.warm_up(store)
-    assert ran == ["laws", "articles"]
+    assert ran == ["articles", "neighbourhoods", "chains", "laws"]
