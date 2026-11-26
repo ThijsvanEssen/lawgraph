@@ -226,6 +226,8 @@ def _warm_neighborhoods(store: GraphStore) -> None:
 # every bucket, a page of each as the canvas asks it (``law_network`` of first-pages.json:
 # ``CANVAS_BUCKET`` and then ``NODE_BUCKET`` neighbours, ``props=canvas``). Not kept, but
 # its first reading is all disk: 2.1 to 2.5 s cold on prod, 0.1 s warm (26 Nov).
+# Last of the hourly part: what the articles, neighbourhoods and chains read before it would
+# push these pages out of the memory of the database again.
 LAW_NETWORK: dict[str, Any] = FIRST_PAGES["law_network"]
 # The laws with the most citations whose network is read, the most cited first, for at most
 # ``LAW_NETWORKS_FOR`` seconds: 50 laws take about 2 to 3 minutes cold.
@@ -534,10 +536,10 @@ def warm_up(store: GraphStore) -> None:
         _run("common filters", lambda: _warm_common_filters(store, version))
     if not stopped() and _due("most cited articles", store.name, ARTICLES_EVERY):
         for name, part in (
-            ("networks of the most cited laws", lambda: _warm_law_networks(store)),
             ("most cited articles", lambda: _warm_articles(store, version)),
             ("most cited neighbourhoods", lambda: _warm_neighborhoods(store)),
             ("chains between the most cited", lambda: _warm_chains(store)),
+            ("networks of the most cited laws", lambda: _warm_law_networks(store)),
         ):
             if not stopped():
                 _run(name, part)
