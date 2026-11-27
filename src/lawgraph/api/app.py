@@ -56,7 +56,7 @@ from lawgraph.api.routes import (
     stats,
 )
 from lawgraph.api.schemas.health import HealthDTO
-from lawgraph.api.warm import is_warm, warm_up, warmed_version
+from lawgraph.api.warm import is_warm, last_runs, warm_up, warmed_version
 from lawgraph.config.settings import (
     ALLOWED_ORIGINS,
     API_HOST,
@@ -281,7 +281,8 @@ def health(
     are ``warm_version``, ``data_version`` and ``computing``. ``pools`` has ``requests``
     and ``background`` (null until it is first needed); ``busy`` names a computation of
     the cache by its kind alone (``cache: <kind>``, never what was asked) and a part of
-    the warm-up as ``warm-up: <part>``, longest first. ``pools`` and ``busy`` are read
+    the warm-up as ``warm-up: <part>``, longest first. ``pools``, ``busy`` and
+    ``warm_up`` (per part of the warm-up its last run: began, seconds, outcome) are read
     from memory."""
     no_store_if(response, True)  # how the API is now: kept by no cache
     store.ping()
@@ -298,6 +299,7 @@ def health(
             "warm_version": warmed_version(),
             "data_version": data_version,
             "computing": version_cache.computing(store),
+            "warm_up": last_runs(),
         }
     return HealthDTO.model_validate(
         answer

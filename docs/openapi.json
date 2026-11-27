@@ -3,7 +3,7 @@
   "info": {
     "title": "Lawgraph API",
     "description": "Lawgraph is a FastAPI layer over the PostgreSQL knowledge graph. It exposes endpoints for articles of law, judgments, parliamentary dossiers and legislative history.",
-    "version": "0.80.44",
+    "version": "0.80.54",
     "x-request-timeout-ms": 30000,
     "x-rate-limit": {
       "calls": 200,
@@ -10187,7 +10187,7 @@
           "root"
         ],
         "summary": "Health",
-        "description": "Health check — verifies database connectivity; ``version`` the version of the API\n(what a deploy checks against its tag). ``warm``: the answers every visitor\nasks are computed for the data as it is now (null when the API does not warm up); a\ndeploy waits for true before its smoke test. ``warm_version`` the data version they\nwere last computed for (the answers a request gets while a newer one computes, null\nbefore the first warm-up), ``data_version`` the version now, ``computing`` whether a\nwarm-up or an answer of a newer version is being computed. ``pools``: per connection\npool its size, the free connections and the reads waiting for one; ``busy`` what the\nthreads of the shared pools and of the background (the cache, the warm-up) run now,\nand how long.\n\n503 when the database is unreachable. ``warm`` is ``false`` while the warm-up runs,\nalso again after a data change; with ``LAWGRAPH_API_WARM_UP=false`` it is null and so\nare ``warm_version``, ``data_version`` and ``computing``. ``pools`` has ``requests``\nand ``background`` (null until it is first needed); ``busy`` names a computation of\nthe cache by its kind alone (``cache: <kind>``, never what was asked) and a part of\nthe warm-up as ``warm-up: <part>``, longest first. ``pools`` and ``busy`` are read\nfrom memory.",
+        "description": "Health check — verifies database connectivity; ``version`` the version of the API\n(what a deploy checks against its tag). ``warm``: the answers every visitor\nasks are computed for the data as it is now (null when the API does not warm up); a\ndeploy waits for true before its smoke test. ``warm_version`` the data version they\nwere last computed for (the answers a request gets while a newer one computes, null\nbefore the first warm-up), ``data_version`` the version now, ``computing`` whether a\nwarm-up or an answer of a newer version is being computed. ``pools``: per connection\npool its size, the free connections and the reads waiting for one; ``busy`` what the\nthreads of the shared pools and of the background (the cache, the warm-up) run now,\nand how long.\n\n503 when the database is unreachable. ``warm`` is ``false`` while the warm-up runs,\nalso again after a data change; with ``LAWGRAPH_API_WARM_UP=false`` it is null and so\nare ``warm_version``, ``data_version`` and ``computing``. ``pools`` has ``requests``\nand ``background`` (null until it is first needed); ``busy`` names a computation of\nthe cache by its kind alone (``cache: <kind>``, never what was asked) and a part of\nthe warm-up as ``warm-up: <part>``, longest first. ``pools``, ``busy`` and\n``warm_up`` (per part of the warm-up its last run: began, seconds, outcome) are read\nfrom memory.",
         "operationId": "health_api_health_get",
         "responses": {
           "200": {
@@ -30648,6 +30648,14 @@
             "type": "array",
             "title": "Busy",
             "description": "The calls the threads of the shared pools run now, longest first."
+          },
+          "warm_up": {
+            "items": {
+              "$ref": "#/components/schemas/WarmRunDTO"
+            },
+            "type": "array",
+            "title": "Warm Up",
+            "description": "Per part of the warm-up its last run in this process, the newest first; a part left because its tables did not change keeps its run before."
           }
         },
         "additionalProperties": false,
@@ -30661,7 +30669,8 @@
           "data_version",
           "computing",
           "pools",
-          "busy"
+          "busy",
+          "warm_up"
         ],
         "title": "HealthDTO",
         "description": "Whether the API reaches its database, and how warm and busy it is."
@@ -46815,6 +46824,46 @@
         ],
         "title": "VoteOfficeDTO",
         "description": "A post in a cabinet a member held on the day of a vote."
+      },
+      "WarmRunDTO": {
+        "properties": {
+          "part": {
+            "type": "string",
+            "title": "Part"
+          },
+          "began": {
+            "type": "string",
+            "title": "Began",
+            "description": "When it began (UTC, ISO 8601)."
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds",
+            "description": "How long it took (null while it runs)."
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome",
+            "description": "`running`, `done`, `failed` or `stopped: its time` (it reached its limit of time before its last item)."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "part",
+          "began",
+          "seconds",
+          "outcome"
+        ],
+        "title": "WarmRunDTO",
+        "description": "The last run of one part of the warm-up in this process."
       }
     }
   }
