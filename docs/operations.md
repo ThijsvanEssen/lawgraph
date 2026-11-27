@@ -453,7 +453,8 @@ poll is not caught up, the nightly run covers it. Each chain logs to
 A poll that finds nothing new writes nothing, and the data version stays as it was. One that
 writes a row raises it: the API then computes again what reads the tables it wrote (a poll of
 judgments leaves the instruments and the papers) and warms up again once the data has stood
-still for 90 seconds (`/api/health` says `computing` meanwhile). It leaves out each part whose
+still for 90 seconds (`/api/health` says `computing` meanwhile). Its `warm_up` lists per part its last run in the process (when it began, how long it
+took, `done`, `failed` or `stopped: its time`); `ops status` shows it. It leaves out each part whose
 answers name tables (`cached` or `lasting` with `tables=`) that did not change since it ran;
 one that asks an answer naming none (the feed, the counts of the decisions, which read
 `lg_decision_coalition`, a table without a counter) runs every time. What is kept for a time
