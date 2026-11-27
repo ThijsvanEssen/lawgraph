@@ -25,6 +25,20 @@ class BusyCallDTO(StrictModel):
     seconds: float = Field(description="How long it has run.")
 
 
+class WarmRunDTO(StrictModel):
+    """The last run of one part of the warm-up in this process."""
+
+    part: str
+    began: str = Field(description="When it began (UTC, ISO 8601).")
+    seconds: float | None = Field(description="How long it took (null while it runs).")
+    outcome: str = Field(
+        description=(
+            "`running`, `done`, `failed` or `stopped: its time` (it reached its limit "
+            "of time before its last item)."
+        )
+    )
+
+
 class HealthDTO(StrictModel):
     """Whether the API reaches its database, and how warm and busy it is."""
 
@@ -59,4 +73,11 @@ class HealthDTO(StrictModel):
     busy: list[BusyCallDTO] = Field(
         default_factory=list,
         description="The calls the threads of the shared pools run now, longest first.",
+    )
+    warm_up: list[WarmRunDTO] = Field(
+        default_factory=list,
+        description=(
+            "Per part of the warm-up its last run in this process, the newest first; a "
+            "part left because its tables did not change keeps its run before."
+        ),
     )

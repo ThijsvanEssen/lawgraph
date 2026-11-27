@@ -154,6 +154,8 @@ def _for_a_while[T](items: Iterable[T], seconds: float, what: str) -> Iterator[T
     for item in items:
         if time.monotonic() >= ends:
             logger.info("Warm-up of %s stopped at %s: its time.", what, item)
+            if _running is not None:
+                _running["outcome"] = "stopped: its time"
             return
         yield item
 
@@ -686,12 +688,13 @@ def _due(part: str, database: str, every: float) -> bool:
 
 
 def forget() -> None:
-    """Forget which parts were warmed and when the parts of every hour began (the
-    tests)."""
+    """Forget which parts were warmed, when the parts of every hour began and the last
+    runs (the tests)."""
     global _warmed
     _warmed = None
     _warmed_parts.clear()
     _last_begun.clear()
+    _last_runs.clear()
 
 
 # The terms searched most in the last ``search_stats.KEEP_DAYS`` days whose search the warm-up
@@ -718,17 +721,47 @@ def _warm_search_terms(store: GraphStore) -> None:
 COMMON_SHARE = 0.10
 
 
+# per part its last run in this process (``/api/health`` ``warm_up``): when it began
+# (UTC), how long it took (null while it runs) and how it ended
+_last_runs: dict[str, dict[str, Any]] = {}
+# the run of the part the warm-up runs now (``_for_a_while`` notes a stop at its time)
+_running: dict[str, Any] | None = None
+
+
+def last_runs() -> list[dict[str, Any]]:
+    """The last run of each part of the warm-up in this process, the newest first."""
+    return sorted(
+        (dict(run) for run in _last_runs.values()),
+        key=lambda run: run["began"],
+        reverse=True,
+    )
+
+
 def _run(name: str, part: Callable[[], object]) -> bool:
-    """One part of the warm-up, logged with how long it took; one that fails leaves the
-    others. Whether it was done."""
+    """One part of the warm-up, logged with how long it took and kept as its last run
+    (``last_runs``); one that fails leaves the others. Whether it was done."""
+    global _running
     logger.info("Warm-up of %s.", name)
     began = time.monotonic()
+    run: dict[str, Any] = {
+        "part": name,
+        "began": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "seconds": None,
+        "outcome": "running",
+    }
+    _last_runs[name] = _running = run
     try:
         with version_cache.doing(f"warm-up: {name}"):
             part()
     except Exception as exc:  # noqa: BLE001 — the rest is still worth warming
         logger.warning("Warm-up of %s failed: %s", name, describe(exc), exc_info=True)
+        run["outcome"] = "failed"
         return False
+    finally:
+        _running = None
+        run["seconds"] = round(time.monotonic() - began, 1)
+    if run["outcome"] == "running":
+        run["outcome"] = "done"
     logger.info(
         "Warm-up of %s took %s.", name, format_duration(time.monotonic() - began)
     )

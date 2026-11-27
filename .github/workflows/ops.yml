@@ -93,6 +93,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_DIR=$DEPLOY_DIR OPS_DIR=$OPS_DIR sh -s" << 'EOF'
           echo "== $(date -u '+%F %T') UTC, $(uptime | sed 's/.*load/load/')"
           echo "== health"; curl -s http://127.0.0.1:8000/api/health | cut -c1-300; echo
+          echo "== warm-up (last run per part, UTC)"; curl -s http://127.0.0.1:8000/api/health | python3 -c 'import json,sys; [print(r["began"], r["seconds"], r["outcome"], r["part"]) for r in json.load(sys.stdin).get("warm_up", [])]' 2>/dev/null
           echo "== release"; git -C "$DEPLOY_DIR/app" log --oneline -1
           echo "== timers"; systemctl list-timers 'lawgraph*' --no-pager | head -12
           echo "== running units"; systemctl list-units --state=activating,active,deactivating --no-legend 'lawgraph-*.service'
